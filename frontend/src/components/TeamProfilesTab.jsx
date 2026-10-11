@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { TEAMS, getTeam } from '../data/teams';
-import { Shield, Trophy, Users, Calendar, ChevronRight, Activity, Target, Flag, MapPin } from 'lucide-react';
+import { Shield, Trophy, Users, Calendar, ChevronRight, Activity, Target, Flag, MapPin, Clock } from 'lucide-react';
 import MatchDetailModal from './MatchDetailModal';
+
+function parseKickoff(label) {
+  if (!label) return { date: '-', time: '' };
+  const parts = label.split(',');
+  if (parts.length >= 2) {
+    return {
+      date: parts[0].trim(),
+      time: parts[1].trim().replace(/\s+(BST|GMT)/gi, ''),
+    };
+  }
+  return { date: label, time: '' };
+}
 
 export default function TeamProfilesTab({ selectedSeason }) {
   const [selectedTeamId, setSelectedTeamId] = useState(1); // Default Arsenal
@@ -195,33 +207,40 @@ export default function TeamProfilesTab({ selectedSeason }) {
             Bu sezon için kayıtlı maç bulunamadı.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white shadow-2xs overflow-hidden">
             {profile.matches.map(m => {
               const opp = getTeam(m.opponent_id, m.opponent_name);
+              const isPlayed = (m.team_score !== null && m.team_score !== undefined);
               const isWin = m.result === 'W';
               const isDraw = m.result === 'D';
               const isLoss = m.result === 'L';
 
               const resBadgeClass = isWin 
-                ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
                 : isDraw 
                 ? 'bg-slate-100 text-slate-700 border-slate-300' 
-                : 'bg-rose-100 text-rose-800 border-rose-200';
+                : 'bg-rose-100 text-rose-800 border-rose-300';
 
               const resLabel = isWin ? 'G' : isDraw ? 'B' : 'M';
+              const kickoff = parseKickoff(m.kickoff_label);
+
+              const homeTeam = m.is_home ? currentMeta : opp;
+              const awayTeam = m.is_home ? opp : currentMeta;
+              const homeScore = m.is_home ? m.team_score : m.opp_score;
+              const awayScore = m.is_home ? m.opp_score : m.team_score;
 
               // Synthetic match object for MatchDetailModal
               const modalMatchObj = {
                 match_id: m.match_id,
-                status: (m.team_score !== null && m.team_score !== undefined) ? 'COMPLETED' : (m.status || 'UNPLAYED'),
+                status: isPlayed ? 'COMPLETED' : (m.status || 'UNPLAYED'),
                 gameweek: m.gameweek,
                 kickoff_label: m.kickoff_label,
-                home_id: m.is_home ? selectedTeamId : m.opponent_id,
-                home_name: m.is_home ? currentMeta.name : m.opponent_name,
-                home_score: m.is_home ? m.team_score : m.opp_score,
-                away_id: m.is_home ? m.opponent_id : selectedTeamId,
-                away_name: m.is_home ? m.opponent_name : currentMeta.name,
-                away_score: m.is_home ? m.opp_score : m.team_score,
+                home_id: homeTeam.id,
+                home_name: homeTeam.name,
+                home_score: homeScore,
+                away_id: awayTeam.id,
+                away_name: awayTeam.name,
+                away_score: awayScore,
                 ground_name: m.is_home ? currentMeta.stadium : opp.stadium,
               };
 
@@ -229,70 +248,85 @@ export default function TeamProfilesTab({ selectedSeason }) {
                 <div
                   key={m.match_id}
                   onClick={() => setActiveModalMatch(modalMatchObj)}
-                  className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-400 hover:shadow-md transition-all cursor-pointer group bg-slate-50/50 hover:bg-white flex flex-col justify-between gap-2.5"
+                  className="px-3.5 py-2.5 hover:bg-slate-50/80 transition-colors cursor-pointer group flex items-center justify-between gap-3 text-xs"
                 >
-                  {/* Top info */}
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 pb-2 border-b border-slate-200/60">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-slate-700">Hafta {m.gameweek}</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-medium">
-                        {m.is_home ? 'İç Saha' : 'Deplasman'}
+                  {/* 1. Tarih & Saat (En Başta) */}
+                  <div className="flex items-center gap-2 min-w-[130px] sm:min-w-[160px] shrink-0">
+                    <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0 hidden sm:block" />
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
+                      <span className="font-bold text-slate-900 text-[11px] sm:text-xs whitespace-nowrap">
+                        {kickoff.date}
                       </span>
+                      {kickoff.time && (
+                        <span className="font-mono text-slate-500 font-semibold text-[10px] sm:text-[11px] whitespace-nowrap">
+                          {kickoff.time}
+                        </span>
+                      )}
                     </div>
-                    <span className="text-[11px] font-bold text-[#38003c] group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                      Detay & İstatistikler <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
+
+                  {/* 2. Hafta & Saha Rozeti */}
+                  <div className="flex items-center gap-1.5 shrink-0 hidden sm:flex">
+                    <span className="font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">
+                      H{Math.round(Number(m.gameweek) || 1)}
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                      m.is_home ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {m.is_home ? 'İç' : 'Dep'}
                     </span>
                   </div>
 
-                  {/* Teams & Score Preview */}
-                  <div className="flex items-center justify-between py-1">
-                    {/* Club */}
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <img 
-                        src={currentMeta.badge} 
-                        alt={currentMeta.name} 
-                        className="w-6 h-6 object-contain shrink-0" 
-                      />
-                      <span className="font-bold text-xs text-slate-900 truncate">
-                        {currentMeta.short || currentMeta.name}
-                      </span>
-                    </div>
-
-                    {/* Result badge & Score */}
-                    <div className="flex items-center gap-2 px-2 shrink-0">
-                      <span className={`text-[10px] font-mono font-black px-1.5 py-0.5 rounded border ${resBadgeClass}`}>
-                        {resLabel}
-                      </span>
-                      <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 font-mono font-black text-sm text-slate-900">
-                        {m.team_score} - {m.opp_score}
-                      </div>
-                    </div>
-
-                    {/* Opponent */}
-                    <div className="flex items-center gap-2 flex-1 min-w-0 justify-end text-right">
-                      <span className="font-bold text-xs text-slate-800 truncate">
-                        {opp.short || opp.name}
+                  {/* 3. Karşılaşma ve Skor (Ortada Tek Sıra) */}
+                  <div className="flex items-center justify-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    {/* Ev Sahibi */}
+                    <div className="flex items-center gap-1.5 justify-end flex-1 min-w-0 text-right">
+                      <span className={`truncate text-xs ${homeTeam.id === selectedTeamId ? 'font-black text-slate-900' : 'font-medium text-slate-600'}`}>
+                        {homeTeam.short || homeTeam.name}
                       </span>
                       <img 
-                        src={opp.badge} 
-                        alt={opp.name} 
-                        className="w-6 h-6 object-contain shrink-0"
+                        src={homeTeam.badge} 
+                        alt={homeTeam.name} 
+                        className="w-5 h-5 object-contain shrink-0"
                         onError={(e) => { e.target.src = '/badges/1.svg'; }}
                       />
                     </div>
+
+                    {/* Skor / Durum */}
+                    <div className="shrink-0 flex items-center justify-center min-w-[55px]">
+                      {isPlayed ? (
+                        <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-mono font-black text-xs tracking-wider shadow-2xs">
+                          {homeScore} - {awayScore}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[10px] font-bold border border-slate-200">
+                          {kickoff.time || 'vs'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Deplasman */}
+                    <div className="flex items-center gap-1.5 justify-start flex-1 min-w-0 text-left">
+                      <img 
+                        src={awayTeam.badge} 
+                        alt={awayTeam.name} 
+                        className="w-5 h-5 object-contain shrink-0"
+                        onError={(e) => { e.target.src = '/badges/1.svg'; }}
+                      />
+                      <span className={`truncate text-xs ${awayTeam.id === selectedTeamId ? 'font-black text-slate-900' : 'font-medium text-slate-600'}`}>
+                        {awayTeam.short || awayTeam.name}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Micro stats */}
-                  <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-slate-200/60 text-[10px] font-mono text-center text-slate-600">
-                    <span className="bg-white py-0.5 rounded border border-slate-200 flex items-center justify-center gap-1">
-                      <Flag className="w-2.5 h-2.5 text-emerald-600" /> {m.total_corners ?? '-'} Korner
-                    </span>
-                    <span className="bg-white py-0.5 rounded border border-slate-200 flex items-center justify-center gap-1">
-                      <Activity className="w-2.5 h-2.5 text-sky-600" /> {m.total_throws ?? '-'} Taç
-                    </span>
-                    <span className="bg-white py-0.5 rounded border border-slate-200 flex items-center justify-center gap-1">
-                      <Target className="w-2.5 h-2.5 text-rose-600" /> {m.total_shots ?? '-'} Şut
-                    </span>
+                  {/* 4. Sonuç Rozeti (G/B/M) & Ok */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isPlayed && (
+                      <span className={`w-5 h-5 flex items-center justify-center text-[10px] font-mono font-black rounded border ${resBadgeClass}`}>
+                        {resLabel}
+                      </span>
+                    )}
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all" />
                   </div>
 
                 </div>
