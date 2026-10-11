@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { TEAMS, getTeam } from '../data/teams';
 import { 
   Search, 
   User, 
   Clock, 
   ChevronRight, 
+  ChevronLeft,
   Activity, 
   Award, 
   Calendar, 
@@ -60,14 +61,15 @@ export default function PlayerProfilesTab({ selectedSeason }) {
   const [playerList, setPlayerList] = useState([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState(65970); // Default Erling Haaland
   const [playerProfile, setPlayerProfile] = useState(null);
-  const [playerSeason, setPlayerSeason] = useState(selectedSeason === '2026_27' ? '2024_25' : selectedSeason);
+  const [playerSeason, setPlayerSeason] = useState(selectedSeason || '2026_27');
+  const [selectedMatchGameweek, setSelectedMatchGameweek] = useState('all');
   const [loadingList, setLoadingList] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [activeModalMatch, setActiveModalMatch] = useState(null);
 
-  // Sync incoming season if not 2026_27
+  // Sync incoming season
   useEffect(() => {
-    if (selectedSeason && selectedSeason !== '2026_27') {
+    if (selectedSeason) {
       setPlayerSeason(selectedSeason);
     }
   }, [selectedSeason]);
@@ -115,6 +117,35 @@ export default function PlayerProfilesTab({ selectedSeason }) {
   const pData = playerProfile?.player;
   const pStats = playerProfile?.season_stats || {};
   const teamMeta = pData ? getTeam(pData.teamId, pData.teamName) : null;
+
+  // Unique played gameweeks sorted
+  const playedGameweeks = useMemo(() => {
+    if (!playerProfile?.matches?.length) return [];
+    const set = new Set();
+    playerProfile.matches.forEach(m => {
+      const gwNum = Math.round(Number(m.gameweek));
+      if (!isNaN(gwNum) && gwNum > 0) set.add(gwNum);
+    });
+    return Array.from(set).sort((a, b) => a - b);
+  }, [playerProfile?.matches]);
+
+  // When playerProfile or playedGameweeks changes, default to latest played gameweek
+  useEffect(() => {
+    if (playedGameweeks.length > 0) {
+      setSelectedMatchGameweek(String(playedGameweeks[playedGameweeks.length - 1]));
+    } else {
+      setSelectedMatchGameweek('all');
+    }
+  }, [playedGameweeks]);
+
+  // Filtered match records for currently selected week
+  const filteredMatches = useMemo(() => {
+    if (!playerProfile?.matches) return [];
+    if (selectedMatchGameweek === 'all') {
+      return playerProfile.matches;
+    }
+    return playerProfile.matches.filter(m => Math.round(Number(m.gameweek)) === Number(selectedMatchGameweek));
+  }, [playerProfile?.matches, selectedMatchGameweek]);
 
   // Position label and semantic badge styling
   const getPosMeta = (pos) => {
@@ -423,6 +454,90 @@ export default function PlayerProfilesTab({ selectedSeason }) {
           </span>
         </div>
 
+        {/* Week-by-Week Navigation Toolbar */}
+        {playedGameweeks.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 border border-slate-200/90 p-3 rounded-xl">
+            
+            {/* Step Controls: Önceki Hafta & Sonraki Hafta */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (selectedMatchGameweek === 'all') {
+                    setSelectedMatchGameweek(String(playedGameweeks[0]));
+                    return;
+                  }
+                  const currentIdx = playedGameweeks.indexOf(Number(selectedMatchGameweek));
+                  if (currentIdx > 0) {
+                    setSelectedMatchGameweek(String(playedGameweeks[currentIdx - 1]));
+                  }
+                }}
+                disabled={selectedMatchGameweek !== 'all' && playedGameweeks.indexOf(Number(selectedMatchGameweek)) <= 0}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Önceki Hafta</span>
+              </button>
+
+              <div className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-mono font-black text-[#38003c] shadow-xs">
+                {selectedMatchGameweek === 'all' ? (
+                  <span>Tüm Haftalar ({playedGameweeks.length} Hafta)</span>
+                ) : (
+                  <span>Hafta {selectedMatchGameweek}</span>
+                )}
+              </div>
+
+              <button
+                onClick={() => {
+                  if (selectedMatchGameweek === 'all') {
+                    setSelectedMatchGameweek(String(playedGameweeks[playedGameweeks.length - 1]));
+                    return;
+                  }
+                  const currentIdx = playedGameweeks.indexOf(Number(selectedMatchGameweek));
+                  if (currentIdx >= 0 && currentIdx < playedGameweeks.length - 1) {
+                    setSelectedMatchGameweek(String(playedGameweeks[currentIdx + 1]));
+                  }
+                }}
+                disabled={selectedMatchGameweek !== 'all' && playedGameweeks.indexOf(Number(selectedMatchGameweek)) >= playedGameweeks.length - 1}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all"
+              >
+                <span>Sonraki Hafta</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Quick Week Pill List + All Button */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 scrollbar-thin">
+              <button
+                onClick={() => setSelectedMatchGameweek('all')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  selectedMatchGameweek === 'all'
+                    ? 'bg-[#38003c] text-white shadow-xs'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Tümü ({playerProfile?.matches?.length})
+              </button>
+              {playedGameweeks.map(gw => {
+                const isSelected = String(selectedMatchGameweek) === String(gw);
+                return (
+                  <button
+                    key={gw}
+                    onClick={() => setSelectedMatchGameweek(String(gw))}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-[#38003c] text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    Hafta {gw}
+                  </button>
+                );
+              })}
+            </div>
+
+          </div>
+        )}
+
         {loadingProfile ? (
           <div className="py-16 text-center">
             <div className="w-7 h-7 border-3 border-[#38003c] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
@@ -432,9 +547,13 @@ export default function PlayerProfilesTab({ selectedSeason }) {
           <div className="py-12 text-center text-xs text-slate-500 font-medium">
             Seçilen sezonda oyuncunun maç kaydı bulunamadı.
           </div>
+        ) : filteredMatches.length === 0 ? (
+          <div className="py-12 text-center text-xs text-slate-500 font-medium bg-slate-50 border border-slate-200 rounded-xl">
+            Bu haftada ({selectedMatchGameweek}. Hafta) oyuncunun süre aldığı karşılaşma kaydı bulunmuyor.
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {playerProfile.matches.map(m => {
+            {filteredMatches.map(m => {
               const opp = getTeam(m.opponent_id, m.opponent_name);
               const goalsCount = m.goals || 0;
               const assistsCount = m.assists || 0;

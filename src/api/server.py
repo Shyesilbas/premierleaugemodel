@@ -251,7 +251,23 @@ def get_grouped_fixtures(season: str = "2026_27"):
             day_list.append({"day": d, "matches": gw_groups[gw][d]})
         structured.append({"gameweek": gw, "days": day_list})
 
-    return {"season": season, "gameweeks": structured, "total_matches": len(raw_fixtures)}
+    # Determine current gameweek:
+    current_gw = 1
+    upcoming_gws = [
+        gw for gw in sorted(gw_groups.keys())
+        if any(m.get("status") == "UPCOMING" for d in gw_groups[gw].values() for m in d)
+    ]
+    if upcoming_gws:
+        current_gw = upcoming_gws[0]
+    elif gw_groups:
+        current_gw = max(gw_groups.keys())
+
+    return {
+        "season": season,
+        "gameweeks": structured,
+        "total_matches": len(raw_fixtures),
+        "current_gameweek": current_gw,
+    }
 
 
 @app.get("/api/teams/profile")

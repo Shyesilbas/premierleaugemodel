@@ -3,22 +3,25 @@ import {
   Search, 
   Calendar, 
   ChevronRight, 
+  ChevronLeft,
   Layers, 
   Clock, 
   MapPin, 
   Activity, 
   Target, 
   Flag, 
-  Shield 
+  Shield,
+  Compass
 } from 'lucide-react';
 import { getTeam } from '../data/teams';
 import MatchDetailModal from './MatchDetailModal';
 
 export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
-  const [data, setData] = useState({ gameweeks: [], total_matches: 0 });
+  const [data, setData] = useState({ gameweeks: [], total_matches: 0, current_gameweek: 6 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedGameweek, setSelectedGameweek] = useState('1'); // Default to GW 1
+  const [currentGameweek, setCurrentGameweek] = useState(6);
+  const [selectedGameweek, setSelectedGameweek] = useState('6'); // Default to current gameweek
   const [activeModalMatch, setActiveModalMatch] = useState(null);
 
   useEffect(() => {
@@ -27,7 +30,10 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
     fetch(`/api/fixtures/grouped?season=${seasonParam}`)
       .then(res => res.json())
       .then(resData => {
+        const curGw = resData?.current_gameweek || (resData?.gameweeks?.length ? resData.gameweeks[0].gameweek : 1);
         setData(resData || { gameweeks: [], total_matches: 0 });
+        setCurrentGameweek(curGw);
+        setSelectedGameweek(String(curGw));
         setLoading(false);
       })
       .catch(err => {
@@ -137,31 +143,92 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
           />
         </div>
 
-        {/* Gameweek Horizontal Selector */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 border-t border-slate-100">
-          <button
-            onClick={() => setSelectedGameweek('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              selectedGameweek === 'all'
-                ? 'bg-[#38003c] text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Tüm Haftalar
-          </button>
-          {allGwNumbers.map(gw => (
+        {/* Navigation Controls & Gameweek Selector */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          
+          {/* Quick Prev / Next Step Buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
-              key={gw}
-              onClick={() => setSelectedGameweek(String(gw))}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all whitespace-nowrap ${
-                String(selectedGameweek) === String(gw)
+              onClick={() => {
+                const currentNum = selectedGameweek === 'all' ? currentGameweek : Number(selectedGameweek);
+                const prev = Math.max(1, currentNum - 1);
+                setSelectedGameweek(String(prev));
+              }}
+              disabled={selectedGameweek !== 'all' && Number(selectedGameweek) <= 1}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Önceki Hafta</span>
+            </button>
+
+            <button
+              onClick={() => setSelectedGameweek(String(currentGameweek))}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                String(selectedGameweek) === String(currentGameweek)
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+              }`}
+              title="Mevcut oynanan / yaklaşan haftaya git"
+            >
+              <span className={`w-2 h-2 rounded-full ${String(selectedGameweek) === String(currentGameweek) ? 'bg-white' : 'bg-emerald-500 animate-pulse'}`} />
+              <span>Mevcut Hafta ({currentGameweek})</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const currentNum = selectedGameweek === 'all' ? currentGameweek : Number(selectedGameweek);
+                const maxGw = allGwNumbers.length ? Math.max(...allGwNumbers) : 38;
+                const next = Math.min(maxGw, currentNum + 1);
+                setSelectedGameweek(String(next));
+              }}
+              disabled={selectedGameweek !== 'all' && Number(selectedGameweek) >= (allGwNumbers.length ? Math.max(...allGwNumbers) : 38)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              <span>Sonraki Hafta</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Gameweek Horizontal Selector */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 scrollbar-thin">
+            <button
+              onClick={() => setSelectedGameweek('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                selectedGameweek === 'all'
                   ? 'bg-[#38003c] text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              Hafta {gw}
+              Tüm Haftalar
             </button>
-          ))}
+            {allGwNumbers.map(gw => {
+              const isSelected = String(selectedGameweek) === String(gw);
+              const isCurrent = Number(gw) === Number(currentGameweek);
+              return (
+                <button
+                  key={gw}
+                  onClick={() => setSelectedGameweek(String(gw))}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-[#38003c] text-white shadow-sm'
+                      : isCurrent
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Hafta {gw}</span>
+                  {isCurrent && (
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-sans font-bold uppercase tracking-wider ${
+                      isSelected ? 'bg-emerald-500 text-white' : 'bg-emerald-200 text-emerald-900'
+                    }`}>
+                      Mevcut
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
         </div>
 
       </div>

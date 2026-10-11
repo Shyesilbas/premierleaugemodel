@@ -5,14 +5,13 @@ import MatchDetailModal from './MatchDetailModal';
 
 export default function TeamProfilesTab({ selectedSeason }) {
   const [selectedTeamId, setSelectedTeamId] = useState(1); // Default Arsenal
-  const [teamSeason, setTeamSeason] = useState(selectedSeason === '2026_27' ? '2025_26' : selectedSeason);
+  const [teamSeason, setTeamSeason] = useState(selectedSeason || '2026_27');
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeModalMatch, setActiveModalMatch] = useState(null);
 
   useEffect(() => {
-    // If incoming prop changes and isn't 2026_27, keep in sync
-    if (selectedSeason && selectedSeason !== '2026_27') {
+    if (selectedSeason) {
       setTeamSeason(selectedSeason);
     }
   }, [selectedSeason]);
