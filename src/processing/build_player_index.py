@@ -265,9 +265,18 @@ def parse_player_data():
                         "assists": a,
                     })
 
-    # Sort player logs chronologically
+    # Sort player logs chronologically and set latest team
+    season_order = {'2024_25': 1, '2025_26': 2, '2026_27': 3}
     for pid in player_logs:
-        player_logs[pid] = sorted(player_logs[pid], key=lambda x: (x["season"], x.get("gameweek") or 0))
+        player_logs[pid] = sorted(
+            player_logs[pid], 
+            key=lambda x: (season_order.get(x.get("season", ""), 0), float(x.get("gameweek") or 0))
+        )
+        if player_logs[pid] and pid in players:
+            latest = player_logs[pid][-1]
+            if latest.get("team_id"):
+                players[pid]["teamId"] = latest["team_id"]
+                players[pid]["teamName"] = latest["team_name"]
 
     players_list = sorted(list(players.values()), key=lambda x: x["name"])
 

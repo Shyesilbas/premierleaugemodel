@@ -384,12 +384,26 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
     else:
         logs = raw_logs
 
+    # Clone player dict and ensure teamId and teamName match the active season
+    player_data = dict(player)
+    season_order = {'2024_25': 1, '2025_26': 2, '2026_27': 3}
+    active_logs = logs if logs else raw_logs
+    if active_logs:
+        sorted_active = sorted(
+            active_logs, 
+            key=lambda x: (season_order.get(x.get("season", ""), 0), float(x.get("gameweek") or 0))
+        )
+        latest_match = sorted_active[-1]
+        if latest_match.get("team_id"):
+            player_data["teamId"] = latest_match["team_id"]
+            player_data["teamName"] = latest_match["team_name"]
+
     tot_mins = sum(m.get("minutes_played", 0) for m in logs)
     tot_goals = sum(m.get("goals", 0) for m in logs)
     tot_assists = sum(m.get("assists", 0) for m in logs)
 
     return {
-        "player": player,
+        "player": player_data,
         "season": season,
         "season_stats": {
             "appearances": len(logs),

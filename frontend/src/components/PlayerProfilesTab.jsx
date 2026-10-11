@@ -116,7 +116,23 @@ export default function PlayerProfilesTab({ selectedSeason }) {
 
   const pData = playerProfile?.player;
   const pStats = playerProfile?.season_stats || {};
-  const teamMeta = pData ? getTeam(pData.teamId, pData.teamName) : null;
+
+  // Dynamically resolve the player's active team for the chosen season
+  const activeTeamId = useMemo(() => {
+    if (playerProfile?.matches?.length) {
+      return playerProfile.matches[playerProfile.matches.length - 1].team_id;
+    }
+    return pData?.teamId;
+  }, [playerProfile?.matches, pData?.teamId]);
+
+  const activeTeamName = useMemo(() => {
+    if (playerProfile?.matches?.length) {
+      return playerProfile.matches[playerProfile.matches.length - 1].team_name;
+    }
+    return pData?.teamName;
+  }, [playerProfile?.matches, pData?.teamName]);
+
+  const teamMeta = activeTeamId ? getTeam(activeTeamId, activeTeamName) : (pData ? getTeam(pData.teamId, pData.teamName) : null);
 
   // Unique played gameweeks sorted
   const playedGameweeks = useMemo(() => {
@@ -555,6 +571,7 @@ export default function PlayerProfilesTab({ selectedSeason }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {filteredMatches.map(m => {
               const opp = getTeam(m.opponent_id, m.opponent_name);
+              const matchTeam = getTeam(m.team_id, m.team_name);
               const goalsCount = m.goals || 0;
               const assistsCount = m.assists || 0;
               const hasContribution = goalsCount > 0 || assistsCount > 0;
@@ -598,16 +615,14 @@ export default function PlayerProfilesTab({ selectedSeason }) {
                   <div className="flex items-center justify-between py-1">
                     {/* Club */}
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {teamMeta && (
-                        <img 
-                          src={teamMeta.badge} 
-                          alt={teamMeta.name} 
-                          className="w-6 h-6 object-contain shrink-0" 
-                          onError={(e) => { e.target.src = '/badges/1.svg'; }}
-                        />
-                      )}
+                      <img 
+                        src={matchTeam.badge} 
+                        alt={matchTeam.name} 
+                        className="w-6 h-6 object-contain shrink-0" 
+                        onError={(e) => { e.target.src = '/badges/1.svg'; }}
+                      />
                       <span className="font-bold text-xs text-slate-900 truncate">
-                        {m.team_name}
+                        {matchTeam.short || m.team_name}
                       </span>
                     </div>
 
