@@ -270,6 +270,147 @@ def get_grouped_fixtures(season: str = "2026_27"):
     }
 
 
+@app.get("/api/standings")
+def get_standings(season: str = "2026_27"):
+    """
+    Computes Premier League standings table for the specified season.
+    Includes Played, Won, Drawn, Lost, GF, GA, GD, Points, and Last 5 Form,
+    plus Home and Away breakdowns.
+    """
+    matches_to_process = []
+
+    if season == "2026_27" and raw_fixtures_2627:
+        for f in raw_fixtures_2627:
+            teams = f.get("teams", [])
+            if len(teams) < 2:
+                continue
+            h_score = teams[0].get("score")
+            a_score = teams[1].get("score")
+            if h_score is None or a_score is None:
+                continue
+            matches_to_process.append({
+                "gameweek": int(f.get("gameweek", {}).get("gameweek", 1)),
+                "home_id": int(teams[0]["team"]["id"]),
+                "home_name": teams[0]["team"]["name"],
+                "away_id": int(teams[1]["team"]["id"]),
+                "away_name": teams[1]["team"]["name"],
+                "home_score": int(h_score),
+                "away_score": int(a_score),
+            })
+    else:
+        df = df_matches.copy()
+        if season != "all" and "season" in df.columns:
+            df = df[df["season"] == season]
+        for _, r in df.iterrows():
+            if pd.isnull(r.get("home_score")) or pd.isnull(r.get("away_score")):
+                continue
+            matches_to_process.append({
+                "gameweek": int(r.get("gameweek") or 1),
+                "home_id": int(r["home_id"]),
+                "home_name": str(r["home_name"]),
+                "away_id": int(r["away_id"]),
+                "away_name": str(r["away_name"]),
+                "home_score": int(r["home_score"]),
+                "away_score": int(r["away_score"]),
+            })
+
+    # Sort matches chronologically by gameweek for accurate form
+    matches_to_process.sort(key=lambda m: m["gameweek"])
+
+    table = {}
+    for m in matches_to_process:
+        hid = m["home_id"]
+        hname = m["home_name"]
+        aid = m["away_id"]
+        aname = m["away_name"]
+        h_score = m["home_score"]
+        a_score = m["away_score"]
+
+        for tid, tname in [(hid, hname), (aid, aname)]:
+            if tid not in table:
+                t_meta = teams_dict.get(tid, {})
+                table[tid] = {
+                    "id": tid,
+                    "name": tname,
+                    "short": t_meta.get("short", tname),
+                    "abbr": t_meta.get("abbr", ""),
+                    "badge": f"/badges/{tid}.svg",
+                    "played": 0, "won": 0, "drawn": 0, "lost": 0,
+                    "gf": 0, "ga": 0, "gd": 0, "points": 0,
+                    "form": [],
+                    "home": {"played": 0, "won": 0, "drawn": 0, "lost": 0, "gf": 0, "ga": 0, "gd": 0, "points": 0},
+                    "away": {"played": 0, "won": 0, "drawn": 0, "lost": 0, "gf": 0, "ga": 0, "gd": 0, "points": 0},
+                }
+
+        table[hid]["played"] += 1
+        table[hid]["home"]["played"] += 1
+        table[hid]["gf"] += h_score
+        table[hid]["home"]["gf"] += h_score
+        table[hid]["ga"] += a_score
+        table[hid]["home"]["ga"] += a_score
+
+        table[aid]["played"] += 1
+        table[aid]["away"]["played"] += 1
+        table[aid]["gf"] += a_score
+        table[aid]["away"]["gf"] += a_score
+        table[aid]["ga"] += h_score
+        table[aid]["away"]["ga"] += h_score
+
+        if h_score > a_score:
+            table[hid]["won"] += 1
+            table[hid]["home"]["won"] += 1
+            table[hid]["points"] += 3
+            table[hid]["home"]["points"] += 3
+            table[hid]["form"].append("W")
+
+            table[aid]["lost"] += 1
+            table[aid]["away"]["lost"] += 1
+            table[aid]["form"].append("L")
+        elif h_score < a_score:
+            table[aid]["won"] += 1
+            table[aid]["away"]["won"] += 1
+            table[aid]["points"] += 3
+            table[aid]["away"]["points"] += 3
+            table[aid]["form"].append("W")
+
+            table[hid]["lost"] += 1
+            table[hid]["home"]["lost"] += 1
+            table[hid]["form"].append("L")
+        else:
+            table[hid]["drawn"] += 1
+            table[hid]["home"]["drawn"] += 1
+            table[hid]["points"] += 1
+            table[hid]["home"]["points"] += 1
+            table[hid]["form"].append("D")
+
+            table[aid]["drawn"] += 1
+            table[aid]["away"]["drawn"] += 1
+            table[aid]["points"] += 1
+            table[aid]["away"]["points"] += 1
+            table[aid]["form"].append("D")
+
+    standings_list = []
+    for t in table.values():
+        t["gd"] = t["gf"] - t["ga"]
+        t["home"]["gd"] = t["home"]["gf"] - t["home"]["ga"]
+        t["away"]["gd"] = t["away"]["gf"] - t["away"]["ga"]
+        t["form"] = t["form"][-5:]  # Keep last 5 matches for form
+        standings_list.append(t)
+
+    # Sort standard PL rules: Points DESC -> GD DESC -> GF DESC
+    standings_list.sort(key=lambda x: (x["points"], x["gd"], x["gf"]), reverse=True)
+
+    for rank, item in enumerate(standings_list, 1):
+        item["rank"] = rank
+
+    return {
+        "season": season,
+        "total_teams": len(standings_list),
+        "standings": standings_list
+    }
+
+
+
 @app.get("/api/teams/profile")
 def get_team_profile(team_id: int, season: Optional[str] = "all"):
     """
