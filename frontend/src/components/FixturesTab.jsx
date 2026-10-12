@@ -13,7 +13,8 @@ import {
   Shield,
   Compass,
   Trophy,
-  TrendingUp
+  TrendingUp,
+  Sparkles
 } from 'lucide-react';
 import { getTeam } from '../data/teams';
 import MatchDetailModal from './MatchDetailModal';
@@ -653,14 +654,44 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                                 </div>
                               </div>
                             ) : (
-                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                                <span className="flex items-center gap-1 truncate">
-                                  <MapPin className="w-3 h-3 text-slate-400" />
-                                  <span className="truncate">{m.ground_name || 'Premier League Stadı'}</span>
-                                </span>
-                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-                                  Yaklaşan Maç
-                                </span>
+                              <div className="pt-2 border-t border-slate-100 space-y-2">
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 gap-2">
+                                  <span className="flex items-center gap-1 truncate text-slate-400">
+                                    <MapPin className="w-3 h-3 shrink-0" />
+                                    <span className="truncate">{m.ground_name || 'Premier League Stadı'}</span>
+                                  </span>
+                                  {m.prediction?.favorite_label ? (
+                                    <span className="text-[10px] font-bold text-[#38003c] bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1">
+                                      <Sparkles className="w-2.5 h-2.5 text-purple-600" />
+                                      {m.prediction.favorite_label}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md shrink-0">
+                                      Yaklaşan Maç
+                                    </span>
+                                  )}
+                                </div>
+
+                                {m.prediction && (
+                                  <div className="grid grid-cols-4 gap-1.5 text-[10px] font-mono text-center">
+                                    <div className="bg-rose-50/70 border border-rose-100/80 py-1 px-1 rounded-lg">
+                                      <span className="text-[8px] text-rose-600 font-sans font-bold block">BEKLENEN xG</span>
+                                      <strong className="text-rose-900 font-bold">{m.prediction.expected_home_xg} - {m.prediction.expected_away_xg}</strong>
+                                    </div>
+                                    <div className="bg-emerald-50/70 border border-emerald-100/80 py-1 px-1 rounded-lg">
+                                      <span className="text-[8px] text-emerald-600 font-sans font-bold block">KORNER</span>
+                                      <strong className="text-emerald-900 font-bold">~{m.prediction.expected_corners}</strong>
+                                    </div>
+                                    <div className="bg-amber-50/70 border border-amber-100/80 py-1 px-1 rounded-lg">
+                                      <span className="text-[8px] text-amber-600 font-sans font-bold block">KART (+3.5)</span>
+                                      <strong className="text-amber-900 font-bold">%{m.prediction.prob_over_3_5_cards}</strong>
+                                    </div>
+                                    <div className="bg-slate-50 border border-slate-200 py-1 px-1 rounded-lg">
+                                      <span className="text-[8px] text-slate-500 font-sans font-bold block">2.5 ÜST GOL</span>
+                                      <strong className="text-slate-800 font-bold">%{m.prediction.over_2_5_goals_pct}</strong>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
 

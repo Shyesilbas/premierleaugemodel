@@ -16,7 +16,9 @@ import {
   Sparkles,
   RefreshCw,
   Zap,
-  Eye
+  Eye,
+  CreditCard,
+  Scale
 } from 'lucide-react';
 import { getTeam } from '../data/teams';
 
@@ -687,31 +689,69 @@ export default function MatchDetailModal({ match, onClose }) {
                       </div>
                     </div>
 
-                    {/* Card 5: Shots */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs hover:border-rose-300 transition-all">
+                    {/* Card 5: Cards & Disciplinary */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs hover:border-amber-300 transition-all">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-rose-700">
-                          <Target className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Şut Hacmi & Tempo</span>
+                        <div className="flex items-center gap-2 text-amber-700">
+                          <CreditCard className="w-4 h-4" />
+                          <span className="text-xs font-bold uppercase tracking-wider">Kartlar & Hakem</span>
                         </div>
-                        <span className="text-[10px] font-mono font-bold bg-rose-50 text-rose-800 px-2 py-0.5 rounded border border-rose-200">
-                          Poisson / Opta
+                        <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-200">
+                          XGBoost + Hakem
                         </span>
                       </div>
                       <div className="space-y-0.5">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-3xl font-black font-mono text-slate-900">{prediction.shots.expected_total}</span>
-                          <span className="text-xs text-slate-500 font-medium">beklenen şut</span>
+                          <span className="text-3xl font-black font-mono text-slate-900">{prediction.cards?.expected_total || '4.2'}</span>
+                          <span className="text-xs text-slate-500 font-medium">beklenen kart</span>
                         </div>
                         <p className="text-xs text-slate-600 font-medium">
-                          Ortalama 9.1 isabetli şut beklentisi
+                          {homeTeam.short}: <strong className="text-slate-900">{prediction.cards?.expected_home || '2.1'}</strong> • {awayTeam.short}: <strong className="text-slate-900">{prediction.cards?.expected_away || '2.1'}</strong>
                         </p>
                       </div>
-                      <div className="pt-2 border-t border-slate-100 text-xs text-slate-600 flex justify-between">
-                        <span>Tempo Öngörüsü:</span>
-                        <strong className="text-rose-700 font-bold">
-                          {prediction.outcome.over_2_5_goals_pct > 55 ? 'Açık & Tempolu' : 'Dengeli & Taktiksel'}
-                        </strong>
+                      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
+                        <div className="flex justify-between text-slate-600">
+                          <span>3.5 Üst Olasılığı:</span>
+                          <strong className="text-amber-700 font-mono font-bold">%{prediction.cards?.prob_over_3_5_pct || '62.0'}</strong>
+                        </div>
+                        <div className="flex justify-between text-slate-600 items-center">
+                          <span className="flex items-center gap-1"><Scale className="w-3 h-3 text-slate-400" /> Hakem:</span>
+                          <strong className="text-slate-800 font-bold truncate max-w-[130px]" title={prediction.referee?.name}>
+                            {prediction.referee?.name || 'Hakem Heyeti'} ({prediction.referee?.avg_cards || '4.2'} k/m)
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card 6: Expected Goals (xG) & Shots */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs hover:border-rose-300 transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-rose-700">
+                          <Target className="w-4 h-4" />
+                          <span className="text-xs font-bold uppercase tracking-wider">Beklenen Gol (xG) & Şutlar</span>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold bg-rose-50 text-rose-800 px-2 py-0.5 rounded border border-rose-200">
+                          xG Engine
+                        </span>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-3xl font-black font-mono text-slate-900">{prediction.xg?.expected_total || '2.90'}</span>
+                          <span className="text-xs text-slate-500 font-medium">toplam xG</span>
+                        </div>
+                        <p className="text-xs text-slate-600 font-medium">
+                          {homeTeam.short}: <strong className="text-rose-700 font-mono font-bold">{prediction.xg?.expected_home || '1.45'} xG</strong> • {awayTeam.short}: <strong className="text-rose-700 font-mono font-bold">{prediction.xg?.expected_away || '1.45'} xG</strong>
+                        </p>
+                      </div>
+                      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
+                        <div className="flex justify-between text-slate-600">
+                          <span>2.5 Gol Üst Olasılığı:</span>
+                          <strong className="text-rose-700 font-mono font-bold">%{prediction.outcome.over_2_5_goals_pct}</strong>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Beklenen Şut:</span>
+                          <strong className="text-slate-800 font-mono font-bold">{prediction.shots.expected_total} şut</strong>
+                        </div>
                       </div>
                     </div>
 

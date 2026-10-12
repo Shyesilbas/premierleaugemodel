@@ -7,7 +7,7 @@ Serves interactive prediction engine, fixtures, events, and static frontend dash
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -103,6 +103,22 @@ if not df_matches.empty:
 
 teams_list = sorted(list(teams_dict.values()), key=lambda x: x["name"])
 
+# Pre-cache latest feature row per team for instantaneous predictions
+team_latest_row_cache: Dict[Tuple[int, str], Dict[str, Any]] = {}
+if not df_features.empty:
+    for tid in teams_dict.keys():
+        h_rows = df_features[df_features["home_id"] == tid]
+        a_rows = df_features[df_features["away_id"] == tid]
+        if not h_rows.empty:
+            team_latest_row_cache[(tid, "home")] = h_rows.iloc[-1].to_dict()
+        elif not a_rows.empty:
+            team_latest_row_cache[(tid, "home")] = a_rows.iloc[-1].to_dict()
+
+        if not a_rows.empty:
+            team_latest_row_cache[(tid, "away")] = a_rows.iloc[-1].to_dict()
+        elif not h_rows.empty:
+            team_latest_row_cache[(tid, "away")] = h_rows.iloc[-1].to_dict()
+
 
 @app.get("/api/teams")
 def get_teams(season: Optional[str] = None):
@@ -146,6 +162,37 @@ def get_fixtures(limit: int = 800, search: Optional[str] = None, season: Optiona
     return {"fixtures": records, "total": len(records)}
 
 
+_fixture_pred_cache: Dict[Tuple[int, int, Optional[str]], Dict[str, Any]] = {}
+
+def get_quick_fixture_prediction(home_id: int, away_id: int, season: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    if not home_id or not away_id or home_id == away_id:
+        return None
+    cache_key = (home_id, away_id, season)
+    if cache_key in _fixture_pred_cache:
+        return _fixture_pred_cache[cache_key]
+    try:
+        p = predict_match(home_id, away_id, season)
+        summary = {
+            "favorite_label": p["favorite_label"],
+            "home_win_pct": p["outcome"]["home_win_pct"],
+            "draw_pct": p["outcome"]["draw_pct"],
+            "away_win_pct": p["outcome"]["away_win_pct"],
+            "over_2_5_goals_pct": p["outcome"]["over_2_5_goals_pct"],
+            "expected_corners": p["corners"]["expected_total"],
+            "expected_cards": p["cards"]["expected_total"],
+            "prob_over_3_5_cards": p["cards"]["prob_over_3_5_pct"],
+            "expected_tot_xg": p["xg"]["expected_total"],
+            "expected_home_xg": p["xg"]["expected_home"],
+            "expected_away_xg": p["xg"]["expected_away"],
+            "referee_name": p["referee"]["name"],
+        }
+        _fixture_pred_cache[cache_key] = summary
+        return summary
+    except Exception as e:
+        logger.warning(f"Error generating quick prediction for {home_id} vs {away_id}: {e}")
+        return None
+
+
 @app.get("/api/fixtures/grouped")
 def get_grouped_fixtures(season: str = "2026_27"):
     """
@@ -169,19 +216,24 @@ def get_grouped_fixtures(season: str = "2026_27"):
 
             mid = int(f.get("id", 0))
             m_stats = match_stats_map.get(mid, {})
+            h_id = int(h_team.get("id", 0))
+            a_id = int(a_team.get("id", 0))
+            gw = int(f.get("gameweek", {}).get("gameweek", 1))
+            is_completed = (h_score is not None and a_score is not None)
+            pred = get_quick_fixture_prediction(h_id, a_id, "2026_27") if not is_completed else None
 
             raw_fixtures.append({
                 "match_id": mid,
-                "gameweek": int(f.get("gameweek", {}).get("gameweek", 1)),
+                "gameweek": gw,
                 "kickoff_label": kickoff_str,
                 "day_label": day_part,
                 "time_label": time_part,
                 "ground_name": f.get("ground", {}).get("name", ""),
-                "home_id": int(h_team.get("id", 0)),
+                "home_id": h_id,
                 "home_name": h_team.get("name", ""),
                 "home_abbr": h_team.get("club", {}).get("abbr", ""),
                 "home_score": h_score,
-                "away_id": int(a_team.get("id", 0)),
+                "away_id": a_id,
                 "away_name": a_team.get("name", ""),
                 "away_abbr": a_team.get("club", {}).get("abbr", ""),
                 "away_score": a_score,
@@ -194,8 +246,9 @@ def get_grouped_fixtures(season: str = "2026_27"):
                 "away_won_corners": m_stats.get("away_won_corners"),
                 "home_total_throws": m_stats.get("home_total_throws"),
                 "away_total_throws": m_stats.get("away_total_throws"),
-                "status": "COMPLETED" if (h_score is not None and a_score is not None) else "UPCOMING",
+                "status": "COMPLETED" if is_completed else "UPCOMING",
                 "season": "2026_27",
+                "prediction": pred,
             })
     else:
         df = df_matches.copy()
@@ -206,6 +259,11 @@ def get_grouped_fixtures(season: str = "2026_27"):
             kickoff_str = str(r.get("kickoff_label", ""))
             day_part = kickoff_str.split(",")[0].strip() if "," in kickoff_str else kickoff_str
             time_part = kickoff_str.split(",")[1].strip() if "," in kickoff_str else ""
+            h_id = int(r["home_id"])
+            a_id = int(r["away_id"])
+            is_completed = pd.notnull(r.get("home_score"))
+            s_name = str(r.get("season", "2024_25"))
+            pred = get_quick_fixture_prediction(h_id, a_id, s_name) if not is_completed else None
 
             raw_fixtures.append({
                 "match_id": int(r["match_id"]),
@@ -214,11 +272,11 @@ def get_grouped_fixtures(season: str = "2026_27"):
                 "day_label": day_part,
                 "time_label": time_part,
                 "ground_name": str(r.get("ground_name", "")),
-                "home_id": int(r["home_id"]),
+                "home_id": h_id,
                 "home_name": str(r["home_name"]),
                 "home_abbr": str(r.get("home_abbr", "")),
                 "home_score": int(r["home_score"]) if pd.notnull(r.get("home_score")) else None,
-                "away_id": int(r["away_id"]),
+                "away_id": a_id,
                 "away_name": str(r["away_name"]),
                 "away_abbr": str(r.get("away_abbr", "")),
                 "away_score": int(r["away_score"]) if pd.notnull(r.get("away_score")) else None,
@@ -230,8 +288,9 @@ def get_grouped_fixtures(season: str = "2026_27"):
                 "away_won_corners": int(r["away_won_corners"]) if pd.notnull(r.get("away_won_corners")) else None,
                 "home_total_throws": int(r["home_total_throws"]) if pd.notnull(r.get("home_total_throws")) else None,
                 "away_total_throws": int(r["away_total_throws"]) if pd.notnull(r.get("away_total_throws")) else None,
-                "status": "COMPLETED" if pd.notnull(r.get("home_score")) else "UPCOMING",
-                "season": str(r.get("season", "2024_25")),
+                "status": "COMPLETED" if is_completed else "UPCOMING",
+                "season": s_name,
+                "prediction": pred,
             })
 
     # Group by Gameweek -> Day
@@ -855,34 +914,39 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     if not home_meta or not away_meta:
         raise HTTPException(status_code=404, detail="Team not found.")
 
-    feature_pool = df_features.copy()
-    if season and "season" in feature_pool.columns and season != "all":
-        season_subset = feature_pool[feature_pool["season"] == season]
-        if not season_subset.empty:
-            feature_pool = season_subset
+    simulated_row = None
+    if (not season or season in ["2026_27", "all"]) and (home_id, "home") in team_latest_row_cache and (away_id, "away") in team_latest_row_cache:
+        simulated_row = dict(team_latest_row_cache[(home_id, "home")])
+        away_dict = team_latest_row_cache[(away_id, "away")]
+        for col, val in away_dict.items():
+            if col.startswith("away_"):
+                simulated_row[col] = val
+    else:
+        feature_pool = df_features
+        if season and "season" in feature_pool.columns and season != "all":
+            season_subset = feature_pool[feature_pool["season"] == season]
+            if not season_subset.empty:
+                feature_pool = season_subset
 
-    home_rows = feature_pool[feature_pool["home_id"] == home_id]
-    away_rows = feature_pool[feature_pool["away_id"] == away_id]
+        home_rows = feature_pool[feature_pool["home_id"] == home_id]
+        away_rows = feature_pool[feature_pool["away_id"] == away_id]
 
-    if home_rows.empty:
-        home_rows = feature_pool[feature_pool["away_id"] == home_id]
-    if away_rows.empty:
-        away_rows = feature_pool[feature_pool["home_id"] == away_id]
+        if home_rows.empty:
+            home_rows = feature_pool[feature_pool["away_id"] == home_id]
+        if away_rows.empty:
+            away_rows = feature_pool[feature_pool["home_id"] == away_id]
 
-    if home_rows.empty or away_rows.empty:
-        # Fallback to full features if not in that season
-        home_rows = df_features[df_features["home_id"] == home_id]
-        away_rows = df_features[df_features["away_id"] == away_id]
+        if home_rows.empty or away_rows.empty:
+            home_rows = df_features[df_features["home_id"] == home_id]
+            away_rows = df_features[df_features["away_id"] == away_id]
 
-    latest_home = home_rows.iloc[-1]
-    latest_away = away_rows.iloc[-1]
+        latest_home = home_rows.iloc[-1]
+        latest_away = away_rows.iloc[-1]
 
-    # Build simulated feature vector
-    simulated_row = pd.Series(latest_home).to_dict()
-    # Overwrite away team attributes with latest away data
-    for col in latest_away.index:
-        if col.startswith("away_"):
-            simulated_row[col] = latest_away[col]
+        simulated_row = pd.Series(latest_home).to_dict()
+        for col in latest_away.index:
+            if col.startswith("away_"):
+                simulated_row[col] = latest_away[col]
 
     simulated_df = pd.DataFrame([simulated_row])
 
