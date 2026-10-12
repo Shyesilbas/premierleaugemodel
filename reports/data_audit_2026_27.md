@@ -139,6 +139,17 @@
   - `over_2_5_offsides`: 321 adet eksik değer (84.47%)
   - `over_3_5_offsides`: 321 adet eksik değer (84.47%)
   - `over_4_5_offsides`: 321 adet eksik değer (84.47%)
+  - `total_yellow_cards`: 321 adet eksik değer (84.47%)
+  - `total_red_cards`: 321 adet eksik değer (84.47%)
+  - `total_cards`: 321 adet eksik değer (84.47%)
+  - `over_3_5_cards`: 321 adet eksik değer (84.47%)
+  - `over_4_5_cards`: 321 adet eksik değer (84.47%)
+  - `over_5_5_cards`: 321 adet eksik değer (84.47%)
+  - `total_fouls`: 321 adet eksik değer (84.47%)
+  - `home_xg`: 321 adet eksik değer (84.47%)
+  - `away_xg`: 321 adet eksik değer (84.47%)
+  - `total_xg`: 321 adet eksik değer (84.47%)
+  - `referee_id`: 321 adet eksik değer (84.47%)
 
 ---
 

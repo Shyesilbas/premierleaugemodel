@@ -1,8 +1,13 @@
-# Premier League Model Engine — Model Karşılaştırma ve Başarım Raporu (2024-25)
+# Premier League Model Engine — Çoklu Sezon Başarım Raporu (2023-24 ~ 2026-27)
 
-**Test Metodolojisi:** Zaman Serisi Bölümlemesi (Time-Series Split).  
-İlk %80 maç (~304 maç) eğitim kümesi; son %20 maç (~76 maç) gerçek zamanlı geriye dönük test (backtesting) kümesi olarak kullanılmıştır.  
-Tüm öznitelikler **veri sızıntısızdır (leakage-free)**; her maç için yalnızca maç saatinden önce tamamlanmış karşılaşmaların istatistikleri ve EWMA değerleri kullanılmıştır.
+**Veri Seti:** 4 Sezon (2023-24, 2024-25, 2025-26, 2026-27) — Toplam 1.520 maç (1.199 tamamlanmış veri sızıntısız maç).  
+**Test Metodolojisi:** Kronolojik Zaman Serisi Bölümlemesi (Time-Series Split).  
+İlk %80 maç (~959 maç) eğitim kümesi; son %20 maç (~240 maç) gerçek zamanlı geriye dönük test (out-of-time backtest) kümesi.  
+**Zaman Ağırlıklandırması (Time-Decay Sample Weights):**
+- **2026-27 (Güncel Sezon):** `4.50` (En yüksek öncelik ve etki)
+- **2025-26 (Geçen Sezon):** `2.20` (Yüksek etki)
+- **2024-25 (Referans Sezon):** `0.90` (Temel seviye)
+- **2023-24 (Tarihsel Sezon):** `0.40` (Genel futbol dinamiklerini öğreten kontrollü etki)
 
 ---
 
@@ -10,44 +15,24 @@ Tüm öznitelikler **veri sızıntısızdır (leakage-free)**; her maç için ya
 
 | Hedef Metrik | Model Algoritması | Test RMSE | Test MAE | Baseline RMSE | Baseline MAE | Doğruluk / Başarım |
 |:---|:---|:---:|:---:|:---:|:---:|:---:|
-| **Toplam Korner** | XGBoost Regressor | 3.344 | 2.712 | 3.214 | 2.676 | %55.92 (Üst 9.5 Doğruluğu) |
-| **Toplam Taç** | LightGBM Regressor | 7.544 | 6.176 | 7.592 | 6.072 | %54.61 (Üst 34.5 Doğruluğu) |
-| **Kaleci Kurtarışları** | XGBoost Regressor | 2.319 | 1.901 | 2.302 | 1.908 | - |
-| **1X2 Maç Sonucu** | Multi-class LightGBM | - | - | - | - | %43.42 (Temel: %38.82) |
-| **2.5 Gol Alt/Üst** | Binary XGBoost | - | - | - | - | %59.21 (Brier: 0.237) |
+| **Toplam Korner** | XGBoost Regressor | 3.226 | 2.602 | 3.215 | 2.672 | %55.4 (Üst 9.5 Doğruluğu) |
+| **Toplam Taç** | LightGBM Regressor | 7.339 | 5.860 | 7.462 | 5.953 | %57.9 (Üst 34.5 Doğruluğu) |
+| **Kaleci Kurtarışları** | XGBoost Regressor | 2.329 | 1.906 | 2.332 | 1.928 | Dengeli Kurtarış Dağılımı |
+| **Yakalanılan Ofsayt** | XGBoost Regressor + Poisson | 1.898 | 1.474 | 2.047 | 1.640 | %67.5 (Üst 3.5 Doğruluğu) |
+| **Kartlar & Disiplin** | XGBoost Regressor + Hakem Eğilimi | 1.987 | 1.625 | 1.908 | 1.528 | %57.9 (Üst 4.5 Doğruluğu) |
+| **1X2 Maç Sonucu** | Multi-class LightGBM | - | - | - | - | %43.3 (Temel: %38.8) |
+| **2.5 Gol Alt/Üst** | Binary XGBoost | - | - | - | - | %53.8 (Brier: 0.253) |
+| **Beklenen Gol (xG)** | xG Engine (Şut Konumu + Büyük Şans) | - | - | - | - | Çift Taraflı Formülasyon |
 
 ---
 
-## 2. En Etkili Öznitelikler (Feature Importance)
-
-### Korner Modeli
-- `away_saves_roll_10`: 0.0156
-- `home_shots_ontarget_against_ewma_02`: 0.0125
-- `away_saves_roll_5`: 0.0124
-- `away_saves_ewma_02`: 0.0121
-- `away_shots_ontarget_against_ewma_04`: 0.0120
-- `away_shots_ontarget_for_roll_5`: 0.0118
-- `away_shots_ontarget_against_roll_5`: 0.0118
-
-### Taç Modeli
-- `home_corners_for_roll_3`: 52
-- `home_opponent_throws_ewma_02`: 41
-- `away_throws_roll_10`: 36
-- `home_throws_roll_10`: 36
-- `away_shots_against_ewma_02`: 35
-- `away_goals_for_ewma_04`: 35
-- `away_shots_ontarget_for_ewma_04`: 32
-
-### Kaleci Kurtarış Modeli
-- `home_goals_against_roll_10`: 0.0178
-- `away_throws_ewma_04`: 0.0176
-- `away_shots_ontarget_against_roll_10`: 0.0158
-- `home_throws_ewma_02`: 0.0154
-- `home_throws_ewma_04`: 0.0144
-- `home_shots_for_ewma_04`: 0.0136
-- `exp_match_throws_5`: 0.0134
+## 2. Hakem & Disiplin Modeli Özellikleri
+- `referee_avg_cards`: Hakemin maç saatinden önce yönettiği tüm Premier League maçlarındaki sarı/kırmızı kart ortalaması.
+- `referee_avg_fouls`: Hakemin maç saatinden önce düdük çaldığı faul ortalaması.
+- `referee_prior_matches`: Hakemin ligdeki maç deneyimi (tecrübe ve tolerans indeksi).
+- `home_cards_for_roll_5` / `away_cards_against_roll_5`: Takımların son 5 maçtaki kart eğilimleri.
 
 ---
 
-## 3. Üretim Dağıtımı ve Karar
-Tüm modeller `models/production/` dizinine `.joblib` formatında kaydedilmiş olup üretim ortamına hazırdır.
+## 3. Üretim Dağıtımı
+Tüm modeller `models/production/` dizinine `.joblib` formatında kaydedilmiş olup FastAPI backend uç noktalarına (`/api/predict`) ve kullanıcı arayüzüne entegre edilmiştir.

@@ -45,3 +45,7 @@ lerna-debug.log*
 .vscode/
 *.swp
 *.swo
+
+# Raw downloaded API json cache
+data/raw/matches/
+

@@ -56,6 +56,7 @@ throws_artifact = joblib.load(MODELS_DIR / "throws_model_v1.joblib") if (MODELS_
 saves_artifact = joblib.load(MODELS_DIR / "saves_model_v1.joblib") if (MODELS_DIR / "saves_model_v1.joblib").exists() else None
 outcome_artifact = joblib.load(MODELS_DIR / "outcome_models_v1.joblib") if (MODELS_DIR / "outcome_models_v1.joblib").exists() else None
 offside_artifact = joblib.load(MODELS_DIR / "offside_model_v1.joblib") if (MODELS_DIR / "offside_model_v1.joblib").exists() else None
+cards_artifact = joblib.load(MODELS_DIR / "cards_model_v1.joblib") if (MODELS_DIR / "cards_model_v1.joblib").exists() else None
 
 # Load Player Registry and Match Logs
 players_reg_file = DATA_DIR / "processed" / "players_registry.json"
@@ -951,6 +952,47 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             if (h_off + a_off) > 0:
                 home_off_share = max(0.2, min(0.8, h_off / (h_off + a_off)))
 
+    # 6. Cards Prediction
+    exp_cards = 4.2
+    prob_c35 = 62.0
+    prob_c45 = 44.0
+    prob_c55 = 26.0
+    home_cards_share = 0.50
+
+    if cards_artifact is not None:
+        c_features = cards_artifact.get("feature_cols", [])
+        missing_c = [c for c in c_features if c not in simulated_df.columns]
+        for m in missing_c:
+            simulated_df[m] = 0.0
+        X_cards = simulated_df[c_features].fillna(0.0)
+        try:
+            exp_cards = float(cards_artifact["model"].predict(X_cards)[0])
+            exp_cards = max(1.0, min(12.0, exp_cards))
+            prob_c35 = float((1.0 - poisson.cdf(3, exp_cards)) * 100)
+            prob_c45 = float((1.0 - poisson.cdf(4, exp_cards)) * 100)
+            prob_c55 = float((1.0 - poisson.cdf(5, exp_cards)) * 100)
+        except Exception as e:
+            logger.warning("Error predicting cards: %s", e)
+
+    if "home_cards_for_roll_5" in simulated_df.columns and "away_cards_for_roll_5" in simulated_df.columns:
+        h_c = float(simulated_df["home_cards_for_roll_5"].iloc[0] or 2.1)
+        a_c = float(simulated_df["away_cards_for_roll_5"].iloc[0] or 2.1)
+        if (h_c + a_c) > 0:
+            home_cards_share = max(0.2, min(0.8, h_c / (h_c + a_c)))
+
+    # 7. Expected Goals (xG) & Referee Details
+    exp_h_xg = 1.45
+    exp_a_xg = 1.25
+    if "home_xg_for_roll_5" in simulated_df.columns:
+        exp_h_xg = float(simulated_df["home_xg_for_roll_5"].iloc[0] or 1.45)
+    if "away_xg_for_roll_5" in simulated_df.columns:
+        exp_a_xg = float(simulated_df["away_xg_for_roll_5"].iloc[0] or 1.25)
+    exp_tot_xg = round(exp_h_xg + exp_a_xg, 2)
+
+    ref_name = str(simulated_df.get("referee_name", pd.Series(["Premier League Hakem Heyeti"])).iloc[0] or "Premier League Hakem Heyeti")
+    ref_avg_c = float(simulated_df.get("referee_avg_cards", pd.Series([4.15])).iloc[0] or 4.15)
+    ref_avg_f = float(simulated_df.get("referee_avg_fouls", pd.Series([21.5])).iloc[0] or 21.5)
+
     # Splits (Home vs Away breakdown)
     home_c_share = 0.55
     home_t_share = 0.51
@@ -966,6 +1008,11 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             "away_win_pct": round(prob_a, 1),
             "over_2_5_goals_pct": round(prob_o25, 1),
         },
+        "xg": {
+            "expected_total": round(exp_tot_xg, 2),
+            "expected_home": round(exp_h_xg, 2),
+            "expected_away": round(exp_a_xg, 2),
+        },
         "corners": {
             "expected_total": round(exp_corners, 1),
             "expected_home": round(exp_corners * home_c_share, 1),
@@ -973,6 +1020,19 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             "prob_over_8_5_pct": round(prob_c85, 1),
             "prob_over_9_5_pct": round(prob_c95, 1),
             "prob_over_10_5_pct": round(prob_c105, 1),
+        },
+        "cards": {
+            "expected_total": round(exp_cards, 1),
+            "expected_home": round(exp_cards * home_cards_share, 1),
+            "expected_away": round(exp_cards * (1 - home_cards_share), 1),
+            "prob_over_3_5_pct": round(prob_c35, 1),
+            "prob_over_4_5_pct": round(prob_c45, 1),
+            "prob_over_5_5_pct": round(prob_c55, 1),
+        },
+        "referee": {
+            "name": ref_name,
+            "avg_cards": round(ref_avg_c, 1),
+            "avg_fouls": round(ref_avg_f, 1),
         },
         "throws": {
             "expected_total": round(exp_throws, 1),

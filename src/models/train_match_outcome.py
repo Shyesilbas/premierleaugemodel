@@ -58,16 +58,26 @@ def train_match_outcome_models(
     feature_cols = [c for c in feature_candidates if np.issubdtype(df[c].dtype, np.number)]
     logger.info(f"Selected {len(feature_cols)} features for outcome models.")
 
+    # Time-decay season weights
+    season_weights_map = {
+        "2023_24": 0.40,
+        "2024_25": 0.90,
+        "2025_26": 2.20,
+        "2026_27": 4.50,
+    }
+    weights = df["season"].map(season_weights_map).fillna(1.0).values
+
     split_idx = int(len(df) * 0.8)
     train_df = df.iloc[:split_idx].copy()
     test_df = df.iloc[split_idx:].copy()
 
     X_train, y_train_1x2, y_train_o25 = train_df[feature_cols], train_df["target_1x2"], train_df["target_o25"]
     X_test, y_test_1x2, y_test_o25 = test_df[feature_cols], test_df["target_1x2"], test_df["target_o25"]
+    w_train = weights[:split_idx]
 
     # 1. 1X2 Multi-class Model
     model_1x2 = LGBMClassifier(
-        n_estimators=100,
+        n_estimators=110,
         learning_rate=0.03,
         num_leaves=15,
         subsample=0.8,
@@ -75,7 +85,7 @@ def train_match_outcome_models(
         random_state=42,
         verbosity=-1,
     )
-    model_1x2.fit(X_train, y_train_1x2)
+    model_1x2.fit(X_train, y_train_1x2, sample_weight=w_train)
 
     probs_1x2 = model_1x2.predict_proba(X_test)
     preds_1x2 = model_1x2.predict(X_test)
@@ -88,7 +98,7 @@ def train_match_outcome_models(
 
     # 2. Over/Under 2.5 Model
     model_o25 = XGBClassifier(
-        n_estimators=100,
+        n_estimators=110,
         learning_rate=0.03,
         max_depth=3,
         subsample=0.8,
@@ -96,7 +106,7 @@ def train_match_outcome_models(
         random_state=42,
         eval_metric="logloss",
     )
-    model_o25.fit(X_train, y_train_o25)
+    model_o25.fit(X_train, y_train_o25, sample_weight=w_train)
 
     probs_o25 = model_o25.predict_proba(X_test)[:, 1]
     preds_o25 = model_o25.predict(X_test)

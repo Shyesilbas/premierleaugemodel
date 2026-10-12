@@ -56,6 +56,15 @@ def train_offsides_model(
     feature_cols = [c for c in feature_candidates if np.issubdtype(df[c].dtype, np.number)]
     logger.info(f"Selected {len(feature_cols)} features for Offside model.")
 
+    # Time-decay season weights
+    season_weights_map = {
+        "2023_24": 0.40,
+        "2024_25": 0.90,
+        "2025_26": 2.20,
+        "2026_27": 4.50,
+    }
+    weights = df["season"].map(season_weights_map).fillna(1.0).values
+
     # Time-series chronological train/test split: first 80% train, last 20% test (backtest)
     split_idx = int(len(df) * 0.8)
     train_df = df.iloc[:split_idx].copy()
@@ -63,12 +72,13 @@ def train_offsides_model(
 
     X_train, y_train = train_df[feature_cols], train_df[target_col]
     X_test, y_test = test_df[feature_cols], test_df[target_col]
+    w_train = weights[:split_idx]
 
     logger.info(f"Train matches: {len(train_df)}, Test matches: {len(test_df)}")
 
     # Model definition: regularized XGBoost for optimal generalization
     model = XGBRegressor(
-        n_estimators=100,
+        n_estimators=110,
         learning_rate=0.03,
         max_depth=3,
         subsample=0.8,
@@ -79,7 +89,7 @@ def train_offsides_model(
         objective="reg:squarederror",
     )
 
-    model.fit(X_train, y_train)
+    model.fit(X_train, y_train, sample_weight=w_train)
 
     # Evaluation
     preds_train = model.predict(X_train)

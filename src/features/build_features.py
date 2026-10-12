@@ -108,6 +108,10 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "offsides_against": row.get("away_total_offside", 1.6),
             "big_chances_for": row.get("home_big_chance_created", 1.8),
             "touches_in_opp_box": row.get("home_touches_in_opp_box", 24.0),
+            "cards_for": row.get("home_total_yel_card", 0.0) + row.get("home_total_red_card", 0.0),
+            "cards_against": row.get("away_total_yel_card", 0.0) + row.get("away_total_red_card", 0.0),
+            "xg_for": row.get("home_xg", 1.4),
+            "xg_against": row.get("away_xg", 1.2),
         })
 
         # Away perspective
@@ -139,6 +143,10 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "offsides_against": row.get("home_total_offside", 1.6),
             "big_chances_for": row.get("away_big_chance_created", 1.8),
             "touches_in_opp_box": row.get("away_touches_in_opp_box", 24.0),
+            "cards_for": row.get("away_total_yel_card", 0.0) + row.get("away_total_red_card", 0.0),
+            "cards_against": row.get("home_total_yel_card", 0.0) + row.get("home_total_red_card", 0.0),
+            "xg_for": row.get("away_xg", 1.2),
+            "xg_against": row.get("home_xg", 1.4),
         })
 
     long_df = pd.DataFrame(records)
@@ -161,6 +169,8 @@ def compute_pre_match_features(long_df: pd.DataFrame) -> pd.DataFrame:
         "offsides_for", "offsides_against",
         "big_chances_for", "touches_in_opp_box",
         "fouls_committed", "fouls_drawn",
+        "cards_for", "cards_against",
+        "xg_for", "xg_against",
     ]
 
     grouped = long_df.groupby("team_id")
@@ -181,6 +191,56 @@ def compute_pre_match_features(long_df: pd.DataFrame) -> pd.DataFrame:
             long_df[f"{col}_ewma_{alpha_str}"] = ewma_series
 
     return long_df
+
+
+def compute_referee_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculates strictly historical (leakage-free) referee tendency features."""
+    df = df.copy()
+    if "match_date" not in df.columns:
+        if "kickoff_millis" in df.columns:
+            df["match_date"] = pd.to_datetime(df["kickoff_millis"], unit="ms")
+        else:
+            df["match_date"] = pd.to_datetime(df["kickoff_label"])
+
+    df = df.sort_values(by="match_date").reset_index(drop=True)
+
+    ref_avg_cards = []
+    ref_avg_fouls = []
+    ref_prior_matches = []
+
+    # Historical state: referee_name -> list of (cards, fouls)
+    ref_history: Dict[str, List[Tuple[float, float]]] = {}
+
+    for _, row in df.iterrows():
+        ref_name = row.get("referee_name") or "Unknown"
+        cards = row.get("total_cards")
+        fouls = row.get("total_fouls")
+
+        # Compute strictly pre-match statistics for this referee
+        if ref_name in ref_history and len(ref_history[ref_name]) > 0:
+            hist = ref_history[ref_name]
+            avg_c = np.mean([h[0] for h in hist])
+            avg_f = np.mean([h[1] for h in hist])
+            count = len(hist)
+        else:
+            avg_c = 4.15  # Premier League historical mean cards/match
+            avg_f = 21.5  # Premier League historical mean fouls/match
+            count = 0
+
+        ref_avg_cards.append(float(avg_c))
+        ref_avg_fouls.append(float(avg_f))
+        ref_prior_matches.append(int(count))
+
+        # Update state after match if target data is not null
+        if ref_name != "Unknown" and pd.notnull(cards) and pd.notnull(fouls):
+            if ref_name not in ref_history:
+                ref_history[ref_name] = []
+            ref_history[ref_name].append((float(cards), float(fouls)))
+
+    df["referee_avg_cards"] = ref_avg_cards
+    df["referee_avg_fouls"] = ref_avg_fouls
+    df["referee_prior_matches"] = ref_prior_matches
+    return df
 
 
 def merge_features_to_matches(df_matches: pd.DataFrame, long_df: pd.DataFrame) -> pd.DataFrame:
@@ -227,6 +287,18 @@ def merge_features_to_matches(df_matches: pd.DataFrame, long_df: pd.DataFrame) -
         merged["exp_away_offsides_5"] = (merged["away_offsides_for_roll_5"] + merged["home_offsides_against_roll_5"]) / 2.0
         merged["exp_match_offsides_5"] = merged["exp_home_offsides_5"] + merged["exp_away_offsides_5"]
 
+    # Expected cards interaction
+    if "home_cards_for_roll_5" in merged.columns and "away_cards_against_roll_5" in merged.columns:
+        merged["exp_home_cards_5"] = (merged["home_cards_for_roll_5"] + merged["away_cards_against_roll_5"]) / 2.0
+        merged["exp_away_cards_5"] = (merged["away_cards_for_roll_5"] + merged["home_cards_against_roll_5"]) / 2.0
+        merged["exp_match_cards_5"] = merged["exp_home_cards_5"] + merged["exp_away_cards_5"]
+
+    # Expected xG interaction
+    if "home_xg_for_roll_5" in merged.columns and "away_xg_against_roll_5" in merged.columns:
+        merged["exp_home_xg_5"] = (merged["home_xg_for_roll_5"] + merged["away_xg_against_roll_5"]) / 2.0
+        merged["exp_away_xg_5"] = (merged["away_xg_for_roll_5"] + merged["home_xg_against_roll_5"]) / 2.0
+        merged["exp_match_xg_5"] = merged["exp_home_xg_5"] + merged["exp_away_xg_5"]
+
     # Fill initial season NaNs with strictly historical league priors (NO FUTURE LEAKAGE)
     league_priors = {
         "corners_for": 5.15, "corners_against": 5.15,
@@ -238,6 +310,8 @@ def merge_features_to_matches(df_matches: pd.DataFrame, long_df: pd.DataFrame) -
         "offsides_for": 1.63, "offsides_against": 1.63,
         "big_chances_for": 1.8, "touches_in_opp_box": 24.5,
         "fouls_committed": 10.5, "fouls_drawn": 10.5,
+        "cards_for": 2.1, "cards_against": 2.1,
+        "xg_for": 1.45, "xg_against": 1.45,
     }
 
     numeric_feature_cols = [c for c in merged.columns if "_roll_" in c or "_ewma_" in c or "exp_" in c]
@@ -255,6 +329,10 @@ def merge_features_to_matches(df_matches: pd.DataFrame, long_df: pd.DataFrame) -
             prior_val = 26.0
         elif "exp_match_offsides" in c:
             prior_val = 3.26
+        elif "exp_match_cards" in c:
+            prior_val = 4.2
+        elif "exp_match_xg" in c:
+            prior_val = 2.9
 
         merged[c] = merged[c].fillna(prior_val)
 
@@ -274,6 +352,7 @@ def build_feature_dataset(
     long_df = build_team_match_history(df)
     long_df = compute_pre_match_features(long_df)
     featured_matches = merge_features_to_matches(df, long_df)
+    featured_matches = compute_referee_features(featured_matches)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     featured_matches.to_parquet(output_path, index=False)
@@ -284,8 +363,8 @@ def build_feature_dataset(
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, default="data/processed/matches_summary_2024_25.parquet")
-    parser.add_argument("--output", type=str, default="data/processed/features_matches_2024_25.parquet")
+    parser.add_argument("--input", type=str, default="data/processed/matches_summary_all.parquet")
+    parser.add_argument("--output", type=str, default="data/processed/features_matches_all.parquet")
     args = parser.parse_args()
 
     build_feature_dataset(Path(args.input), Path(args.output))

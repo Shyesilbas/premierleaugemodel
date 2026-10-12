@@ -54,17 +54,27 @@ def train_throws_model(
     feature_cols = [c for c in feature_candidates if np.issubdtype(df[c].dtype, np.number)]
     logger.info(f"Selected {len(feature_cols)} features for Throws model.")
 
+    # Time-decay season weights
+    season_weights_map = {
+        "2023_24": 0.40,
+        "2024_25": 0.90,
+        "2025_26": 2.20,
+        "2026_27": 4.50,
+    }
+    weights = df["season"].map(season_weights_map).fillna(1.0).values
+
     split_idx = int(len(df) * 0.8)
     train_df = df.iloc[:split_idx].copy()
     test_df = df.iloc[split_idx:].copy()
 
     X_train, y_train = train_df[feature_cols], train_df[target_col]
     X_test, y_test = test_df[feature_cols], test_df[target_col]
+    w_train = weights[:split_idx]
 
     logger.info(f"Train matches: {len(train_df)}, Test matches: {len(test_df)}")
 
     model = LGBMRegressor(
-        n_estimators=100,
+        n_estimators=110,
         learning_rate=0.03,
         num_leaves=15,
         subsample=0.8,
@@ -73,7 +83,7 @@ def train_throws_model(
         verbosity=-1,
     )
 
-    model.fit(X_train, y_train)
+    model.fit(X_train, y_train, sample_weight=w_train)
 
     preds_train = model.predict(X_train)
     preds_test = model.predict(X_test)

@@ -179,6 +179,51 @@ def parse_match(
         record["over_3_5_offsides"] = int(record["total_offsides"] > 3.5)
         record["over_4_5_offsides"] = int(record["total_offsides"] > 4.5)
 
+        # Cards & Fouls Aggregates
+        h_yel = record.get("home_total_yel_card", 0.0)
+        a_yel = record.get("away_total_yel_card", 0.0)
+        h_red = record.get("home_total_red_card", 0.0)
+        a_red = record.get("away_total_red_card", 0.0)
+        record["total_yellow_cards"] = h_yel + a_yel
+        record["total_red_cards"] = h_red + a_red
+        record["total_cards"] = (h_yel + a_yel) + (h_red + a_red)
+        record["over_3_5_cards"] = int(record["total_cards"] > 3.5)
+        record["over_4_5_cards"] = int(record["total_cards"] > 4.5)
+        record["over_5_5_cards"] = int(record["total_cards"] > 5.5)
+
+        h_fouls = record.get("home_fk_foul_lost", 0.0)
+        a_fouls = record.get("away_fk_foul_lost", 0.0)
+        record["total_fouls"] = h_fouls + a_fouls
+
+        # Expected Goals (xG) Estimation
+        h_ibox = record.get("home_att_ibox_target", 0.0)
+        h_obox = record.get("home_att_obox_target", 0.0)
+        h_big_chances = record.get("home_big_chance_created", 0.0)
+        h_miss_shots = max(0.0, record.get("home_total_scoring_att", 0.0) - record.get("home_ontarget_scoring_att", 0.0))
+        h_xg = round(h_ibox * 0.33 + h_obox * 0.08 + h_big_chances * 0.34 + h_miss_shots * 0.025, 2)
+
+        a_ibox = record.get("away_att_ibox_target", 0.0)
+        a_obox = record.get("away_att_obox_target", 0.0)
+        a_big_chances = record.get("away_big_chance_created", 0.0)
+        a_miss_shots = max(0.0, record.get("away_total_scoring_att", 0.0) - record.get("away_ontarget_scoring_att", 0.0))
+        a_xg = round(a_ibox * 0.33 + a_obox * 0.08 + a_big_chances * 0.34 + a_miss_shots * 0.025, 2)
+
+        record["home_xg"] = h_xg
+        record["away_xg"] = a_xg
+        record["total_xg"] = round(h_xg + a_xg, 2)
+
+    # Referee & Match Officials
+    referee_id = None
+    referee_name = "Unknown"
+    if details_data and "matchOfficials" in details_data:
+        for official in details_data["matchOfficials"]:
+            if official.get("role") == "MAIN":
+                referee_id = official.get("id")
+                referee_name = official.get("name", {}).get("display", "Unknown")
+                break
+    record["referee_id"] = referee_id
+    record["referee_name"] = referee_name
+
     return record
 
 
@@ -391,7 +436,7 @@ def main():
     reports_dir = Path("reports")
 
     if args.season_name == "all":
-        seasons = ["2024_25", "2025_26"]
+        seasons = ["2023_24", "2024_25", "2025_26", "2026_27"]
         all_matches = []
         all_events = []
         for s in seasons:
@@ -416,7 +461,7 @@ def main():
             logger.info(f"Saved combined {len(df_combined_events)} events to {combined_events_path}")
 
         # Combined multi-season audit report
-        build_audit_report(df_combined_matches, df_combined_events, reports_dir / "data_audit_multi_season.md", season_name="2024-25 & 2025-26")
+        build_audit_report(df_combined_matches, df_combined_events, reports_dir / "data_audit_multi_season.md", season_name="2023-24 to 2026-27")
     else:
         process_season(args.season_name)
 
