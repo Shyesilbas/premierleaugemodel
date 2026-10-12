@@ -1,23 +1,22 @@
 # Model Benchmark Raporu — Yakalanılan Ofsayt Motoru (Offsides)
 
 - **Hedef Değişken:** `total_offsides`
-- **Eğitim Kümesi (İlk %80):** 959 maç
-- **Test Kümesi (Out-of-time %20):** 240 maç
-- **Test RMSE:** `1.898` (Temel Model: `2.047`)
-- **Test MAE:** `1.474` (Temel Model: `1.640`)
-- **3.5 Üst Doğruluğu:** `%67.50`
+- **Seçilen Model:** `ridge_50` (Tüm veriyle yeniden eğitildi)
+- **Test RMSE:** `1.907` (Temel Model: `2.041`)
+- **Test MAE:** `1.508` (Temel Model: `1.631`)
+- **3.5 Üst Doğruluğu:** `%66.25`
 
-### En Etkili 10 Öznitelik (Feature Importance)
+### En Etkili Öznitelikler
 
 | Sıra | Öznitelik Adı | Önem Skoru |
 |:---|:---|:---:|
-| 1 | `exp_match_offsides_5` | 0.0148 |
-| 2 | `away_shots_ontarget_for_ewma_02` | 0.0102 |
-| 3 | `away_cards_for_ewma_02` | 0.0100 |
-| 4 | `away_possession_roll_10` | 0.0093 |
-| 5 | `away_offsides_against_ewma_04` | 0.0091 |
-| 6 | `away_big_chances_for_roll_10` | 0.0091 |
-| 7 | `away_shots_ontarget_against_ewma_02` | 0.0088 |
-| 8 | `away_shots_against_ewma_02` | 0.0085 |
-| 9 | `home_offsides_for_roll_10` | 0.0085 |
-| 10 | `away_throws_ewma_02` | 0.0082 |
+| 1 | `away_offsides_against_roll_10` | 0.2617 |
+| 2 | `exp_match_offsides_5` | 0.1674 |
+| 3 | `away_offsides_against_roll_5` | 0.1631 |
+| 4 | `home_offsides_against_roll_10` | 0.1464 |
+| 5 | `exp_home_offsides_5` | 0.1164 |
+| 6 | `home_offsides_for_roll_3` | 0.1114 |
+| 7 | `home_offsides_against_roll_5` | 0.1089 |
+| 8 | `home_offsides_for_roll_5` | 0.0697 |
+| 9 | `exp_away_offsides_5` | 0.0511 |
+| 10 | `home_offsides_for_roll_10` | 0.0362 |

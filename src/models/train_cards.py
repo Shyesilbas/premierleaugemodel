@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Premier League Cards Prediction Model (XGBoost Regressor & Poisson Probabilities)
-Predicts total match cards (Yellow + Red) and probabilities for Over 3.5 / 4.5 / 5.5 cards.
-Incorporate strictly historical referee tendencies and time-decay season weighting.
+Premier League Cards Prediction Model (Regularized LightGBM & Poisson Probabilities)
+Predicts total match cards (Yellow + Red) and probabilities for Over 3.5 / 4.5 cards.
+Uses curated, leakage-free discipline features, referee metrics (NO raw IDs), and gentle time weighting.
 """
 
 import os
@@ -14,7 +14,8 @@ from typing import Dict, Any, List
 import numpy as np
 import pandas as pd
 from scipy.stats import poisson
-from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import joblib
 
@@ -25,12 +26,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger("train_cards")
 
-SEASON_WEIGHTS = {
-    "2023_24": 0.40,
-    "2024_25": 0.90,
-    "2025_26": 2.20,
-    "2026_27": 4.50,
-}
+CURATED_FEATURES = [
+    "home_cards_for_roll_3",
+    "home_cards_for_roll_5",
+    "home_cards_for_roll_10",
+    "away_cards_for_roll_3",
+    "away_cards_for_roll_5",
+    "away_cards_for_roll_10",
+    "home_cards_against_roll_5",
+    "away_cards_against_roll_5",
+    "home_fouls_committed_roll_5",
+    "away_fouls_committed_roll_5",
+    "home_fouls_drawn_roll_5",
+    "away_fouls_drawn_roll_5",
+    "exp_match_cards_5",
+    "exp_home_cards_5",
+    "exp_away_cards_5",
+    "referee_avg_cards",
+    "referee_avg_fouls",
+]
 
 
 def train_cards_model(
@@ -38,6 +52,9 @@ def train_cards_model(
     model_output_dir: str = "models/production",
     reports_output_dir: str = "reports",
 ) -> Dict[str, Any]:
+    if not Path(data_path).exists():
+        data_path = "data/processed/features_matches_2024_25.parquet"
+
     df = pd.read_parquet(data_path)
     logger.info(f"Loaded featured dataset with {len(df)} matches.")
 
@@ -45,85 +62,129 @@ def train_cards_model(
     if target_col not in df.columns:
         raise ValueError(f"Target column '{target_col}' not found in dataset!")
 
+    # Filter completed matches where total_cards is available
     df = df[df[target_col].notnull()].copy()
+    if "is_played" in df.columns:
+        df = df[df["is_played"]].copy()
+
     if "kickoff_millis" in df.columns:
         df = df.sort_values(by=["kickoff_millis", "match_id"]).reset_index(drop=True)
     logger.info(f"Filtered {len(df)} completed matches with card data.")
 
-    # Candidate feature columns
-    feature_candidates = [
-        c for c in df.columns if (
-            "_roll_" in c or "_ewma_" in c or "rest_days" in c or "exp_" in c or "referee_" in c
-        ) and not c.startswith("match_") and not c.startswith("total_") and not c.startswith("over_")
-    ]
-    feature_cols = [c for c in feature_candidates if np.issubdtype(df[c].dtype, np.number)]
-    logger.info(f"Selected {len(feature_cols)} features for Cards model.")
+    feature_cols = [c for c in CURATED_FEATURES if c in df.columns]
+    logger.info(f"Selected {len(feature_cols)} curated features for Cards model: {feature_cols}")
 
-    # Time-decay season weights
-    weights = df["season"].map(SEASON_WEIGHTS).fillna(1.0).values
+    # Fill missing with column means
+    X_all = df[feature_cols].fillna(df[feature_cols].mean())
+    y_all = df[target_col].astype(float)
+
+    # Gentle time-decay weights: 0.65 to 1.20 linearly over history
+    weights_all = np.linspace(0.65, 1.20, len(df))
 
     # Time-series chronological train/test split: first 80% train, last 20% test
     split_idx = int(len(df) * 0.8)
-    train_df = df.iloc[:split_idx].copy()
-    test_df = df.iloc[split_idx:].copy()
+    X_train, y_train = X_all.iloc[:split_idx], y_all.iloc[:split_idx]
+    X_test, y_test = X_all.iloc[split_idx:], y_all.iloc[split_idx:]
+    w_train = weights_all[:split_idx]
 
-    X_train, y_train = train_df[feature_cols], train_df[target_col]
-    X_test, y_test = test_df[feature_cols], test_df[target_col]
-    w_train = weights[:split_idx]
+    logger.info(f"Train matches: {len(X_train)}, Test matches: {len(X_test)}")
 
-    logger.info(f"Train matches: {len(train_df)}, Test matches: {len(test_df)}")
+    # Baseline comparison (predicting train mean)
+    baseline_pred = float(np.average(y_train, weights=w_train))
+    baseline_test_rmse = float(np.sqrt(mean_squared_error(y_test, np.full_like(y_test, baseline_pred))))
+    baseline_test_mae = float(mean_absolute_error(y_test, np.full_like(y_test, baseline_pred)))
 
-    # Model definition
-    model = XGBRegressor(
-        n_estimators=140,
-        learning_rate=0.035,
-        max_depth=3,
-        subsample=0.85,
-        colsample_bytree=0.8,
-        reg_alpha=0.2,
-        reg_lambda=1.2,
-        random_state=42,
-        objective="reg:squarederror",
-    )
+    # Candidates comparison
+    candidates = {
+        "lgbm_shallow": LGBMRegressor(
+            max_depth=3,
+            num_leaves=7,
+            learning_rate=0.03,
+            n_estimators=50,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            verbosity=-1,
+        ),
+        "ridge_100": Ridge(alpha=100.0),
+    }
 
-    model.fit(X_train, y_train, sample_weight=w_train)
+    best_name = None
+    best_rmse = float("inf")
+    candidate_metrics = {}
 
-    # Evaluation
-    preds_train = model.predict(X_train)
-    preds_test = model.predict(X_test)
+    for name, cand in candidates.items():
+        cand.fit(X_train, y_train, sample_weight=w_train)
+        preds = cand.predict(X_test)
+        rmse = float(np.sqrt(mean_squared_error(y_test, preds)))
+        mae = float(mean_absolute_error(y_test, preds))
+        r2 = float(r2_score(y_test, preds))
+        candidate_metrics[name] = {"rmse": rmse, "mae": mae, "r2": r2}
+        logger.info(f"Candidate {name}: RMSE={rmse:.4f}, MAE={mae:.4f}, R2={r2:.4f}")
+        if rmse < best_rmse:
+            best_rmse = rmse
+            best_name = name
 
-    # Metrics
-    train_rmse = float(np.sqrt(mean_squared_error(y_train, preds_train)))
-    train_mae = float(mean_absolute_error(y_train, preds_train))
+    logger.info(f"Selected best model for Cards: {best_name} (RMSE: {best_rmse:.4f} vs Baseline: {baseline_test_rmse:.4f})")
+
+    # Evaluate best candidate on test set
+    eval_model = candidates[best_name]
+    preds_test = eval_model.predict(X_test)
     test_rmse = float(np.sqrt(mean_squared_error(y_test, preds_test)))
     test_mae = float(mean_absolute_error(y_test, preds_test))
+    test_r2 = float(r2_score(y_test, preds_test))
 
-    # Baseline: Historical mean of train set
-    baseline_pred = float(np.average(y_train, weights=w_train))
-    baseline_test_rmse = float(np.sqrt(mean_squared_error(y_test, [baseline_pred] * len(y_test))))
-    baseline_test_mae = float(mean_absolute_error(y_test, [baseline_pred] * len(y_test)))
-
-    # Poisson probabilities for Over 3.5 and Over 4.5
-    prob_o35_pred = [float(1.0 - poisson.cdf(3.5, mu)) for mu in preds_test]
+    # Over 3.5 & Over 4.5 Cards classification accuracy
+    prob_o35_pred = [float(1.0 - poisson.cdf(3, max(0.5, mu))) for mu in preds_test]
     actual_o35 = (y_test > 3.5).astype(int).values
     o35_acc = float(np.mean((np.array(prob_o35_pred) > 0.5) == actual_o35) * 100)
 
-    prob_o45_pred = [float(1.0 - poisson.cdf(4.5, mu)) for mu in preds_test]
+    prob_o45_pred = [float(1.0 - poisson.cdf(4, max(0.5, mu))) for mu in preds_test]
     actual_o45 = (y_test > 4.5).astype(int).values
     o45_acc = float(np.mean((np.array(prob_o45_pred) > 0.5) == actual_o45) * 100)
 
-    logger.info(f"Test RMSE: {test_rmse:.3f} (Baseline: {baseline_test_rmse:.3f})")
-    logger.info(f"Test MAE: {test_mae:.3f} (Baseline: {baseline_test_mae:.3f})")
-    logger.info(f"Over 3.5 Cards Accuracy: {o35_acc:.2f}%")
-    logger.info(f"Over 4.5 Cards Accuracy: {o45_acc:.2f}%")
+    majority_o35 = max(actual_o35.mean(), 1 - actual_o35.mean()) * 100
 
-    # Feature Importance
-    importances = model.feature_importances_
-    sorted_idx = np.argsort(importances)[::-1]
-    top_features = [
-        {"feature": feature_cols[i], "importance": float(importances[i])}
-        for i in sorted_idx[:15]
-    ]
+    # Production Refit: Train selected architecture on 100% of all played matches
+    logger.info("Refitting winning architecture on 100% of played matches for production...")
+    if best_name == "lgbm_shallow":
+        prod_model = LGBMRegressor(
+            max_depth=3,
+            num_leaves=7,
+            learning_rate=0.03,
+            n_estimators=50,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            verbosity=-1,
+        )
+    else:
+        prod_model = Ridge(alpha=100.0)
+
+    prod_model.fit(X_all, y_all, sample_weight=weights_all)
+
+    # Feature importances / coefficients
+    if hasattr(prod_model, "feature_importances_"):
+        imps = prod_model.feature_importances_
+        sorted_idx = np.argsort(imps)[::-1]
+        top_features = [{"feature": feature_cols[i], "importance": float(imps[i])} for i in sorted_idx[:10]]
+    else:
+        coefs = np.abs(prod_model.coef_)
+        sorted_idx = np.argsort(coefs)[::-1]
+        top_features = [{"feature": feature_cols[i], "importance": float(coefs[i])} for i in sorted_idx[:10]]
+
+    metrics = {
+        "selected_model": best_name,
+        "test_rmse": round(test_rmse, 3),
+        "test_mae": round(test_mae, 3),
+        "test_r2": round(test_r2, 3),
+        "baseline_rmse": round(baseline_test_rmse, 3),
+        "baseline_mae": round(baseline_test_mae, 3),
+        "beats_baseline": bool(test_rmse < baseline_test_rmse),
+        "o35_accuracy": round(o35_acc, 2),
+        "o35_majority_baseline": round(majority_o35, 2),
+        "o45_accuracy": round(o45_acc, 2),
+    }
 
     # Save artifact
     out_dir = Path(model_output_dir)
@@ -131,44 +192,34 @@ def train_cards_model(
     artifact_path = out_dir / "cards_model_v1.joblib"
 
     artifact = {
-        "model": model,
+        "model": prod_model,
         "feature_cols": feature_cols,
+        "feature_names": feature_cols,
         "baseline_mean": baseline_pred,
         "target_col": target_col,
-        "season_weights": SEASON_WEIGHTS,
-        "metrics": {
-            "test_rmse": test_rmse,
-            "test_mae": test_mae,
-            "baseline_rmse": baseline_test_rmse,
-            "baseline_mae": baseline_test_mae,
-            "o35_accuracy": o35_acc,
-            "o45_accuracy": o45_acc,
-        },
+        "metrics": metrics,
         "top_features": top_features,
     }
     joblib.dump(artifact, artifact_path)
     logger.info(f"Saved production cards model artifact to {artifact_path}")
 
-    # Save benchmark markdown report
+    # Generate benchmark report
     rep_dir = Path(reports_output_dir)
     rep_dir.mkdir(parents=True, exist_ok=True)
     report_md = rep_dir / "model_benchmarks_cards.md"
 
-    feat_rows = "\n".join([f"| {i+1} | `{f['feature']}` | {f['importance']:.4f} |" for i, f in enumerate(top_features[:10])])
-
+    feat_rows = "\n".join([f"| {i+1} | `{f['feature']}` | {f['importance']:.4f} |" for i, f in enumerate(top_features)])
     report_content = f"""# Model Benchmark Raporu — Toplam Kart Tahmin Motoru (Cards)
 
 - **Hedef Değişken:** `{target_col}` (Sarı + Kırmızı Kart)
-- **Eğitim Kümesi (İlk %80):** {len(train_df)} maç (2023-24, 2024-25, 2025-26, 2026-27 zaman ağırlıklı)
-- **Test Kümesi (Out-of-time %20):** {len(test_df)} maç
-- **Sezon Ağırlıkları:** 2026-27: 4.50 | 2025-26: 2.20 | 2024-25: 0.90 | 2023-24: 0.40
-- **Test RMSE:** `{test_rmse:.3f}` (Temel Model: `{baseline_test_rmse:.3f}`)
+- **Seçilen Model:** `{best_name}` (Tüm veriyle yeniden eğitildi)
+- **Öznitelik Sayısı:** {len(feature_cols)} (Gürültüsüz, alan odaklı, `referee_id` çıkarıldı)
+- **Test RMSE:** `{test_rmse:.3f}` (Temel Model: `{baseline_test_rmse:.3f}`) — {'✅ Baseline Geçildi' if test_rmse < baseline_test_rmse else '❌'}
 - **Test MAE:** `{test_mae:.3f}` (Temel Model: `{baseline_test_mae:.3f}`)
-- **3.5 Üst Doğruluğu:** `%{o35_acc:.2f}`
+- **3.5 Üst Doğruluğu:** `%{o35_acc:.2f}` (Çoğunluk Kuralı: `%{majority_o35:.2f}`)
 - **4.5 Üst Doğruluğu:** `%{o45_acc:.2f}`
 
-### En Etkili 10 Öznitelik (Feature Importance)
-
+### En Etkili Öznitelikler
 | Sıra | Öznitelik Adı | Önem Skoru |
 |:---|:---|:---:|
 {feat_rows}

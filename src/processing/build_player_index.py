@@ -109,10 +109,13 @@ def parse_player_data():
                     assists_count[aid] = assists_count.get(aid, 0) + 1
             elif ev_type == "S":
                 # Substitution: sub on / sub off
-                pid_on = ev.get("personId")
                 desc = ev.get("description", "")
-                if pid_on:
-                    sub_on[pid_on] = min_val
+                pid = ev.get("personId")
+                if pid:
+                    if desc == "ON":
+                        sub_on[pid] = min_val
+                    elif desc == "OFF":
+                        sub_off[pid] = min_val
 
         teams_info = d.get("teams", [])
         team_lists = d.get("teamLists") or []

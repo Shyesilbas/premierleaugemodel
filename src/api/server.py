@@ -19,6 +19,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from scipy.stats import poisson
 from src.db.database import get_referees_list, get_referee_detail, get_all_grouped_fixtures, get_referee_summary
+from src.features.build_features import (
+    calculate_rest_days,
+    build_team_match_history,
+    compute_team_states,
+    compute_strength_state,
+    build_prediction_row,
+)
+from src.analytics.team_tactics import get_team_tactical_profile
+from src.analytics.team_scenarios import get_team_scenario_profile
+from src.analytics.team_attackers import get_team_attacking_leaders
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api_server")
@@ -128,7 +138,7 @@ if not df_matches.empty:
         mid = int(r["match_id"])
         teams_dict[int(r["home_id"])] = {"id": int(r["home_id"]), "name": r["home_name"], "abbr": r["home_abbr"]}
         teams_dict[int(r["away_id"])] = {"id": int(r["away_id"]), "name": r["away_name"], "abbr": r["away_abbr"]}
-        if pd.notnull(r.get("total_corners")):
+        if pd.notnull(r.get("total_corners")) or pd.notnull(r.get("home_total_scoring_att")) or pd.notnull(r.get("away_total_scoring_att")):
             match_stats_map[mid] = {
                 "total_corners": r.get("total_corners"),
                 "total_throws": r.get("total_throws"),
@@ -139,30 +149,66 @@ if not df_matches.empty:
                 "away_won_corners": r.get("away_won_corners"),
                 "home_total_throws": r.get("home_total_throws"),
                 "away_total_throws": r.get("away_total_throws"),
+                "home_total_shots": int(r["home_total_scoring_att"]) if pd.notnull(r.get("home_total_scoring_att")) else None,
+                "away_total_shots": int(r["away_total_scoring_att"]) if pd.notnull(r.get("away_total_scoring_att")) else None,
             }
 
 teams_list = sorted(list(teams_dict.values()), key=lambda x: x["name"])
 
-# Pre-cache latest feature row per team for instantaneous predictions
-team_latest_row_cache: Dict[Tuple[int, str], Dict[str, Any]] = {}
-if not df_features.empty:
-    for tid in teams_dict.keys():
-        h_rows = df_features[df_features["home_id"] == tid]
-        a_rows = df_features[df_features["away_id"] == tid]
-        if not h_rows.empty:
-            team_latest_row_cache[(tid, "home")] = h_rows.iloc[-1].to_dict()
-        elif not a_rows.empty:
-            team_latest_row_cache[(tid, "home")] = a_rows.iloc[-1].to_dict()
+# Live team states (form + strength) built with the SAME definitions as the training features.
+# Each team's state includes its latest played match (no stale / future-fixture rows).
+_matches_prepared = calculate_rest_days(df_matches) if not df_matches.empty else pd.DataFrame()
+_long_history = build_team_match_history(_matches_prepared) if not _matches_prepared.empty else pd.DataFrame()
+_played_matches = _matches_prepared[_matches_prepared["is_played"]] if not _matches_prepared.empty else pd.DataFrame()
+CURRENT_SEASON = (
+    str(_played_matches["season"].iloc[-1]) if not _played_matches.empty and "season" in _played_matches.columns else None
+)
+_live_state_cache: Dict[str, Tuple[pd.DataFrame, Dict[str, Any], Optional[pd.Timestamp]]] = {}
 
-        if not a_rows.empty:
-            team_latest_row_cache[(tid, "away")] = a_rows.iloc[-1].to_dict()
-        elif not h_rows.empty:
-            team_latest_row_cache[(tid, "away")] = h_rows.iloc[-1].to_dict()
+
+def get_live_state(season: Optional[str]) -> Tuple[pd.DataFrame, Dict[str, Any], Optional[pd.Timestamp]]:
+    """Returns (team form states, strength state, cutoff date). Historical seasons use end-of-season state."""
+    key = "current" if (not season or season in ("all", CURRENT_SEASON)) else season
+    if key not in _live_state_cache:
+        until: Optional[pd.Timestamp] = None
+        if key != "current" and "season" in _played_matches.columns:
+            season_played = _played_matches[_played_matches["season"] == season]
+            if not season_played.empty:
+                until = season_played["match_date"].max()
+        _live_state_cache[key] = (
+            compute_team_states(_long_history, until=until),
+            compute_strength_state(_matches_prepared, until=until),
+            until,
+        )
+    return _live_state_cache[key]
+
+
+if not _long_history.empty:
+    get_live_state(None)  # Warm up current-season state at startup
 
 
 @app.get("/api/teams")
 def get_teams(season: Optional[str] = None):
-    """Returns sorted list of teams, optionally filtered by season (2024_25 or 2025_26)."""
+    """Returns sorted list of teams, optionally filtered by season."""
+    if season == "2026_27":
+        current_teams = {}
+        for fixture in raw_fixtures_2627:
+            for entry in fixture.get("teams", []):
+                team = entry.get("team") or {}
+                team_id = team.get("id")
+                if team_id is None:
+                    continue
+                club = team.get("club") or {}
+                current_teams[int(team_id)] = {
+                    "id": int(team_id),
+                    "name": team.get("name") or club.get("name") or "",
+                    "abbr": club.get("abbr") or "",
+                }
+
+        if current_teams:
+            result = sorted(current_teams.values(), key=lambda team: team["name"])
+            return {"teams": result, "count": len(result)}
+
     if df_matches.empty:
         return {"teams": teams_list}
 
@@ -250,6 +296,7 @@ def get_grouped_fixtures(season: str = "2026_27"):
         h_score = r["home_score"]
         a_score = r["away_score"]
         is_completed = (r["status"] == "COMPLETED" or (h_score is not None and a_score is not None))
+        match_stats = match_stats_map.get(mid, {})
 
         # Compute AI predictions for uncompleted matches in current/upcoming gameweeks
         pred = get_quick_fixture_prediction(h_id, a_id, r.get("season") or season) if (not is_completed and gw in [6, 7, 8]) else None
@@ -272,6 +319,8 @@ def get_grouped_fixtures(season: str = "2026_27"):
             "total_corners": r.get("total_corners"),
             "total_throws": r.get("total_throws"),
             "total_shots": r.get("total_shots"),
+            "home_total_shots": match_stats.get("home_total_shots"),
+            "away_total_shots": match_stats.get("away_total_shots"),
             "total_shots_ontarget": r.get("total_shots_ontarget"),
             "total_saves": r.get("total_saves"),
             "home_won_corners": r.get("home_won_corners"),
@@ -573,6 +622,30 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
         "matches": matches_list,
         "squad": squad,
     }
+
+
+@app.get("/api/teams/tactics")
+def get_team_tactics(team_id: int, season: Optional[str] = "all"):
+    """Returns a team-level tactical profile and same-season league benchmarks."""
+    if team_id not in teams_dict:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return get_team_tactical_profile(team_id, season or "all")
+
+
+@app.get("/api/teams/attacking-leaders")
+def get_team_attacking_leaders_endpoint(team_id: int, season: Optional[str] = "all"):
+    """Return the team's top three players by explainable attacking rating."""
+    if team_id not in teams_dict:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return get_team_attacking_leaders(team_id, season or "all")
+
+
+@app.get("/api/teams/scenarios")
+def get_team_scenarios(team_id: int, season: Optional[str] = "all"):
+    """Returns shot and corner rates split by the live score state."""
+    if team_id not in teams_dict:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return get_team_scenario_profile(team_id, season or "all")
 
 
 @app.get("/api/players")
@@ -942,11 +1015,17 @@ def get_match_full_details(match_id: int):
     key_timeline = []
     player_names = {}
     player_photos = {}
-    for tl in d.get("teamLists", []):
-        for p in (tl.get("lineup", []) + tl.get("substitutes", [])):
+    for tl in (d.get("teamLists") or []):
+        if not tl or not isinstance(tl, dict):
+            continue
+        lineup_p = tl.get("lineup") or []
+        subs_p = tl.get("substitutes") or []
+        for p in (lineup_p + subs_p):
+            if not p or not isinstance(p, dict):
+                continue
             pid = p.get("id")
             if pid:
-                pname = p.get("name", {}).get("display") or "Bilinmeyen Oyuncu"
+                pname = (p.get("name") or {}).get("display") or "Bilinmeyen Oyuncu"
                 player_names[pid] = pname
                 reg_p = player_registry_map.get(int(pid), {})
                 opta_c = reg_p.get("opta_code") or f"p{pid}"
@@ -1091,41 +1170,28 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     if not home_meta or not away_meta:
         raise HTTPException(status_code=404, detail="Team not found.")
 
-    simulated_row = None
-    if (not season or season in ["2026_27", "all"]) and (home_id, "home") in team_latest_row_cache and (away_id, "away") in team_latest_row_cache:
-        simulated_row = dict(team_latest_row_cache[(home_id, "home")])
-        away_dict = team_latest_row_cache[(away_id, "away")]
-        for col, val in away_dict.items():
-            if col.startswith("away_"):
-                simulated_row[col] = val
+    team_states, strength_state, until = get_live_state(season)
+
+    # Reference date & referee: use the scheduled (unplayed) fixture of this pairing if it exists
+    referee_info: Optional[Dict[str, Any]] = None
+    if until is None:
+        match_date = pd.Timestamp.now()
+        if not df_features.empty and "is_played" in df_features.columns:
+            upcoming = df_features[
+                (df_features["home_id"] == home_id) & (df_features["away_id"] == away_id) & (~df_features["is_played"])
+            ]
+            if not upcoming.empty:
+                fx = upcoming.iloc[0]
+                match_date = pd.Timestamp(fx["match_date"])
+                referee_info = {
+                    c: (fx[c] if pd.notnull(fx.get(c)) else None)
+                    for c in ["referee_name", "referee_avg_cards", "referee_avg_fouls", "referee_prior_matches"]
+                    if c in fx.index
+                }
     else:
-        feature_pool = df_features
-        if season and "season" in feature_pool.columns and season != "all":
-            season_subset = feature_pool[feature_pool["season"] == season]
-            if not season_subset.empty:
-                feature_pool = season_subset
+        match_date = until + pd.Timedelta(days=7)  # Hypothetical next match after season end
 
-        home_rows = feature_pool[feature_pool["home_id"] == home_id]
-        away_rows = feature_pool[feature_pool["away_id"] == away_id]
-
-        if home_rows.empty:
-            home_rows = feature_pool[feature_pool["away_id"] == home_id]
-        if away_rows.empty:
-            away_rows = feature_pool[feature_pool["home_id"] == away_id]
-
-        if home_rows.empty or away_rows.empty:
-            home_rows = df_features[df_features["home_id"] == home_id]
-            away_rows = df_features[df_features["away_id"] == away_id]
-
-        latest_home = home_rows.iloc[-1]
-        latest_away = away_rows.iloc[-1]
-
-        simulated_row = pd.Series(latest_home).to_dict()
-        for col in latest_away.index:
-            if col.startswith("away_"):
-                simulated_row[col] = latest_away[col]
-
-    simulated_df = pd.DataFrame([simulated_row])
+    simulated_df = build_prediction_row(team_states, strength_state, home_id, away_id, match_date, referee_info)
 
     # 1. Corner Prediction
     c_features = corner_artifact["feature_names"]
@@ -1152,14 +1218,14 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     exp_saves = max(2.0, min(12.0, exp_saves))
 
     # 4. Outcome & Goals Prediction
-    o_features = outcome_artifact["feature_names"]
-    X_o = simulated_df[o_features]
-    probs_1x2 = outcome_artifact["model_1x2"].predict_proba(X_o)[0]
+    o_features = outcome_artifact.get("feature_names_1x2", outcome_artifact["feature_names"])
+    o25_features = outcome_artifact.get("feature_names_o25", o_features)
+    probs_1x2 = outcome_artifact["model_1x2"].predict_proba(simulated_df[o_features])[0]
     prob_h = float(probs_1x2[0] * 100)
     prob_d = float(probs_1x2[1] * 100)
     prob_a = float(probs_1x2[2] * 100)
 
-    prob_o25 = float(outcome_artifact["model_o25"].predict_proba(X_o)[0][1] * 100)
+    prob_o25 = float(outcome_artifact["model_o25"].predict_proba(simulated_df[o25_features])[0][1] * 100)
 
     fav = home_meta["name"] if prob_h > prob_a else away_meta["name"]
     fav_label = f"{fav} Favori" if abs(prob_h - prob_a) > 10 else "Dengeli Mücadele"
@@ -1230,14 +1296,32 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         exp_a_xg = float(simulated_df["away_xg_for_roll_5"].iloc[0] or 1.25)
     exp_tot_xg = round(exp_h_xg + exp_a_xg, 2)
 
-    ref_name = str(simulated_df.get("referee_name", pd.Series(["Premier League Hakem Heyeti"])).iloc[0] or "Premier League Hakem Heyeti")
+    raw_ref = simulated_df.get("referee_name", pd.Series([None])).iloc[0]
+    ref_name = str(raw_ref) if pd.notnull(raw_ref) and raw_ref else "Premier League Hakem Heyeti"
     ref_avg_c = float(simulated_df.get("referee_avg_cards", pd.Series([4.15])).iloc[0] or 4.15)
     ref_avg_f = float(simulated_df.get("referee_avg_fouls", pd.Series([21.5])).iloc[0] or 21.5)
 
-    # Splits (Home vs Away breakdown)
+    # Splits (Home vs Away breakdown dynamically calculated from team rolling rates)
     home_c_share = 0.55
+    if "home_corners_for_roll_5" in simulated_df.columns and "away_corners_for_roll_5" in simulated_df.columns:
+        h_crn = float(simulated_df["home_corners_for_roll_5"].iloc[0] or 5.2)
+        a_crn = float(simulated_df["away_corners_for_roll_5"].iloc[0] or 4.8)
+        if (h_crn + a_crn) > 0:
+            home_c_share = max(0.25, min(0.75, h_crn / (h_crn + a_crn)))
+
     home_t_share = 0.51
-    home_s_share = 0.46
+    if "home_throws_roll_5" in simulated_df.columns and "away_throws_roll_5" in simulated_df.columns:
+        h_th = float(simulated_df["home_throws_roll_5"].iloc[0] or 18.0)
+        a_th = float(simulated_df["away_throws_roll_5"].iloc[0] or 17.0)
+        if (h_th + a_th) > 0:
+            home_t_share = max(0.30, min(0.70, h_th / (h_th + a_th)))
+
+    home_s_share = 0.48
+    if "home_saves_roll_5" in simulated_df.columns and "away_saves_roll_5" in simulated_df.columns:
+        h_sv = float(simulated_df["home_saves_roll_5"].iloc[0] or 2.8)
+        a_sv = float(simulated_df["away_saves_roll_5"].iloc[0] or 2.9)
+        if (h_sv + a_sv) > 0:
+            home_s_share = max(0.25, min(0.75, h_sv / (h_sv + a_sv)))
 
     return {
         "home_team": home_meta,

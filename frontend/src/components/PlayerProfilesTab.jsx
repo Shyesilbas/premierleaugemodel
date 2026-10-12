@@ -5,19 +5,21 @@ import {
   User, 
   Clock, 
   ChevronRight, 
-  ChevronLeft,
-  Activity, 
-  Award, 
   Calendar, 
   Shield, 
-  Target, 
-  Filter, 
-  X,
-  MapPin,
-  Trophy,
-  Zap
+  X
 } from 'lucide-react';
 import MatchDetailModal from './MatchDetailModal';
+
+function parseKickoff(label) {
+  if (!label) return { date: '-', time: '' };
+  const parts = String(label).split(',');
+  if (parts.length < 2) return { date: parts[0].trim(), time: '' };
+  return {
+    date: parts[0].trim(),
+    time: parts[1].trim().replace(/\s+(BST|GMT)/gi, ''),
+  };
+}
 
 // Reusable Player Avatar with fallback to jersey number and initials
 function PlayerAvatar({ player, size = 'md', className = '' }) {
@@ -26,13 +28,13 @@ function PlayerAvatar({ player, size = 'md', className = '' }) {
   const sizeClasses = {
     sm: 'w-10 h-10',
     md: 'w-14 h-14',
-    lg: 'w-24 h-24 sm:w-28 sm:h-28',
+    lg: 'w-20 h-20',
   };
 
   const hasPhoto = player?.photo_url && !imgError;
 
   return (
-    <div className={`relative rounded-2xl bg-gradient-to-b from-slate-100 to-slate-200 border border-slate-300 flex items-center justify-center shrink-0 overflow-hidden shadow-inner ${sizeClasses[size] || sizeClasses.md} ${className}`}>
+    <div className={`relative rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden ${sizeClasses[size] || sizeClasses.md} ${className}`}>
       {hasPhoto ? (
         <img
           src={player.photo_url}
@@ -76,11 +78,18 @@ export default function PlayerProfilesTab({ selectedSeason }) {
 
   // Fetch player search directory
   useEffect(() => {
+    const hasDirectoryFilter = searchTerm.trim() || selectedTeamFilter || selectedPositionFilter;
+    if (!hasDirectoryFilter) {
+      setPlayerList([]);
+      setLoadingList(false);
+      return;
+    }
+
     setLoadingList(true);
     const query = new URLSearchParams();
-    if (searchTerm) query.append('search', searchTerm);
+    if (searchTerm.trim()) query.append('search', searchTerm.trim());
     if (selectedTeamFilter) query.append('team_id', selectedTeamFilter);
-    query.append('limit', '50');
+    query.append('limit', '20');
 
     fetch(`/api/players?${query.toString()}`)
       .then(res => res.json())
@@ -117,65 +126,67 @@ export default function PlayerProfilesTab({ selectedSeason }) {
   const pData = playerProfile?.player;
   const pStats = playerProfile?.season_stats || {};
 
+  // Only include appearances that were actually played; omit unplayed fixtures.
+  const playedMatches = useMemo(() => (playerProfile?.matches || []).filter(
+    match => Number(match.minutes_played) > 0
+  ), [playerProfile?.matches]);
+
   // Dynamically resolve the player's active team for the chosen season
   const activeTeamId = useMemo(() => {
-    if (playerProfile?.matches?.length) {
-      return playerProfile.matches[playerProfile.matches.length - 1].team_id;
+    if (playedMatches.length) {
+      return playedMatches[playedMatches.length - 1].team_id;
     }
     return pData?.teamId;
-  }, [playerProfile?.matches, pData?.teamId]);
+  }, [playedMatches, pData?.teamId]);
 
   const activeTeamName = useMemo(() => {
-    if (playerProfile?.matches?.length) {
-      return playerProfile.matches[playerProfile.matches.length - 1].team_name;
+    if (playedMatches.length) {
+      return playedMatches[playedMatches.length - 1].team_name;
     }
     return pData?.teamName;
-  }, [playerProfile?.matches, pData?.teamName]);
+  }, [playedMatches, pData?.teamName]);
 
   const teamMeta = activeTeamId ? getTeam(activeTeamId, activeTeamName) : (pData ? getTeam(pData.teamId, pData.teamName) : null);
 
-  // Unique played gameweeks sorted
+  // Unique gameweeks in the player's played matches
   const playedGameweeks = useMemo(() => {
-    if (!playerProfile?.matches?.length) return [];
+    if (!playedMatches.length) return [];
     const set = new Set();
-    playerProfile.matches.forEach(m => {
+    playedMatches.forEach(m => {
       const gwNum = Math.round(Number(m.gameweek));
       if (!isNaN(gwNum) && gwNum > 0) set.add(gwNum);
     });
     return Array.from(set).sort((a, b) => a - b);
-  }, [playerProfile?.matches]);
+  }, [playedMatches]);
 
-  // When playerProfile or playedGameweeks changes, default to latest played gameweek
+  // Reset the optional week filter when changing player or season.
   useEffect(() => {
-    if (playedGameweeks.length > 0) {
-      setSelectedMatchGameweek(String(playedGameweeks[playedGameweeks.length - 1]));
-    } else {
-      setSelectedMatchGameweek('all');
-    }
-  }, [playedGameweeks]);
+    setSelectedMatchGameweek('all');
+  }, [selectedPlayerId, playerSeason]);
 
   // Filtered match records for currently selected week
   const filteredMatches = useMemo(() => {
-    if (!playerProfile?.matches) return [];
+    if (!playedMatches.length) return [];
     if (selectedMatchGameweek === 'all') {
-      return playerProfile.matches;
+      return playedMatches;
     }
-    return playerProfile.matches.filter(m => Math.round(Number(m.gameweek)) === Number(selectedMatchGameweek));
-  }, [playerProfile?.matches, selectedMatchGameweek]);
+    return playedMatches.filter(m => Math.round(Number(m.gameweek)) === Number(selectedMatchGameweek));
+  }, [playedMatches, selectedMatchGameweek]);
 
   // Position label and semantic badge styling
   const getPosMeta = (pos) => {
+    const neutralClass = 'bg-slate-100 text-slate-700 border-slate-200';
     switch (pos) {
       case 'F':
-        return { label: 'Forvet', class: 'bg-rose-50 text-rose-800 border-rose-200' };
+        return { label: 'Forvet', class: neutralClass };
       case 'M':
-        return { label: 'Orta Saha', class: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
+        return { label: 'Orta Saha', class: neutralClass };
       case 'D':
-        return { label: 'Defans', class: 'bg-sky-50 text-sky-800 border-sky-200' };
+        return { label: 'Defans', class: neutralClass };
       case 'G':
-        return { label: 'Kaleci', class: 'bg-amber-50 text-amber-800 border-amber-200' };
+        return { label: 'Kaleci', class: neutralClass };
       default:
-        return { label: 'Oyuncu', class: 'bg-slate-100 text-slate-700 border-slate-200' };
+        return { label: 'Oyuncu', class: neutralClass };
     }
   };
 
@@ -195,8 +206,8 @@ export default function PlayerProfilesTab({ selectedSeason }) {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Oyuncu veya kulüp ara (örn: Haaland, Salah, Saka, Palmer, Son, Arsenal)..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-9 py-2.5 text-xs font-medium text-slate-900 placeholder-slate-400 outline-none focus:border-[#38003c] focus:bg-white transition-all"
+              placeholder="Oyuncu veya kulüp ara"
+              className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-9 py-2.5 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none focus:border-slate-400 transition-all"
             />
             {searchTerm && (
               <button
@@ -213,7 +224,7 @@ export default function PlayerProfilesTab({ selectedSeason }) {
             <select
               value={selectedTeamFilter}
               onChange={(e) => setSelectedTeamFilter(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#38003c] transition-all cursor-pointer"
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-slate-400 transition-all cursor-pointer"
             >
               <option value="">Tüm Kulüpler (20 Takım)</option>
               {TEAMS.map(t => (
@@ -242,7 +253,7 @@ export default function PlayerProfilesTab({ selectedSeason }) {
                 onClick={() => setSelectedPositionFilter(p.id)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                   selectedPositionFilter === p.id
-                    ? 'bg-[#38003c] text-white shadow-xs'
+                    ? 'bg-slate-900 text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -252,28 +263,30 @@ export default function PlayerProfilesTab({ selectedSeason }) {
           </div>
 
           <span className="text-[11px] text-slate-500 font-mono font-medium">
-            {playerList.length} Oyuncu Listelendi
+            {loadingList
+              ? 'Oyuncular aranıyor…'
+              : searchTerm.trim() || selectedTeamFilter || selectedPositionFilter
+              ? `${playerList.length} sonuç`
+              : 'Oyuncu değiştirmek için arayın'}
           </span>
         </div>
 
       </div>
 
-      {/* Fast Player Selector Carousel */}
-      {playerList.length > 0 && (
+      {/* Search results appear only after the user applies a filter. */}
+      {playerList.length > 0 && (searchTerm.trim() || selectedTeamFilter || selectedPositionFilter) && (
         <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
           <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
             {playerList.slice(0, 24).map(pl => {
               const isSelected = pl.id === selectedPlayerId;
               const plTeam = getTeam(pl.teamId, pl.teamName);
-              const plPos = getPosMeta(pl.position);
-
               return (
                 <button
                   key={pl.id}
                   onClick={() => setSelectedPlayerId(pl.id)}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 border ${
                     isSelected
-                      ? 'bg-[#38003c] text-white border-[#38003c] shadow-sm'
+                      ? 'bg-slate-100 text-slate-950 border-slate-400'
                       : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
                   }`}
                 >
@@ -284,16 +297,12 @@ export default function PlayerProfilesTab({ selectedSeason }) {
                     <div className="flex items-center gap-1.5 leading-tight">
                       <span className="truncate max-w-[120px]">{pl.name}</span>
                       {pl.shirt ? (
-                        <span className={`font-mono text-[10px] px-1 py-0.2 rounded font-black ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-800'
-                        }`}>
+                        <span className="rounded bg-slate-200 px-1 font-mono text-[10px] font-bold text-slate-700">
                           #{pl.shirt}
                         </span>
                       ) : null}
                     </div>
-                    <span className={`text-[10px] block truncate max-w-[110px] font-medium ${
-                      isSelected ? 'text-white/80' : 'text-slate-500'
-                    }`}>
+                    <span className="block max-w-[110px] truncate text-[10px] font-medium text-slate-500">
                       {plTeam.short || pl.teamName}
                     </span>
                   </div>
@@ -304,385 +313,149 @@ export default function PlayerProfilesTab({ selectedSeason }) {
         </div>
       )}
 
-      {/* Modern Player Hero Card */}
+      {/* Player identity and season summary */}
       {pData && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-6 relative overflow-hidden">
-          
-          {/* Left: Player Photo, Jersey Number & Core Identity */}
-          <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-5 w-full lg:w-auto">
-            
-            {/* Player Headshot Photo Card */}
-            <div className="relative group shrink-0">
-              <PlayerAvatar 
-                player={pData} 
-                size="lg" 
-                className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-gradient-to-b from-slate-50 via-slate-100 to-slate-200 border-2 border-slate-200 shadow-md p-1"
-              />
-              
-              {/* Bold Jersey Number Corner Ribbon */}
-              {pData.shirt && (
-                <div className="absolute -top-2 -left-2 bg-[#38003c] text-white px-2.5 py-1 rounded-xl font-mono font-black text-sm shadow-md border-2 border-white flex items-center justify-center">
-                  #{pData.shirt}
-                </div>
-              )}
-
-              {/* Club Badge Overlay */}
-              {teamMeta && (
-                <div className="absolute -bottom-2 -right-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-md w-9 h-9 flex items-center justify-center">
-                  <img 
-                    src={teamMeta.badge} 
-                    alt={teamMeta.name} 
-                    className="w-6 h-6 object-contain"
-                    onError={(e) => { e.target.src = '/badges/1.svg'; }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Identity Texts */}
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  {pData.name}
-                </h2>
-                
-                {/* Position Badge */}
-                {posMeta && (
-                  <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${posMeta.class}`}>
-                    {posMeta.label}
-                  </span>
-                )}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-5 p-4 sm:flex-row sm:items-center sm:p-6">
+            <PlayerAvatar player={pData} size="lg" className="h-20 w-20 rounded-2xl" />
+            <div className="min-w-0 flex-1 text-center sm:text-left">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                <h2 className="text-2xl font-black tracking-tight text-slate-950">{pData.name}</h2>
+                {posMeta && <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${posMeta.class}`}>{posMeta.label}</span>}
               </div>
-
-              {/* Club & Country Details */}
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-xs text-slate-600 font-medium">
-                {teamMeta && (
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                    <Shield className="w-3.5 h-3.5 text-[#38003c]" />
-                    <span>{teamMeta.name}</span>
-                  </div>
-                )}
-                {pData.country && (
-                  <div className="flex items-center gap-1 text-slate-500 font-medium">
-                    <span>•</span>
-                    <span>{pData.country}</span>
-                  </div>
-                )}
-                {pData.shirt && (
-                  <div className="flex items-center gap-1 font-mono text-slate-500">
-                    <span>•</span>
-                    <span>Forma No: <strong>{pData.shirt}</strong></span>
-                  </div>
-                )}
+              <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-slate-600 sm:justify-start">
+                {teamMeta && <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800"><img src={teamMeta.badge} alt="" className="h-4 w-4 object-contain" onError={(e) => { e.target.src = '/badges/1.svg'; }} />{teamMeta.name}</span>}
+                {pData.country && <span>{pData.country}</span>}
+                {pData.shirt && <span>Forma no: {pData.shirt}</span>}
               </div>
-
-              {/* Career totals summary line */}
-              <p className="text-[11px] text-slate-500 font-medium pt-1">
-                Kayıtlı Premier League İstatistiği: <strong className="text-slate-800 font-mono">{pData.total_appearances} Maç</strong> • <strong className="text-emerald-700 font-mono">{pData.total_goals} Gol</strong> • <strong className="text-purple-700 font-mono">{pData.total_assists} Asist</strong>
+              <p className="mt-2 text-xs text-slate-500">
+                Premier League kariyeri <span className="mx-1">·</span>{pData.total_appearances || 0} maç <span className="mx-1">·</span>{pData.total_goals || 0} gol <span className="mx-1">·</span>{pData.total_assists || 0} asist
               </p>
             </div>
-
+            <label className="flex shrink-0 items-center gap-2 self-center text-xs font-semibold text-slate-500 sm:self-start">
+              Sezon
+              <select value={playerSeason} onChange={(e) => setPlayerSeason(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-slate-400">
+                <option value="2026_27">2026-27</option>
+                <option value="2025_26">2025-26</option>
+                <option value="2024_25">2024-25</option>
+                <option value="2023_24">2023-24</option>
+                <option value="all">Tüm sezonlar</option>
+              </select>
+            </label>
           </div>
 
-          {/* Right: Season Filter Switcher & Big Stat Cards */}
-          <div className="flex flex-col items-center lg:items-end gap-4 w-full lg:w-auto">
-            
-            {/* Season Switcher Pills */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
-              <button
-                onClick={() => setPlayerSeason('2026_27')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  playerSeason === '2026_27'
-                    ? 'bg-[#38003c] text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                2026-27
-              </button>
-              <button
-                onClick={() => setPlayerSeason('2025_26')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  playerSeason === '2025_26'
-                    ? 'bg-[#38003c] text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                2025-26
-              </button>
-              <button
-                onClick={() => setPlayerSeason('2024_25')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  playerSeason === '2024_25'
-                    ? 'bg-[#38003c] text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                2024-25
-              </button>
-              <button
-                onClick={() => setPlayerSeason('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  playerSeason === 'all'
-                    ? 'bg-[#38003c] text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Tüm Sezonlar
-              </button>
-            </div>
-
-            {/* 4 Large Clean Statistic Cards */}
-            <div className="grid grid-cols-4 gap-2.5 w-full sm:w-auto font-mono">
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center min-w-[70px] sm:min-w-[85px] shadow-xs">
-                <span className="text-[10px] text-slate-500 font-sans font-bold block uppercase tracking-wider">MAÇ</span>
-                <strong className="text-slate-900 text-base sm:text-lg font-black">{pStats.appearances || 0}</strong>
-              </div>
-              <div className="bg-sky-50 border border-sky-200 rounded-2xl p-3 text-center min-w-[70px] sm:min-w-[85px] shadow-xs">
-                <span className="text-[10px] text-sky-700 font-sans font-bold block uppercase tracking-wider">DAKİKA</span>
-                <strong className="text-sky-900 text-base sm:text-lg font-black">{pStats.minutes || 0}'</strong>
-              </div>
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-center min-w-[70px] sm:min-w-[85px] shadow-xs">
-                <span className="text-[10px] text-emerald-700 font-sans font-bold block uppercase tracking-wider">GOL</span>
-                <strong className="text-emerald-800 text-base sm:text-lg font-black">{pStats.goals || 0}</strong>
-              </div>
-              <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3 text-center min-w-[70px] sm:min-w-[85px] shadow-xs">
-                <span className="text-[10px] text-purple-700 font-sans font-bold block uppercase tracking-wider">ASİST</span>
-                <strong className="text-purple-900 text-base sm:text-lg font-black">{pStats.assists || 0}</strong>
-              </div>
-            </div>
-
+          <div className="grid grid-cols-2 divide-x divide-y divide-slate-200 border-t border-slate-200 sm:grid-cols-4 sm:divide-y-0">
+            <div className="px-4 py-3 text-center sm:text-left sm:px-6"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Maç</span><strong className="text-lg font-bold tabular-nums text-slate-900">{pStats.appearances || 0}</strong></div>
+            <div className="px-4 py-3 text-center sm:text-left sm:px-6"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Dakika</span><strong className="text-lg font-bold tabular-nums text-slate-900">{pStats.minutes || 0}</strong></div>
+            <div className="px-4 py-3 text-center sm:text-left sm:px-6"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Gol</span><strong className="text-lg font-bold tabular-nums text-slate-900">{pStats.goals || 0}</strong></div>
+            <div className="px-4 py-3 text-center sm:text-left sm:px-6"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Asist</span><strong className="text-lg font-bold tabular-nums text-slate-900">{pStats.assists || 0}</strong></div>
           </div>
-
-        </div>
+        </section>
       )}
 
-      {/* Match-by-Match Preview Log */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+      {/* Match history in the same compact row layout as Team Profiles */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#38003c]" />
-            <h3 className="text-sm font-black text-slate-900">
-              {pData?.name} — Maç Performans Günlüğü & Skor Önizlemeleri
-            </h3>
+            <Calendar className="h-4 w-4 text-slate-500" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Maç geçmişi</h3>
+              <p className="text-xs text-slate-500">{playedMatches.length} oynanmış maç · {playerSeason === 'all' ? 'Tüm sezonlar' : playerSeason.replace('_', '-')}</p>
+            </div>
           </div>
-          <span className="text-xs font-mono font-bold text-slate-500">
-            {playerProfile?.matches?.length || 0} Maç Kaydı
-          </span>
+          {playedGameweeks.length > 0 && (
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-500">
+              Hafta
+              <select value={selectedMatchGameweek} onChange={(e) => setSelectedMatchGameweek(e.target.value)} className="min-w-36 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-slate-400">
+                <option value="all">Tüm haftalar</option>
+                {playedGameweeks.map((gw) => <option key={gw} value={gw}>Hafta {gw}</option>)}
+              </select>
+            </label>
+          )}
         </div>
-
-        {/* Week-by-Week Navigation Toolbar */}
-        {playedGameweeks.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 border border-slate-200/90 p-3 rounded-xl">
-            
-            {/* Step Controls: Önceki Hafta & Sonraki Hafta */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  if (selectedMatchGameweek === 'all') {
-                    setSelectedMatchGameweek(String(playedGameweeks[0]));
-                    return;
-                  }
-                  const currentIdx = playedGameweeks.indexOf(Number(selectedMatchGameweek));
-                  if (currentIdx > 0) {
-                    setSelectedMatchGameweek(String(playedGameweeks[currentIdx - 1]));
-                  }
-                }}
-                disabled={selectedMatchGameweek !== 'all' && playedGameweeks.indexOf(Number(selectedMatchGameweek)) <= 0}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Önceki Hafta</span>
-              </button>
-
-              <div className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-mono font-black text-[#38003c] shadow-xs">
-                {selectedMatchGameweek === 'all' ? (
-                  <span>Tüm Haftalar ({playedGameweeks.length} Hafta)</span>
-                ) : (
-                  <span>Hafta {selectedMatchGameweek}</span>
-                )}
-              </div>
-
-              <button
-                onClick={() => {
-                  if (selectedMatchGameweek === 'all') {
-                    setSelectedMatchGameweek(String(playedGameweeks[playedGameweeks.length - 1]));
-                    return;
-                  }
-                  const currentIdx = playedGameweeks.indexOf(Number(selectedMatchGameweek));
-                  if (currentIdx >= 0 && currentIdx < playedGameweeks.length - 1) {
-                    setSelectedMatchGameweek(String(playedGameweeks[currentIdx + 1]));
-                  }
-                }}
-                disabled={selectedMatchGameweek !== 'all' && playedGameweeks.indexOf(Number(selectedMatchGameweek)) >= playedGameweeks.length - 1}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all"
-              >
-                <span>Sonraki Hafta</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Quick Week Pill List + All Button */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 scrollbar-thin">
-              <button
-                onClick={() => setSelectedMatchGameweek('all')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  selectedMatchGameweek === 'all'
-                    ? 'bg-[#38003c] text-white shadow-xs'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                Tümü ({playerProfile?.matches?.length})
-              </button>
-              {playedGameweeks.map(gw => {
-                const isSelected = String(selectedMatchGameweek) === String(gw);
-                return (
-                  <button
-                    key={gw}
-                    onClick={() => setSelectedMatchGameweek(String(gw))}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
-                      isSelected
-                        ? 'bg-[#38003c] text-white shadow-xs'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    Hafta {gw}
-                  </button>
-                );
-              })}
-            </div>
-
-          </div>
-        )}
 
         {loadingProfile ? (
           <div className="py-16 text-center">
             <div className="w-7 h-7 border-3 border-[#38003c] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
             <p className="text-xs font-bold text-slate-600">Oyuncu maç kayıtları yükleniyor...</p>
           </div>
-        ) : !playerProfile?.matches?.length ? (
+        ) : !playedMatches.length ? (
           <div className="py-12 text-center text-xs text-slate-500 font-medium">
-            Seçilen sezonda oyuncunun maç kaydı bulunamadı.
+            Seçilen sezonda oyuncunun süre aldığı maç bulunamadı.
           </div>
         ) : filteredMatches.length === 0 ? (
           <div className="py-12 text-center text-xs text-slate-500 font-medium bg-slate-50 border border-slate-200 rounded-xl">
             Bu haftada ({selectedMatchGameweek}. Hafta) oyuncunun süre aldığı karşılaşma kaydı bulunmuyor.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="divide-y divide-slate-100">
             {filteredMatches.map(m => {
               const opp = getTeam(m.opponent_id, m.opponent_name);
               const matchTeam = getTeam(m.team_id, m.team_name);
               const goalsCount = m.goals || 0;
               const assistsCount = m.assists || 0;
-              const hasContribution = goalsCount > 0 || assistsCount > 0;
+              const isPlayed = m.team_score !== null && m.team_score !== undefined;
+              const kickoff = parseKickoff(m.kickoff);
+              const homeTeam = m.is_home ? matchTeam : opp;
+              const awayTeam = m.is_home ? opp : matchTeam;
+              const homeScore = m.is_home ? m.team_score : m.opp_score;
+              const awayScore = m.is_home ? m.opp_score : m.team_score;
 
               // Synthetic match object for MatchDetailModal (marked as COMPLETED for played match stats)
               const modalMatchObj = {
                 match_id: m.match_id,
-                status: (m.team_score !== null && m.team_score !== undefined) ? 'COMPLETED' : 'UNPLAYED',
+                status: isPlayed ? 'COMPLETED' : 'UNPLAYED',
                 gameweek: m.gameweek,
                 kickoff_label: m.kickoff,
-                home_id: m.is_home ? m.team_id : m.opponent_id,
-                home_name: m.is_home ? m.team_name : m.opponent_name,
-                home_score: m.is_home ? m.team_score : m.opp_score,
-                away_id: m.is_home ? m.opponent_id : m.team_id,
-                away_name: m.is_home ? m.opponent_name : m.team_name,
-                away_score: m.is_home ? m.opp_score : m.team_score,
+                home_id: homeTeam.id,
+                home_name: homeTeam.name,
+                home_score: homeScore,
+                away_id: awayTeam.id,
+                away_name: awayTeam.name,
+                away_score: awayScore,
                 ground_name: 'Premier League',
               };
 
               return (
-                <div
+                <button
                   key={m.match_id}
                   onClick={() => setActiveModalMatch(modalMatchObj)}
-                  className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-400 hover:shadow-md transition-all cursor-pointer group bg-slate-50/50 hover:bg-white flex flex-col justify-between gap-3"
+                  className="group flex w-full flex-col gap-2.5 px-4 py-3 text-left transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-3 sm:px-5"
                 >
-                  
-                  {/* Top info bar */}
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 pb-2 border-b border-slate-200/60">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-slate-700">Hafta {m.gameweek}</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-medium">
-                        {m.is_home ? 'İç Saha' : 'Deplasman'}
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-bold text-[#38003c] group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                      Detay & İstatistikler <ChevronRight className="w-3.5 h-3.5" />
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 sm:w-40 sm:shrink-0 sm:flex-col sm:items-start sm:gap-1">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-slate-700"><Clock className="hidden h-3.5 w-3.5 text-slate-400 sm:block" />{kickoff.date}</span>
+                    <span className="flex items-center gap-2">
+                      {playerSeason === 'all' && <span>{m.season?.replace('_', '-')}</span>}
+                      <span className="font-mono">H{Math.round(Number(m.gameweek) || 1)}</span>
+                      <span>{m.is_home ? 'İç saha' : 'Deplasman'}</span>
                     </span>
                   </div>
 
-                  {/* Match Preview & Score */}
-                  <div className="flex items-center justify-between py-1">
-                    {/* Club */}
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <img 
-                        src={matchTeam.badge} 
-                        alt={matchTeam.name} 
-                        className="w-6 h-6 object-contain shrink-0" 
-                        onError={(e) => { e.target.src = '/badges/1.svg'; }}
-                      />
-                      <span className="font-bold text-xs text-slate-900 truncate">
-                        {matchTeam.short || m.team_name}
-                      </span>
+                  <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 sm:gap-3">
+                    <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
+                      <span className={`truncate text-xs ${m.is_home ? 'font-bold text-slate-950' : 'font-medium text-slate-600'}`}>{homeTeam.short || homeTeam.name}</span>
+                      <img src={homeTeam.badge} alt={homeTeam.name} className="h-5 w-5 shrink-0 object-contain" onError={(e) => { e.target.src = '/badges/1.svg'; }} />
                     </div>
-
-                    {/* Score */}
-                    <div className="px-3 py-1 rounded-lg bg-white border border-slate-300 font-mono font-black text-sm text-slate-900 shrink-0 mx-2">
-                      {m.team_score} - {m.opp_score}
-                    </div>
-
-                    {/* Opponent */}
-                    <div className="flex items-center gap-2 flex-1 min-w-0 justify-end text-right">
-                      <span className="font-bold text-xs text-slate-800 truncate">
-                        {opp.short || opp.name}
-                      </span>
-                      <img 
-                        src={opp.badge} 
-                        alt={opp.name} 
-                        className="w-6 h-6 object-contain shrink-0"
-                        onError={(e) => { e.target.src = '/badges/1.svg'; }}
-                      />
+                    <span className="min-w-[58px] shrink-0 text-center font-mono text-xs font-black text-slate-900">
+                      {isPlayed ? `${homeScore} - ${awayScore}` : kickoff.time || 'vs'}
+                    </span>
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <img src={awayTeam.badge} alt={awayTeam.name} className="h-5 w-5 shrink-0 object-contain" onError={(e) => { e.target.src = '/badges/1.svg'; }} />
+                      <span className={`truncate text-xs ${!m.is_home ? 'font-bold text-slate-950' : 'font-medium text-slate-600'}`}>{awayTeam.short || awayTeam.name}</span>
                     </div>
                   </div>
 
-                  {/* Specific User Requirement: minutes played and goal/assist status */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
-                    
-                    {/* Minutes played pill */}
-                    <div className="flex items-center gap-1.5 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-lg text-sky-900 font-semibold text-[11px]">
-                      <Clock className="w-3.5 h-3.5 text-sky-600" />
-                      <span>
-                        <strong>{m.minutes_played || 0} Dk</strong> {m.started ? '(İlk 11)' : '(Sonradan Girdi)'}
-                      </span>
-                    </div>
-
-                    {/* Goal or Assist status badges */}
-                    <div className="flex items-center gap-1.5 font-bold text-[11px]">
-                      {goalsCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 font-bold">
-                          <Target className="w-3 h-3 text-emerald-700" /> {goalsCount} Gol
-                        </span>
-                      )}
-                      {assistsCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-800 border border-purple-300 flex items-center gap-1 font-bold">
-                          <Award className="w-3 h-3 text-purple-700" /> {assistsCount} Asist
-                        </span>
-                      )}
-                      {!hasContribution && (
-                        <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 font-medium text-[10px]">
-                          Gol/Asist Yok
-                        </span>
-                      )}
-                    </div>
-
+                  <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-2 text-[11px] text-slate-600 sm:w-56 sm:shrink-0 sm:justify-end sm:border-0 sm:pt-0">
+                    <span className="whitespace-nowrap"><strong className="font-semibold text-slate-800">{m.minutes_played || 0}'</strong> · {m.started ? 'İlk 11' : 'Yedek'}</span>
+                    <span className="whitespace-nowrap">Gol <strong className="text-slate-900">{goalsCount}</strong><span className="mx-1.5 text-slate-300">|</span>Asist <strong className="text-slate-900">{assistsCount}</strong></span>
+                    <ChevronRight className="hidden h-3.5 w-3.5 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-600 sm:block" />
                   </div>
-
-                </div>
+                </button>
               );
             })}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Match Detail Modal */}
       {activeModalMatch && (

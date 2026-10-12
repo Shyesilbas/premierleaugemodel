@@ -105,7 +105,10 @@ def parse_match(
     home_win = 1 if home_score is not None and away_score is not None and home_score > away_score else 0
     away_win = 1 if home_score is not None and away_score is not None and away_score > home_score else 0
     draw = 1 if home_score is not None and away_score is not None and home_score == away_score else 0
-    match_result = "H" if home_win else ("A" if away_win else "D")
+    if home_score is None or away_score is None:
+        match_result = None  # Unplayed fixture: no outcome yet
+    else:
+        match_result = "H" if home_win else ("A" if away_win else "D")
 
     record: Dict[str, Any] = {
         "match_id": match_id,

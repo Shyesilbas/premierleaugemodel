@@ -81,6 +81,29 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
     });
   }, [standingsData, standingsType]);
 
+  const teamForms = useMemo(() => new Map(
+    standingsData.map(team => [Number(team.id), team.form || []])
+  ), [standingsData]);
+
+  const renderTeamForm = (teamId) => (teamForms.get(Number(teamId)) || []).map((result, index) => {
+    const colors = result === 'W'
+      ? 'bg-emerald-500 text-white'
+      : result === 'D'
+      ? 'bg-slate-400 text-white'
+      : 'bg-rose-500 text-white';
+    const label = result === 'W' ? 'G' : result === 'D' ? 'B' : 'M';
+
+    return (
+      <span
+        key={`${teamId}-${index}`}
+        className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black ${colors}`}
+        title={result === 'W' ? 'Galibiyet' : result === 'D' ? 'Beraberlik' : 'Mağlubiyet'}
+      >
+        {label}
+      </span>
+    );
+  });
+
   // Filter gameweeks and matches based on search and selectedGameweek
   const filteredGameweeks = useMemo(() => {
     if (!data.gameweeks) return [];
@@ -170,6 +193,16 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
               }`}
             >
               2024-25
+            </button>
+            <button
+              onClick={() => setSelectedSeason('2023_24')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                selectedSeason === '2023_24'
+                  ? 'bg-[#38003c] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              2023-24
             </button>
           </div>
         </div>
@@ -633,6 +666,17 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
 
                             </div>
 
+                            {/* Recent form, using the same W/D/L markers as the standings table */}
+                            <div className="flex items-center justify-between gap-2 text-[9px] text-slate-400">
+                              <div className="flex items-center gap-1" aria-label={`${home.name} son 5 maç formu`}>
+                                {renderTeamForm(m.home_id)}
+                              </div>
+                              <span className="shrink-0 font-bold tracking-wide">SON 5</span>
+                              <div className="flex items-center gap-1" aria-label={`${away.name} son 5 maç formu`}>
+                                {renderTeamForm(m.away_id)}
+                              </div>
+                            </div>
+
                             {/* Bottom Bar: Completed Micro-stats OR Ground/Status */}
                             {isCompleted ? (
                               <div className="pt-2 border-t border-slate-100 space-y-1.5">
@@ -670,7 +714,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                                   </div>
                                   <div className="bg-slate-50 py-1 px-1 rounded-lg">
                                     <span className="text-[9px] text-slate-500 font-sans block">ŞUT</span>
-                                    <strong className="text-slate-800 font-bold">{m.total_shots ?? '-'}</strong>
+                                    <strong className="text-slate-800 font-bold">{m.home_total_shots ?? '-'} - {m.away_total_shots ?? '-'}</strong>
                                   </div>
                                   <div className="bg-slate-50 py-1 px-1 rounded-lg">
                                     <span className="text-[9px] text-slate-500 font-sans block">KURTARIŞ</span>

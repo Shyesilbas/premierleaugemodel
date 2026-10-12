@@ -7,7 +7,6 @@ import {
   Menu, 
   X, 
   ChevronDown,
-  Layers,
   Database,
   Trophy,
   Scale
@@ -22,11 +21,11 @@ export default function Sidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
-    { id: 'fixtures', label: 'Fikstür & Günler', icon: Calendar, badge: 'Haftalık' },
-    { id: 'predictor', label: 'Tahmin Motoru', icon: Sparkles, badge: 'ML' },
-    { id: 'teams', label: 'Takım Profilleri', icon: Shield, badge: 'Kulüpler' },
-    { id: 'players', label: 'Oyuncu Profilleri', icon: User, badge: 'Oyuncular' },
-    { id: 'referees', label: 'Hakem Profilleri', icon: Scale, badge: 'PGMOL' },
+    { id: 'fixtures', label: 'Fikstür & Günler', icon: Calendar },
+    { id: 'predictor', label: 'Tahmin Motoru', icon: Sparkles },
+    { id: 'teams', label: 'Takım Profilleri', icon: Shield },
+    { id: 'players', label: 'Oyuncu Profilleri', icon: User },
+    { id: 'referees', label: 'Hakem Profilleri', icon: Scale },
   ];
 
   const seasons = [
@@ -34,7 +33,7 @@ export default function Sidebar({
     { value: '2025_26', label: '2025-26 (Tam Sezon)', note: '380 Maç' },
     { value: '2024_25', label: '2024-25 (Tam Sezon)', note: '380 Maç' },
     { value: '2023_24', label: '2023-24 (Tam Sezon)', note: '380 Maç' },
-    { value: 'all', label: 'Tüm Sezonlar', note: '1,520 Maç' },
+    { value: 'all', label: 'Tüm Sezonlar', note: '1,140 Maç' },
   ];
 
   const handleNavClick = (tabId) => {
@@ -113,7 +112,7 @@ export default function Sidebar({
             <div className="flex items-center justify-between text-[10px] text-slate-600 mt-2 px-1">
               <span>Aktif Veri Kümesi:</span>
               <span className="font-mono font-bold text-slate-700">
-                {selectedSeason === '2026_27' ? '380 Fikstür' : selectedSeason === 'all' ? '760 Maç' : '380 Maç'}
+                {selectedSeason === '2026_27' ? '380 Fikstür' : selectedSeason === 'all' ? '1,140 Maç' : '380 Maç'}
               </span>
             </div>
           </div>
@@ -132,7 +131,7 @@ export default function Sidebar({
                   <button
                     key={item.id}
                     onClick={() => handleNavClick(item.id)}
-                    className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all duration-200 group ${
+                    className={`w-full flex items-center justify-start px-3.5 py-3 rounded-xl text-xs font-bold transition-all duration-200 group ${
                       isActive
                         ? 'bg-[#38003c] text-white shadow-md shadow-[#38003c]/20'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -145,13 +144,6 @@ export default function Sidebar({
                       <span>{item.label}</span>
                     </div>
 
-                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
-                      isActive 
-                        ? 'bg-white/20 text-white' 
-                        : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
-                    }`}>
-                      {item.badge}
-                    </span>
                   </button>
                 );
               })}

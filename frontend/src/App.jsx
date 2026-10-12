@@ -50,23 +50,6 @@ export default function App() {
           )}
         </main>
 
-        {/* Clean Light Footer */}
-        <footer className="w-full bg-white border-t border-slate-200 mt-12 py-5 px-6">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Premier League Model Engine • Çoklu Sezon Veri Tabanı (2024-25, 2025-26 & 2026-27)</span>
-            </div>
-            <div className="flex items-center gap-3 font-mono text-[11px] text-slate-400">
-              <span>Poisson (Goller)</span>
-              <span>•</span>
-              <span>XGBoost (Korner)</span>
-              <span>•</span>
-              <span>LightGBM (Taç)</span>
-            </div>
-          </div>
-        </footer>
-
       </div>
 
     </div>
