@@ -635,26 +635,51 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
 
                             {/* Bottom Bar: Completed Micro-stats OR Ground/Status */}
                             {isCompleted ? (
-                              <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-mono text-center">
-                                <div className="bg-slate-50 py-1 px-1 rounded-lg">
-                                  <span className="text-[9px] text-slate-500 font-sans block">KORNER</span>
-                                  <strong className="text-emerald-700 font-bold">{m.home_won_corners ?? '-'} - {m.away_won_corners ?? '-'}</strong>
+                              <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                  <span className="flex items-center gap-1 truncate text-slate-600">
+                                    <span className="text-slate-400">👨‍⚖️ Hakem:</span>
+                                    <strong className="text-slate-800 font-semibold truncate">{m.referee_name || 'Bilinmiyor'}</strong>
+                                  </span>
+                                  {m.total_yellow_cards !== null && m.total_yellow_cards !== undefined ? (
+                                    <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
+                                      <span className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-900 font-bold">
+                                        {m.total_yellow_cards} 🟨
+                                      </span>
+                                      {m.total_red_cards > 0 && (
+                                        <span className="px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-900 font-bold">
+                                          {m.total_red_cards} 🟥
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 font-mono">
+                                      {m.ref_avg_cards ? `Ort. ${m.ref_avg_cards} Kart` : ''}
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="bg-slate-50 py-1 px-1 rounded-lg">
-                                  <span className="text-[9px] text-slate-500 font-sans block">TAÇ</span>
-                                  <strong className="text-sky-700 font-bold">{m.home_total_throws ?? '-'} - {m.away_total_throws ?? '-'}</strong>
-                                </div>
-                                <div className="bg-slate-50 py-1 px-1 rounded-lg">
-                                  <span className="text-[9px] text-slate-500 font-sans block">ŞUT</span>
-                                  <strong className="text-slate-800 font-bold">{m.total_shots ?? '-'}</strong>
-                                </div>
-                                <div className="bg-slate-50 py-1 px-1 rounded-lg">
-                                  <span className="text-[9px] text-slate-500 font-sans block">KURTARIŞ</span>
-                                  <strong className="text-purple-700 font-bold">{m.total_saves ?? '-'}</strong>
+
+                                <div className="grid grid-cols-4 gap-1.5 text-[10px] font-mono text-center">
+                                  <div className="bg-slate-50 py-1 px-1 rounded-lg">
+                                    <span className="text-[9px] text-slate-500 font-sans block">KORNER</span>
+                                    <strong className="text-emerald-700 font-bold">{m.home_won_corners ?? '-'} - {m.away_won_corners ?? '-'}</strong>
+                                  </div>
+                                  <div className="bg-slate-50 py-1 px-1 rounded-lg">
+                                    <span className="text-[9px] text-slate-500 font-sans block">TAÇ</span>
+                                    <strong className="text-sky-700 font-bold">{m.home_total_throws ?? '-'} - {m.away_total_throws ?? '-'}</strong>
+                                  </div>
+                                  <div className="bg-slate-50 py-1 px-1 rounded-lg">
+                                    <span className="text-[9px] text-slate-500 font-sans block">ŞUT</span>
+                                    <strong className="text-slate-800 font-bold">{m.total_shots ?? '-'}</strong>
+                                  </div>
+                                  <div className="bg-slate-50 py-1 px-1 rounded-lg">
+                                    <span className="text-[9px] text-slate-500 font-sans block">KURTARIŞ</span>
+                                    <strong className="text-purple-700 font-bold">{m.total_saves ?? '-'}</strong>
+                                  </div>
                                 </div>
                               </div>
                             ) : (
-                              <div className="pt-2 border-t border-slate-100 space-y-2">
+                              <div className="pt-2 border-t border-slate-100 space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px] text-slate-500 gap-2">
                                   <span className="flex items-center gap-1 truncate text-slate-400">
                                     <MapPin className="w-3 h-3 shrink-0" />
@@ -670,6 +695,20 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                                       Yaklaşan Maç
                                     </span>
                                   )}
+                                </div>
+
+                                <div className="flex items-center justify-between text-[10px] text-slate-600 bg-slate-50/70 border border-slate-100 px-2 py-1 rounded-lg">
+                                  <span className="flex items-center gap-1 truncate">
+                                    <span className="text-slate-400">👨‍⚖️ Hakem:</span>
+                                    <strong className="text-slate-800 font-semibold truncate">
+                                      {m.referee_name && m.referee_name !== 'Atanmadı' && m.referee_name !== 'Unknown' 
+                                        ? m.referee_name 
+                                        : (m.prediction?.referee_name && m.prediction.referee_name !== 'Unknown' ? m.prediction.referee_name : 'PGMOL Heyeti')}
+                                    </strong>
+                                  </span>
+                                  <span className="text-amber-800 font-mono font-bold shrink-0">
+                                    Ort. {m.ref_avg_cards || m.prediction?.expected_cards || '4.2'} Kart/maç
+                                  </span>
                                 </div>
 
                                 {m.prediction && (

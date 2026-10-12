@@ -9,7 +9,8 @@ import {
   ChevronDown,
   Layers,
   Database,
-  Trophy
+  Trophy,
+  Scale
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -21,17 +22,19 @@ export default function Sidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
-    { id: 'predictor', label: 'Tahmin Motoru', icon: Sparkles, badge: 'ML' },
     { id: 'fixtures', label: 'Fikstür & Günler', icon: Calendar, badge: 'Haftalık' },
-    { id: 'teams', label: 'Takım Profilleri', icon: Shield, badge: '20 Kulüp' },
-    { id: 'players', label: 'Oyuncu Profilleri', icon: User, badge: '756 Oyuncu' },
+    { id: 'predictor', label: 'Tahmin Motoru', icon: Sparkles, badge: 'ML' },
+    { id: 'teams', label: 'Takım Profilleri', icon: Shield, badge: 'Kulüpler' },
+    { id: 'players', label: 'Oyuncu Profilleri', icon: User, badge: 'Oyuncular' },
+    { id: 'referees', label: 'Hakem Profilleri', icon: Scale, badge: 'PGMOL' },
   ];
 
   const seasons = [
-    { value: '2026_27', label: '2026-27 (Güncel Fikstür)', note: 'Fikstür' },
+    { value: '2026_27', label: '2026-27 (Güncel Sezon)', note: 'Fikstür' },
     { value: '2025_26', label: '2025-26 (Tam Sezon)', note: '380 Maç' },
     { value: '2024_25', label: '2024-25 (Tam Sezon)', note: '380 Maç' },
-    { value: 'all', label: 'Tüm Sezonlar', note: '760+ Maç' },
+    { value: '2023_24', label: '2023-24 (Tam Sezon)', note: '380 Maç' },
+    { value: 'all', label: 'Tüm Sezonlar', note: '1,520 Maç' },
   ];
 
   const handleNavClick = (tabId) => {

@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from scipy.stats import poisson
+from src.db.database import get_referees_list, get_referee_detail, get_all_grouped_fixtures, get_referee_summary
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api_server")
@@ -48,7 +49,6 @@ events_parquet = events_all if events_all.exists() else (DATA_DIR / "processed" 
 
 df_matches = pd.read_parquet(matches_parquet) if matches_parquet.exists() else pd.DataFrame()
 df_features = pd.read_parquet(features_parquet) if features_parquet.exists() else pd.DataFrame()
-df_events = pd.read_parquet(events_parquet) if events_parquet.exists() else pd.DataFrame()
 
 # Load trained models
 corner_artifact = joblib.load(MODELS_DIR / "corner_model_v1.joblib") if (MODELS_DIR / "corner_model_v1.joblib").exists() else None
@@ -67,10 +67,21 @@ if players_reg_file.exists():
     with open(players_reg_file, "r", encoding="utf-8") as f:
         all_players = json.load(f)
 
-player_logs_dict = {}
-if players_logs_file.exists():
-    with open(players_logs_file, "r", encoding="utf-8") as f:
-        player_logs_dict = json.load(f)
+_player_logs_dict: Optional[Dict[str, Any]] = None
+
+def get_player_match_logs(pid: int) -> List[Dict[str, Any]]:
+    global _player_logs_dict
+    if _player_logs_dict is None:
+        if players_logs_file.exists():
+            try:
+                with open(players_logs_file, "r", encoding="utf-8") as f:
+                    _player_logs_dict = json.load(f)
+            except Exception as e:
+                logger.warning(f"Error loading player match logs: {e}")
+                _player_logs_dict = {}
+        else:
+            _player_logs_dict = {}
+    return _player_logs_dict.get(str(pid), _player_logs_dict.get(pid, []))
 
 # Load 2026-27 fixtures if available
 raw_fixtures_2627 = []
@@ -197,101 +208,59 @@ def get_quick_fixture_prediction(home_id: int, away_id: int, season: Optional[st
 def get_grouped_fixtures(season: str = "2026_27"):
     """
     Returns fixtures grouped by Gameweek, and within each Gameweek, grouped by match day.
-    Supports 2026_27 (upcoming/current), 2025_26, 2024_25, or 'all'.
+    Uses indexed SQLite database with instant response time and attached referee cards data.
     """
+    db_fixtures = get_all_grouped_fixtures(season)
     raw_fixtures = []
 
-    if season == "2026_27" and raw_fixtures_2627:
-        for f in raw_fixtures_2627:
-            teams = f.get("teams", [])
-            h_team = teams[0].get("team", {}) if len(teams) > 0 else {}
-            a_team = teams[1].get("team", {}) if len(teams) > 1 else {}
-            h_score = teams[0].get("score") if len(teams) > 0 else None
-            a_score = teams[1].get("score") if len(teams) > 1 else None
+    for r in db_fixtures:
+        mid = int(r["match_id"])
+        h_id = int(r["home_id"])
+        a_id = int(r["away_id"])
+        gw = int(r["gameweek"])
+        h_score = r["home_score"]
+        a_score = r["away_score"]
+        is_completed = (r["status"] == "COMPLETED" or (h_score is not None and a_score is not None))
 
-            kickoff_str = f.get("kickoff", {}).get("label", "")
-            # Example label: "Fri 21 Aug 2026, 20:00 BST"
-            day_part = kickoff_str.split(",")[0].strip() if "," in kickoff_str else kickoff_str
-            time_part = kickoff_str.split(",")[1].strip() if "," in kickoff_str else ""
+        # Compute AI predictions for uncompleted matches in current/upcoming gameweeks
+        pred = get_quick_fixture_prediction(h_id, a_id, r.get("season") or season) if (not is_completed and gw in [6, 7, 8]) else None
 
-            mid = int(f.get("id", 0))
-            m_stats = match_stats_map.get(mid, {})
-            h_id = int(h_team.get("id", 0))
-            a_id = int(a_team.get("id", 0))
-            gw = int(f.get("gameweek", {}).get("gameweek", 1))
-            is_completed = (h_score is not None and a_score is not None)
-            pred = get_quick_fixture_prediction(h_id, a_id, "2026_27") if not is_completed else None
-
-            raw_fixtures.append({
-                "match_id": mid,
-                "gameweek": gw,
-                "kickoff_label": kickoff_str,
-                "day_label": day_part,
-                "time_label": time_part,
-                "ground_name": f.get("ground", {}).get("name", ""),
-                "home_id": h_id,
-                "home_name": h_team.get("name", ""),
-                "home_abbr": h_team.get("club", {}).get("abbr", ""),
-                "home_score": h_score,
-                "away_id": a_id,
-                "away_name": a_team.get("name", ""),
-                "away_abbr": a_team.get("club", {}).get("abbr", ""),
-                "away_score": a_score,
-                "total_corners": m_stats.get("total_corners"),
-                "total_throws": m_stats.get("total_throws"),
-                "total_shots": m_stats.get("total_shots"),
-                "total_shots_ontarget": m_stats.get("total_shots_ontarget"),
-                "total_saves": m_stats.get("total_saves"),
-                "home_won_corners": m_stats.get("home_won_corners"),
-                "away_won_corners": m_stats.get("away_won_corners"),
-                "home_total_throws": m_stats.get("home_total_throws"),
-                "away_total_throws": m_stats.get("away_total_throws"),
-                "status": "COMPLETED" if is_completed else "UPCOMING",
-                "season": "2026_27",
-                "prediction": pred,
-            })
-    else:
-        df = df_matches.copy()
-        if season != "all" and "season" in df.columns:
-            df = df[df["season"] == season]
-
-        for _, r in df.iterrows():
-            kickoff_str = str(r.get("kickoff_label", ""))
-            day_part = kickoff_str.split(",")[0].strip() if "," in kickoff_str else kickoff_str
-            time_part = kickoff_str.split(",")[1].strip() if "," in kickoff_str else ""
-            h_id = int(r["home_id"])
-            a_id = int(r["away_id"])
-            is_completed = pd.notnull(r.get("home_score"))
-            s_name = str(r.get("season", "2024_25"))
-            pred = get_quick_fixture_prediction(h_id, a_id, s_name) if not is_completed else None
-
-            raw_fixtures.append({
-                "match_id": int(r["match_id"]),
-                "gameweek": int(r.get("gameweek") or 1),
-                "kickoff_label": kickoff_str,
-                "day_label": day_part,
-                "time_label": time_part,
-                "ground_name": str(r.get("ground_name", "")),
-                "home_id": h_id,
-                "home_name": str(r["home_name"]),
-                "home_abbr": str(r.get("home_abbr", "")),
-                "home_score": int(r["home_score"]) if pd.notnull(r.get("home_score")) else None,
-                "away_id": a_id,
-                "away_name": str(r["away_name"]),
-                "away_abbr": str(r.get("away_abbr", "")),
-                "away_score": int(r["away_score"]) if pd.notnull(r.get("away_score")) else None,
-                "total_corners": int(r["total_corners"]) if pd.notnull(r.get("total_corners")) else None,
-                "total_throws": int(r["total_throws"]) if pd.notnull(r.get("total_throws")) else None,
-                "total_shots": int(r["total_shots"]) if pd.notnull(r.get("total_shots")) else None,
-                "total_saves": int(r["total_saves"]) if pd.notnull(r.get("total_saves")) else None,
-                "home_won_corners": int(r["home_won_corners"]) if pd.notnull(r.get("home_won_corners")) else None,
-                "away_won_corners": int(r["away_won_corners"]) if pd.notnull(r.get("away_won_corners")) else None,
-                "home_total_throws": int(r["home_total_throws"]) if pd.notnull(r.get("home_total_throws")) else None,
-                "away_total_throws": int(r["away_total_throws"]) if pd.notnull(r.get("away_total_throws")) else None,
-                "status": "COMPLETED" if is_completed else "UPCOMING",
-                "season": s_name,
-                "prediction": pred,
-            })
+        raw_fixtures.append({
+            "match_id": mid,
+            "gameweek": gw,
+            "kickoff_label": r.get("kickoff_label") or "",
+            "day_label": r.get("day_label") or "",
+            "time_label": r.get("time_label") or "",
+            "ground_name": r.get("ground_name") or "",
+            "home_id": h_id,
+            "home_name": r["home_name"],
+            "home_abbr": r.get("home_abbr") or "",
+            "home_score": h_score,
+            "away_id": a_id,
+            "away_name": r["away_name"],
+            "away_abbr": r.get("away_abbr") or "",
+            "away_score": a_score,
+            "total_corners": r.get("total_corners"),
+            "total_throws": r.get("total_throws"),
+            "total_shots": r.get("total_shots"),
+            "total_shots_ontarget": r.get("total_shots_ontarget"),
+            "total_saves": r.get("total_saves"),
+            "home_won_corners": r.get("home_won_corners"),
+            "away_won_corners": r.get("away_won_corners"),
+            "home_total_throws": r.get("home_total_throws"),
+            "away_total_throws": r.get("away_total_throws"),
+            "referee_name": r.get("referee_name") or "Atanmadı",
+            "referee_id": r.get("referee_id"),
+            "total_yellow_cards": r.get("total_yellow_cards"),
+            "total_red_cards": r.get("total_red_cards"),
+            "total_cards": r.get("total_cards"),
+            "total_fouls": r.get("total_fouls"),
+            "ref_avg_cards": r.get("ref_avg_cards"),
+            "ref_strictness": r.get("ref_strictness"),
+            "status": "COMPLETED" if is_completed else "UPCOMING",
+            "season": r.get("season") or season,
+            "prediction": pred,
+        })
 
     # Group by Gameweek -> Day
     gw_groups = {}
@@ -328,6 +297,19 @@ def get_grouped_fixtures(season: str = "2026_27"):
         "total_matches": len(raw_fixtures),
         "current_gameweek": current_gw,
     }
+
+
+@app.get("/api/referees")
+def get_referees(season: str = "2026_27", search: Optional[str] = None):
+    """Returns list of Premier League referees and card statistics from SQLite."""
+    return {"referees": get_referees_list(season, search)}
+
+
+@app.get("/api/referees/{name}")
+def get_referee_profile(name: str, season: str = "2026_27"):
+    """Returns detailed profile and matches officiated by referee from SQLite."""
+    return get_referee_detail(name, season)
+
 
 
 @app.get("/api/standings")
@@ -579,7 +561,7 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
 
-    raw_logs = player_logs_dict.get(str(player_id), player_logs_dict.get(player_id, []))
+    raw_logs = get_player_match_logs(player_id)
     if season and season != "all":
         logs = [m for m in raw_logs if m.get("season") == season]
     else:
