@@ -6,6 +6,8 @@ Serves interactive prediction engine, fixtures, events, and static frontend dash
 
 import json
 import logging
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -66,6 +68,33 @@ all_players = []
 if players_reg_file.exists():
     with open(players_reg_file, "r", encoding="utf-8") as f:
         all_players = json.load(f)
+
+player_registry_map: Dict[int, Dict[str, Any]] = {int(p["id"]): p for p in all_players if "id" in p}
+
+def get_position_order(pos_str: Optional[str]) -> int:
+    """Returns sort priority 1..5 for Kaleci, Savunma, Orta Saha, Forvet."""
+    if not pos_str:
+        return 5
+    p = str(pos_str).strip().upper()
+    if p in ["G", "GK", "GOALKEEPER"]:
+        return 1
+    if p in ["D", "DEF", "DEFENDER", "CB", "LB", "RB", "LWB", "RWB"]:
+        return 2
+    if p in ["M", "MID", "MIDFIELDER", "CM", "DM", "AM", "LM", "RM"]:
+        return 3
+    if p in ["F", "FWD", "FORWARD", "ST", "CF", "RW", "LW", "ATT"]:
+        return 4
+    return 5
+
+def parse_kickoff_datetime(kickoff_str: str) -> datetime:
+    """Parses Premier League kickoff string (e.g. 'Sat 10 Oct 2026, 12:30 BST') into sortable datetime."""
+    if not kickoff_str:
+        return datetime.min
+    try:
+        clean = re.sub(r'\s+[A-Z]{3,4}$', '', str(kickoff_str).strip())
+        return datetime.strptime(clean, '%a %d %b %Y, %H:%M')
+    except Exception:
+        return datetime.min
 
 _player_logs_dict: Optional[Dict[str, Any]] = None
 
@@ -275,9 +304,17 @@ def get_grouped_fixtures(season: str = "2026_27"):
 
     structured = []
     for gw in sorted(gw_groups.keys()):
-        day_list = []
+        # Sort matches within each day chronologically
         for d in gw_groups[gw]:
-            day_list.append({"day": d, "matches": gw_groups[gw][d]})
+            gw_groups[gw][d].sort(key=lambda m: parse_kickoff_datetime(m.get("kickoff_label", "")))
+
+        # Sort days within the gameweek strictly chronologically by earliest match on each day
+        sorted_day_keys = sorted(
+            gw_groups[gw].keys(),
+            key=lambda d: parse_kickoff_datetime(gw_groups[gw][d][0].get("kickoff_label", "")) if gw_groups[gw][d] else datetime.min
+        )
+
+        day_list = [{"day": d, "matches": gw_groups[gw][d]} for d in sorted_day_keys]
         structured.append({"gameweek": gw, "days": day_list})
 
     # Determine current gameweek:
@@ -637,23 +674,39 @@ def get_match_full_details(match_id: int):
 
             starters = []
             for p in tl.get("lineup", []):
+                pid = p.get("id")
+                reg_p = player_registry_map.get(int(pid), {}) if pid else {}
+                opta_c = reg_p.get("opta_code") or f"p{pid}"
+                photo = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+                pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
                 starters.append({
-                    "id": p.get("id"),
+                    "id": pid,
                     "name": p.get("name", {}).get("display"),
                     "shirt": p.get("matchShirtNumber"),
-                    "position": p.get("matchPosition") or p.get("info", {}).get("position"),
+                    "position": pos,
                     "captain": p.get("captain", False),
                     "country": p.get("nationalTeam", {}).get("country"),
+                    "photo_url": photo,
                 })
 
             subs = []
             for p in tl.get("substitutes", []):
+                pid = p.get("id")
+                reg_p = player_registry_map.get(int(pid), {}) if pid else {}
+                opta_c = reg_p.get("opta_code") or f"p{pid}"
+                photo = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+                pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
                 subs.append({
-                    "id": p.get("id"),
+                    "id": pid,
                     "name": p.get("name", {}).get("display"),
                     "shirt": p.get("matchShirtNumber"),
-                    "position": p.get("matchPosition") or p.get("info", {}).get("position"),
+                    "position": pos,
+                    "photo_url": photo,
                 })
+
+            # Sort starters & substitutes by position: Kaleci (GK) -> Savunma (DEF) -> Orta Saha (MID) -> Forvet (FWD)
+            starters.sort(key=lambda x: (get_position_order(x.get("position")), x.get("shirt") or 99))
+            subs.sort(key=lambda x: (get_position_order(x.get("position")), x.get("shirt") or 99))
 
             lineups.append({
                 "team_id": tl.get("teamId"),
@@ -828,13 +881,18 @@ def get_match_full_details(match_id: int):
             if not pid:
                 continue
             mins = sub_off.get(pid, 90)
+            reg_p = player_registry_map.get(int(pid), {}) if pid else {}
+            opta_c = reg_p.get("opta_code") or f"p{pid}"
+            photo = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+            pos = p.get("matchPosition") or p.get("info", {}).get("position", "M")
             player_stats[side].append({
                 "id": pid,
                 "name": p.get("name", {}).get("display", "Unknown"),
                 "shirt": p.get("matchShirtNumber"),
-                "position": p.get("matchPosition") or p.get("info", {}).get("position", "M"),
+                "position": pos,
                 "is_starter": True,
                 "captain": p.get("captain", False),
+                "photo_url": photo,
                 "minutes": mins,
                 "goals": goals.get(pid, 0),
                 "assists": assists.get(pid, 0),
@@ -853,13 +911,18 @@ def get_match_full_details(match_id: int):
             if not pid or pid not in sub_on:
                 continue
             mins = max(1, 90 - sub_on[pid])
+            reg_p = player_registry_map.get(int(pid), {}) if pid else {}
+            opta_c = reg_p.get("opta_code") or f"p{pid}"
+            photo = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+            pos = p.get("matchPosition") or p.get("info", {}).get("position", "M")
             player_stats[side].append({
                 "id": pid,
                 "name": p.get("name", {}).get("display", "Unknown"),
                 "shirt": p.get("matchShirtNumber"),
-                "position": p.get("matchPosition") or p.get("info", {}).get("position", "M"),
+                "position": pos,
                 "is_starter": False,
                 "captain": False,
+                "photo_url": photo,
                 "minutes": mins,
                 "goals": goals.get(pid, 0),
                 "assists": assists.get(pid, 0),
@@ -872,12 +935,144 @@ def get_match_full_details(match_id: int):
                 "red_cards": rc.get(pid, 0),
             })
 
+        # Sort player_stats by position: Kaleci -> Savunma -> Orta Saha -> Forvet
+        player_stats[side].sort(key=lambda x: (0 if x.get("is_starter") else 1, get_position_order(x.get("position")), x.get("shirt") or 99))
+
+    # Build clean Key Timeline Events
+    key_timeline = []
+    player_names = {}
+    player_photos = {}
+    for tl in d.get("teamLists", []):
+        for p in (tl.get("lineup", []) + tl.get("substitutes", [])):
+            pid = p.get("id")
+            if pid:
+                pname = p.get("name", {}).get("display") or "Bilinmeyen Oyuncu"
+                player_names[pid] = pname
+                reg_p = player_registry_map.get(int(pid), {})
+                opta_c = reg_p.get("opta_code") or f"p{pid}"
+                player_photos[pid] = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+
+    team_names_map = {}
+    teams_info = d.get("teams", [])
+    for t_item in teams_info:
+        t_obj = t_item.get("team", {})
+        if t_obj.get("id"):
+            team_names_map[int(t_obj["id"])] = t_obj.get("name", "")
+
+    sub_events = {}
+    for ev in det_events:
+        if ev.get("type") == "S":
+            eid = ev.get("id")
+            if eid not in sub_events:
+                sub_events[eid] = {}
+            if ev.get("description") == "ON":
+                sub_events[eid]["on"] = ev.get("personId")
+            elif ev.get("description") == "OFF":
+                sub_events[eid]["off"] = ev.get("personId")
+
+    seen_sub_ids = set()
+    for ev in det_events:
+        etype = ev.get("type")
+        clock_lbl = ev.get("clock", {}).get("label", "")
+        minute_display = clock_lbl.split("'")[0] + "'" if "'" in clock_lbl else clock_lbl
+        tid = ev.get("teamId")
+        tname = team_names_map.get(tid, "")
+
+        if etype == "PS":
+            phase = ev.get("phase")
+            if phase == "1":
+                key_timeline.append({
+                    "type": "period_start",
+                    "minute": "0'",
+                    "label": "Maç Başlangıcı",
+                    "description": "1. Yarı Başladı",
+                    "score": f"{ev.get('score', {}).get('homeScore', 0)} - {ev.get('score', {}).get('awayScore', 0)}"
+                })
+            elif phase == "2":
+                key_timeline.append({
+                    "type": "period_start",
+                    "minute": "45'",
+                    "label": "2. Yarı Başlangıcı",
+                    "description": "2. Yarı Başladı",
+                    "score": f"{ev.get('score', {}).get('homeScore', 0)} - {ev.get('score', {}).get('awayScore', 0)}"
+                })
+        elif etype == "PE":
+            phase = ev.get("phase")
+            if phase == "1":
+                key_timeline.append({
+                    "type": "period_end",
+                    "minute": minute_display,
+                    "label": "İlk Yarı Sonu",
+                    "description": "İlk Yarı Tamamlandı",
+                    "score": f"{ev.get('score', {}).get('homeScore', 0)} - {ev.get('score', {}).get('awayScore', 0)}"
+                })
+            elif phase == "2":
+                key_timeline.append({
+                    "type": "period_end",
+                    "minute": minute_display,
+                    "label": "Maç Sonu (FT)",
+                    "description": "Karşılaşma Sona Erdi",
+                    "score": f"{ev.get('score', {}).get('homeScore', 0)} - {ev.get('score', {}).get('awayScore', 0)}"
+                })
+        elif etype == "G":
+            pid = ev.get("personId")
+            aid = ev.get("assistId")
+            desc = ev.get("description", "G")
+            goal_type = "Penaltı Golü" if desc == "P" else ("Kendi Kalesine Gol" if desc == "OG" else "Gol")
+            h_s = ev.get("score", {}).get("homeScore", 0)
+            a_s = ev.get("score", {}).get("awayScore", 0)
+            key_timeline.append({
+                "type": "goal",
+                "goal_type": goal_type,
+                "minute": minute_display,
+                "team_id": tid,
+                "team_name": tname,
+                "player_id": pid,
+                "player_name": player_names.get(pid, "Bilinmeyen Oyuncu"),
+                "photo_url": player_photos.get(pid),
+                "assist_id": aid,
+                "assist_name": player_names.get(aid) if aid else None,
+                "score": f"{h_s} - {a_s}"
+            })
+        elif etype == "B":
+            pid = ev.get("personId")
+            card_desc = ev.get("description", "Y")
+            key_timeline.append({
+                "type": "yellow_card" if card_desc == "Y" else "red_card",
+                "minute": minute_display,
+                "team_id": tid,
+                "team_name": tname,
+                "player_id": pid,
+                "player_name": player_names.get(pid, "Bilinmeyen Oyuncu"),
+                "photo_url": player_photos.get(pid),
+            })
+        elif etype == "S":
+            eid = ev.get("id")
+            if eid and eid not in seen_sub_ids:
+                seen_sub_ids.add(eid)
+                sub_info = sub_events.get(eid, {})
+                p_in = sub_info.get("on")
+                p_out = sub_info.get("off")
+                key_timeline.append({
+                    "type": "substitution",
+                    "minute": minute_display,
+                    "team_id": tid,
+                    "team_name": tname,
+                    "player_in_id": p_in,
+                    "player_in_name": player_names.get(p_in, "Giren Oyuncu"),
+                    "player_in_photo": player_photos.get(p_in),
+                    "player_out_id": p_out,
+                    "player_out_name": player_names.get(p_out, "Çıkan Oyuncu"),
+                    "player_out_photo": player_photos.get(p_out),
+                })
+
     return {
         "metadata": metadata,
         "lineups": lineups,
         "team_stats": team_stats,
         "player_stats": player_stats,
         "events": events,
+        "timeline": key_timeline,
     }
 
 

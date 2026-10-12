@@ -106,6 +106,27 @@ export default function MatchDetailModal({ match, onClose }) {
   const playerStats = details?.player_stats || { home: [], away: [] };
   const events = details?.events || [];
   const meta = details?.metadata || {};
+  const timeline = details?.timeline || [];
+
+  const formatPosition = (pos) => {
+    if (!pos) return 'Mevki Belirtilmedi';
+    const p = String(pos).toUpperCase();
+    if (['G', 'GK', 'GOALKEEPER'].includes(p)) return 'Kaleci';
+    if (['D', 'DEF', 'DEFENDER', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return 'Savunma';
+    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'Orta Saha';
+    if (['F', 'FWD', 'FORWARD', 'ST', 'CF', 'RW', 'LW', 'ATT'].includes(p)) return 'Forvet';
+    return pos;
+  };
+
+  const getPositionBadgeClass = (pos) => {
+    if (!pos) return 'bg-slate-100 text-slate-700 border-slate-200';
+    const p = String(pos).toUpperCase();
+    if (['G', 'GK', 'GOALKEEPER'].includes(p)) return 'bg-amber-100 text-amber-900 border-amber-200';
+    if (['D', 'DEF', 'DEFENDER', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return 'bg-sky-100 text-sky-900 border-sky-200';
+    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'bg-purple-100 text-[#38003c] border-purple-200';
+    if (['F', 'FWD', 'FORWARD', 'ST', 'CF', 'RW', 'LW', 'ATT'].includes(p)) return 'bg-rose-100 text-rose-900 border-rose-200';
+    return 'bg-slate-100 text-slate-700 border-slate-200';
+  };
 
   // Helper to calculate comparison bar percentage
   const calcBarWidths = (item) => {
@@ -249,6 +270,20 @@ export default function MatchDetailModal({ match, onClose }) {
               <Users className="w-3.5 h-3.5" />
               <span>{isCompleted ? 'İlk 11 & Kadrolar' : 'Kadro Bilgisi'}</span>
             </button>
+
+            {isCompleted && timeline.length > 0 && (
+              <button
+                onClick={() => setActiveTab('timeline')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeTab === 'timeline'
+                    ? 'bg-[#38003c] text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                <span>Maç Zaman Akışı ({timeline.length})</span>
+              </button>
+            )}
 
             {isCompleted && events.length > 0 && (
               <button
@@ -420,22 +455,34 @@ export default function MatchDetailModal({ match, onClose }) {
                             <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-500">
                               {p.shirt || '-'}
                             </td>
-                            <td className="py-2.5 px-3 font-bold text-slate-900 flex items-center gap-1.5">
-                              <span>{p.name}</span>
-                              {p.captain && (
-                                <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900">
-                                  C
-                                </span>
-                              )}
-                              {!p.is_starter && (
-                                <span className="text-[9px] font-bold px-1 rounded bg-sky-100 text-sky-800">
-                                  Yedek
-                                </span>
-                              )}
+                            <td className="py-2.5 px-3 font-bold text-slate-900">
+                              <div className="flex items-center gap-2.5">
+                                <img 
+                                  src={p.photo_url || `https://resources.premierleague.com/premierleague/photos/players/250x250/p${p.id}.png`}
+                                  alt=""
+                                  className="w-7 h-7 rounded-full object-cover border border-slate-200 bg-slate-100 shrink-0"
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1">
+                                    <span className="truncate">{p.name}</span>
+                                    {p.captain && (
+                                      <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900 shrink-0">
+                                        C
+                                      </span>
+                                    )}
+                                  </div>
+                                  {!p.is_starter && (
+                                    <span className="text-[9px] text-purple-700 font-mono block">
+                                      Yedek (Sonradan Girdi)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </td>
-                            <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-600">
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px]">
-                                {p.position || 'O'}
+                            <td className="py-2.5 px-2 text-center">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getPositionBadgeClass(p.position)}`}>
+                                {formatPosition(p.position)}
                               </span>
                             </td>
                             <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-800">
@@ -788,44 +835,62 @@ export default function MatchDetailModal({ match, onClose }) {
 
                     <div className="space-y-1.5">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                        Başlangıç 11'i ({homeLineup?.starters?.length || 0})
+                        Başlangıç 11'i ({homeLineup?.starters?.length || 0}) • Pozisyon Sıralı
                       </span>
                       {homeLineup?.starters?.map((p, idx) => (
                         <div 
                           key={p.id || idx}
-                          className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/80 text-xs"
+                          className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/80 hover:border-purple-200 transition-colors text-xs"
                         >
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-mono font-bold text-[10px] text-slate-800">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <img 
+                              src={p.photo_url || `https://resources.premierleague.com/premierleague/photos/players/250x250/p${p.id}.png`}
+                              alt=""
+                              className="w-7 h-7 rounded-full object-cover border border-slate-200 bg-slate-100 shrink-0"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                            <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-mono font-bold text-[10px] text-slate-800 shrink-0">
                               {p.shirt || idx + 1}
                             </span>
-                            <span className="font-bold text-slate-900">{p.name}</span>
+                            <span className="font-bold text-slate-900 truncate">{p.name}</span>
                             {p.captain && (
-                              <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900">
+                              <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900 shrink-0">
                                 C
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                            {p.position || 'O'}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${getPositionBadgeClass(p.position)}`}>
+                            {formatPosition(p.position)}
                           </span>
                         </div>
                       ))}
                     </div>
 
                     {homeLineup?.substitutes?.length > 0 && (
-                      <div className="pt-2 border-t border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                          Yedekler
+                      <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                          Yedekler ({homeLineup.substitutes.length})
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           {homeLineup.substitutes.map((sub, idx) => (
-                            <span 
+                            <div 
                               key={sub.id || idx}
-                              className="text-[11px] px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium"
+                              className="flex items-center justify-between p-1.5 rounded-xl bg-white border border-slate-200 text-xs"
                             >
-                              #{sub.shirt} {sub.name}
-                            </span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <img 
+                                  src={sub.photo_url || `https://resources.premierleague.com/premierleague/photos/players/250x250/p${sub.id}.png`}
+                                  alt=""
+                                  className="w-6 h-6 rounded-full object-cover border border-slate-200 bg-slate-100 shrink-0"
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                                <span className="font-mono text-[10px] font-bold text-slate-500">#{sub.shirt}</span>
+                                <span className="font-medium text-slate-800 truncate">{sub.name}</span>
+                              </div>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${getPositionBadgeClass(sub.position)}`}>
+                                {formatPosition(sub.position)}
+                              </span>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -848,50 +913,234 @@ export default function MatchDetailModal({ match, onClose }) {
 
                     <div className="space-y-1.5">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                        Başlangıç 11'i ({awayLineup?.starters?.length || 0})
+                        Başlangıç 11'i ({awayLineup?.starters?.length || 0}) • Pozisyon Sıralı
                       </span>
                       {awayLineup?.starters?.map((p, idx) => (
                         <div 
                           key={p.id || idx}
-                          className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/80 text-xs"
+                          className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/80 hover:border-purple-200 transition-colors text-xs"
                         >
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-mono font-bold text-[10px] text-slate-800">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <img 
+                              src={p.photo_url || `https://resources.premierleague.com/premierleague/photos/players/250x250/p${p.id}.png`}
+                              alt=""
+                              className="w-7 h-7 rounded-full object-cover border border-slate-200 bg-slate-100 shrink-0"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                            <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-mono font-bold text-[10px] text-slate-800 shrink-0">
                               {p.shirt || idx + 1}
                             </span>
-                            <span className="font-bold text-slate-900">{p.name}</span>
+                            <span className="font-bold text-slate-900 truncate">{p.name}</span>
                             {p.captain && (
-                              <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900">
+                              <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900 shrink-0">
                                 C
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                            {p.position || 'O'}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${getPositionBadgeClass(p.position)}`}>
+                            {formatPosition(p.position)}
                           </span>
                         </div>
                       ))}
                     </div>
 
                     {awayLineup?.substitutes?.length > 0 && (
-                      <div className="pt-2 border-t border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                          Yedekler
+                      <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                          Yedekler ({awayLineup.substitutes.length})
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           {awayLineup.substitutes.map((sub, idx) => (
-                            <span 
+                            <div 
                               key={sub.id || idx}
-                              className="text-[11px] px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium"
+                              className="flex items-center justify-between p-1.5 rounded-xl bg-white border border-slate-200 text-xs"
                             >
-                              #{sub.shirt} {sub.name}
-                            </span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <img 
+                                  src={sub.photo_url || `https://resources.premierleague.com/premierleague/photos/players/250x250/p${sub.id}.png`}
+                                  alt=""
+                                  className="w-6 h-6 rounded-full object-cover border border-slate-200 bg-slate-100 shrink-0"
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                                <span className="font-mono text-[10px] font-bold text-slate-500">#{sub.shirt}</span>
+                                <span className="font-medium text-slate-800 truncate">{sub.name}</span>
+                              </div>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${getPositionBadgeClass(sub.position)}`}>
+                                {formatPosition(sub.position)}
+                              </span>
+                            </div>
                           ))}
                         </div>
                       </div>
                     )}
                   </div>
 
+                </div>
+              )}
+            </div>
+
+          ) : activeTab === 'timeline' ? (
+
+            /* TIMELINE TAB: Key Match Moments */
+            <div className="space-y-4 max-w-2xl mx-auto py-2">
+              <div className="text-center pb-2 border-b border-slate-100">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                  Karşılaşma Zaman Akışı & Önemli Anlar
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  Maç başlangıcı, goller, kartlar, oyuncu değişiklikleri ve devre sonları
+                </p>
+              </div>
+
+              {timeline.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-500">
+                  Bu karşılaşma için önemli anlar zaman akışı bulunamadı.
+                </div>
+              ) : (
+                <div className="relative pl-6 sm:pl-8 space-y-4 before:content-[''] before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
+                  {timeline.map((item, idx) => {
+                    const isGoal = item.type === 'goal';
+                    const isCard = item.type === 'yellow_card' || item.type === 'red_card';
+                    const isSub = item.type === 'substitution';
+                    const isPeriod = item.type === 'period_start' || item.type === 'period_end';
+
+                    return (
+                      <div key={idx} className="relative flex items-start gap-3 group">
+                        
+                        {/* Timeline Node Icon */}
+                        <div className={`absolute -left-6 sm:-left-8 w-6 h-6 rounded-full flex items-center justify-center border-2 bg-white z-10 shadow-xs ${
+                          isGoal ? 'border-emerald-500 text-emerald-600' :
+                          item.type === 'red_card' ? 'border-rose-500 text-rose-600' :
+                          item.type === 'yellow_card' ? 'border-amber-400 text-amber-500' :
+                          isSub ? 'border-sky-500 text-sky-600' :
+                          'border-purple-600 text-purple-700'
+                        }`}>
+                          {isGoal && <span className="text-xs">⚽</span>}
+                          {item.type === 'yellow_card' && <span className="text-xs">🟨</span>}
+                          {item.type === 'red_card' && <span className="text-xs">🟥</span>}
+                          {isSub && <RefreshCw className="w-3 h-3 text-sky-600" />}
+                          {isPeriod && <Clock className="w-3 h-3 text-purple-700" />}
+                        </div>
+
+                        {/* Content Card */}
+                        <div className={`flex-1 p-3 rounded-2xl border transition-all text-xs ${
+                          isGoal ? 'bg-emerald-50/70 border-emerald-200 shadow-xs' :
+                          item.type === 'red_card' ? 'bg-rose-50/70 border-rose-200' :
+                          item.type === 'yellow_card' ? 'bg-amber-50/60 border-amber-200' :
+                          isSub ? 'bg-sky-50/50 border-sky-200' :
+                          'bg-slate-50 border-slate-200'
+                        }`}>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-mono font-black text-slate-800 bg-white/80 border border-slate-200 px-2 py-0.5 rounded-md text-[11px]">
+                              {item.minute}
+                            </span>
+                            {item.score && (
+                              <span className="font-mono font-extrabold text-[#38003c] bg-white border border-slate-200 px-2 py-0.5 rounded-md text-xs shadow-2xs">
+                                {item.score}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Goal Details */}
+                          {isGoal && (
+                            <div className="flex items-center gap-2.5 mt-2">
+                              {item.photo_url && (
+                                <img 
+                                  src={item.photo_url} 
+                                  alt="" 
+                                  className="w-9 h-9 rounded-full object-cover border border-emerald-300 bg-white shrink-0"
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                              )}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 font-bold text-slate-900 text-sm">
+                                  <span>⚽ {item.player_name}</span>
+                                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded font-sans">
+                                    {item.goal_type || 'Gol'}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-500">
+                                  <span>{item.team_name}</span>
+                                  {item.assist_name && (
+                                    <span className="text-slate-600 font-medium"> • Asist: <strong>{item.assist_name}</strong></span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Card Details */}
+                          {isCard && (
+                            <div className="flex items-center gap-2.5 mt-1.5">
+                              {item.photo_url && (
+                                <img 
+                                  src={item.photo_url} 
+                                  alt="" 
+                                  className="w-8 h-8 rounded-full object-cover border border-slate-200 bg-white shrink-0"
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                              )}
+                              <div>
+                                <span className="font-bold text-slate-900 block text-xs">
+                                  {item.type === 'yellow_card' ? '🟨 Sarı Kart:' : '🟥 Kırmızı Kart:'} {item.player_name}
+                                </span>
+                                <span className="text-[11px] text-slate-500">{item.team_name}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Substitution Details */}
+                          {isSub && (
+                            <div className="space-y-1 mt-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-800 block">
+                                {item.team_name} Oyuncu Değişikliği
+                              </span>
+                              <div className="grid grid-cols-2 gap-2 pt-0.5">
+                                <div className="flex items-center gap-2 bg-white/80 border border-emerald-100 p-1.5 rounded-xl">
+                                  {item.player_in_photo && (
+                                    <img 
+                                      src={item.player_in_photo} 
+                                      alt="" 
+                                      className="w-7 h-7 rounded-full object-cover border border-emerald-200 shrink-0"
+                                      onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                  )}
+                                  <div className="min-w-0">
+                                    <span className="text-[10px] font-bold text-emerald-700 block">GİREN</span>
+                                    <strong className="text-slate-900 truncate block text-[11px]">{item.player_in_name}</strong>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 bg-white/80 border border-rose-100 p-1.5 rounded-xl">
+                                  {item.player_out_photo && (
+                                    <img 
+                                      src={item.player_out_photo} 
+                                      alt="" 
+                                      className="w-7 h-7 rounded-full object-cover border border-rose-200 shrink-0"
+                                      onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                  )}
+                                  <div className="min-w-0">
+                                    <span className="text-[10px] font-bold text-rose-700 block">ÇIKAN</span>
+                                    <strong className="text-slate-900 truncate block text-[11px]">{item.player_out_name}</strong>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Period Start / End */}
+                          {isPeriod && (
+                            <div className="flex items-center justify-between text-xs py-0.5">
+                              <span className="font-bold text-slate-800">{item.label}</span>
+                              <span className="text-[11px] text-slate-500">{item.description}</span>
+                            </div>
+                          )}
+
+                        </div>
+
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
