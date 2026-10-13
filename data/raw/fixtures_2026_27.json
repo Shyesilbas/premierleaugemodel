@@ -7002,6 +7002,7 @@
     "status": "C",
     "phase": "F",
     "outcome": "H",
+    "attendance": 25120.0,
     "clock": {
       "secs": 5700.0,
       "label": "90+5'00"
@@ -7273,6 +7274,7 @@
     "status": "C",
     "phase": "F",
     "outcome": "A",
+    "attendance": 60338.0,
     "clock": {
       "secs": 5640.0,
       "label": "90+4'00"
@@ -7367,7 +7369,8 @@
           "teamType": "FIRST",
           "shortName": "Coventry",
           "id": 5.0
-        }
+        },
+        "score": 4.0
       },
       {
         "team": {
@@ -7381,7 +7384,8 @@
           "teamType": "FIRST",
           "shortName": "Newcastle",
           "id": 23.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -7392,12 +7396,72 @@
       "id": 9570.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 30811.0,
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 66304.0,
+        "clock": {
+          "secs": 360.0,
+          "label": "06'00"
+        },
+        "phase": "1",
+        "type": "P",
+        "description": "P"
+      },
+      {
+        "personId": 337821.0,
+        "clock": {
+          "secs": 2880.0,
+          "label": "48'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 49908.0,
+        "assistId": 67849.0,
+        "clock": {
+          "secs": 4200.0,
+          "label": "70'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 19925.0,
+        "assistId": 19694.0,
+        "clock": {
+          "secs": 4860.0,
+          "label": "81'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 128136.0,
+        "assistId": 10438.0,
+        "clock": {
+          "secs": 5160.0,
+          "label": "86'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 128976.0

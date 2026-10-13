@@ -139,8 +139,8 @@ def fetch_match_stream(session: requests.Session, match_id: int) -> Optional[Dic
 
 
 def run_pipeline(
-    season_id: int = 719,
-    season_name: str = "2024_25",
+    season_id: int,
+    season_name: str,
     comps: int = 1,
     base_data_dir: str = "data",
     limit: Optional[int] = None,
@@ -277,8 +277,8 @@ def run_pipeline(
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch Premier League season data from PulseLive API.")
-    parser.add_argument("--season", type=int, default=719, help="PulseLive CompSeason ID (default: 719 for 2024-25)")
-    parser.add_argument("--season-name", type=str, default="2024_25", help="Season name label (default: 2024_25)")
+    parser.add_argument("--season", type=int, required=True, help="PulseLive CompSeason ID")
+    parser.add_argument("--season-name", type=str, required=True, help="Local season label, for example 2026_27")
     parser.add_argument("--comps", type=int, default=1, help="PulseLive Comps ID (default: 1 for Premier League)")
     parser.add_argument("--output-dir", type=str, default="data", help="Output directory for raw data")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of fixtures to process (for testing)")

@@ -560,7 +560,7 @@ export default function PredictorTab({ selectedSeason }) {
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2 text-slate-600 min-w-0">
                   <Target className="w-4 h-4 shrink-0" />
-                  <span className="text-xs font-bold uppercase tracking-wider truncate">Beklenen Gol (xG) & Şutlar</span>
+                  <span className="text-xs font-bold uppercase tracking-wider truncate">Gol Tahmini · Şut İstatistikleri</span>
                 </div>
               </div>
 
@@ -568,19 +568,19 @@ export default function PredictorTab({ selectedSeason }) {
                 <span className="text-3xl sm:text-4xl font-black tracking-tight font-mono text-slate-900">
                   {prediction.xg?.expected_total || '2.90'}
                 </span>
-                <span className="text-xs font-semibold text-slate-500">toplam xG</span>
+                <span className="text-xs font-semibold text-slate-500">tahmini gol · istatistik proxy'si</span>
               </div>
 
               {/* Team split pill */}
               <div className="flex items-center justify-between text-xs text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 mb-4">
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="text-slate-500">{homeTeam.abbr || homeTeam.short}:</span>
-                  <strong className="text-slate-900 font-mono font-bold">{prediction.xg?.expected_home || '1.45'} xG</strong>
+                  <strong className="text-slate-900 font-mono font-bold">{prediction.xg?.expected_home || '1.45'} gol</strong>
                 </div>
                 <span className="text-slate-300">•</span>
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="text-slate-500">{awayTeam.abbr || awayTeam.short}:</span>
-                  <strong className="text-slate-900 font-mono font-bold">{prediction.xg?.expected_away || '1.45'} xG</strong>
+                  <strong className="text-slate-900 font-mono font-bold">{prediction.xg?.expected_away || '1.45'} gol</strong>
                 </div>
               </div>
             </div>

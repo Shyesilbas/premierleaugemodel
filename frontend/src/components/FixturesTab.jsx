@@ -14,7 +14,10 @@ import {
   Compass,
   Trophy,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { getTeam } from '../data/teams';
 import MatchDetailModal from './MatchDetailModal';
@@ -26,6 +29,10 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
   const [currentGameweek, setCurrentGameweek] = useState(6);
   const [selectedGameweek, setSelectedGameweek] = useState('6'); // Default to current gameweek
   const [activeModalMatch, setActiveModalMatch] = useState(null);
+  const [teamManagers, setTeamManagers] = useState({});
+  const [syncStatus, setSyncStatus] = useState('idle');
+  const [syncMessage, setSyncMessage] = useState('');
+  const [dataRefreshVersion, setDataRefreshVersion] = useState(0);
 
   // Standings View State
   const [activeView, setActiveView] = useState('fixtures'); // 'fixtures' | 'table'
@@ -35,7 +42,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
 
   useEffect(() => {
     setLoading(true);
-    const seasonParam = selectedSeason || '2026_27';
+    const seasonParam = selectedSeason || '2025_26';
     fetch(`/api/fixtures/grouped?season=${seasonParam}`)
       .then(res => res.json())
       .then(resData => {
@@ -49,12 +56,23 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
         console.error('Error fetching grouped fixtures:', err);
         setLoading(false);
       });
+  }, [selectedSeason, dataRefreshVersion]);
+
+  useEffect(() => {
+    const seasonParam = selectedSeason || '2025_26';
+    fetch(`/api/teams/staff?season=${seasonParam}`)
+      .then(res => res.ok ? res.json() : { managers: {} })
+      .then(data => setTeamManagers(data.managers || {}))
+      .catch(err => {
+        console.error('Error fetching team managers:', err);
+        setTeamManagers({});
+      });
   }, [selectedSeason]);
 
   // Fetch Standings data on season change
   useEffect(() => {
     setLoadingStandings(true);
-    const seasonParam = selectedSeason || '2026_27';
+    const seasonParam = selectedSeason || '2025_26';
     fetch(`/api/standings?season=${seasonParam}`)
       .then(res => res.json())
       .then(resData => {
@@ -65,7 +83,55 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
         console.error('Error fetching standings:', err);
         setLoadingStandings(false);
       });
-  }, [selectedSeason]);
+  }, [selectedSeason, dataRefreshVersion]);
+
+  useEffect(() => {
+    if (syncStatus !== 'running') return undefined;
+    let cancelled = false;
+    let timer;
+    const pollStatus = async () => {
+      try {
+        const response = await fetch('/api/admin/sync-season');
+        if (!response.ok) throw new Error('Güncelleme durumu alınamadı.');
+        const job = await response.json();
+        if (cancelled) return;
+        if (job.status === 'completed') {
+          setSyncStatus('completed');
+          setSyncMessage(job.message || 'Veriler güncellendi.');
+          setDataRefreshVersion(version => version + 1);
+          return;
+        }
+        if (job.status === 'failed') {
+          setSyncStatus('failed');
+          setSyncMessage(job.message || 'Veri güncellemesi tamamlanamadı.');
+          return;
+        }
+        timer = setTimeout(pollStatus, 2000);
+      } catch (error) {
+        if (cancelled) return;
+        setSyncStatus('failed');
+        setSyncMessage(error.message || 'Güncelleme durumu alınamadı.');
+      }
+    };
+    pollStatus();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [syncStatus]);
+
+  const triggerSeasonSync = async () => {
+    setSyncStatus('starting');
+    setSyncMessage('Sezon fikstürü kontrol ediliyor...');
+    try {
+      const season = selectedSeason && selectedSeason !== 'all' ? selectedSeason : '2026_27';
+      const response = await fetch(`/api/admin/sync-season?season=${encodeURIComponent(season)}`, { method: 'POST' });
+      const job = await response.json();
+      if (!response.ok) throw new Error(job.detail || job.message || 'Güncelleme başlatılamadı.');
+      setSyncStatus(job.status === 'completed' ? 'completed' : 'running');
+      setSyncMessage(job.message || (job.already_running ? 'Başka bir güncelleme devam ediyor...' : 'Sezon verileri kontrol ediliyor...'));
+    } catch (error) {
+      setSyncStatus('failed');
+      setSyncMessage(error.message || 'Güncelleme başlatılamadı.');
+    }
+  };
 
   // Sorted standings based on overall/home/away
   const displayedStandings = useMemo(() => {
@@ -163,7 +229,8 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
           </div>
 
           {/* Season Quick Toggle */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 self-stretch md:self-auto justify-center">
+          <div className="flex flex-col items-stretch gap-2 self-stretch md:items-end md:self-auto">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 justify-center">
             <button
               onClick={() => setSelectedSeason('2026_27')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -204,6 +271,23 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
             >
               2023-24
             </button>
+          </div>
+          <div className="flex flex-col items-end gap-1.5">
+            <button
+              type="button"
+              onClick={triggerSeasonSync}
+              disabled={syncStatus === 'starting' || syncStatus === 'running'}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2 text-xs font-bold text-violet-900 transition hover:border-violet-300 hover:bg-violet-100 disabled:cursor-wait disabled:opacity-70"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${syncStatus === 'starting' || syncStatus === 'running' ? 'animate-spin' : ''}`} />
+              {syncStatus === 'starting' || syncStatus === 'running' ? 'Veriler eşitleniyor…' : 'Sezon verisini eşitle'}
+            </button>
+            {syncMessage && <p className={`flex items-center gap-1 text-[10px] ${syncStatus === 'failed' ? 'text-rose-700' : syncStatus === 'completed' ? 'text-emerald-700' : 'text-slate-500'}`}>
+              {syncStatus === 'completed' && <CheckCircle2 className="h-3 w-3" />}
+              {syncStatus === 'failed' && <AlertCircle className="h-3 w-3" />}
+              <span>{syncMessage}</span>
+            </p>}
+          </div>
           </div>
         </div>
 
@@ -605,6 +689,8 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                       {dayObj.matches.map(m => {
                         const home = getTeam(m.home_id, m.home_name);
                         const away = getTeam(m.away_id, m.away_name);
+                        const homeManager = teamManagers[String(m.home_id)];
+                        const awayManager = teamManagers[String(m.away_id)];
                         const isCompleted = m.status === 'COMPLETED' && m.home_score !== null;
 
                         return (
@@ -665,6 +751,17 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                               </div>
 
                             </div>
+
+                            {(homeManager || awayManager) && (
+                              <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
+                                <span className="truncate" title={homeManager ? `Teknik Direktör: ${homeManager}` : undefined}>
+                                  {homeManager ? <><span className="text-slate-400">TD:</span> <strong className="font-semibold text-slate-700">{homeManager}</strong></> : ''}
+                                </span>
+                                <span className="truncate text-right" title={awayManager ? `Teknik Direktör: ${awayManager}` : undefined}>
+                                  {awayManager ? <><span className="text-slate-400">TD:</span> <strong className="font-semibold text-slate-700">{awayManager}</strong></> : ''}
+                                </span>
+                              </div>
+                            )}
 
                             {/* Recent form, using the same W/D/L markers as the standings table */}
                             <div className="flex items-center justify-between gap-2 text-[9px] text-slate-400">
@@ -758,7 +855,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                                 {m.prediction && (
                                   <div className="grid grid-cols-4 gap-1.5 text-[10px] font-mono text-center">
                                     <div className="bg-rose-50/70 border border-rose-100/80 py-1 px-1 rounded-lg">
-                                      <span className="text-[8px] text-rose-600 font-sans font-bold block">BEKLENEN xG</span>
+                                      <span className="text-[8px] text-rose-600 font-sans font-bold block" title="Toplam şut ve büyük şans istatistiklerinden türetilen proxy; resmî xG değildir.">GOL TAH. *</span>
                                       <strong className="text-rose-900 font-bold">{m.prediction.expected_home_xg} - {m.prediction.expected_away_xg}</strong>
                                     </div>
                                     <div className="bg-emerald-50/70 border border-emerald-100/80 py-1 px-1 rounded-lg">

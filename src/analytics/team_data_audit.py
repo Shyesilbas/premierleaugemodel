@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -162,6 +163,8 @@ def build_report() -> str:
     lines = [
         "# Takım Taktik Analizi — Veri Kapsamı Denetimi",
         "",
+        f"Snapshot generated {date.today().isoformat()} from cached raw provider responses.",
+        "",
         "Bu rapor `data/raw/matches/*_stats.json` dosyalarındaki takım düzeyi `M` istatistiklerini inceler. "
         "Bir metriğin dosyada bulunmaması sıfır kabul edilmez.",
         "",
@@ -180,9 +183,11 @@ def build_report() -> str:
         [
             "",
             f"Tüm sezonlarda toplam **{len(all_metric_names)} farklı metrik adı** bulundu. "
-            "2026-27 sezonu tamamlanmış sezonlarla aynı örneklem gibi değerlendirilmemelidir.",
+            f"{ordered_seasons[-1].replace('_', '-')} sezonu tamamlanmış sezonlarla aynı örneklem gibi değerlendirilmemelidir."
+            if ordered_seasons else
+            f"Tüm sezonlarda toplam **{len(all_metric_names)} farklı metrik adı** bulundu.",
             "",
-            "## İlk sürüm için aday metriklerin kapsaması",
+            "## Candidate metric coverage",
             "",
             "Kapsama, ilgili sezondaki takım-maç satırlarında metriğin sayısal değerinin bulunma oranıdır. "
             "Parantez içindeki değer, mevcut ve sıfır olmayan değerlerin sayısını gösterir.",
@@ -207,7 +212,7 @@ def build_report() -> str:
     lines.extend(
         [
             "",
-            "## İlk sürüm için karar",
+            "## Findings and limits",
             "",
             "- İleri/geri bölge pasları, son üç bölgeye girişler ve orta bölge top kazanımı ana karşılaştırma setine adaydır; "
             "sezonlar arası kapsama ayrıca yukarıdaki tabloda gösterilir.",
@@ -223,8 +228,8 @@ def build_report() -> str:
             "hesaplanabilir; bu, kısa korner veya hedef bölge bilgisini vermez.",
             "- `accurate_corners_intobox` pozitif `total_corners_intobox` değerleri varken de sıkça eksiktir; "
             "eksik değerleri sıfır varsayarak isabet oranı hesaplanmamalıdır.",
-            "- Özet Parquet üretiminde bulunmayan metriklerin `0` ile doldurulduğu görülüyor. "
-            "Taktiksel hesaplama ham JSON değerlerini kullanmalı veya işlenmiş tabloda eksikliği korumalıdır.",
+            "- İşlenmiş Parquet dosyaları artık kaynakta bulunmayan metrikleri null ve ayrı `_reported` bayraklarıyla saklar. "
+            "Önceki sıfır doldurma davranışıyla üretilmiş eski tablolar bu kapsama uymayabilir; tam pipeline yeniden çalıştırılmalıdır.",
             "",
             "## Yöntem notu",
             "",

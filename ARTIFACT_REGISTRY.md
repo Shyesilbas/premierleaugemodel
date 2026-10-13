@@ -1,54 +1,37 @@
-# Premier League Model Engine — Eser Kayıt Defteri (ARTIFACT_REGISTRY)
+# Artifact Registry
 
-Bu dosya, projede üretilen tüm veri setleri, modeller ve analiz raporlarının tek doğruluk kaynağıdır (single source of truth).
+This file describes the artifact ownership and refresh path. Snapshot counts and model scores live in the generated reports so they have one source of truth.
 
----
+## Data artifacts
 
-## 1. Veri Kümeleri (Datasets)
+| Artifact | Purpose | Produced by |
+|---|---|---|
+| `data/raw/fixtures_{season}.json` | Cached season fixture lists | Incremental season sync |
+| `data/raw/matches/*_stats.json` | Raw team match statistics | Incremental season sync |
+| `data/raw/matches/*_stream.json` | Match event streams | Incremental season sync |
+| `data/raw/matches/*_details.json` | Match officials and detail fields | Incremental season sync |
+| `data/processed/matches_summary_all.parquet` | Combined fixtures and parsed match statistics | `src/processing/process_season_data.py` |
+| `data/processed/shots_events_all.parquet` | Combined parsed event records | `src/processing/process_season_data.py` |
+| `data/processed/features_matches_all.parquet` | Pre-match rolling, form, and team strength features | `src/features/build_features.py` |
+| `data/premier_league.db` | SQLite database used by the application | Incremental season sync |
 
-| Kategori | Dosya Yolu | Format | Boyut / Satır | Durum |
-|:---|:---|:---:|:---:|:---:|
-| Raw | `data/raw/fixtures_2024_25.json` | JSON | 380 Maç | ✅ Tamamlandı |
-| Raw | `data/raw/fixtures_2025_26.json` | JSON | 380 Maç | ✅ Tamamlandı |
-| Raw | `data/raw/fixtures_2026_27.json` | JSON | 380 Maç (59 Tamamlanmış, 321 Yaklaşan) | ✅ Tamamlandı |
-| Raw | `data/raw/matches/{id}_stats.json` | JSON | 819 Dosya (~28 MB) | ✅ Tamamlandı |
-| Raw | `data/raw/matches/{id}_stream.json` | JSON | 819 Dosya (~20 MB) | ✅ Tamamlandı |
-| Raw | `data/raw/matches/{id}_details.json` | JSON | 1140 Dosya (~25 MB) | ✅ Tamamlandı |
-| Processed | `data/processed/matches_summary_all.parquet` | Parquet | **1140 Satır, 90+ Sütun (819 Tamamlanmış Maç)** | ✅ Üretildi |
-| Processed | `data/processed/shots_events_all.parquet` | Parquet | **31,932 Olay Satırı** | ✅ Üretildi |
-| Processed | `data/processed/players_registry.json` | JSON | **868 Oyuncu Profili** | ✅ Üretildi |
-| Processed | `data/processed/player_match_logs.json` | JSON | **868 Oyuncu Maç & Dakika Kütüğü** | ✅ Üretildi |
-| Features | `data/processed/features_matches_all.parquet` | Parquet | **1140 Satır, 336 Öznitelik (Ofsayt, Fırsat, Faul)** | ✅ Üretildi |
+## Production model artifacts
 
----
+| Artifact | Targets | Training source |
+|---|---|---|
+| `models/production/outcome_models_v1.joblib` | 1X2 result and over 2.5 goals | `src/models/train_match_outcome.py` |
+| `models/production/corner_model_v1.joblib` | Total corners | `src/models/train_corners.py` |
+| `models/production/throws_model_v1.joblib` | Total throw-ins | `src/models/train_throws.py` |
+| `models/production/saves_model_v1.joblib` | Total saves | `src/models/train_saves.py` |
+| `models/production/cards_model_v1.joblib` | Total cards | `src/models/train_cards.py` |
+| `models/production/offside_model_v1.joblib` | Total offsides | `src/models/train_offsides.py` |
 
-## 2. Üretim Modelleri (Production Models)
+The API loads these files from `models/production/`. Each artifact contains the fitted estimator and its required feature names. Count-model artifacts also store their fitted dispersion parameter; the outcome artifact stores its probability calibrators. Run `python3 run_full_pipeline.py` after updating the local raw cache to rebuild processed data, retrain the models, and refresh the benchmark and data reports. That command does not fetch upstream data or rebuild SQLite.
 
-| Model Adı | Dosya Yolu | Algoritma | Hedef Metrik | Başarım |
-|:---|:---|:---:|:---:|:---:|
-| Corner Regressor | `models/production/corner_model_v1.joblib` | XGBoost Regressor | Toplam Korner / 9.5-10.5 Üst | Test RMSE: **3.34**, Üst 9.5: **%55.3** |
-| Throws Regressor | `models/production/throws_model_v1.joblib` | LightGBM Regressor | Toplam Taç / 34.5 Üst | Test RMSE: 7.62, Üst 34.5: **%52.0** |
-| Saves Regressor | `models/production/saves_model_v1.joblib` | XGBoost Regressor | Kaleci Kurtarışları | Test RMSE: **2.32**, MAE: **1.90** |
-| Match Outcome | `models/production/outcome_models_v1.joblib` | Multi-LGBM + XGBoost | 1X2 & 2.5 Gol Alt/Üst | 1X2: **%43.4** (Temel: %38.8), 2.5 Üst: **%61.2** (Brier: 0.236) |
-| Offside Regressor | `models/production/offside_model_v1.joblib` | XGBoost + Poisson | Yakalanılan Ofsayt / 3.5 Üst | Test RMSE: **1.937**, 3.5 Üst Doğruluğu: **%67.68** |
+## Canonical reports
 
----
-
-## 3. Raporlar ve Denetim Belgeleri (Reports)
-
-| Rapor Dosyası | Kapsam | İlgili Faz | Durum |
-|:---|:---|:---:|:---:|
-| [`reports/data_audit_multi_season.md`](file:///Users/serhat/PycharmProjects/premierLeaugeModelApp/reports/data_audit_multi_season.md) | 760 maçlık veri bütünlüğü, eksik değer kontrolü (0 hata) | Faz 2 | ✅ Onaylandı |
-| [`reports/data_audit_2026_27.md`](file:///Users/serhat/PycharmProjects/premierLeaugeModelApp/reports/data_audit_2026_27.md) | 2026-27 sezonu 380 fikstür ve 59 oynanmış maç denetimi | Faz 2 | ✅ Onaylandı |
-| [`reports/model_benchmarks.md`](file:///Users/serhat/PycharmProjects/premierLeaugeModelApp/reports/model_benchmarks.md) | Out-of-time backtest sonuçları ve sızıntısızlık metrikleri | Faz 4 | ✅ Onaylandı |
-| [`reports/model_benchmarks_offsides.md`](file:///Users/serhat/PycharmProjects/premierLeaugeModelApp/reports/model_benchmarks_offsides.md) | Ofsayt modeli eğitim sonuçları, metrikleri ve feature importance | Faz 4 | ✅ Onaylandı |
-
----
-
-## 4. Kullanıcı Arayüzü ve API (Application Layer)
-
-| Bileşen | Dosya Yolu | Port / URL | Açıklama |
-|:---|:---|:---:|:---|
-| Backend API | `src/api/server.py` | `http://127.0.0.1:8000/api` | 1140 maçlık veri tabanı, 868 oyuncu profili ve canlı tahmin motoru |
-| Web Dashboard (React + Vite) | `frontend/src/App.jsx` | `http://127.0.0.1:5173/` | Sidebar navigasyonlu, açık temalı, haftalık/günlük fikstür ve profiller |
-| Kulüp Vektör Logoları | `frontend/public/badges/*.svg` | `/badges/{id}.svg` | Premier League kulüplerinin resmi SVG armaları |
+- [Model Benchmarks](reports/model_benchmarks.md) owns current evaluation scores and protocol.
+- [Data Quality and Coverage](reports/data_quality.md) owns fixture counts, source coverage, referee coverage, and target distributions.
+- [Team Tactical Data Audit](reports/team_tactical_data_audit.md) owns detailed team-stat coverage by season.
+- [Team Scenario Validation](reports/team_scenario_validation.md) owns event-stream validation against raw match statistics.
+- [Project Status](PROJECT_STATUS.md) summarizes current findings and remaining model limitations.

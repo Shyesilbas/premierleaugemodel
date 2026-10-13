@@ -121,9 +121,11 @@ def calculate_rest_days(df: pd.DataFrame) -> pd.DataFrame:
             a_rest = 14.0
         away_rest_days.append(min(a_rest, 30.0))
 
-        # Update last match dates
-        team_last_date[h_id] = cur_date
-        team_last_date[a_id] = cur_date
+        # A scheduled but unplayed fixture is not a previous match. In particular,
+        # postponed fixtures must not reset rest days for later completed matches.
+        if bool(row["is_played"]):
+            team_last_date[h_id] = cur_date
+            team_last_date[a_id] = cur_date
 
     df["home_rest_days"] = home_rest_days
     df["away_rest_days"] = away_rest_days
@@ -376,6 +378,30 @@ def compute_strength_state(df: pd.DataFrame, until: Optional[pd.Timestamp] = Non
     return state
 
 
+def advance_strength_state_to_season(
+    state: Dict[str, Any], target_season: Optional[str]
+) -> Dict[str, Any]:
+    """Apply training's Elo regression and table reset before a new season starts."""
+    if not target_season or not state.get("season"):
+        return state
+    try:
+        current_year = int(str(state["season"]).split("_")[0])
+        target_year = int(str(target_season).split("_")[0])
+    except (TypeError, ValueError):
+        return state
+    if target_year <= current_year:
+        return state
+
+    advanced = {**state, "elo": dict(state.get("elo", {})), "table": {}}
+    for _ in range(target_year - current_year):
+        advanced["elo"] = {
+            team_id: (1.0 - ELO_SEASON_REGRESS) * rating + ELO_SEASON_REGRESS * ELO_INIT
+            for team_id, rating in advanced["elo"].items()
+        }
+    advanced["season"] = str(target_season)
+    return advanced
+
+
 def _team_strength(state: Dict[str, Any], team_id: int) -> Dict[str, float]:
     elo = state.get("elo", {}).get(int(team_id), ELO_NEWCOMER)
     pts, gd, n = state.get("table", {}).get(int(team_id), [0.0, 0.0, 0.0])
@@ -425,7 +451,16 @@ def add_interaction_features(merged: pd.DataFrame) -> pd.DataFrame:
 
     # Expected throws interaction
     if "home_throws_roll_5" in merged.columns and "away_throws_roll_5" in merged.columns:
-        merged["exp_match_throws_5"] = (merged["home_throws_roll_5"] + merged["away_throws_roll_5"])
+        if "away_opponent_throws_roll_5" in merged.columns and "home_opponent_throws_roll_5" in merged.columns:
+            merged["exp_home_throws_5"] = (
+                merged["home_throws_roll_5"] + merged["away_opponent_throws_roll_5"]
+            ) / 2.0
+            merged["exp_away_throws_5"] = (
+                merged["away_throws_roll_5"] + merged["home_opponent_throws_roll_5"]
+            ) / 2.0
+            merged["exp_match_throws_5"] = merged["exp_home_throws_5"] + merged["exp_away_throws_5"]
+        else:
+            merged["exp_match_throws_5"] = merged["home_throws_roll_5"] + merged["away_throws_roll_5"]
 
     # Expected shots interaction
     if "home_shots_for_roll_5" in merged.columns and "away_shots_against_roll_5" in merged.columns:
@@ -551,11 +586,13 @@ def build_prediction_row(
     away_id: int,
     match_date: pd.Timestamp,
     referee: Optional[Dict[str, Any]] = None,
+    season: Optional[str] = None,
 ) -> pd.DataFrame:
     """
     Builds a single live feature row for (home_id vs away_id) from each team's CURRENT state,
     using exactly the same feature definitions as the training dataset.
     """
+    strength_state = advance_strength_state_to_season(strength_state, season)
     form_cols = [c for c in team_states.columns if "_roll_" in c or "_ewma_" in c]
     row: Dict[str, Any] = {"home_id": home_id, "away_id": away_id, "match_date": match_date}
 

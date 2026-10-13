@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
 Premier League Data Processing & Tabulation Pipeline
-Converts raw JSON match files into clean Parquet tables and generates data audit report.
+Converts cached provider JSON into season and combined Parquet tables.
 Outputs:
-  - data/processed/matches_summary_2024_25.parquet
-  - data/processed/shots_events_2024_25.parquet
-  - reports/data_audit_2024_25.md
+  - data/processed/matches_summary_{season}.parquet
+  - data/processed/shots_events_{season}.parquet
+  - data/processed/matches_summary_all.parquet
+  - data/processed/shots_events_all.parquet
 """
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -54,6 +56,59 @@ METRIC_FIELDS = [
     "ppda", "ball_recovery", "duel_won", "duel_lost", "aerial_won", "aerial_lost",
     "total_clearance", "head_clearance", "outfielder_block", "blocked_pass",
 ]
+SPARSE_ZERO_METRICS = {"total_red_card"}
+
+
+def _sum_if_complete(left: Any, right: Any) -> float:
+    if pd.isna(left) or pd.isna(right):
+        return np.nan
+    return float(left) + float(right)
+
+
+def _threshold_if_known(value: Any, threshold: float) -> Any:
+    return np.nan if pd.isna(value) else int(float(value) > threshold)
+
+
+def _event_counts_by_team(fixture: Dict[str, Any], stream_data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Dict[str, int]]]:
+    """Count card and offside events from a valid PulseLive textstream payload."""
+    if not isinstance(stream_data, dict) or not isinstance(stream_data.get("events"), dict):
+        return None
+    events = stream_data["events"].get("content")
+    if not isinstance(events, list):
+        return None
+    teams = fixture.get("teams") or []
+    if len(teams) < 2:
+        return None
+    names = [str(team.get("team", {}).get("name") or "") for team in teams[:2]]
+
+    def normalize(name: str) -> str:
+        # PulseLive uses both "Brighton and Hove Albion" and "Brighton & Hove Albion".
+        return "".join(char for char in name.lower().replace("and", "") if char.isalnum())
+
+    normalized_names = [normalize(name) for name in names]
+    counts = {
+        metric: {"home": 0, "away": 0}
+        for metric in ("yellow_cards", "red_cards", "offsides")
+    }
+    for event in events:
+        event_type = event.get("type")
+        text = str(event.get("text") or "")
+        if event_type == "offside":
+            match = re.match(r"Offside, (.+?)\.", text)
+            metric = "offsides"
+            team_name = match.group(1) if match else ""
+        elif event_type in ("yellow card", "red card", "secondyellow card"):
+            match = re.search(r"\((.+?)\)", text)
+            team_name = match.group(1) if match else ""
+            metric = "yellow_cards" if event_type == "yellow card" else "red_cards"
+        else:
+            continue
+        normalized_event_team = normalize(team_name)
+        matched_sides = [i for i, name in enumerate(normalized_names) if name and name == normalized_event_team]
+        if len(matched_sides) == 1:
+            side = "home" if matched_sides[0] == 0 else "away"
+            counts[metric][side] += 1
+    return counts
 
 
 def extract_team_metrics(raw_team_data: Dict[str, Any]) -> Dict[str, float]:
@@ -72,6 +127,7 @@ def parse_match(
     fixture: Dict[str, Any],
     stats_data: Optional[Dict[str, Any]],
     details_data: Optional[Dict[str, Any]],
+    stream_data: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Combines fixture info and raw team stats into a single flat match record."""
     match_id = int(fixture["id"])
@@ -133,97 +189,140 @@ def parse_match(
         "away_win": away_win,
     }
 
-    # Extract team statistics
-    if stats_data and "data" in stats_data:
-        stats_by_team = stats_data["data"]
-        home_str_id = str(home_id)
-        away_str_id = str(away_id)
+    # Keep omitted provider values missing and retain a separate raw-presence flag.
+    # Red cards are the one sparse count treated as zero when omitted; its source flag
+    # remains available so downstream analysis can distinguish observed from inferred.
+    stats_by_team = (stats_data or {}).get("data") or {}
+    home_metrics = extract_team_metrics(stats_by_team.get(str(home_id), {}))
+    away_metrics = extract_team_metrics(stats_by_team.get(str(away_id), {}))
+    for fld in METRIC_FIELDS:
+        for side, metrics in (("home", home_metrics), ("away", away_metrics)):
+            present = fld in metrics
+            fallback = 0.0 if fld in SPARSE_ZERO_METRICS else np.nan
+            record[f"{side}_{fld}"] = metrics.get(fld, fallback)
+            record[f"{side}_{fld}_reported"] = bool(present)
 
-        home_metrics = extract_team_metrics(stats_by_team.get(home_str_id, {}))
-        away_metrics = extract_team_metrics(stats_by_team.get(away_str_id, {}))
+    # Preserve raw provider values and fill only omissions from the same provider's
+    # event stream. Source flags continue to describe the stats endpoint itself.
+    event_counts = _event_counts_by_team(fixture, stream_data)
+    event_fields = {
+        "home_total_yel_card": ("yellow_cards", "home"),
+        "away_total_yel_card": ("yellow_cards", "away"),
+        "home_total_red_card": ("red_cards", "home"),
+        "away_total_red_card": ("red_cards", "away"),
+        "home_total_offside": ("offsides", "home"),
+        "away_total_offside": ("offsides", "away"),
+    }
+    for field, (metric, side) in event_fields.items():
+        raw_value = record[field]
+        source_reported = bool(record[f"{field}_reported"])
+        record[f"{field}_raw"] = raw_value if source_reported else np.nan
+        reconstructed = bool(
+            not source_reported
+            and event_counts is not None
+            and metric in event_counts
+        )
+        record[f"{field}_event_reconstructed"] = reconstructed
+        if reconstructed:
+            record[field] = float(event_counts[metric][side])
+        record[f"{field}_usable"] = bool(pd.notna(record[field]))
 
-        for fld in METRIC_FIELDS:
-            h_val = home_metrics.get(fld, 0.0)
-            a_val = away_metrics.get(fld, 0.0)
-            record[f"home_{fld}"] = h_val
-            record[f"away_{fld}"] = a_val
+    # A match total is usable only when both teams have a reported value.
+    for target, field in (
+        ("total_corners", "won_corners"),
+        ("total_throws", "total_throws"),
+        ("total_saves", "saves"),
+        ("total_offsides", "total_offside"),
+        ("total_yellow_cards", "total_yel_card"),
+        ("total_fouls", "fk_foul_lost"),
+        ("total_shots", "total_scoring_att"),
+        ("total_shots_ontarget", "ontarget_scoring_att"),
+    ):
+        home_value = record[f"home_{field}"]
+        away_value = record[f"away_{field}"]
+        record[target] = _sum_if_complete(home_value, away_value)
+        record[f"{target}_reported"] = bool(
+            record[f"home_{field}_reported"] and record[f"away_{field}_reported"]
+        )
 
-        # Combined Match Aggregates
-        h_corners = record.get("home_won_corners", 0.0)
-        a_corners = record.get("away_won_corners", 0.0)
-        record["total_corners"] = h_corners + a_corners
-        record["over_8_5_corners"] = int(record["total_corners"] > 8.5)
-        record["over_9_5_corners"] = int(record["total_corners"] > 9.5)
-        record["over_10_5_corners"] = int(record["total_corners"] > 10.5)
+    # Red-card omissions are treated as zero, but the raw presence flags above remain.
+    record["total_red_cards"] = _sum_if_complete(
+        record["home_total_red_card"], record["away_total_red_card"]
+    )
+    record["total_cards"] = _sum_if_complete(
+        record["total_yellow_cards"], record["total_red_cards"]
+    )
+    record["total_yellow_cards_target_usable"] = bool(
+        record["home_total_yel_card_usable"] and record["away_total_yel_card_usable"]
+    )
+    record["total_offsides_target_usable"] = bool(
+        record["home_total_offside_usable"] and record["away_total_offside_usable"]
+    )
+    record["total_cards_target_usable"] = bool(
+        record["total_yellow_cards_target_usable"]
+        and record["home_total_red_card_usable"]
+        and record["away_total_red_card_usable"]
+    )
+    for side in ("home", "away"):
+        record[f"{side}_total_cards_usable"] = bool(
+            record[f"{side}_total_yel_card_usable"]
+            and record[f"{side}_total_red_card_usable"]
+        )
 
-        h_throws = record.get("home_total_throws", 0.0)
-        a_throws = record.get("away_total_throws", 0.0)
-        record["total_throws"] = h_throws + a_throws
-        record["over_33_5_throws"] = int(record["total_throws"] > 33.5)
-        record["over_36_5_throws"] = int(record["total_throws"] > 36.5)
+    for target, value, thresholds in (
+        ("corners", record["total_corners"], (8.5, 9.5, 10.5)),
+        ("throws", record["total_throws"], (33.5, 36.5)),
+        ("offsides", record["total_offsides"], (2.5, 3.5, 4.5)),
+        ("cards", record["total_cards"], (3.5, 4.5, 5.5)),
+    ):
+        for threshold in thresholds:
+            cutoff = str(threshold).replace(".", "_")
+            record[f"over_{cutoff}_{target}"] = _threshold_if_known(value, threshold)
 
-        h_saves = record.get("home_saves", 0.0)
-        a_saves = record.get("away_saves", 0.0)
-        record["total_saves"] = h_saves + a_saves
-
-        h_shots = record.get("home_total_scoring_att", 0.0)
-        a_shots = record.get("away_total_scoring_att", 0.0)
-        record["total_shots"] = h_shots + a_shots
-
-        h_ontarget = record.get("home_ontarget_scoring_att", 0.0)
-        a_ontarget = record.get("away_ontarget_scoring_att", 0.0)
-        record["total_shots_ontarget"] = h_ontarget + a_ontarget
-
-        # Offsides Aggregates
-        h_offsides = record.get("home_total_offside", 0.0)
-        a_offsides = record.get("away_total_offside", 0.0)
-        record["total_offsides"] = h_offsides + a_offsides
-        record["over_2_5_offsides"] = int(record["total_offsides"] > 2.5)
-        record["over_3_5_offsides"] = int(record["total_offsides"] > 3.5)
-        record["over_4_5_offsides"] = int(record["total_offsides"] > 4.5)
-
-        # Cards & Fouls Aggregates
-        h_yel = record.get("home_total_yel_card", 0.0)
-        a_yel = record.get("away_total_yel_card", 0.0)
-        h_red = record.get("home_total_red_card", 0.0)
-        a_red = record.get("away_total_red_card", 0.0)
-        record["total_yellow_cards"] = h_yel + a_yel
-        record["total_red_cards"] = h_red + a_red
-        record["total_cards"] = (h_yel + a_yel) + (h_red + a_red)
-        record["over_3_5_cards"] = int(record["total_cards"] > 3.5)
-        record["over_4_5_cards"] = int(record["total_cards"] > 4.5)
-        record["over_5_5_cards"] = int(record["total_cards"] > 5.5)
-
-        h_fouls = record.get("home_fk_foul_lost", 0.0)
-        a_fouls = record.get("away_fk_foul_lost", 0.0)
-        record["total_fouls"] = h_fouls + a_fouls
-
-        # Expected Goals (xG) Estimation
-        h_ibox = record.get("home_att_ibox_target", 0.0)
-        h_obox = record.get("home_att_obox_target", 0.0)
-        h_big_chances = record.get("home_big_chance_created", 0.0)
-        h_miss_shots = max(0.0, record.get("home_total_scoring_att", 0.0) - record.get("home_ontarget_scoring_att", 0.0))
-        h_xg = round(h_ibox * 0.33 + h_obox * 0.08 + h_big_chances * 0.34 + h_miss_shots * 0.025, 2)
-
-        a_ibox = record.get("away_att_ibox_target", 0.0)
-        a_obox = record.get("away_att_obox_target", 0.0)
-        a_big_chances = record.get("away_big_chance_created", 0.0)
-        a_miss_shots = max(0.0, record.get("away_total_scoring_att", 0.0) - record.get("away_ontarget_scoring_att", 0.0))
-        a_xg = round(a_ibox * 0.33 + a_obox * 0.08 + a_big_chances * 0.34 + a_miss_shots * 0.025, 2)
-
-        record["home_xg"] = h_xg
-        record["away_xg"] = a_xg
-        record["total_xg"] = round(h_xg + a_xg, 2)
+    # Historical aggregate-stat xG proxy; require every input and expose completeness.
+    for side in ("home", "away"):
+        required = (
+            f"{side}_att_ibox_target", f"{side}_att_obox_target",
+            f"{side}_big_chance_created", f"{side}_total_scoring_att",
+            f"{side}_ontarget_scoring_att",
+        )
+        complete = all(pd.notna(record.get(field)) for field in required)
+        record[f"{side}_xg_proxy_reported"] = complete
+        if complete:
+            ibox, obox, big_chances, shots, on_target = (float(record[field]) for field in required)
+            missed = max(0.0, shots - on_target)
+            record[f"{side}_xg"] = round(
+                ibox * 0.33 + obox * 0.08 + big_chances * 0.34 + missed * 0.025, 2
+            )
+        else:
+            record[f"{side}_xg"] = np.nan
+    record["total_xg"] = _sum_if_complete(record["home_xg"], record["away_xg"])
 
     # Referee & Match Officials
     referee_id = None
     referee_name = "Unknown"
-    if details_data and "matchOfficials" in details_data:
-        for official in details_data["matchOfficials"]:
-            if official.get("role") == "MAIN":
-                referee_id = official.get("id")
-                referee_name = official.get("name", {}).get("display", "Unknown")
+    detail_officials = (details_data or {}).get("matchOfficials") or []
+    main_official = next((official for official in detail_officials
+                          if official.get("role") == "MAIN"
+                          and (official.get("name") or {}).get("display")), None)
+    if main_official is None:
+        # Some fixture responses carry the assigned official before the details
+        # endpoint does, using a nested {matchOfficial: ...} shape.
+        fixture_officials = fixture.get("matchOfficials") or []
+        for entry in fixture_officials:
+            official = entry.get("matchOfficial") or entry
+            role = entry.get("role") or official.get("role")
+            if role == "MAIN" and (official.get("name") or {}).get("display"):
+                main_official = official
                 break
+        if main_official is None and fixture_officials:
+            first = fixture_officials[0]
+            candidate = first.get("matchOfficial") or first
+            if (candidate.get("name") or {}).get("display"):
+                main_official = candidate
+    if main_official:
+        referee_id = main_official.get("id")
+        referee_name = (main_official.get("name") or {}).get("display") or "Unknown"
     record["referee_id"] = referee_id
     record["referee_name"] = referee_name
 
@@ -239,7 +338,7 @@ def parse_stream_events(match_id: int, stream_data: Dict[str, Any]) -> List[Dict
         # Keep shots, goals, saves, corners, cards
         target_types = {
             "goal", "attempt saved", "miss", "attempt blocked",
-            "corner", "yellow card", "red card"
+            "corner", "yellow card", "red card", "secondyellow card", "offside"
         }
         if ev_type in target_types:
             t_info = ev.get("time", {})
@@ -255,118 +354,10 @@ def parse_stream_events(match_id: int, stream_data: Dict[str, Any]) -> List[Dict
     return records
 
 
-def build_audit_report(
-    df_matches: pd.DataFrame,
-    df_events: pd.DataFrame,
-    output_path: Path,
-    season_name: str = "2024_25",
-) -> None:
-    """Generates a detailed Markdown audit report on data quality and completeness."""
-    n_matches = len(df_matches)
-    n_events = len(df_events)
-
-    # Core stats summary
-    numeric_cols = [
-        "home_score", "away_score", "total_goals",
-        "home_won_corners", "away_won_corners", "total_corners",
-        "home_total_throws", "away_total_throws", "total_throws",
-        "home_saves", "away_saves", "total_saves",
-        "home_total_scoring_att", "away_total_scoring_att", "total_shots",
-        "home_ontarget_scoring_att", "away_ontarget_scoring_att", "total_shots_ontarget",
-        "home_possession_percentage", "away_possession_percentage",
-    ]
-    available_numeric = [c for c in numeric_cols if c in df_matches.columns]
-    desc = df_matches[available_numeric].describe().T[["mean", "std", "min", "50%", "max"]]
-    desc.columns = ["Ortalama", "Std Sapma", "Min", "Medyan", "Maks"]
-
-    # Missing / Null value check
-    null_counts = df_matches.isnull().sum()
-    null_summary = null_counts[null_counts > 0]
-
-    # Outcome distribution
-    res_dist = df_matches["match_result"].value_counts(normalize=True) * 100
-    home_win_pct = res_dist.get("H", 0.0)
-    draw_pct = res_dist.get("D", 0.0)
-    away_win_pct = res_dist.get("A", 0.0)
-
-    report_content = f"""# Premier League Veri Kalitesi ve Denetim Raporu ({season_name})
-
-**Tarih:** 2024-25 Sezon Kapanışı  
-**Kapsam:** Premier League 2024/25 (CompSeason ID: 719)  
-**Toplam İncelenen Maç Sayısı:** {n_matches} / 380 ({n_matches/380*100:.1f}%)  
-**Toplam Kaydedilen Şut & Olay Sayısı:** {n_events}  
-
----
-
-## 1. Veri Seti Bütünlük ve Eksik Değer Kontrolü
-
-- **Beklenen Maç Sayısı:** 380
-- **Mevcut Maç Sayısı:** {n_matches}
-- **Eksik Maç:** {380 - n_matches}
-- **Kritik Kolonlarda Null / Eksik Değer Sayısı:**
-"""
-    if len(null_summary) == 0:
-        report_content += "  - **0 Hata**: İncelenen tüm maçlarda kritik kolonlarda null veya kayıp veri bulunmamaktadır (%100 tam veri).\n"
-    else:
-        for col, cnt in null_summary.items():
-            report_content += f"  - `{col}`: {cnt} adet eksik değer ({cnt/n_matches*100:.2f}%)\n"
-
-    report_content += f"""
----
-
-## 2. Maç Sonucu ve Ev Sahibi Avantajı Dağılımı
-
-| Sonuç Türü | Maç Sayısı | Yüzde Dağılımı |
-|:---|:---:|:---:|
-| **Ev Sahibi Galibiyeti (H)** | {(df_matches['match_result'] == 'H').sum()} | %{home_win_pct:.1f} |
-| **Beraberlik (D)** | {(df_matches['match_result'] == 'D').sum()} | %{draw_pct:.1f} |
-| **Deplasman Galibiyeti (A)** | {(df_matches['match_result'] == 'A').sum()} | %{away_win_pct:.1f} |
-
-- **Toplam Gol Ortalaması:** {df_matches['total_goals'].mean():.2f} (Medyan: {df_matches['total_goals'].median():.1f})
-- **2.5 Üstü Biten Maç Oranı:** %{(df_matches['over_2_5_goals'].mean() * 100):.1f}
-
----
-
-## 3. Temel Mikro Metriklerin İstatistiki Özeti
-
-| Metrik | Ortalama | Std Sapma | Min | Medyan | Maks |
-|:---|:---:|:---:|:---:|:---:|:---:|
-"""
-    for col, row in desc.iterrows():
-        report_content += f"| `{col}` | {row['Ortalama']:.2f} | {row['Std Sapma']:.2f} | {row['Min']:.1f} | {row['Medyan']:.1f} | {row['Maks']:.1f} |\n"
-
-    report_content += f"""
----
-
-## 4. Olay ve Şut Akışı (Play-by-Play) İncelemesi
-
-Toplam Olay Türü Dağılımı:
-"""
-    if not df_events.empty:
-        ev_counts = df_events["event_type"].value_counts()
-        report_content += "\n| Olay Türü | Toplam Adet | Maç Başına Ortalama |\n|:---|:---:|:---:|\n"
-        for ev_t, count in ev_counts.items():
-            report_content += f"| `{ev_t}` | {count} | {count / n_matches:.2f} |\n"
-
-    report_content += """
----
-
-## 5. Sonuç ve Modelleme Uygunluğu
-Veri seti %100 eksiksiz, tutarlı ve veri sızıntısından arındırılmış durumdadır. Tüm şut, korner, taç ve kurtarış verileri Faz 3 öznitelik mühendisliği ve Faz 4 modelleme süreçlerine tamamen hazırdır.
-"""
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(report_content)
-    logger.info(f"Audit report generated at: {output_path}")
-
-
-def process_season(season_name: str = "2024_25") -> Tuple[pd.DataFrame, pd.DataFrame]:
+def process_season(season_name: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
     raw_dir = Path("data/raw")
     processed_dir = Path("data/processed")
-    reports_dir = Path("reports")
     processed_dir.mkdir(parents=True, exist_ok=True)
-    reports_dir.mkdir(parents=True, exist_ok=True)
 
     fixtures_file = raw_dir / f"fixtures_{season_name}.json"
     if not fixtures_file.exists():
@@ -399,16 +390,19 @@ def process_season(season_name: str = "2024_25") -> Tuple[pd.DataFrame, pd.DataF
             with open(details_file, "r", encoding="utf-8") as f:
                 details_data = json.load(f)
 
-        match_record = parse_match(fix, stats_data, details_data)
+        stream_data = None
+        if stream_file.exists():
+            with open(stream_file, "r", encoding="utf-8") as f:
+                stream_data = json.load(f)
+
+        match_record = parse_match(fix, stats_data, details_data, stream_data)
         if match_record:
             match_record["season"] = season_name
             matches_rows.append(match_record)
 
-        if stream_file.exists():
-            with open(stream_file, "r", encoding="utf-8") as f:
-                stream_data = json.load(f)
-                stream_events = parse_stream_events(match_id, stream_data)
-                events_rows.extend(stream_events)
+        if stream_data is not None:
+            stream_events = parse_stream_events(match_id, stream_data)
+            events_rows.extend(stream_events)
 
     df_matches = pd.DataFrame(matches_rows)
     df_events = pd.DataFrame(events_rows)
@@ -422,9 +416,6 @@ def process_season(season_name: str = "2024_25") -> Tuple[pd.DataFrame, pd.DataF
     df_matches.to_parquet(matches_parquet, index=False)
     df_events.to_parquet(events_parquet, index=False)
 
-    # Audit report
-    audit_md = reports_dir / f"data_audit_{season_name}.md"
-    build_audit_report(df_matches, df_events, audit_md, season_name=season_name)
     logger.info(f"Saved {len(df_matches)} matches to {matches_parquet}")
     return df_matches, df_events
 
@@ -432,14 +423,20 @@ def process_season(season_name: str = "2024_25") -> Tuple[pd.DataFrame, pd.DataF
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--season-name", type=str, default="all", help="Season name or 'all' to process and merge 2024_25 + 2025_26")
+    parser.add_argument("--season-name", type=str, default="all", help="Season name or 'all' to process and merge every cached season")
     args = parser.parse_args()
 
+    raw_dir = Path("data/raw")
     processed_dir = Path("data/processed")
-    reports_dir = Path("reports")
 
     if args.season_name == "all":
-        seasons = ["2023_24", "2024_25", "2025_26", "2026_27"]
+        seasons = sorted(
+            path.stem.removeprefix("fixtures_")
+            for path in raw_dir.glob("fixtures_*.json")
+        )
+        if not seasons:
+            logger.error("No cached season fixture files found in %s", raw_dir)
+            return
         all_matches = []
         all_events = []
         for s in seasons:
@@ -463,8 +460,6 @@ def main():
             df_combined_events.to_parquet(combined_events_path, index=False)
             logger.info(f"Saved combined {len(df_combined_events)} events to {combined_events_path}")
 
-        # Combined multi-season audit report
-        build_audit_report(df_combined_matches, df_combined_events, reports_dir / "data_audit_multi_season.md", season_name="2023-24 to 2026-27")
     else:
         process_season(args.season_name)
 

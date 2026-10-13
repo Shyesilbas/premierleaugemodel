@@ -1,0 +1,46 @@
+{
+  "2023_24": {
+    "source": "https://en.wikipedia.org/wiki/2023%E2%80%9324_Premier_League#Managerial_changes",
+    "events": [
+      { "team_id": 18, "team_name": "Sheffield United", "outgoing_manager": "Paul Heckingbottom", "incoming_manager": "Chris Wilder", "appointment_date": "2023-12-05", "appointment_type": "permanent" },
+      { "team_id": 15, "team_name": "Nottingham Forest", "outgoing_manager": "Steve Cooper", "incoming_manager": "Nuno Espírito Santo", "appointment_date": "2023-12-20", "appointment_type": "permanent" },
+      { "team_id": 6, "team_name": "Crystal Palace", "outgoing_manager": "Roy Hodgson", "incoming_manager": "Oliver Glasner", "appointment_date": "2024-02-19", "appointment_type": "permanent" }
+    ]
+  },
+  "2024_25": {
+    "source": "https://en.wikipedia.org/wiki/2024%E2%80%9325_Premier_League#Managerial_changes",
+    "events": [
+      { "team_id": 12, "team_name": "Manchester United", "outgoing_manager": "Erik ten Hag", "incoming_manager": "Ruud van Nistelrooy", "appointment_date": "2024-10-28", "appointment_type": "interim" },
+      { "team_id": 12, "team_name": "Manchester United", "outgoing_manager": "Ruud van Nistelrooy", "incoming_manager": "Ruben Amorim", "appointment_date": "2024-11-11", "appointment_type": "permanent" },
+      { "team_id": 26, "team_name": "Leicester City", "outgoing_manager": "Steve Cooper", "incoming_manager": "Ben Dawson", "appointment_date": "2024-11-24", "appointment_type": "interim" },
+      { "team_id": 26, "team_name": "Leicester City", "outgoing_manager": "Ben Dawson", "incoming_manager": "Ruud van Nistelrooy", "appointment_date": "2024-12-01", "appointment_type": "permanent" },
+      { "team_id": 38, "team_name": "Wolverhampton Wanderers", "outgoing_manager": "Gary O'Neil", "incoming_manager": "Vítor Pereira", "appointment_date": "2024-12-19", "appointment_type": "permanent" },
+      { "team_id": 20, "team_name": "Southampton", "outgoing_manager": "Russell Martin", "incoming_manager": "Simon Rusk", "appointment_date": "2024-12-15", "appointment_type": "interim" },
+      { "team_id": 20, "team_name": "Southampton", "outgoing_manager": "Simon Rusk", "incoming_manager": "Ivan Jurić", "appointment_date": "2024-12-22", "appointment_type": "permanent" },
+      { "team_id": 25, "team_name": "West Ham United", "outgoing_manager": "Julen Lopetegui", "incoming_manager": "Graham Potter", "appointment_date": "2025-01-09", "appointment_type": "permanent" },
+      { "team_id": 7, "team_name": "Everton", "outgoing_manager": "Sean Dyche", "incoming_manager": "Leighton Baines", "appointment_date": "2025-01-09", "appointment_type": "interim" },
+      { "team_id": 7, "team_name": "Everton", "outgoing_manager": "Leighton Baines", "incoming_manager": "David Moyes", "appointment_date": "2025-01-11", "appointment_type": "permanent" },
+      { "team_id": 20, "team_name": "Southampton", "outgoing_manager": "Ivan Jurić", "incoming_manager": "Simon Rusk", "appointment_date": "2025-04-07", "appointment_type": "interim" }
+    ]
+  },
+  "2025_26": {
+    "source": "https://en.wikipedia.org/wiki/2025%E2%80%9326_Premier_League#Managerial_changes",
+    "events": [
+      { "team_id": 15, "team_name": "Nottingham Forest", "outgoing_manager": "Nuno Espírito Santo", "incoming_manager": "Ange Postecoglou", "appointment_date": "2025-09-09", "appointment_type": "permanent" },
+      { "team_id": 25, "team_name": "West Ham United", "outgoing_manager": "Graham Potter", "incoming_manager": "Nuno Espírito Santo", "appointment_date": "2025-09-27", "appointment_type": "permanent" },
+      { "team_id": 15, "team_name": "Nottingham Forest", "outgoing_manager": "Ange Postecoglou", "incoming_manager": "Sean Dyche", "appointment_date": "2025-10-21", "appointment_type": "permanent" },
+      { "team_id": 38, "team_name": "Wolverhampton Wanderers", "outgoing_manager": "Vítor Pereira", "incoming_manager": "Rob Edwards", "appointment_date": "2025-11-12", "appointment_type": "permanent" },
+      { "team_id": 4, "team_name": "Chelsea", "outgoing_manager": "Enzo Maresca", "incoming_manager": "Liam Rosenior", "appointment_date": "2026-01-08", "appointment_type": "permanent" },
+      { "team_id": 12, "team_name": "Manchester United", "outgoing_manager": "Ruben Amorim", "incoming_manager": "Michael Carrick", "appointment_date": "2026-01-13", "appointment_type": "permanent" },
+      { "team_id": 21, "team_name": "Tottenham Hotspur", "outgoing_manager": "Thomas Frank", "incoming_manager": "Igor Tudor", "appointment_date": "2026-02-14", "appointment_type": "interim" },
+      { "team_id": 15, "team_name": "Nottingham Forest", "outgoing_manager": "Sean Dyche", "incoming_manager": "Vítor Pereira", "appointment_date": "2026-02-15", "appointment_type": "permanent" },
+      { "team_id": 21, "team_name": "Tottenham Hotspur", "outgoing_manager": "Igor Tudor", "incoming_manager": "Roberto De Zerbi", "appointment_date": "2026-03-31", "appointment_type": "permanent" },
+      { "team_id": 4, "team_name": "Chelsea", "outgoing_manager": "Liam Rosenior", "incoming_manager": "Calum McFarlane", "appointment_date": "2026-04-22", "appointment_type": "interim" },
+      { "team_id": 43, "team_name": "Burnley", "outgoing_manager": "Scott Parker", "incoming_manager": "Mike Jackson", "appointment_date": "2026-04-30", "appointment_type": "interim" }
+    ]
+  },
+  "2026_27": {
+    "source": "https://www.premierleague.com/en/news/4325264/list-of-202627-premier-league-club-managers",
+    "events": []
+  }
+}

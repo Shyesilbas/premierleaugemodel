@@ -16,8 +16,15 @@ import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor
 from sklearn.linear_model import Ridge
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 import joblib
+from src.models.model_utils import (
+    chronological_regression_evaluation,
+    estimate_count_dispersion,
+    final_estimator,
+    incomplete_seasons,
+    make_regression_pipeline,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,13 +55,13 @@ CURATED_FEATURES = [
 def train_saves_model(
     data_path: str = "data/processed/features_matches_all.parquet",
     model_output_dir: str = "models/production",
-    reports_output_dir: str = "reports",
 ) -> Dict[str, Any]:
     if not Path(data_path).exists():
-        data_path = "data/processed/features_matches_2024_25.parquet"
+        raise FileNotFoundError(f"Feature dataset not found: {data_path}. Run the full pipeline to rebuild it.")
 
     df = pd.read_parquet(data_path)
     logger.info(f"Loaded featured dataset with {len(df)} matches.")
+    partial_seasons = incomplete_seasons(df)
 
     target_col = "total_saves"
     if target_col not in df.columns:
@@ -68,29 +75,21 @@ def train_saves_model(
         df = df.sort_values(by=["kickoff_millis", "match_id"]).reset_index(drop=True)
     logger.info(f"Filtered {len(df)} completed matches with saves data.")
 
-    feature_cols = [c for c in CURATED_FEATURES if c in df.columns]
+    missing_features = [c for c in CURATED_FEATURES if c not in df.columns]
+    if missing_features:
+        raise ValueError(f"Saves model features missing from dataset: {missing_features}")
+    feature_cols = list(CURATED_FEATURES)
     logger.info(f"Selected {len(feature_cols)} curated features for Saves model.")
 
-    X_all = df[feature_cols].fillna(df[feature_cols].mean())
+    X_all = df[feature_cols].copy()
     y_all = df[target_col].astype(float)
 
-    weights_all = np.linspace(0.65, 1.20, len(df))
-
-    split_idx = int(len(df) * 0.8)
-    X_train, y_train = X_all.iloc[:split_idx], y_all.iloc[:split_idx]
-    X_test, y_test = X_all.iloc[split_idx:], y_all.iloc[split_idx:]
-    w_train = weights_all[:split_idx]
-
-    logger.info(f"Train matches: {len(X_train)}, Test matches: {len(X_test)}")
-
-    baseline_pred = float(np.average(y_train, weights=w_train))
-    baseline_test_rmse = float(np.sqrt(mean_squared_error(y_test, np.full_like(y_test, baseline_pred))))
-    baseline_test_mae = float(mean_absolute_error(y_test, np.full_like(y_test, baseline_pred)))
-
     candidates = {
-        "ridge_strong_500": Ridge(alpha=500.0),
-        "ridge_1000": Ridge(alpha=1000.0),
-        "lgbm_shallow": LGBMRegressor(
+        **{
+            f"ridge_{alpha:g}": make_regression_pipeline(Ridge(alpha=alpha), scale=True)
+            for alpha in (0.1, 1.0, 10.0, 50.0, 100.0, 500.0, 1000.0)
+        },
+        "lgbm_shallow": make_regression_pipeline(LGBMRegressor(
             max_depth=2,
             num_leaves=4,
             learning_rate=0.02,
@@ -99,72 +98,32 @@ def train_saves_model(
             colsample_bytree=0.8,
             random_state=42,
             verbosity=-1,
-        ),
+        )),
     }
 
-    best_name = None
-    best_rmse = float("inf")
-    for name, cand in candidates.items():
-        cand.fit(X_train, y_train, sample_weight=w_train)
-        preds = cand.predict(X_test)
-        rmse = float(np.sqrt(mean_squared_error(y_test, preds)))
-        mae = float(mean_absolute_error(y_test, preds))
-        r2 = float(r2_score(y_test, preds))
-        logger.info(f"Candidate {name}: RMSE={rmse:.4f}, MAE={mae:.4f}, R2={r2:.4f}")
-        if rmse < best_rmse:
-            best_rmse = rmse
-            best_name = name
+    best_name, eval_model, prod_model, metrics, preds_test, y_test = chronological_regression_evaluation(
+        X_all, y_all, candidates, df.get("season"), partial_seasons
+    )
+    split_idx = metrics["train_samples"]
+    X_train, y_train = X_all.iloc[:split_idx], y_all.iloc[:split_idx]
+    logger.info("Selected %s by development-period time-series CV", best_name)
 
-    logger.info(f"Selected best model for Saves: {best_name} (RMSE: {best_rmse:.4f} vs Baseline: {baseline_test_rmse:.4f})")
-
-    eval_model = candidates[best_name]
-    preds_test = eval_model.predict(X_test)
-    test_rmse = float(np.sqrt(mean_squared_error(y_test, preds_test)))
-    test_mae = float(mean_absolute_error(y_test, preds_test))
-    test_r2 = float(r2_score(y_test, preds_test))
-
-    # Production Refit on 100% of data
-    logger.info("Refitting winning architecture on 100% of played matches for production...")
-    if "ridge" in best_name:
-        alpha_val = float(best_name.split("_")[-1])
-        prod_model = Ridge(alpha=alpha_val)
-    else:
-        prod_model = LGBMRegressor(
-            max_depth=2,
-            num_leaves=4,
-            learning_rate=0.02,
-            n_estimators=40,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            random_state=42,
-            verbosity=-1,
-        )
-
-    prod_model.fit(X_all, y_all, sample_weight=weights_all)
-
-    if hasattr(prod_model, "feature_importances_"):
-        imps = prod_model.feature_importances_
+    fitted_estimator = final_estimator(prod_model)
+    if hasattr(fitted_estimator, "feature_importances_"):
+        imps = fitted_estimator.feature_importances_
         sorted_idx = np.argsort(imps)[::-1]
         top_features = {feature_cols[i]: float(imps[i]) for i in sorted_idx[:10]}
     else:
-        coefs = np.abs(prod_model.coef_)
+        coefs = np.abs(fitted_estimator.coef_)
         sorted_idx = np.argsort(coefs)[::-1]
         top_features = {feature_cols[i]: float(coefs[i]) for i in sorted_idx[:10]}
 
-    metrics = {
-        "model_type": f"Regularized {best_name.upper()} (Saves)",
-        "selected_model": best_name,
-        "train_samples": len(X_train),
-        "test_samples": len(X_test),
-        "train_rmse": round(float(np.sqrt(mean_squared_error(y_train, eval_model.predict(X_train)))), 3),
-        "train_mae": round(float(mean_absolute_error(y_train, eval_model.predict(X_train))), 3),
-        "test_rmse": round(test_rmse, 3),
-        "test_mae": round(test_mae, 3),
-        "test_r2": round(test_r2, 3),
-        "baseline_test_rmse": round(baseline_test_rmse, 3),
-        "baseline_test_mae": round(baseline_test_mae, 3),
+    metrics.update({
+        "model_type": f"Chronological CV-selected {best_name} (Saves)",
+        "train_rmse": round(float(mean_squared_error(y_train, eval_model.predict(X_train)) ** 0.5), 4),
+        "train_mae": round(float(mean_absolute_error(y_train, eval_model.predict(X_train))), 4),
         "top_features": top_features,
-    }
+    })
 
     Path(model_output_dir).mkdir(parents=True, exist_ok=True)
     model_file = Path(model_output_dir) / "saves_model_v1.joblib"
@@ -173,7 +132,8 @@ def train_saves_model(
             "model": prod_model,
             "feature_names": feature_cols,
             "feature_cols": feature_cols,
-            "baseline_mean": baseline_pred,
+            "baseline_mean": metrics["baseline_mean"],
+            "count_dispersion_alpha": estimate_count_dispersion(y_all),
             "metrics": metrics,
             "top_features": top_features,
         },

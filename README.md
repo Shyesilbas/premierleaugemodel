@@ -1,74 +1,50 @@
-# Premier League Model Engine (2024-25)
+# Premier League Match Analysis
 
-Premier League için maçın nihai skorundan ziyade süreci yöneten mikro metriklere (şut hacmi, korner, taç, kaleci kurtarışı, pas ve topa sahip olma) odaklanan, sızıntısız (leakage-free) zaman serisi öznitelikleriyle çalışan bilimsel bir makine öğrenimi tahmin motoru.
+This project stores Premier League fixtures and match statistics, builds pre-match team features, trains prediction models, and serves a React dashboard through FastAPI.
 
----
+## Current data
 
-## 1. Mimari Genel Bakış
+The local cache contains four seasons: 2023/24, 2024/25, 2025/26, and the in-progress 2026/27 season. Counts change as fixtures finish; see [Data Quality](reports/data_quality.md) for the current snapshot and raw-provider field coverage.
 
-```text
-premierLeaugeModelApp/
-├── data/
-│   ├── raw/
-│   │   ├── fixtures_2024_25.json             # 380 maçın ham fikstürü
-│   │   └── matches/                          # Her maç için:
-│   │       ├── {match_id}_stats.json         # Takım istatistikleri (150+ metrik)
-│   │       ├── {match_id}_stream.json        # Play-by-play akışı (şutlar, kartlar vb.)
-│   │       └── {match_id}_details.json       # Kadrolar, dizilişler, stadyum, hakem
-│   └── processed/
-│       ├── matches_summary_2024_25.parquet   # Temizlenmiş 380 maçlık ana istatistik tablosu
-│       └── shots_events_2024_25.parquet      # Şut ve olay bazlı oyuncu tablosu
-├── models/
-│   ├── production/                           # Kabul testini geçen aktif modeller
-│   └── experimental/                         # Eğitilen aday modeller
-├── src/
-│   ├── ingest/
-│   │   └── fetch_season_data.py              # PulseLive'dan batch veri çeken script
-│   ├── features/
-│   │   └── build_features.py                 # Rolling EWMA, rakip düzeltmesi, dinlenme günleri
-│   └── models/
-│       ├── train_corners.py                  # Korner tahmin modeli
-│       ├── train_throws.py                   # Taç tahmin modeli
-│       ├── train_saves.py                    # Kaleci kurtarış modeli
-│       └── train_match_outcome.py            # 1X2 ve Alt/Üst Poisson/XGBoost modelleri
-├── reports/
-│   ├── data_audit_2024_25.md                 # Kayıp veri ve veri kalitesi raporu
-│   └── model_benchmarks.md                   # Model doğrulama ve metrik sonuçları
-├── PROJECT_STATUS.md                         # Aktif faz, tamamlananlar ve sonraki adımlar
-├── ARTIFACT_REGISTRY.md                      # Veri ve model dosyalarının tek doğruluk kaynağı
-└── README.md                                 # Proje kullanım ve mimari rehberi
-```
+## Run locally
 
----
+Start the API from the repository root:
 
-## 2. Veri Kaynağı ve Protokolü
-
-- **Sağlayıcı:** Premier League Resmi Altyapısı (PulseLive API)
-- **CompSeason ID (2024/25):** `719`
-- **Gerekli Başlıklar:**
-  - `Origin: https://www.premierleague.com`
-  - `User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)`
-- **Ana Endpoint'ler:**
-  - Fikstür: `https://footballapi.pulselive.com/football/fixtures?comps=1&compSeasons=719&pageSize=400&sort=asc`
-  - Takım İstatistikleri: `https://footballapi.pulselive.com/football/stats/match/{match_id}`
-  - Play-by-Play Akış: `https://footballapi.pulselive.com/football/fixtures/{match_id}/textstream/en?pageSize=500`
-  - Kadro ve Detaylar: `https://footballapi.pulselive.com/football/fixtures/{match_id}`
-
----
-
-## 3. Kurulum ve Çalıştırma
-
-### Gereksinimler
-Python 3.10+ ve temel veri bilimi kütüphaneleri:
 ```bash
-pip install requests pandas pyarrow numpy scipy xgboost lightgbm scikit-learn tqdm
+uvicorn src.api.server:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### Veri Çekme (Faz 1)
+Start the frontend in a second terminal:
+
 ```bash
-python3 src/ingest/fetch_season_data.py --season 719 --season-name 2024_25
+cd frontend
+npm install
+npm run dev
 ```
-Seçenekler:
-- `--limit N`: Test amaçlı ilk N maçı çeker.
-- `--force`: Mevcut önbellek dosyalarını yeniden indirir.
-- `--delay SECONDS`: İstekler arası bekleme süresi (varsayılan: 0.1 sn).
+
+## Refresh data and models
+
+The Fixtures page can run the incremental season sync. It refreshes the provider fixture list and downloads data for changed or newly completed matches, then rebuilds the processed tables and SQLite database. That action does not retrain prediction models. Restart the API to load rebuilt data.
+
+To rebuild features, retrain every model, and refresh the reports from the local cache, run:
+
+```bash
+python3 run_full_pipeline.py
+```
+
+The full pipeline does not fetch new upstream data. Run the incremental sync first when the cache needs updating.
+
+## Model and data reports
+
+- [Model Benchmarks](reports/model_benchmarks.md): one chronological benchmark report for all prediction targets.
+- [Data Quality](reports/data_quality.md): fixture counts, referee/raw-stat coverage, target distributions, and missing-label patterns by season, team, and match outcome.
+- [Team Tactical Data Audit](reports/team_tactical_data_audit.md): detailed coverage for team-level tactical fields.
+- [Team Scenario Validation](reports/team_scenario_validation.md): compares event-stream shot and corner counts with match statistics.
+- [Artifact Registry](ARTIFACT_REGISTRY.md): current processed datasets and model artifacts.
+- [Project Status](PROJECT_STATUS.md): current snapshot and known model limitations.
+
+## Evaluation and interpretation
+
+All model rows are ordered by kickoff. Candidate selection uses expanding-window folds; the final 20% is held out and scored once. Results also include season-by-season holdouts where each test season is evaluated using only earlier seasons. Probability calibration is fitted from chronological out-of-fold development predictions. Regression imputation and scaling are fitted within each training fold. Production models are refit on all eligible rows only after evaluation. The 1X2 report includes a Dixon–Coles team attack/defence baseline on the same temporal holdouts; it is currently an evaluation comparator, not the API's production outcome model.
+
+The data covers only a few seasons, and the latest season is incomplete. Treat small improvements over a mean or class-prior baseline as preliminary. Count thresholds use a negative-binomial distribution with dispersion estimated on training targets; reports compare it with Poisson and training-rate baselines. Raw metric omissions are kept as nulls with per-team `_reported` flags; models exclude rows whose target metrics are incomplete. The repository does not contain a trained xG model: its historical `xg` fields are a hand-built proxy from aggregate shot statistics and big chances, generated only when its inputs are present.

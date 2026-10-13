@@ -775,19 +775,19 @@ export default function MatchDetailModal({ match, onClose }) {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-rose-700">
                           <Target className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Beklenen Gol (xG) & Şutlar</span>
+                          <span className="text-xs font-bold uppercase tracking-wider">Gol Tahmini · Şut İstatistikleri</span>
                         </div>
                         <span className="text-[10px] font-mono font-bold bg-rose-50 text-rose-800 px-2 py-0.5 rounded border border-rose-200">
-                          xG Engine
+                          İstatistik Proksisi
                         </span>
                       </div>
                       <div className="space-y-0.5">
                         <div className="flex items-baseline gap-1.5">
                           <span className="text-3xl font-black font-mono text-slate-900">{prediction.xg?.expected_total || '2.90'}</span>
-                          <span className="text-xs text-slate-500 font-medium">toplam xG</span>
+                          <span className="text-xs text-slate-500 font-medium">tahmini gol · resmî xG değil</span>
                         </div>
                         <p className="text-xs text-slate-600 font-medium">
-                          {homeTeam.short}: <strong className="text-rose-700 font-mono font-bold">{prediction.xg?.expected_home || '1.45'} xG</strong> • {awayTeam.short}: <strong className="text-rose-700 font-mono font-bold">{prediction.xg?.expected_away || '1.45'} xG</strong>
+                          {homeTeam.short}: <strong className="text-rose-700 font-mono font-bold">{prediction.xg?.expected_home || '1.45'} gol</strong> • {awayTeam.short}: <strong className="text-rose-700 font-mono font-bold">{prediction.xg?.expected_away || '1.45'} gol</strong>
                         </p>
                       </div>
                       <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">

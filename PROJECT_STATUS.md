@@ -1,36 +1,30 @@
-# Premier League Model Engine — Proje Durumu (PROJECT_STATUS)
+# Project Status
 
-**Son Güncelleme:** Güncel Sezon (2026-27) Oynanmış Maç Verileri, Kadrolar & Oyuncu Kütüğü Entegre Edildi  
-**Aktif Faz:** 3 Sezonluk Canlı Veri Tabanı (1140 Maç, 868 Oyuncu, 31,932 Opta Olayı)
+**Snapshot:** 2026-10-13, local cached data
+**Current season:** 2026/27, 60 of 380 fixtures completed
 
----
+## Current state
 
-## 1. Faz Durum Özeti
+- Four cached seasons contain 1,520 fixtures, including 1,200 completed matches and 320 upcoming fixtures.
+- Processed match and feature tables were rebuilt from the local raw cache; the combined feature table has 534 columns, including raw-stat presence flags.
+- All production model families were retrained. Candidate selection uses expanding-window time-series folds, with both a final chronological holdout and prior-season holdouts recorded in [Model Benchmarks](reports/model_benchmarks.md).
+- The 1X2 classifier was compared with a Dixon–Coles team attack/defence baseline on identical chronological and season holdouts. The benchmark is evaluative; the existing classifier remains the production model.
+- Data coverage, missing-stat selection patterns, and event-stream reports were regenerated. See [Data Quality](reports/data_quality.md), [Team Tactical Data Audit](reports/team_tactical_data_audit.md), and [Team Scenario Validation](reports/team_scenario_validation.md).
 
-| Faz | Açıklama | Durum | İlerleme |
-|:---|:---|:---:|:---:|
-| **Faz 1** | **Veri İndirme (2024-25, 2025-26 & 2026-27)** | 🟢 Tamamlandı | %100 (1140 Maç Detayı, 819 Oynanmış Maç) |
-| **Faz 2** | **Tablolama & Çoklu Sezon Denetimi** | 🟢 Tamamlandı | %100 (1140 Maç Parquet, 868 Oyuncu Kütüğü) |
-| **Faz 3** | **Zaman Serisi Öznitelik Mühendisliği** | 🟢 Tamamlandı | %100 (Leakage-Free İspatlandı) |
-| **Faz 4** | **Model Eğitimi & Tahmin Motoru** | 🟢 Tamamlandı | %100 (5 Model Aktif: Korner, Taç, Kurtarış, Sonuç, Ofsayt) |
-| **Frontend**| **Sidebar, Soft Gri/Beyaz Tema, Fikstür, Profiller, Maç Tahminleri & Detaylar** | 🟢 Canlıda | http://127.0.0.1:5173 (API: :8000) |
+## Known model limits
 
----
+- Results remain preliminary because only three season holdouts are available and the latest one is partial. Compare the per-season score ranges with the single chronological holdout.
+- 1X2 and over/under probabilities now use a chronological out-of-fold temperature and class-offset calibrator. The calibration needs more seasons before it can be considered stable.
+- Count thresholds now use a negative-binomial distribution with dispersion fit on training targets; the benchmark compares NB2, Poisson, and training-rate baselines.
+- Omitted raw metrics remain null with `_reported` flags. Incomplete target rows are excluded from count-model training. Red-card omissions are still treated as zero under a sparse-event assumption, so card labels can be understated if the provider omits a real red card.
+- Missingness is not uniform: offsides coverage drops from 65.8% in 2023/24 to 56.6% in 2025/26, and cards coverage also declines. The report compares this selection with team and match-outcome patterns; these are descriptive associations, not proof of cause.
+- The Dixon–Coles comparator improves on the class-prior log-loss baseline but trails the current calibrated classifier on the main holdout; it also rarely chooses draws as its top class. It has not replaced the production model.
+- The `xg` columns are a hand-built aggregate-stat proxy, not Opta shot-level xG and not a separately trained model.
+- An incremental fixture sync refreshes processed data but does not retrain models. Run `python3 run_full_pipeline.py` after a sync and restart the API to load current artifacts.
 
-## 2. Tamamlanan Son Düzenlemeler
-- [x] **Maç Detay Modalı Kapsamlı İstatistikler & Oyuncu Karnesi:**
-  - `MatchDetailModal.jsx` içine "İstatistikler" sekmesi eklendi.
-  - Sofascore tarzı 5 kategorili karşılaştırmalı takım istatistik çubukları (Şut & Hücum, Top Hakimiyeti & Pas, Duran Top & Baskı, Savunma & İkili Mücadele, Disiplin & Kaleci).
-  - Maç özelinde ev sahibi ve deplasman oyuncu karnesi: Oynanan dakika, gol, asist, şut, isabetli şut, faul yapma, faul alma, ofsayt, kartlar.
-- [x] **Yakalanılan Ofsayt Motoru (Offside Prediction Model v1):**
-  - XGBoost Regressor + Poisson dağılımı ile eğitildi (`models/production/offside_model_v1.joblib`).
-  - Test RMSE: 1.937 (Baseline: 1.974), 3.5 Üst Doğruluğu: %67.68.
-  - `src/features/build_features.py` içine sızıntısız geçmiş ofsayt metrikleri (`offsides_for`, `offsides_against`), büyük fırsatlar (`big_chances`), ceza sahası topla buluşma ve fauller eklendi (336 öznitelik).
-  - Sızıntı testi (`tests/test_data_leakage.py`) 0.000 fark ile başarıyla doğrulandı.
-- [x] **Tahmin & Benchmark Arayüzü Güncellemesi:**
-  - Sidebar ve kod tabanından Model & Denetim sekmesi kaldırıldı.
-  - `/api/predict` uç noktası güncellendi.
-  - Unplayed maçlardaki float NaN değerleri temizlenerek API JSON uyumluluğu sağlandı.
-- [x] **Oyuncu Profilleri & Kadro Görselleştirme:**
-  - 850+ oyuncunun resmi Premier League kafa fotoğrafları ve forma numaraları kütüğe eklendi.
-  - `PlayerProfilesTab.jsx` ve `TeamProfilesTab.jsx` resmi oyuncu fotoğrafları, forma numaraları, mevki filtreleri ve modern kart düzeniyle yenilendi.
+## Next work
+
+1. Recover or supplement missing yellow-card, save, and offside data, then recheck whether the current coverage gaps are provider-side or source-side.
+2. Add more completed seasons and monitor whether the current classifier's advantage over Dixon–Coles persists.
+3. Validate omitted sparse-count fields against event streams or another authoritative source, especially red cards.
+4. Replace the xG proxy with verified shot-level xG input or remove the xG label from predictions.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 from src.analytics.team_scenarios import load_team_match_scenarios
@@ -50,6 +51,8 @@ def build_report() -> str:
     lines = [
         "# Skor Durumu ve Korner Analizi — Veri Doğrulaması",
         "",
+        f"Snapshot generated {date.today().isoformat()} from cached event streams and raw team stats.",
+        "",
         "Bu denetim play-by-play akışını maç ve takım istatistikleriyle karşılaştırır.",
         "",
         "## Olay akışı kapsamı",
@@ -62,7 +65,7 @@ def build_report() -> str:
     lines.extend(
         [
             "",
-            f"- Son skor **{event_audit['score_reconstructed_matches']}/{event_audit['matches']}** maçta gol olaylarından yeniden kuruldu.",
+            f"- Son skor, olay akışı bulunan **{event_audit['score_reconstructed_matches']}/{event_audit['matches']}** maçta gol olaylarından yeniden kuruldu.",
             f"- {event_audit['shot_events']} şut olayı ve {event_audit['corner_events']} korner olayı okundu.",
             f"- Saat bilgisi olmayan aksiyon: {event_audit['timed_action_missing']}.",
             "",
@@ -79,7 +82,8 @@ def build_report() -> str:
             "Böylece şut ve kornerler eşitlikte, öndeyken veya gerideyken sayılabilir.",
             "- Tempo, olay sayısının ilgili skor durumunda geçen oyun dakikasına bölünüp 90 dakikaya ölçeklenmesiyle hesaplanır. "
             "Bir skor durumu için 90 dakikadan az örnek varsa arayüz oranı gizler.",
-            "- Ham `won_corners` sayısı olay akışıyla karşılaştırılan 2342 takım-maçın tamamında eşleşti. "
+            f"- Ham `won_corners` sayısı {comparison['corner_rows_match']}/{comparison['corner_rows']} "
+            "karşılaştırılan takım-maçta olay akışıyla eşleşti. "
             "`corner_taken` ve korner isabet alt ölçüleri daha az tutarlı; "
             "ilk analiz bunlara dayandırılmaz.",
             "- Korner olayında hedef koordinatı bulunmadığından ön direk/arka direk tercihi çıkarılmaz.",

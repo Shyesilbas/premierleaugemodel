@@ -7,6 +7,10 @@ Serves interactive prediction engine, fixtures, events, and static frontend dash
 import json
 import logging
 import re
+import subprocess
+import sys
+import threading
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
@@ -17,7 +21,7 @@ import joblib
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from scipy.stats import poisson
+from src.models.model_utils import apply_probability_calibrator, count_tail_probability
 from src.db.database import get_referees_list, get_referee_detail, get_all_grouped_fixtures, get_referee_summary
 from src.features.build_features import (
     calculate_rest_days,
@@ -35,6 +39,9 @@ logger = logging.getLogger("api_server")
 
 app = FastAPI(title="Premier League Model Engine API", version="1.0.0")
 
+_sync_job_lock = threading.Lock()
+_sync_job: Dict[str, Any] = {"id": None, "status": "idle", "season": None, "message": None, "output": ""}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -49,15 +56,12 @@ MODELS_DIR = BASE_DIR / "models" / "production"
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 FRONTEND_DIR = FRONTEND_DIST if FRONTEND_DIST.exists() else (BASE_DIR / "frontend")
 
-# Load Datasets & Models into memory (Prefer combined multi-season, fallback to 2024-25)
+# Load the current combined datasets & production models into memory.
 logger.info("Loading cached datasets and models...")
 matches_all = DATA_DIR / "processed" / "matches_summary_all.parquet"
 features_all = DATA_DIR / "processed" / "features_matches_all.parquet"
-events_all = DATA_DIR / "processed" / "shots_events_all.parquet"
-
-matches_parquet = matches_all if matches_all.exists() else (DATA_DIR / "processed" / "matches_summary_2024_25.parquet")
-features_parquet = features_all if features_all.exists() else (DATA_DIR / "processed" / "features_matches_2024_25.parquet")
-events_parquet = events_all if events_all.exists() else (DATA_DIR / "processed" / "shots_events_2024_25.parquet")
+matches_parquet = matches_all
+features_parquet = features_all
 
 df_matches = pd.read_parquet(matches_parquet) if matches_parquet.exists() else pd.DataFrame()
 df_features = pd.read_parquet(features_parquet) if features_parquet.exists() else pd.DataFrame()
@@ -80,6 +84,103 @@ if players_reg_file.exists():
         all_players = json.load(f)
 
 player_registry_map: Dict[int, Dict[str, Any]] = {int(p["id"]): p for p in all_players if "id" in p}
+
+
+@app.get("/api/teams/staff")
+def get_team_staff(season: str = "2026_27", team_id: Optional[int] = None):
+    """Return season staff, falling back to archived source data for older seasons."""
+    staff_path = DATA_DIR / "processed" / "team_staff.json"
+    raw_staff_path = DATA_DIR / "processed" / "team_staff_raw.json"
+    manager_rosters_path = DATA_DIR / "processed" / "team_manager_rosters.json"
+    if not staff_path.exists():
+        raise HTTPException(status_code=404, detail="Team staff data not available")
+    try:
+        with staff_path.open("r", encoding="utf-8") as stream:
+            staff_by_season = json.load(stream)
+        raw_staff_by_season = {}
+        if raw_staff_path.exists():
+            with raw_staff_path.open("r", encoding="utf-8") as stream:
+                raw_staff_by_season = json.load(stream)
+        manager_rosters = {}
+        if manager_rosters_path.exists():
+            with manager_rosters_path.open("r", encoding="utf-8") as stream:
+                manager_rosters = json.load(stream)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.exception("Could not read team staff data")
+        raise HTTPException(status_code=500, detail="Could not read team staff data") from exc
+
+    # The normalized file currently has complete coverage only for 2026/27;
+    # archived PulseLive responses contain the older seasons.
+    season_staff = {
+        **raw_staff_by_season.get(season, {}),
+        **staff_by_season.get(season, {}),
+    }
+    season_manager_roster = manager_rosters.get(season, {}).get("managers", {})
+    changes_path = DATA_DIR / "processed" / "manager_changes.json"
+    season_changes = []
+    if changes_path.exists():
+        try:
+            with changes_path.open("r", encoding="utf-8") as stream:
+                season_changes = json.load(stream).get(season, {}).get("events", [])
+        except (OSError, json.JSONDecodeError):
+            logger.exception("Could not read manager change data for staff fallback")
+
+    for event in season_changes:
+        current_team_id = str(event.get("team_id", ""))
+        if current_team_id and current_team_id not in season_staff:
+            season_staff[current_team_id] = {"team_name": event.get("team_name", ""), "officials": []}
+    for current_team_id, entry in season_manager_roster.items():
+        season_staff.setdefault(current_team_id, {"team_name": entry.get("team_name", ""), "officials": []})
+
+    def add_manager_fallback(current_team_id: str, staff: Dict[str, Any]) -> Dict[str, Any]:
+        officials = list(staff.get("officials") or [])
+        has_manager = any(
+            str(official.get("role", "")).lower() == "manager"
+            and (official.get("name") or {}).get("display")
+            for official in officials
+        )
+        if not has_manager:
+            roster_entry = season_manager_roster.get(current_team_id)
+            manager_name = (roster_entry or {}).get("name")
+            if not manager_name:
+                appointments = [
+                    event for event in season_changes
+                    if str(event.get("team_id")) == current_team_id and event.get("incoming_manager")
+                ]
+                latest = max(appointments, key=lambda event: event.get("appointment_date", "")) if appointments else None
+                manager_name = (latest or {}).get("incoming_manager")
+            if manager_name:
+                officials.append({
+                    "role": "Manager",
+                    "active": True,
+                    "name": {"display": manager_name},
+                    "inferred_from_manager_changes": not bool(roster_entry),
+                })
+        return {**staff, "officials": officials}
+
+    if team_id is not None:
+        staff = season_staff.get(str(team_id))
+        if staff is None and not any(str(event.get("team_id")) == str(team_id) for event in season_changes):
+            raise HTTPException(status_code=404, detail="Team staff not found for this season")
+        staff = staff or {"officials": []}
+        staff = add_manager_fallback(str(team_id), staff)
+        return {"season": season, "team_id": team_id, "staff": staff}
+
+    managers = {}
+    for current_team_id, staff in season_staff.items():
+        staff = add_manager_fallback(str(current_team_id), staff)
+        officials = staff.get("officials") or []
+        manager = next(
+            (official for official in officials if official.get("role", "").lower() == "manager" and official.get("active")),
+            next((official for official in officials if official.get("role", "").lower() == "manager"), None),
+        )
+        name = (manager or {}).get("name") or {}
+        display = name.get("display") or " ".join(
+            part for part in (name.get("first"), name.get("last")) if part
+        )
+        if display:
+            managers[str(current_team_id)] = display
+    return {"season": season, "managers": managers}
 
 def get_position_order(pos_str: Optional[str]) -> int:
     """Returns sort priority 1..5 for Kaleci, Savunma, Orta Saha, Forvet."""
@@ -187,6 +288,106 @@ if not _long_history.empty:
     get_live_state(None)  # Warm up current-season state at startup
 
 
+def reload_runtime_datasets() -> None:
+    """Reload data files refreshed by the season sync job into this API worker."""
+    global df_matches, df_features, raw_fixtures_2627, teams_dict, match_stats_map
+    global teams_list, _matches_prepared, _long_history, _played_matches, CURRENT_SEASON, _live_state_cache
+
+    df_matches = pd.read_parquet(matches_parquet) if matches_parquet.exists() else pd.DataFrame()
+    df_features = pd.read_parquet(features_parquet) if features_parquet.exists() else pd.DataFrame()
+    if fix_2627_path.exists():
+        with fix_2627_path.open("r", encoding="utf-8") as stream:
+            raw_fixtures_2627 = json.load(stream)
+    else:
+        raw_fixtures_2627 = []
+
+    teams_dict = {}
+    match_stats_map = {}
+    if not df_matches.empty:
+        for _, row in df_matches.iterrows():
+            match_id = int(row["match_id"])
+            teams_dict[int(row["home_id"])] = {"id": int(row["home_id"]), "name": row["home_name"], "abbr": row["home_abbr"]}
+            teams_dict[int(row["away_id"])] = {"id": int(row["away_id"]), "name": row["away_name"], "abbr": row["away_abbr"]}
+            if pd.notnull(row.get("total_corners")) or pd.notnull(row.get("home_total_scoring_att")) or pd.notnull(row.get("away_total_scoring_att")):
+                match_stats_map[match_id] = {
+                    "total_corners": row.get("total_corners"),
+                    "total_throws": row.get("total_throws"),
+                    "total_shots": row.get("total_shots"),
+                    "total_shots_ontarget": row.get("total_shots_ontarget"),
+                    "total_saves": row.get("total_saves"),
+                    "home_won_corners": row.get("home_won_corners"),
+                    "away_won_corners": row.get("away_won_corners"),
+                    "home_total_throws": row.get("home_total_throws"),
+                    "away_total_throws": row.get("away_total_throws"),
+                    "home_total_shots": int(row["home_total_scoring_att"]) if pd.notnull(row.get("home_total_scoring_att")) else None,
+                    "away_total_shots": int(row["away_total_scoring_att"]) if pd.notnull(row.get("away_total_scoring_att")) else None,
+                }
+    teams_list = sorted(teams_dict.values(), key=lambda item: item["name"])
+    _matches_prepared = calculate_rest_days(df_matches) if not df_matches.empty else pd.DataFrame()
+    _long_history = build_team_match_history(_matches_prepared) if not _matches_prepared.empty else pd.DataFrame()
+    _played_matches = _matches_prepared[_matches_prepared["is_played"]] if not _matches_prepared.empty else pd.DataFrame()
+    CURRENT_SEASON = (
+        str(_played_matches["season"].iloc[-1])
+        if not _played_matches.empty and "season" in _played_matches.columns
+        else None
+    )
+    _live_state_cache = {}
+    _fixture_pred_cache.clear()
+    if not _long_history.empty:
+        get_live_state(None)
+
+
+def _run_season_sync_job(job_id: str, season: str) -> None:
+    script_path = BASE_DIR / "src" / "ingest" / "sync_season_data.py"
+    command = [sys.executable, str(script_path), "--season-name", season]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=BASE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=60 * 30,
+            check=False,
+        )
+        output = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()[-6000:]
+        if result.returncode != 0:
+            with _sync_job_lock:
+                if _sync_job.get("id") == job_id:
+                    _sync_job.update(status="failed", message="Veri güncellemesi tamamlanamadı.", output=output)
+            return
+
+        reload_runtime_datasets()
+        with _sync_job_lock:
+            if _sync_job.get("id") == job_id:
+                _sync_job.update(status="completed", message="Veriler güncellendi.", output=output)
+    except Exception as exc:
+        logger.exception("Season sync job failed")
+        with _sync_job_lock:
+            if _sync_job.get("id") == job_id:
+                _sync_job.update(status="failed", message=str(exc), output="")
+
+
+@app.post("/api/admin/sync-season")
+def start_season_sync(season: str = Query("2026_27")):
+    """Start an incremental season sync in the background."""
+    if season not in {"2023_24", "2024_25", "2025_26", "2026_27"}:
+        raise HTTPException(status_code=400, detail="Unsupported season")
+    with _sync_job_lock:
+        if _sync_job.get("status") in {"queued", "running"}:
+            return {**_sync_job, "already_running": True}
+        job_id = str(uuid.uuid4())
+        _sync_job.update(id=job_id, status="running", season=season, message="Sezon verileri kontrol ediliyor...", output="")
+    thread = threading.Thread(target=_run_season_sync_job, args=(job_id, season), daemon=True)
+    thread.start()
+    return {**_sync_job, "already_running": False}
+
+
+@app.get("/api/admin/sync-season")
+def get_season_sync_status():
+    with _sync_job_lock:
+        return dict(_sync_job)
+
+
 @app.get("/api/teams")
 def get_teams(season: Optional[str] = None):
     """Returns sorted list of teams, optionally filtered by season."""
@@ -277,6 +478,143 @@ def get_quick_fixture_prediction(home_id: int, away_id: int, season: Optional[st
     except Exception as e:
         logger.warning(f"Error generating quick prediction for {home_id} vs {away_id}: {e}")
         return None
+
+
+@app.get("/api/teams/manager-changes")
+def get_manager_changes(season: str = "2026_27"):
+    """Place verified appointment events on each team's first subsequent league fixture."""
+    changes_path = DATA_DIR / "processed" / "manager_changes.json"
+    if not changes_path.exists():
+        return {"season": season, "events_by_match": {}}
+    try:
+        with changes_path.open("r", encoding="utf-8") as stream:
+            changes_by_season = json.load(stream)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.exception("Could not read manager change data")
+        raise HTTPException(status_code=500, detail="Could not read manager change data") from exc
+
+    season_changes = changes_by_season.get(season, {}).get("events", [])
+    fixtures = get_all_grouped_fixtures(season)
+    events_by_match: Dict[str, List[Dict[str, Any]]] = {}
+    for event in season_changes:
+        try:
+            appointment_date = datetime.strptime(event["appointment_date"], "%Y-%m-%d").date()
+            team_id = int(event["team_id"])
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Skipping malformed manager change record: %s", event)
+            continue
+
+        next_fixture = None
+        next_kickoff = datetime.max
+        for fixture in fixtures:
+            if team_id not in (int(fixture["home_id"]), int(fixture["away_id"])):
+                continue
+            kickoff = parse_kickoff_datetime(fixture.get("kickoff_label", ""))
+            # Appointment sources provide dates, not times. Using the following
+            # calendar day avoids attributing a match played before an announcement.
+            if kickoff == datetime.min or kickoff.date() <= appointment_date:
+                continue
+            if kickoff < next_kickoff:
+                next_fixture, next_kickoff = fixture, kickoff
+
+        if next_fixture is None:
+            continue
+        match_id = str(next_fixture["match_id"])
+        events_by_match.setdefault(match_id, []).append({
+            **event,
+            "gameweek": next_fixture.get("gameweek"),
+            "effective_match_date": next_fixture.get("kickoff_label", ""),
+        })
+
+    return {"season": season, "events_by_match": events_by_match}
+
+
+@app.get("/api/teams/manager-performance")
+def get_manager_performance(team_id: int, manager_name: str, season: str = "all"):
+    """Summarize a manager's completed league matches against each opponent."""
+    changes_path = DATA_DIR / "processed" / "manager_changes.json"
+    rosters_path = DATA_DIR / "processed" / "team_manager_rosters.json"
+    staff_path = DATA_DIR / "processed" / "team_staff.json"
+    try:
+        changes = json.loads(changes_path.read_text(encoding="utf-8")) if changes_path.exists() else {}
+        rosters = json.loads(rosters_path.read_text(encoding="utf-8")) if rosters_path.exists() else {}
+        staff_by_season = json.loads(staff_path.read_text(encoding="utf-8")) if staff_path.exists() else {}
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail="Could not read manager history") from exc
+
+    df = df_matches.copy()
+    if season != "all" and "season" in df.columns:
+        df = df[df["season"] == season]
+    matching = []
+    for match_season, group in changes.items():
+        if season != "all" and match_season != season:
+            continue
+        events = sorted(
+            [event for event in group.get("events", []) if int(event.get("team_id", -1)) == team_id],
+            key=lambda event: event.get("appointment_date", ""),
+        )
+        season_staff = staff_by_season.get(match_season, {}).get(str(team_id), {})
+        listed_manager = next((
+            official.get("name", {}).get("display")
+            for official in season_staff.get("officials", [])
+            if str(official.get("role", "")).lower() == "manager"
+            and (official.get("name", {}).get("display") or "").casefold() == manager_name.casefold()
+        ), None)
+        baseline = (
+            listed_manager
+            or rosters.get(match_season, {}).get("managers", {}).get(str(team_id), {}).get("name")
+            or (events[0].get("outgoing_manager") if events else None)
+        )
+        # If this season has no change record or roster entry, a continuing
+        # manager listed for the following season is a useful baseline.
+        if not baseline:
+            later_staff = staff_by_season.get("2026_27", {}).get(str(team_id), {})
+            baseline = next((
+                official.get("name", {}).get("display")
+                for official in later_staff.get("officials", [])
+                if str(official.get("role", "")).lower() == "manager"
+                and (official.get("name", {}).get("display") or "").casefold() == manager_name.casefold()
+            ), None)
+        for _, row in df[df["season"] == match_season].iterrows():
+            home = int(row["home_id"]) == team_id
+            if not home and int(row["away_id"]) != team_id:
+                continue
+            kickoff = str(row.get("kickoff_label", ""))
+            try:
+                match_date = datetime.strptime(kickoff.split(",")[0].strip(), "%a %d %b %Y").date().isoformat()
+            except ValueError:
+                millis = row.get("kickoff_millis")
+                match_date = datetime.fromtimestamp(float(millis) / 1000).date().isoformat() if pd.notnull(millis) else ""
+            coach = baseline
+            for event in events:
+                if event.get("appointment_date", "") <= match_date:
+                    coach = event.get("incoming_manager")
+                else:
+                    break
+            if coach and coach.casefold() == manager_name.casefold():
+                matching.append((row, home))
+
+    summary = {}
+    total = {"matches": 0, "wins": 0, "draws": 0, "losses": 0, "gf": 0, "ga": 0}
+    for row, home in matching:
+        opponent_id = int(row["away_id"] if home else row["home_id"])
+        opponent = str(row["away_name"] if home else row["home_name"])
+        scored = row["home_score"] if home else row["away_score"]
+        conceded = row["away_score"] if home else row["home_score"]
+        if pd.isnull(scored) or pd.isnull(conceded):
+            continue
+        scored, conceded = int(scored), int(conceded)
+        item = summary.setdefault(opponent_id, {"opponent_id": opponent_id, "opponent": opponent, "matches": 0, "wins": 0, "draws": 0, "losses": 0, "gf": 0, "ga": 0})
+        item["matches"] += 1
+        item["gf"] += scored
+        item["ga"] += conceded
+        item["wins" if scored > conceded else "losses" if scored < conceded else "draws"] += 1
+        total["matches"] += 1
+        total["gf"] += scored
+        total["ga"] += conceded
+        total["wins" if scored > conceded else "losses" if scored < conceded else "draws"] += 1
+    return {"team_id": team_id, "manager_name": manager_name, "season": season, "total": total,
+            "opponents": sorted(summary.values(), key=lambda item: item["opponent"].casefold())}
 
 
 @app.get("/api/fixtures/grouped")
@@ -1171,6 +1509,7 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         raise HTTPException(status_code=404, detail="Team not found.")
 
     team_states, strength_state, until = get_live_state(season)
+    target_season = str(season) if season and season != "all" else CURRENT_SEASON
 
     # Reference date & referee: use the scheduled (unplayed) fixture of this pairing if it exists
     referee_info: Optional[Dict[str, Any]] = None
@@ -1183,6 +1522,8 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             if not upcoming.empty:
                 fx = upcoming.iloc[0]
                 match_date = pd.Timestamp(fx["match_date"])
+                if pd.notnull(fx.get("season")):
+                    target_season = str(fx["season"])
                 referee_info = {
                     c: (fx[c] if pd.notnull(fx.get(c)) else None)
                     for c in ["referee_name", "referee_avg_cards", "referee_avg_fouls", "referee_prior_matches"]
@@ -1191,25 +1532,29 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     else:
         match_date = until + pd.Timedelta(days=7)  # Hypothetical next match after season end
 
-    simulated_df = build_prediction_row(team_states, strength_state, home_id, away_id, match_date, referee_info)
+    simulated_df = build_prediction_row(
+        team_states, strength_state, home_id, away_id, match_date, referee_info, season=target_season
+    )
 
     # 1. Corner Prediction
     c_features = corner_artifact["feature_names"]
     X_c = simulated_df[c_features]
     exp_corners = float(corner_artifact["model"].predict(X_c)[0])
     exp_corners = max(5.0, min(18.0, exp_corners))
-    # Poisson probabilities
-    prob_c85 = float((1.0 - poisson.cdf(8, exp_corners)) * 100)
-    prob_c95 = float((1.0 - poisson.cdf(9, exp_corners)) * 100)
-    prob_c105 = float((1.0 - poisson.cdf(10, exp_corners)) * 100)
+    # Use the count distribution fitted with the production model.
+    corner_alpha = corner_artifact.get("count_dispersion_alpha", 0.0)
+    prob_c85 = count_tail_probability(exp_corners, corner_alpha, 8) * 100
+    prob_c95 = count_tail_probability(exp_corners, corner_alpha, 9) * 100
+    prob_c105 = count_tail_probability(exp_corners, corner_alpha, 10) * 100
 
     # 2. Throws Prediction
     t_features = throws_artifact["feature_names"]
     X_t = simulated_df[t_features]
     exp_throws = float(throws_artifact["model"].predict(X_t)[0])
     exp_throws = max(20.0, min(50.0, exp_throws))
-    prob_t335 = float((1.0 - poisson.cdf(33, exp_throws)) * 100)
-    prob_t365 = float((1.0 - poisson.cdf(36, exp_throws)) * 100)
+    throws_alpha = throws_artifact.get("count_dispersion_alpha", 0.0)
+    prob_t335 = count_tail_probability(exp_throws, throws_alpha, 33) * 100
+    prob_t365 = count_tail_probability(exp_throws, throws_alpha, 36) * 100
 
     # 3. Saves Prediction
     s_features = saves_artifact["feature_names"]
@@ -1220,12 +1565,20 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     # 4. Outcome & Goals Prediction
     o_features = outcome_artifact.get("feature_names_1x2", outcome_artifact["feature_names"])
     o25_features = outcome_artifact.get("feature_names_o25", o_features)
-    probs_1x2 = outcome_artifact["model_1x2"].predict_proba(simulated_df[o_features])[0]
+    probs_1x2 = outcome_artifact["model_1x2"].predict_proba(simulated_df[o_features])
+    calibrator_1x2 = outcome_artifact.get("calibrators", {}).get("1x2")
+    if calibrator_1x2:
+        probs_1x2 = apply_probability_calibrator(probs_1x2, calibrator_1x2)
+    probs_1x2 = probs_1x2[0]
     prob_h = float(probs_1x2[0] * 100)
     prob_d = float(probs_1x2[1] * 100)
     prob_a = float(probs_1x2[2] * 100)
 
-    prob_o25 = float(outcome_artifact["model_o25"].predict_proba(simulated_df[o25_features])[0][1] * 100)
+    probs_o25 = outcome_artifact["model_o25"].predict_proba(simulated_df[o25_features])
+    calibrator_o25 = outcome_artifact.get("calibrators", {}).get("o25")
+    if calibrator_o25:
+        probs_o25 = apply_probability_calibrator(probs_o25, calibrator_o25)
+    prob_o25 = float(probs_o25[0][1] * 100)
 
     fav = home_meta["name"] if prob_h > prob_a else away_meta["name"]
     fav_label = f"{fav} Favori" if abs(prob_h - prob_a) > 10 else "Dengeli Mücadele"
@@ -1246,9 +1599,10 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         try:
             exp_offsides = float(offside_artifact["model"].predict(X_off)[0])
             exp_offsides = max(0.5, min(10.0, exp_offsides))
-            prob_off25 = float((1.0 - poisson.cdf(2, exp_offsides)) * 100)
-            prob_off35 = float((1.0 - poisson.cdf(3, exp_offsides)) * 100)
-            prob_off45 = float((1.0 - poisson.cdf(4, exp_offsides)) * 100)
+            offside_alpha = offside_artifact.get("count_dispersion_alpha", 0.0)
+            prob_off25 = count_tail_probability(exp_offsides, offside_alpha, 2) * 100
+            prob_off35 = count_tail_probability(exp_offsides, offside_alpha, 3) * 100
+            prob_off45 = count_tail_probability(exp_offsides, offside_alpha, 4) * 100
         except Exception as e:
             logger.warning("Error predicting offsides: %s", e)
 
@@ -1275,9 +1629,10 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         try:
             exp_cards = float(cards_artifact["model"].predict(X_cards)[0])
             exp_cards = max(1.0, min(12.0, exp_cards))
-            prob_c35 = float((1.0 - poisson.cdf(3, exp_cards)) * 100)
-            prob_c45 = float((1.0 - poisson.cdf(4, exp_cards)) * 100)
-            prob_c55 = float((1.0 - poisson.cdf(5, exp_cards)) * 100)
+            cards_alpha = cards_artifact.get("count_dispersion_alpha", 0.0)
+            prob_c35 = count_tail_probability(exp_cards, cards_alpha, 3) * 100
+            prob_c45 = count_tail_probability(exp_cards, cards_alpha, 4) * 100
+            prob_c55 = count_tail_probability(exp_cards, cards_alpha, 5) * 100
         except Exception as e:
             logger.warning("Error predicting cards: %s", e)
 
@@ -1393,11 +1748,6 @@ def get_benchmarks():
     if benchmarks_path.exists():
         with open(benchmarks_path, "r", encoding="utf-8") as f:
             content = f.read()
-
-    offside_report_path = BASE_DIR / "reports" / "model_benchmarks_offsides.md"
-    if offside_report_path.exists():
-        with open(offside_report_path, "r", encoding="utf-8") as f:
-            content += "\n\n---\n\n" + f.read()
 
     return {
         "corner": corner_artifact["metrics"] if corner_artifact else {},

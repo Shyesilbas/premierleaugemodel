@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getTeam } from '../data/teams';
-import { Shield, Trophy, Users, Calendar, ChevronRight, Activity, Target, Flag, MapPin, Clock } from 'lucide-react';
+import { Shield, Trophy, Users, Calendar, ChevronRight, Activity, Target, Flag, MapPin, Clock, X } from 'lucide-react';
 import MatchDetailModal from './MatchDetailModal';
 
 const SQUAD_POSITION_TABS = [
@@ -69,6 +69,11 @@ export default function TeamProfilesTab({ selectedSeason }) {
   const [scenariosLoading, setScenariosLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeModalMatch, setActiveModalMatch] = useState(null);
+  const [teamStaff, setTeamStaff] = useState(null);
+  const [managerChanges, setManagerChanges] = useState([]);
+  const [selectedManager, setSelectedManager] = useState(null);
+  const [managerPerformance, setManagerPerformance] = useState(null);
+  const [managerPerformanceLoading, setManagerPerformanceLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/teams?season=2026_27')
@@ -108,6 +113,44 @@ export default function TeamProfilesTab({ selectedSeason }) {
         console.error('Error fetching team profile:', err);
         setLoading(false);
       });
+  }, [selectedTeamId, teamSeason]);
+
+  useEffect(() => {
+    const staffSeason = teamSeason === 'all' ? '2026_27' : teamSeason;
+    const controller = new AbortController();
+    setTeamStaff(null);
+    fetch(`/api/teams/staff?season=${staffSeason}&team_id=${selectedTeamId}`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => setTeamStaff(data?.staff || null))
+      .catch(err => {
+        if (err.name !== 'AbortError') {
+          console.error('Error fetching team staff:', err);
+          setTeamStaff(null);
+        }
+      });
+    return () => controller.abort();
+  }, [selectedTeamId, teamSeason]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const seasons = teamSeason === 'all'
+      ? ['2023_24', '2024_25', '2025_26', '2026_27']
+      : [teamSeason];
+    Promise.all(seasons.map(season =>
+      fetch(`/api/teams/manager-changes?season=${season}`, { signal: controller.signal })
+        .then(res => res.ok ? res.json() : { events_by_match: {} })
+        .then(data => Object.values(data.events_by_match || {}).flat()
+          .filter(event => Number(event.team_id) === Number(selectedTeamId))
+          .map(event => ({ ...event, season })))
+    )).then(changes => {
+      setManagerChanges(changes.flat().sort((a, b) => a.appointment_date.localeCompare(b.appointment_date)));
+    }).catch(err => {
+      if (err.name !== 'AbortError') {
+        console.error('Error fetching team manager change history:', err);
+        setManagerChanges([]);
+      }
+    });
+    return () => controller.abort();
   }, [selectedTeamId, teamSeason]);
 
   useEffect(() => {
@@ -174,6 +217,39 @@ export default function TeamProfilesTab({ selectedSeason }) {
   }, [selectedTeamId, teamSeason]);
 
   const currentMeta = getTeam(selectedTeamId);
+  const teamOfficials = useMemo(() => {
+    const uniqueOfficials = new Map();
+    (teamStaff?.officials || []).forEach(official => {
+      const role = (official.role || '').toLowerCase();
+      if (!['manager', 'assistant manager', 'matchday manager'].includes(role)) return;
+      const key = `${official.id || official.officialId || official.name?.display}-${role}`;
+      if (!uniqueOfficials.has(key)) uniqueOfficials.set(key, official);
+    });
+    return [...uniqueOfficials.values()].sort((a, b) => {
+      const order = role => role === 'Manager' ? 0 : role === 'Assistant Manager' ? 1 : 2;
+      return order(a.role) - order(b.role) || (a.name?.display || '').localeCompare(b.name?.display || '', 'tr');
+    });
+  }, [teamStaff]);
+  const teamManager = teamOfficials.find(official => official.role === 'Manager' && official.active)
+    || teamOfficials.find(official => official.role === 'Manager');
+  // Chelsea's 2026/27 feed lists both its interim and first-team manager as active.
+  const displayManager = Number(selectedTeamId) === 4 && teamSeason === '2026_27'
+    ? teamOfficials.find(official => (official.name?.display || '').toLowerCase() === 'xabi alonso') || teamManager
+    : teamManager;
+
+  useEffect(() => {
+    if (!selectedManager) return;
+    const controller = new AbortController();
+    setManagerPerformanceLoading(true);
+    setManagerPerformance(null);
+    const managerName = selectedManager.name?.display || [selectedManager.name?.first, selectedManager.name?.last].filter(Boolean).join(' ');
+    fetch(`/api/teams/manager-performance?team_id=${selectedTeamId}&season=all&manager_name=${encodeURIComponent(managerName)}`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('Manager performance request failed')))
+      .then(setManagerPerformance)
+      .catch(err => { if (err.name !== 'AbortError') setManagerPerformance(null); })
+      .finally(() => { if (!controller.signal.aborted) setManagerPerformanceLoading(false); });
+    return () => controller.abort();
+  }, [selectedManager, selectedTeamId]);
   const tacticalTabs = [
     {
       id: 'general',
@@ -401,20 +477,31 @@ export default function TeamProfilesTab({ selectedSeason }) {
     );
   };
 
-  const squadCounts = useMemo(() => {
-    const counts = { all: profile?.squad?.length || 0, G: 0, D: 0, M: 0, F: 0 };
-    (profile?.squad || []).forEach(p => {
-      const cat = getPlayerCategory(p.position);
-      if (counts[cat] !== undefined) {
-        counts[cat]++;
-      }
+  const displayedSquad = useMemo(() => {
+    if (!teamStaff?.players?.length) return profile?.squad || [];
+    return teamStaff.players.map(player => ({
+      id: player.id || player.playerId,
+      name: player.name?.display || [player.name?.first, player.name?.last].filter(Boolean).join(' '),
+      position: player.info?.position || player.latestPosition,
+      shirt: player.info?.shirtNum,
+      total_appearances: player.appearances,
+      total_goals: player.goals ?? player.goalsScored,
+      photo_url: null,
+    }));
+  }, [teamStaff, profile?.squad]);
+
+  const displayedSquadCounts = useMemo(() => {
+    const counts = { all: displayedSquad.length, G: 0, D: 0, M: 0, F: 0 };
+    displayedSquad.forEach(player => {
+      const category = getPlayerCategory(player.position);
+      if (counts[category] !== undefined) counts[category]++;
     });
     return counts;
-  }, [profile?.squad]);
+  }, [displayedSquad]);
 
   const filteredSquad = useMemo(() => {
-    if (!profile?.squad) return [];
-    let list = profile.squad;
+    if (!displayedSquad.length) return [];
+    let list = displayedSquad;
     if (selectedSquadTab !== 'all') {
       list = list.filter(p => getPlayerCategory(p.position) === selectedSquadTab);
     }
@@ -427,7 +514,7 @@ export default function TeamProfilesTab({ selectedSeason }) {
       if (shirtA !== shirtB) return shirtA - shirtB;
       return (a.name || '').localeCompare(b.name || '', 'tr');
     });
-  }, [profile?.squad, selectedSquadTab]);
+  }, [displayedSquad, selectedSquadTab]);
 
   return (
     <div className="space-y-6">
@@ -493,6 +580,11 @@ export default function TeamProfilesTab({ selectedSeason }) {
               <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-slate-400" /> {currentMeta.stadium || 'Premier League Stadium'}
               </p>
+              {displayManager?.name?.display && (
+                <button type="button" onClick={() => setSelectedManager(displayManager)} className="mt-1.5 text-xs text-violet-800 font-semibold hover:text-violet-950 hover:underline" aria-label={`${displayManager.name.display} rakip performansını aç`}>
+                  {displayManager.name.display}
+                </button>
+              )}
             </div>
           </div>
 
@@ -577,6 +669,50 @@ export default function TeamProfilesTab({ selectedSeason }) {
           </div>
         </div>
       )}
+
+      {managerChanges.length > 0 && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-violet-50 to-white px-4 py-3.5 sm:px-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+              <Activity className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="text-xs font-black text-slate-900">Teknik direktör geçmişi</h3>
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                {teamSeason === 'all' ? 'Tüm kayıtlı sezonlar' : `${teamSeason.replace('_', '-')} sezonu`}
+              </p>
+            </div>
+          </div>
+          <span className="rounded-full border border-violet-200 bg-white px-2.5 py-1 text-[10px] font-bold text-violet-800">
+            {managerChanges.length} değişiklik
+          </span>
+        </div>
+        <div className="divide-y divide-slate-100">
+            {managerChanges.map((change, index) => {
+              const interim = change.appointment_type === 'interim';
+              return (
+                <div key={`${change.season}-${change.appointment_date}-${index}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ring-4 ${interim ? 'bg-amber-400 ring-amber-50' : 'bg-violet-500 ring-violet-50'}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-[11px] font-bold text-slate-800">{change.outgoing_manager}</span>
+                      <ChevronRight className="h-3 w-3 text-slate-400" />
+                      <span className="text-[11px] font-extrabold text-slate-950">{change.incoming_manager}</span>
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      {new Date(`${change.appointment_date}T12:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      <span className="mx-1.5 text-slate-300">·</span>{change.season.replace('_', '-')}
+                      <span className="mx-1.5 text-slate-300">·</span>Hafta {change.gameweek}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${interim ? 'bg-amber-50 text-amber-800' : 'bg-violet-50 text-violet-800'}`}>
+                    {interim ? 'Geçici' : 'Atama'}
+                  </span>
+                </div>
+              );
+            })}
+        </div>
+      </section>}
 
       {/* Explainable team profile, split into focused tabs */}
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -906,14 +1042,15 @@ export default function TeamProfilesTab({ selectedSeason }) {
       </div>
 
       {/* Squad Roster Preview with Position Tabs */}
-      {profile?.squad && profile.squad.length > 0 && (
+      {displayedSquad.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-[#38003c]" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                {currentMeta.name} — Kadro Listesi ({selectedSquadTab === 'all' ? profile.squad.length : `${filteredSquad.length} / ${profile.squad.length}`} Oyuncu)
+                {currentMeta.name} — Kadro Listesi ({selectedSquadTab === 'all' ? displayedSquad.length : `${filteredSquad.length} / ${displayedSquad.length}`} Oyuncu)
               </h3>
+              {teamStaff?.players?.length > 0 && <span className="text-[10px] text-slate-400">PulseLive lisanslı kadro</span>}
             </div>
 
             {/* Position Tabs: Kaleci, Savunma, Orta Saha, Forvet (plus Tümü) */}
@@ -924,7 +1061,7 @@ export default function TeamProfilesTab({ selectedSeason }) {
             >
               {SQUAD_POSITION_TABS.map(tab => {
                 const isSelected = selectedSquadTab === tab.id;
-                const count = squadCounts[tab.id] || 0;
+                const count = displayedSquadCounts[tab.id] || 0;
                 return (
                   <button
                     key={tab.id}
@@ -995,8 +1132,8 @@ export default function TeamProfilesTab({ selectedSeason }) {
                       {p.name}
                     </h4>
                     <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 pt-1.5 border-t border-slate-200 font-mono">
-                      <span>{p.total_appearances} Maç</span>
-                      <span className="font-bold text-emerald-700">{p.total_goals} Gol</span>
+                      <span>{p.total_appearances ?? '—'} Maç</span>
+                      <span className="font-bold text-emerald-700">{p.total_goals ?? '—'} Gol</span>
                     </div>
                   </div>
                 ))}
@@ -1012,6 +1149,33 @@ export default function TeamProfilesTab({ selectedSeason }) {
           match={activeModalMatch}
           onClose={() => setActiveModalMatch(null)}
         />
+      )}
+
+      {selectedManager && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedManager(null); }}>
+          <section role="dialog" aria-modal="true" aria-label="Teknik direktör rakip performansı" className="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl bg-slate-50 shadow-2xl ring-1 ring-white/30">
+            <header className="relative overflow-hidden bg-gradient-to-br from-[#38003c] via-violet-950 to-slate-900 px-5 py-6 text-white sm:px-7">
+              <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full bg-violet-400/10 blur-2xl" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200">Teknik direktör · Rakip analizi</p><h2 className="mt-2 text-2xl font-black tracking-tight">{selectedManager.name?.display || [selectedManager.name?.first, selectedManager.name?.last].filter(Boolean).join(' ')}</h2><div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-violet-100"><span className="font-semibold">{currentMeta?.name || 'Takım'}</span><span className="text-violet-300">•</span><span>Tüm kayıtlı sezonlar</span></div></div>
+                <button type="button" onClick={() => setSelectedManager(null)} aria-label="Kapat" className="rounded-xl border border-white/15 bg-white/10 p-2.5 text-white transition hover:bg-white/20"><X className="h-4 w-4" /></button>
+              </div>
+            </header>
+            {managerPerformanceLoading ? <div className="space-y-4 p-5 sm:p-7"><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-200" />)}</div><div className="h-48 animate-pulse rounded-2xl bg-slate-200" /></div> : !managerPerformance?.total?.matches ? <div className="px-6 py-14 text-center"><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700"><Activity className="h-5 w-5" /></span><h3 className="mt-4 text-sm font-extrabold text-slate-900">Henüz maç kaydı yok</h3><p className="mx-auto mt-1 max-w-xs text-xs leading-5 text-slate-500">Bu teknik direktör için kayıtlı sezonlarda tamamlanmış maç bulunamadı.</p></div> : <div className="max-h-[calc(88vh-116px)] space-y-6 overflow-y-auto p-4 sm:p-7">
+              <section aria-label="Toplam teknik direktör istatistikleri">
+                <div className="mb-3 flex items-end justify-between gap-2"><div><h3 className="text-sm font-black text-slate-900">Kariyer özeti</h3><p className="mt-0.5 text-[11px] text-slate-500">Tüm kayıtlı lig maçları</p></div><span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500">{managerPerformance.total.matches} maç</span></div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{[['Maç', 'matches', 'text-slate-900'], ['Galibiyet', 'wins', 'text-emerald-700'], ['Beraberlik', 'draws', 'text-slate-700'], ['Mağlubiyet', 'losses', 'text-rose-700'], ['Attığı gol', 'gf', 'text-violet-800'], ['Yediği gol', 'ga', 'text-amber-700']].map(([label, key, color]) => <div key={key} className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm sm:p-4"><p className="text-[10px] font-bold text-slate-500">{label}</p><p className={`mt-1 text-2xl font-black tabular-nums ${color}`}>{managerPerformance.total[key]}</p></div>)}</div>
+              </section>
+              <section aria-label="Rakiplere göre istatistikler">
+                <div className="mb-3 flex items-end justify-between"><div><h3 className="text-sm font-black text-slate-900">Rakiplere karşı</h3><p className="mt-0.5 text-[11px] text-slate-500">En çok karşılaşılan rakipler önce</p></div><span className="text-[10px] font-medium text-slate-400">{managerPerformance.opponents.length} takım</span></div>
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <div className="hidden grid-cols-[minmax(140px,1.5fr)_repeat(6,minmax(52px,1fr))] items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3 text-[9px] font-bold uppercase tracking-wide text-slate-500 sm:grid"><span>Rakip takım</span><span className="text-center">Maç</span><span className="text-center">Galibiyet</span><span className="text-center">Beraberlik</span><span className="text-center">Mağlubiyet</span><span className="text-center">Attığı</span><span className="text-center">Yediği</span></div>
+                  <div className="divide-y divide-slate-100">{[...managerPerformance.opponents].sort((a, b) => b.matches - a.matches || a.opponent.localeCompare(b.opponent, 'tr')).map(item => { const opponentTeam = getTeam(item.opponent_id, item.opponent); return <div key={item.opponent_id} className="grid grid-cols-3 items-center gap-x-2 gap-y-3 px-4 py-3.5 sm:grid-cols-[minmax(140px,1.5fr)_repeat(6,minmax(52px,1fr))] sm:gap-2"><div className="col-span-3 flex items-center gap-2 sm:col-span-1"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-white p-1.5"><img src={opponentTeam.badge} alt="" className="h-full w-full object-contain" loading="lazy" /></span><span className="text-xs font-extrabold text-slate-800">{item.opponent}</span></div>{[['Maç', 'matches', 'text-slate-800'], ['Galibiyet', 'wins', 'text-emerald-700'], ['Beraberlik', 'draws', 'text-slate-600'], ['Mağlubiyet', 'losses', 'text-rose-700'], ['Attığı gol', 'gf', 'text-violet-800'], ['Yediği gol', 'ga', 'text-amber-700']].map(([label, key, color]) => <div key={key} className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1.5 sm:block sm:bg-transparent sm:p-0 sm:text-center"><span className="text-[9px] font-semibold text-slate-400 sm:hidden">{label}</span><span className={`text-xs font-bold tabular-nums ${color}`}>{item[key]}</span></div>)}</div>; })}</div>
+                </div>
+              </section>
+            </div>}
+          </section>
+        </div>
       )}
 
     </div>
