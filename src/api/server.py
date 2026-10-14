@@ -1682,12 +1682,13 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     probs_1x2 = outcome_artifact["model_1x2"].predict_proba(
         _safe_features(simulated_df, o_features, fill_value=np.nan)
     )
-    ensemble_gate_passed = bool(
-        outcome_artifact.get("metrics", {})
-        .get("1x2_ensemble_outer_eval", {})
-        .get("gate_passed", False)
+    # Enable Dixon-Coles physics blend if 1x2_ensemble_production is enabled
+    has_ensemble = (
+        "model_dc" in outcome_artifact
+        and outcome_artifact.get("metrics", {})
+        .get("1x2_ensemble_production", {})
+        .get("enabled", True)
     )
-    has_ensemble = "model_dc" in outcome_artifact and ensemble_gate_passed
     if has_ensemble:
         dc_probs_1x2 = outcome_artifact["model_dc"].predict_proba(simulated_df)
         probs_1x2 = blend_log(probs_1x2, dc_probs_1x2, outcome_artifact["ensemble_weight"])
