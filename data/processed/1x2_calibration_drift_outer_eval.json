@@ -6,40 +6,40 @@
       "train_samples": 380,
       "test_samples": 380,
       "selected_model": "logreg_C0.003",
-      "cv_log_loss": 0.9976,
-      "standard_log_loss": 0.9454,
+      "cv_log_loss": 0.9948,
+      "standard_log_loss": 0.94318,
       "early_season_fallback_included_excluded_history": true,
       "calibration_candidates": {
         "150": {
-          "log_loss": 0.94619,
-          "delta_vs_standard": 0.00078,
+          "log_loss": 0.94406,
+          "delta_vs_standard": 0.00088,
           "bootstrap_vs_standard": {
-            "mean_delta": 0.0007846426373264308,
-            "ci_low": -0.0038867463098906613,
-            "ci_high": 0.005611599712909087,
-            "p_a_better": 0.3794,
+            "mean_delta": 0.0008834328175935339,
+            "ci_low": -0.003883900238568847,
+            "ci_high": 0.005768610156288067,
+            "p_a_better": 0.367,
             "n": 380
           }
         },
         "300": {
-          "log_loss": 0.94545,
-          "delta_vs_standard": 5e-05,
+          "log_loss": 0.94326,
+          "delta_vs_standard": 9e-05,
           "bootstrap_vs_standard": {
-            "mean_delta": 4.5488426973855065e-05,
-            "ci_low": -0.0022289199006768727,
-            "ci_high": 0.002386718206750162,
-            "p_a_better": 0.503,
+            "mean_delta": 8.563141861855492e-05,
+            "ci_low": -0.002230857582430281,
+            "ci_high": 0.0024567810403904526,
+            "p_a_better": 0.4868,
             "n": 380
           }
         },
         "600": {
-          "log_loss": 0.94535,
-          "delta_vs_standard": -6e-05,
+          "log_loss": 0.94314,
+          "delta_vs_standard": -4e-05,
           "bootstrap_vs_standard": {
-            "mean_delta": -5.577171161341922e-05,
-            "ci_low": -0.0011585533829042856,
-            "ci_high": 0.001089519604038532,
-            "p_a_better": 0.5586,
+            "mean_delta": -3.887809608438264e-05,
+            "ci_low": -0.0011567759522176685,
+            "ci_high": 0.001127811798575368,
+            "p_a_better": 0.5482,
             "n": 380
           }
         }
@@ -51,40 +51,40 @@
       "train_samples": 380,
       "test_samples": 380,
       "selected_model": "logreg_C0.003",
-      "cv_log_loss": 0.9552,
-      "standard_log_loss": 0.98908,
+      "cv_log_loss": 0.9542,
+      "standard_log_loss": 0.98579,
       "early_season_fallback_included_excluded_history": false,
       "calibration_candidates": {
         "150": {
-          "log_loss": 0.98694,
-          "delta_vs_standard": -0.00214,
+          "log_loss": 0.98493,
+          "delta_vs_standard": -0.00086,
           "bootstrap_vs_standard": {
-            "mean_delta": -0.0021407627181111483,
-            "ci_low": -0.006736952017446677,
-            "ci_high": 0.002610741259424524,
-            "p_a_better": 0.8212,
+            "mean_delta": -0.0008551492185975898,
+            "ci_low": -0.006349734726569427,
+            "ci_high": 0.004724664945864495,
+            "p_a_better": 0.6284,
             "n": 380
           }
         },
         "300": {
-          "log_loss": 0.98745,
-          "delta_vs_standard": -0.00163,
+          "log_loss": 0.98474,
+          "delta_vs_standard": -0.00104,
           "bootstrap_vs_standard": {
-            "mean_delta": -0.0016322762776315117,
-            "ci_low": -0.0038538722396827224,
-            "ci_high": 0.0006395643988580414,
-            "p_a_better": 0.923,
+            "mean_delta": -0.0010426250443134459,
+            "ci_low": -0.00366173065675655,
+            "ci_high": 0.0016294184529235015,
+            "p_a_better": 0.7872,
             "n": 380
           }
         },
         "600": {
-          "log_loss": 0.98813,
-          "delta_vs_standard": -0.00095,
+          "log_loss": 0.98512,
+          "delta_vs_standard": -0.00067,
           "bootstrap_vs_standard": {
-            "mean_delta": -0.0009477521894007004,
-            "ci_low": -0.0020328256003239327,
-            "ci_high": 0.0001718474678268858,
-            "p_a_better": 0.9542,
+            "mean_delta": -0.0006654418273128312,
+            "ci_low": -0.001937583243078542,
+            "ci_high": 0.0006316193143770208,
+            "p_a_better": 0.8468,
             "n": 380
           }
         }
@@ -94,20 +94,20 @@
   "full_seasons": 1,
   "half_life_summaries": {
     "150": {
-      "mean_delta_vs_standard": -0.00214,
-      "worst_full_season_delta": -0.00214,
+      "mean_delta_vs_standard": -0.00086,
+      "worst_full_season_delta": -0.00086,
       "full_seasons_improved": 1,
       "gate_passed": false
     },
     "300": {
-      "mean_delta_vs_standard": -0.00163,
-      "worst_full_season_delta": -0.00163,
+      "mean_delta_vs_standard": -0.00104,
+      "worst_full_season_delta": -0.00104,
       "full_seasons_improved": 1,
       "gate_passed": false
     },
     "600": {
-      "mean_delta_vs_standard": -0.00095,
-      "worst_full_season_delta": -0.00095,
+      "mean_delta_vs_standard": -0.00067,
+      "worst_full_season_delta": -0.00067,
       "full_seasons_improved": 1,
       "gate_passed": false
     }

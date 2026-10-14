@@ -468,6 +468,7 @@ def get_fixtures(limit: int = 800, search: Optional[str] = None, season: Optiona
 
 
 _fixture_pred_cache: Dict[Tuple[int, int, Optional[str]], Dict[str, Any]] = {}
+_fixture_pred_cache.clear()
 
 def get_quick_fixture_prediction(home_id: int, away_id: int, season: Optional[str] = None) -> Optional[Dict[str, Any]]:
     if not home_id or not away_id or home_id == away_id:

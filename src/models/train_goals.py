@@ -29,7 +29,7 @@ logger = logging.getLogger("train_goals")
 CHOSEN = {
     "kind": "blend_dc_feat",
     "dc_half_life_days": 365.0,
-    "feature_alpha": 100.0,
+    "feature_alpha": 20.0,
     "dc_weight": 0.5,
 }
 OU_LINES = (1.5, 2.5, 3.5)

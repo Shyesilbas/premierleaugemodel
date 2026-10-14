@@ -141,9 +141,18 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
     Transforms match dataframe into a long team-match perspective dataframe
     where each row represents one team's performance in a single match.
     Stats of unplayed fixtures are forced to NaN so they never enter rolling windows.
+    Applies point-in-time opponent-strength normalization to shots, shots-on-target,
+    xG, and box touches to eliminate Strength-of-Schedule (SoS) bias.
     """
     if "is_played" not in df.columns or "match_date" not in df.columns:
         df = prepare_matches(df)
+
+    # Ensure pre-match point-in-time Elo ratings are attached for opponent adjustments
+    if "elo_home" not in df.columns or "elo_away" not in df.columns:
+        pre, _ = _run_strength(df)
+        df = df.copy()
+        for c in pre.columns:
+            df[c] = pre[c].values
 
     records = []
     for _, row in df.iterrows():
@@ -153,7 +162,30 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
         season = row.get("season")
         played = bool(row["is_played"])
 
-        # Home perspective
+        # Point-in-time opponent strength multipliers (league average Elo = 1500)
+        h_elo = float(row.get("elo_home", 1500.0))
+        a_elo = float(row.get("elo_away", 1500.0))
+        mult_away = float(np.clip(np.exp((a_elo - 1500.0) / 600.0), 0.60, 1.80))
+        mult_home = float(np.clip(np.exp((h_elo - 1500.0) / 600.0), 0.60, 1.80))
+
+        # Home perspective: team is home, opponent is away (strength mult_away)
+        h_s_for = float(row.get("home_total_scoring_att", 0.0) or 0.0) * mult_away
+        h_s_against = float(row.get("away_total_scoring_att", 0.0) or 0.0) / mult_away
+        h_sot_for = float(row.get("home_ontarget_scoring_att", 0.0) or 0.0) * mult_away
+        h_sot_against = float(row.get("away_ontarget_scoring_att", 0.0) or 0.0) / mult_away
+        h_bc_for = float(row.get("home_big_chance_created", 1.8) or 1.8) * mult_away
+        h_touch_for = float(row.get("home_touches_in_opp_box", 24.0) or 24.0) * mult_away
+        h_xg_for = (
+            float(row["statsapi_home_xg"]) * mult_away
+            if played and pd.notnull(row.get("statsapi_home_xg"))
+            else np.nan
+        )
+        h_xg_against = (
+            float(row["statsapi_away_xg"]) / mult_away
+            if played and pd.notnull(row.get("statsapi_away_xg"))
+            else np.nan
+        )
+
         records.append({
             "match_id": m_id,
             "match_date": m_date,
@@ -171,10 +203,10 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "corners_against": row.get("away_won_corners", 0.0),
             "throws": row.get("home_total_throws", 0.0),
             "opponent_throws": row.get("away_total_throws", 0.0),
-            "shots_for": row.get("home_total_scoring_att", 0.0),
-            "shots_against": row.get("away_total_scoring_att", 0.0),
-            "shots_ontarget_for": row.get("home_ontarget_scoring_att", 0.0),
-            "shots_ontarget_against": row.get("away_ontarget_scoring_att", 0.0),
+            "shots_for": h_s_for,
+            "shots_against": h_s_against,
+            "shots_ontarget_for": h_sot_for,
+            "shots_ontarget_against": h_sot_against,
             "saves": row.get("home_saves", 0.0),
             "possession": row.get("home_possession_percentage", 50.0),
             "passes": row.get("home_total_pass", 0.0),
@@ -182,15 +214,32 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "fouls_drawn": row.get("home_fk_foul_won", 10.0),
             "offsides_for": row.get("home_total_offside", 1.6),
             "offsides_against": row.get("away_total_offside", 1.6),
-            "big_chances_for": row.get("home_big_chance_created", 1.8),
-            "touches_in_opp_box": row.get("home_touches_in_opp_box", 24.0),
+            "big_chances_for": h_bc_for,
+            "touches_in_opp_box": h_touch_for,
             "cards_for": row.get("home_total_yel_card", 0.0) + row.get("home_total_red_card", 0.0),
             "cards_against": row.get("away_total_yel_card", 0.0) + row.get("away_total_red_card", 0.0),
-            "xg_for": row.get("statsapi_home_xg") if played and pd.notnull(row.get("statsapi_home_xg")) else np.nan,
-            "xg_against": row.get("statsapi_away_xg") if played and pd.notnull(row.get("statsapi_away_xg")) else np.nan,
+            "xg_for": h_xg_for,
+            "xg_against": h_xg_against,
         })
 
-        # Away perspective
+        # Away perspective: team is away, opponent is home (strength mult_home)
+        a_s_for = float(row.get("away_total_scoring_att", 0.0) or 0.0) * mult_home
+        a_s_against = float(row.get("home_total_scoring_att", 0.0) or 0.0) / mult_home
+        a_sot_for = float(row.get("away_ontarget_scoring_att", 0.0) or 0.0) * mult_home
+        a_sot_against = float(row.get("home_ontarget_scoring_att", 0.0) or 0.0) / mult_home
+        a_bc_for = float(row.get("away_big_chance_created", 1.8) or 1.8) * mult_home
+        a_touch_for = float(row.get("away_touches_in_opp_box", 24.0) or 24.0) * mult_home
+        a_xg_for = (
+            float(row["statsapi_away_xg"]) * mult_home
+            if played and pd.notnull(row.get("statsapi_away_xg"))
+            else np.nan
+        )
+        a_xg_against = (
+            float(row["statsapi_home_xg"]) / mult_home
+            if played and pd.notnull(row.get("statsapi_home_xg"))
+            else np.nan
+        )
+
         records.append({
             "match_id": m_id,
             "match_date": m_date,
@@ -208,10 +257,10 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "corners_against": row.get("home_won_corners", 0.0),
             "throws": row.get("away_total_throws", 0.0),
             "opponent_throws": row.get("home_total_throws", 0.0),
-            "shots_for": row.get("away_total_scoring_att", 0.0),
-            "shots_against": row.get("home_total_scoring_att", 0.0),
-            "shots_ontarget_for": row.get("away_ontarget_scoring_att", 0.0),
-            "shots_ontarget_against": row.get("home_ontarget_scoring_att", 0.0),
+            "shots_for": a_s_for,
+            "shots_against": a_s_against,
+            "shots_ontarget_for": a_sot_for,
+            "shots_ontarget_against": a_sot_against,
             "saves": row.get("away_saves", 0.0),
             "possession": row.get("away_possession_percentage", 50.0),
             "passes": row.get("away_total_pass", 0.0),
@@ -219,12 +268,12 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "fouls_drawn": row.get("away_fk_foul_won", 10.0),
             "offsides_for": row.get("away_total_offside", 1.6),
             "offsides_against": row.get("home_total_offside", 1.6),
-            "big_chances_for": row.get("away_big_chance_created", 1.8),
-            "touches_in_opp_box": row.get("away_touches_in_opp_box", 24.0),
+            "big_chances_for": a_bc_for,
+            "touches_in_opp_box": a_touch_for,
             "cards_for": row.get("away_total_yel_card", 0.0) + row.get("away_total_red_card", 0.0),
             "cards_against": row.get("home_total_yel_card", 0.0) + row.get("home_total_red_card", 0.0),
-            "xg_for": row.get("statsapi_away_xg") if played and pd.notnull(row.get("statsapi_away_xg")) else np.nan,
-            "xg_against": row.get("statsapi_home_xg") if played and pd.notnull(row.get("statsapi_home_xg")) else np.nan,
+            "xg_for": a_xg_for,
+            "xg_against": a_xg_against,
         })
 
     long_df = pd.DataFrame(records)
