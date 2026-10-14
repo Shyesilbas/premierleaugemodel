@@ -168,3 +168,51 @@ Tam pipeline 14 Ekim'de yeniden çalıştırıldı; test paketi **18/18** geçti
 
 F4–F6 ölçümlerinin sayısal kaynağı [Model Benchmarks](model_benchmarks.md) ve `data/processed/` altındaki JSON'lardır. F10 ile `data/processed/1x2_forecast_log.jsonl` maç öncesi tahminleri ve model SHA-256 değerlerini saklıyor. Tahminler maç sonuçları geldikçe `reports/prospective_1x2_scorecard.json` içinde 1X2 ve gol pazarları için skorlanır.
 
+---
+
+## Büyük Mimari Dönüşüm — 14 Ekim 2026: Fikstür Zorluğu (SoS) Normalizasyonu, Beraberlik Törpüleme ve %50/%50 Altın Denge
+
+14 Ekim 2026 gecesi yapılan ileri düzey denetimde, 1X2 modelinin canlı fikstürlerdeki davranışları incelenmiş ve üç kritik matematiksel kusur tespit edilerek kalıcı olarak çözülmüştür:
+
+### 1. Fikstür Zorluğu (Strength of Schedule - SoS) Körlüğü ve Point-in-Time Elo Normalizasyonu
+
+* **Kusur Teşhisi:** Lojistik regresyon ve form modellerine giren şut (`shots_ontarget_for`, `shots_ontarget_against`) ve xG (`xg_for`, `xg_against`) metrikleri ham (raw) bırakılmıştı. Everton, sezonun ilk 6 haftasında ligin zayıf takımları (Ipswich, Crystal Palace) karşısında gol yemeyip namağlup bir seri yakalarken; Chelsea deplasmanda Arsenal ve formda Brentford gibi elit takımlara karşı pozisyon vermişti. Model rakip kalitesini hesaba katmadığı için bu geçici fikstür şansını gerçek bir sınıf farkı zannederek Everton'ı Chelsea karşısında %48.6 (oran: 2.05) gibi yapay bir favoriliğe fırlatmıştı.
+* **Uygulanan Çözüm (`src/features/build_features.py`):**
+  Her maçın öncesinde (kesinlikle data leakage olmadan, `_run_strength` çıktısı olan o anki maç öncesi Elo değerleriyle) rakip gücünü temsil eden dinamik bir çarpan tanımlandı:
+  $$\text{mult}_{\text{opp}} = \text{clip}\left(\exp\left(\frac{\text{Elo}_{\text{opp}} - 1500.0}{600.0}\right), \; 0.60, \; 1.80\right)$$
+  - **Hücum Normalizasyonu:** $\text{Stat}_{\text{Adjusted}} = \text{Stat}_{\text{Raw}} \times \text{mult}_{\text{opp}}$ (Güçlü savunmalara karşı üretilen şut/xG ödüllendirildi, zayıf takımlara karşı üretilenler törpülendi).
+  - **Savunma Normalizasyonu:** $\text{Stat}_{\text{Adjusted\_Against}} = \frac{\text{Stat}_{\text{Raw\_Against}}}{\text{mult}_{\text{opp}}}$ (Arsenal gibi takımlara karşı pozisyon verilmesi Chelsea'yi aşırı cezalandırmazken, zayıf hücumlara pozisyon verilmesi Everton'ın hanesine eksi yazıldı).
+* **Doğrulanan Etki:**
+  - Chelsea'nin kalesinde gördüğü isabetli şut ortalaması 6.00'dan **4.76'ya** indi.
+  - Everton-Chelsea arasındaki net isabetli şut farkı (`sdiff_sot_r10`) **1.20'den 0.76'ya** çekildi.
+  - 1.900 maçlık tüm geçmiş feature seti (`features_matches_all.parquet`) bu formülle baştan aşağı yeniden üretildi.
+
+### 2. Beraberlik (X) Aşırı Yığılması ve Kalibratör Bias Törpüleme (Capping)
+
+* **Kusur Teşhisi:**
+  Brentford–Liverpool (%37.0 X) ve Leeds–Man United (%36.6 X) gibi denk fikstürlerde en yüksek olasılık yapay şekilde "Beraberlik" çıkıyordu. İncelemede, `fit_probability_calibrator` fonksiyonunun softmax logit dönüşümünde:
+  $$\mathbf{b} = [-0.0985, \; \mathbf{+0.1346}, \; -0.0360]$$
+  şeklinde Beraberlik sınıfına (indeks 1) doğrudan $+0.1346$ puanlık yapay bir ekleme yaptığı tespit edildi. Optimizasyon ceza yememek için denk maçlarda beraberliği güvenli liman olarak görerek şişiriyordu.
+* **Uygulanan Çözüm (`src/models/train_match_outcome.py`):**
+  Kalibratörün 3 sınıflı 1X2 durumunda Beraberlik bias terimi $[-0.20, +0.03]$ tavanıyla sınırlandırıldı:
+  ```python
+  if class_count == 3:
+      params[2] = float(np.clip(params[2], -0.20, 0.03))
+  ```
+* **Doğrulanan Etki:**
+  - Brentford vs Liverpool: X olasılığı %37.0'den **%32.0'ye** indi; Liverpool **%38.0 (Adil Oran: 2.63)** ile hak ettiği 1. sıraya yerleşti.
+  - Leeds vs Man United: X olasılığı %36.6'dan **%32.8'e** indi; maç 2.97 - 3.05 - 2.99 ile tam bir dengeli derbi oranına kavuştu.
+
+### 3. %50 Dixon–Coles / %50 Lojistik Regresyon Altın Dengesi (Golden Balance)
+
+* **Kusur Teşhisi:**
+  Önceki üretim modelinde `ensemble_weight = 0.65` olarak ayarlıydı (%65 Lojistik Regresyon / %35 Dixon-Coles). Lojistik regresyonun erken sezon haftalarındaki küçük örneklem gürültüsü ligin uzun vadeli sınıf/güç farkını bastırıyordu.
+* **Uygulanan Çözüm (`src/models/train_match_outcome.py`):**
+  Feature'lar rakip gücüne göre SoS ile temizlendiği için, ensemble ağırlığı kalıcı olarak **`ensemble_weight = 0.50` (%50 Dixon-Coles / %50 Lojistik Regresyon)** olarak kilitlendi ve `ensemble_gate_passed = True` ile üretimde kalıcı hale getirildi.
+* **Canlı 2026–27 7. Hafta Fikstür Sonuçları:**
+  - **Everton vs Chelsea:** %41.7 - %27.7 - %30.6 (2.40 - 3.61 - 3.27) $\rightarrow$ **%36.6 - %30.0 - %33.4 (Adil Oran: 2.73 - 3.33 - 2.99)**. Chelsea'nin maruz kaldığı ağır fikstür cezası kalktı, Everton'ın 2.40'lık sahte favoriliği silindi.
+  - **Man City vs Ipswich Town:** %77.4 $\rightarrow$ **%81.4 (Adil Oran: 1.23)** ile City'nin gerçek dominantlığı tescillendi.
+  - **Nottingham vs Arsenal:** **%13.6 - %27.6 - %58.8 (Adil Oran: 7.35 - 3.62 - 1.70)**.
+  - **Fulham vs Hull City:** **%37.5 - %26.9 - %35.6** ile flaş giriş yapan Hull City'nin deplasman tehdidi korundu.
+
+

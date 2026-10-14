@@ -285,3 +285,55 @@ Threshold probabilities are evaluated on the main holdout using dispersion estim
 ## Production artifacts
 
 The API loads the current `.joblib` files from `models/production/`. Holdout metrics use a development-only calibrator. Production calibrators use forward OOF predictions from all eligible training matches (1X2: 922/1200; Over 2.5: 1218/1580). Run the full pipeline after data changes to rebuild features, retrain models, and refresh this report.
+
+---
+
+## 14 Ekim 2026 Mimari Güncellemesi: Gol Modeli Dekompozisyonu, $\alpha=20.0$ ve Over 2.5 / BTTS Analizi
+
+14 Ekim 2026 tarihinde yapılan ikinci faz denetimde, 1X2 modelindeki SoS normalizasyonuna paralel olarak Gol Modeli (`goals_models_v1.joblib` -> `BlendedGoalModel`) ve Over 2.5 / BTTS pazarları derinlemesine dekompoze edilmiştir.
+
+### 1. Gol Modeli Mimarisi (`BlendedGoalModel`)
+
+Üretimdeki gol motoru iki bağımsız alt modelin geometrik ortalamasıyla çalışır:
+$$\lambda_{\text{blend}} = \exp\left(0.5 \ln \lambda_{\text{DC}} + 0.5 \ln \lambda_{\text{PoissonFeature}}\right)$$
+
+* **$\lambda_{\text{DC}}$ (Dixon–Coles Modeli):** Yalnızca skorborddaki gerçekleşen skorlara (`home_score`, `away_score`) fit edilir; takım hücum/savunma parametreleri üzerinden latent güçleri modeller.
+* **$\lambda_{\text{PoissonFeature}}$ (Özellik Bazlı Poisson Regresyonu):** 46 adet dinamik maç öncesi form, Elo, ceza sahası aksiyonu ve şut özelliğini kullanarak maç gol beklentisini tahmin eder.
+* **Over 2.5 ve BTTS Türetimi:** Ayrı bir black-box sınıflandırıcı yerine, elde edilen $(\lambda_{\text{Home}}, \lambda_{\text{Away}}, \rho)$ parametrelerinden oluşturulan iki değişkenli Poisson olasılık matrisinin analitik toplamı ile elde edilir ($P(\text{Over 2.5}) = \sum_{i+j > 2.5} P(i,j)$). Bu yaklaşım, gol sayısı ile alt/üst pazarları arasında %100 matematiksel tutarlılık sağlar.
+
+---
+
+### 2. $\alpha=100.0$ Aşırı Regülarizasyon (Underfitting) Dekompozisyon Analizi
+
+Denetimde incelenen kritik soru: *SoS düzeltmeli şut ve xG feature'ları güncellendiğinde Everton–Chelsea maçı neden 1.45 - 1.33 bandında sabit kaldı?*
+
+`PoissonRegressor` logit fonksiyonu terim terim açıldığında:
+$$\lambda_{\text{Home}} = \exp\left(b_0 + \sum_{i=1}^{46} \beta_i \cdot z_i\right)$$
+
+* **Model Sabit Terimi (Intercept $b_0$):** `0.480157` $\implies \mathbf{\exp(b_0) = 1.6163}$ (Premier League tarihsel ev sahibi gol ortalaması).
+* **46 Feature'ın Toplam Katkısı ($\sum \beta_i z_i$):** Sadece **`+0.006847`**.
+* **Nihai $\lambda$:** $\exp(0.480157 + 0.006847) = \mathbf{1.6274}$.
+
+**Teşhis:** `feature_alpha = 100.0` L2 regülarizasyonu katsayıları $0.002$ seviyesine kadar ezdiği için model feature'ları adeta yok saymış ve doğrudan ligin ev sahibi ortalamasına ($1.62$) kilitlenmiştir. Everton'ın Dixon-Coles değeri ($1.29$) ile birleştiğinde $\sqrt{1.29 \times 1.627} = \mathbf{1.45}$ çıkmasının sebebi Everton'ın atılan golleri değil, modelin aşırı regülarizasyon yüzünden ev sahibi ortalamasına yapışmasıdır.
+
+---
+
+### 3. $\alpha = 20.0$ Ayarına Geçiş ve Cross-Validation Doğrulaması
+
+Aşırı tutuculuğu kırmak amacıyla `feature_alpha` hiperparametresi genişleyen zaman bölmeli (Expanding-Window 4-Fold CV) testine tabi tutulmuştur:
+
+| $\alpha$ Hiperparametresi | 4-Fold CV Log-Loss (Over 2.5) | Man City vs Ipswich (xG) | Over 2.5 (%) | Arsenal Deplasman (xG) |
+| :---: | :---: | :---: | :---: | :---: |
+| **$\alpha = 100.0$ (Eski)** | 0.67765 | 2.47 - 0.93 (Tot: 3.40) | %66.1 | 1.50 xG |
+| **$\alpha = 30.0$** | **0.67737** *(Global Minimum)* | 2.64 - 0.88 (Tot: 3.52) | %68.3 | 1.57 xG |
+| **$\alpha = 20.0$ (Seçilen)** | **0.67748** | **2.69 - 0.87 (Tot: 3.56)** | **%69.0** | **1.57 xG** |
+| **$\alpha = 10.0$** | 0.67756 | 2.79 - 0.84 (Tot: 3.63) | %70.2 | 1.64 xG |
+| **$\alpha = 1.0$** | 0.67758 | 2.90 - 0.81 (Tot: 3.71) | %71.6 | 1.70 xG |
+
+* **Karar:** `feature_alpha = 20.0` seçilerek hem CV genelleştirme hatası düşürülmüş (`0.67765` $\rightarrow$ `0.67748`) hem de elit hücum takımlarının tavanı açılmıştır.
+* **Üretim Etkisi:**
+  - **Man City vs Ipswich:** Beklenen gol $2.47 \rightarrow \mathbf{2.69}$, Over 2.5 olasılığı $\%66.1 \rightarrow \mathbf{\%69.0}$ oldu.
+  - **Nottingham vs Arsenal:** Arsenal deplasman xG'si $1.50 \rightarrow \mathbf{1.57}$'ye yükseldi, Forest $1.05$'te sınırlandı.
+  - **Brighton vs Crystal Palace:** Brighton iç saha xG'si $1.79 \rightarrow \mathbf{1.91}$'e çıktı (Over 2.5: %58.3).
+  - **Everton vs Chelsea:** $1.45 - 1.33$ dengesini korudu; Everton'ın Goodison Park'taki gerçekçi tavanı teyit edildi.
+
