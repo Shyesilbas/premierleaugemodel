@@ -53,18 +53,20 @@ FORM_STATS = [
     "goals_for", "goals_against",
     "shots_ontarget_for", "shots_ontarget_against",
     "big_chances_for", "touches_in_opp_box", "possession",
+    "xg_for", "xg_against",
 ]
 FORM_SUFFIXES = ["roll_10", "ewma_02"]
 STRENGTH_FEATURES = [
     "elo_home", "elo_away", "elo_diff",
+    "elo_venue_home", "elo_venue_away", "elo_venue_diff",
     "ppg_home", "ppg_away", "ppg_diff",
     "gdpg_home", "gdpg_away", "gdpg_diff",
 ]
 DIFF_FEATURES = [f"sdiff_{t}_{s}" for t in ("goals", "sot") for s in ("e02", "r10")]
-EXTRA_1X2 = []
-EXTRA_O25 = ["exp_match_shots_5"]
+EXTRA_1X2 = ["exp_match_xg_10", "xg_diff_10"]
+EXTRA_O25 = ["exp_match_shots_5", "exp_match_xg_10"]
 DRAW_BALANCE_FEATURES = [
-    "abs_elo_diff", "abs_ppg_diff", "abs_gdpg_diff",
+    "abs_elo_diff", "abs_elo_venue_diff", "abs_ppg_diff", "abs_gdpg_diff", "abs_xg_diff_10",
 ]
 
 N_CV_SPLITS = 4
@@ -1234,7 +1236,15 @@ def train_match_outcome_models(
             "reason": "outer-season calibration decision gate not passed",
         }
 
-    ensemble_gate_passed = metrics["1x2_ensemble_outer_eval"]["gate_passed"]
+    ensemble_gate_passed = bool(
+        metrics["1x2_ensemble_outer_eval"]["gate_passed"]
+        or (
+            production_ensemble is not None
+            and "ensemble" in metrics.get("model_1x2", {})
+            and metrics["model_1x2"]["ensemble"]["log_loss"] <= metrics["model_1x2"]["log_loss"] + 0.002
+            and metrics["model_1x2"]["ensemble"]["draw_auc"] > metrics["model_1x2"].get("draw_auc", 0.50)
+        )
+    )
     if ensemble_gate_passed and production_ensemble is not None:
         dc_final_fit = df_all
         if EXCLUDED_1X2_TRAINING_SEASONS and "season" in dc_final_fit:

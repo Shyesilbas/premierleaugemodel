@@ -11,7 +11,7 @@ from sklearn.linear_model import PoissonRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.models.dixon_coles import DixonColesModel, matrix_from_lambdas
+from src.models.dixon_coles import DixonColesModel, matrix_from_lambdas, outcome_probs
 
 
 RHO_GRID = np.linspace(-0.15, 0.15, 31)
@@ -116,6 +116,9 @@ class FeatureGoalModel:
         home_rate, away_rate = self.lambdas(df)
         return matrix_from_lambdas(home_rate, away_rate, self.rho_, self.max_goals)
 
+    def predict_proba(self, df: pd.DataFrame) -> np.ndarray:
+        return outcome_probs(self.predict_matrices(df))
+
 
 def blend_lambdas(lam_a: np.ndarray, lam_b: np.ndarray, weight_a: float) -> np.ndarray:
     """Geometrically blend positive goal rates, with ``weight_a`` on A."""
@@ -177,3 +180,6 @@ class BlendedGoalModel:
     def predict_matrices(self, df: pd.DataFrame) -> np.ndarray:
         home_rate, away_rate = self.lambdas(df)
         return matrix_from_lambdas(home_rate, away_rate, self.rho_, self.max_goals)
+
+    def predict_proba(self, df: pd.DataFrame) -> np.ndarray:
+        return outcome_probs(self.predict_matrices(df))

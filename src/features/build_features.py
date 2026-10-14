@@ -42,6 +42,7 @@ STAT_COLS = [
     "big_chances_for", "touches_in_opp_box",
     "fouls_committed", "fouls_drawn",
     "cards_for", "cards_against",
+    "xg_for", "xg_against",
 ]
 
 # Strictly historical league priors used to fill cold-start NaNs (NO FUTURE LEAKAGE)
@@ -56,10 +57,12 @@ LEAGUE_PRIORS = {
     "big_chances_for": 1.8, "touches_in_opp_box": 24.5,
     "fouls_committed": 10.5, "fouls_drawn": 10.5,
     "cards_for": 2.1, "cards_against": 2.1,
+    "xg_for": 1.35, "xg_against": 1.35,
+    "xg_diff_10": 0.0, "abs_xg_diff_10": 0.5,
 }
 # Priors for interaction features: per-team side (exp_home_* / exp_away_*) and match totals (exp_match_*)
-EXP_SIDE_PRIORS = {"corners": 5.15, "shots": 13.0, "offsides": 1.63, "cards": 2.1}
-EXP_MATCH_PRIORS = {"corners": 10.3, "throws": 32.9, "shots": 26.0, "offsides": 3.26, "cards": 4.2}
+EXP_SIDE_PRIORS = {"corners": 5.15, "shots": 13.0, "offsides": 1.63, "cards": 2.1, "xg": 1.35}
+EXP_MATCH_PRIORS = {"corners": 10.3, "throws": 32.9, "shots": 26.0, "offsides": 3.26, "cards": 4.2, "xg": 2.70}
 
 # Team strength (Elo + season-to-date table) parameters
 ELO_INIT = 1500.0
@@ -183,6 +186,8 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "touches_in_opp_box": row.get("home_touches_in_opp_box", 24.0),
             "cards_for": row.get("home_total_yel_card", 0.0) + row.get("home_total_red_card", 0.0),
             "cards_against": row.get("away_total_yel_card", 0.0) + row.get("away_total_red_card", 0.0),
+            "xg_for": row.get("statsapi_home_xg") if played and pd.notnull(row.get("statsapi_home_xg")) else np.nan,
+            "xg_against": row.get("statsapi_away_xg") if played and pd.notnull(row.get("statsapi_away_xg")) else np.nan,
         })
 
         # Away perspective
@@ -218,6 +223,8 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "touches_in_opp_box": row.get("away_touches_in_opp_box", 24.0),
             "cards_for": row.get("away_total_yel_card", 0.0) + row.get("away_total_red_card", 0.0),
             "cards_against": row.get("home_total_yel_card", 0.0) + row.get("home_total_red_card", 0.0),
+            "xg_for": row.get("statsapi_away_xg") if played and pd.notnull(row.get("statsapi_away_xg")) else np.nan,
+            "xg_against": row.get("statsapi_home_xg") if played and pd.notnull(row.get("statsapi_home_xg")) else np.nan,
         })
 
     long_df = pd.DataFrame(records)
@@ -312,6 +319,8 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     first_season = df["season"].iloc[0] if has_season and len(df) else None
 
     elo: Dict[int, float] = {}
+    elo_home_venue: Dict[int, float] = {}
+    elo_away_venue: Dict[int, float] = {}
     table: Dict[int, List[float]] = {}  # team -> [points, goal_diff, matches] in current season
     current_season = first_season
     pre: List[Dict[str, float]] = []
@@ -325,6 +334,10 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         if season != current_season:
             for t in elo:
                 elo[t] = (1 - ELO_SEASON_REGRESS) * elo[t] + ELO_SEASON_REGRESS * ELO_INIT
+            for t in elo_home_venue:
+                elo_home_venue[t] = (1 - ELO_SEASON_REGRESS) * elo_home_venue[t] + ELO_SEASON_REGRESS * ELO_INIT
+            for t in elo_away_venue:
+                elo_away_venue[t] = (1 - ELO_SEASON_REGRESS) * elo_away_venue[t] + ELO_SEASON_REGRESS * ELO_INIT
             table = {}
             current_season = season
 
@@ -332,11 +345,17 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         for t in (h, a):
             if t not in elo:
                 elo[t] = ELO_INIT if season == first_season else ELO_NEWCOMER
+            if t not in elo_home_venue:
+                elo_home_venue[t] = ELO_INIT if season == first_season else ELO_NEWCOMER
+            if t not in elo_away_venue:
+                elo_away_venue[t] = ELO_INIT if season == first_season else ELO_NEWCOMER
 
         h_ppg, h_gd = season_form(h)
         a_ppg, a_gd = season_form(a)
         pre.append({
             "elo_home": elo[h], "elo_away": elo[a], "elo_diff": elo[h] - elo[a],
+            "elo_venue_home": elo_home_venue[h], "elo_venue_away": elo_away_venue[a],
+            "elo_venue_diff": elo_home_venue[h] - elo_away_venue[a],
             "ppg_home": h_ppg, "ppg_away": a_ppg, "ppg_diff": h_ppg - a_ppg,
             "gdpg_home": h_gd, "gdpg_away": a_gd, "gdpg_diff": h_gd - a_gd,
         })
@@ -344,6 +363,7 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         if not row["is_played"]:
             continue
         hs, as_ = float(row["home_score"]), float(row["away_score"])
+        # Overall Elo update
         exp_h = 1.0 / (1.0 + 10 ** ((elo[a] - (elo[h] + ELO_HOME_ADV)) / 400.0))
         s_h = 1.0 if hs > as_ else (0.5 if hs == as_ else 0.0)
         margin = abs(hs - as_)
@@ -351,6 +371,12 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         delta = ELO_K * mult * (s_h - exp_h)
         elo[h] += delta
         elo[a] -= delta
+
+        # Venue-specific Elo update
+        exp_h_v = 1.0 / (1.0 + 10 ** ((elo_away_venue[a] - (elo_home_venue[h] + ELO_HOME_ADV)) / 400.0))
+        delta_v = ELO_K * mult * (s_h - exp_h_v)
+        elo_home_venue[h] += delta_v
+        elo_away_venue[a] -= delta_v
 
         h_pts = 3.0 if hs > as_ else (1.0 if hs == as_ else 0.0)
         a_pts = 3.0 if as_ > hs else (1.0 if hs == as_ else 0.0)
@@ -360,7 +386,13 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
             rec[1] += gd
             rec[2] += 1.0
 
-    state = {"elo": dict(elo), "table": {k: list(v) for k, v in table.items()}, "season": current_season}
+    state = {
+        "elo": dict(elo),
+        "elo_home_venue": dict(elo_home_venue),
+        "elo_away_venue": dict(elo_away_venue),
+        "table": {k: list(v) for k, v in table.items()},
+        "season": current_season,
+    }
     return pd.DataFrame(pre, index=df.index), state
 
 
@@ -397,21 +429,38 @@ def advance_strength_state_to_season(
     if target_year <= current_year:
         return state
 
-    advanced = {**state, "elo": dict(state.get("elo", {})), "table": {}}
+    advanced = {
+        **state,
+        "elo": dict(state.get("elo", {})),
+        "elo_home_venue": dict(state.get("elo_home_venue", {})),
+        "elo_away_venue": dict(state.get("elo_away_venue", {})),
+        "table": {},
+    }
     for _ in range(target_year - current_year):
         advanced["elo"] = {
             team_id: (1.0 - ELO_SEASON_REGRESS) * rating + ELO_SEASON_REGRESS * ELO_INIT
             for team_id, rating in advanced["elo"].items()
         }
+        advanced["elo_home_venue"] = {
+            team_id: (1.0 - ELO_SEASON_REGRESS) * rating + ELO_SEASON_REGRESS * ELO_INIT
+            for team_id, rating in advanced["elo_home_venue"].items()
+        }
+        advanced["elo_away_venue"] = {
+            team_id: (1.0 - ELO_SEASON_REGRESS) * rating + ELO_SEASON_REGRESS * ELO_INIT
+            for team_id, rating in advanced["elo_away_venue"].items()
+        }
     advanced["season"] = str(target_season)
     return advanced
 
 
-def _team_strength(state: Dict[str, Any], team_id: int) -> Dict[str, float]:
+def _team_strength(state: Dict[str, Any], team_id: int, is_home: bool = True) -> Dict[str, float]:
     elo = state.get("elo", {}).get(int(team_id), ELO_NEWCOMER)
+    venue_dict = state.get("elo_home_venue" if is_home else "elo_away_venue", {})
+    elo_venue = venue_dict.get(int(team_id), ELO_NEWCOMER)
     pts, gd, n = state.get("table", {}).get(int(team_id), [0.0, 0.0, 0.0])
     return {
         "elo": float(elo),
+        "elo_venue": float(elo_venue),
         "ppg": (pts + PPG_PRIOR * PRIOR_GAMES) / (n + PRIOR_GAMES),
         "gdpg": gd / (n + PRIOR_GAMES),
     }
@@ -441,8 +490,7 @@ def fill_feature_priors(df: pd.DataFrame) -> pd.DataFrame:
     """Fills cold-start NaNs of rolling / EWMA / interaction features with fixed league priors."""
     cols = [
         c for c in df.columns
-        if ("_roll_" in c or "_ewma_" in c or c.startswith("exp_"))
-        and not c.startswith(("home_xg_", "away_xg_"))
+        if ("_roll_" in c or "_ewma_" in c or c.startswith("exp_") or "xg_diff" in c)
     ]
     for c in cols:
         if df[c].isna().any():
@@ -489,8 +537,15 @@ def add_interaction_features(merged: pd.DataFrame) -> pd.DataFrame:
         merged["exp_away_cards_5"] = (merged["away_cards_for_roll_5"] + merged["home_cards_against_roll_5"]) / 2.0
         merged["exp_match_cards_5"] = merged["exp_home_cards_5"] + merged["exp_away_cards_5"]
 
+    # Expected match total xG and xG differential
+    if "home_xg_for_roll_10" in merged.columns and "away_xg_against_roll_10" in merged.columns:
+        exp_h_xg = (merged["home_xg_for_roll_10"] + merged["away_xg_against_roll_10"]) / 2.0
+        exp_a_xg = (merged["away_xg_for_roll_10"] + merged["home_xg_against_roll_10"]) / 2.0
+        merged["exp_match_xg_10"] = exp_h_xg + exp_a_xg
+        merged["xg_diff_10"] = exp_h_xg - exp_a_xg
+        merged["abs_xg_diff_10"] = merged["xg_diff_10"].abs()
 
-    for difference in ("elo_diff", "ppg_diff", "gdpg_diff"):
+    for difference in ("elo_diff", "elo_venue_diff", "ppg_diff", "gdpg_diff"):
         if difference in merged.columns:
             merged[f"abs_{difference}"] = merged[difference].abs()
 
@@ -617,12 +672,14 @@ def build_prediction_row(
             rest = 14.0
         row[f"{side}_rest_days"] = float(min(max(rest, 0.0), 30.0))
 
-        strength = _team_strength(strength_state, tid)
+        strength = _team_strength(strength_state, tid, is_home=(side == "home"))
         row[f"elo_{side}"] = strength["elo"]
+        row[f"elo_venue_{side}"] = strength["elo_venue"]
         row[f"ppg_{side}"] = strength["ppg"]
         row[f"gdpg_{side}"] = strength["gdpg"]
 
     row["elo_diff"] = row["elo_home"] - row["elo_away"]
+    row["elo_venue_diff"] = row["elo_venue_home"] - row["elo_venue_away"]
     row["ppg_diff"] = row["ppg_home"] - row["ppg_away"]
     row["gdpg_diff"] = row["gdpg_home"] - row["gdpg_away"]
 
