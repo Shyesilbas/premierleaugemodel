@@ -1,6 +1,6 @@
 # Model Diagnostic Follow-up
 
-> Historical investigation: this report preserves the earlier 1,200-match experiment and its paired holdout results. For the current 1,580-match snapshot and the latest production evaluation, use [Model Benchmarks](model_benchmarks.md) and [1X2 Model Audit](1x2_model_audit.md). The 2022–23 extension and subsequent model-policy results below are retained as development history.
+> **Tarihsel tanı notu:** Bu belge 1.200 maçlık eski veri anlık görüntüsünden kalma sonuçları içerir. Güncel benchmark ve holdout sayıları için [Model Benchmarks](model_benchmarks.md) raporunu kullanın; tüm raporlar [Rapor Merkezi](README.md) içinde listelenir.
 
 Snapshot: 1,200 completed matches across 2023-24 through the partial 2026-27 season. The fixed chronological holdout is the last 240 matches; its first kickoff is 6 January 2026. All model selection and calibration use development-period data only.
 

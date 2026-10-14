@@ -20,6 +20,26 @@ HOLDOUT_FRACTION = 0.20
 CV_SPLITS = 4
 
 
+def safe_feature_frame(
+    frame: pd.DataFrame,
+    features: list[str],
+    fill_value: float = 0.0,
+) -> pd.DataFrame:
+    """Build a model input frame and apply the caller's missing-value policy."""
+    selected = pd.DataFrame(
+        {
+            column: (
+                frame[column]
+                if column in frame.columns
+                else pd.Series(fill_value, index=frame.index)
+            )
+            for column in features
+        },
+        index=frame.index,
+    )
+    return selected.fillna(fill_value)
+
+
 def estimate_count_dispersion(y: pd.Series) -> float:
     """Estimate NB2 overdispersion alpha from the training targets only."""
     values = pd.to_numeric(y, errors="coerce").dropna().to_numpy(dtype=float)

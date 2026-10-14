@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import pandas as pd
 import numpy as np
 from src.features.draw_features import DrawFeatureState, add_draw_features
+from src.db.database import attach_statsapi_xg
 
 logging.basicConfig(
     level=logging.INFO,
@@ -231,14 +232,16 @@ def _alpha_str(a: float) -> str:
 
 
 def _lagged_team_state(
-    long_df: pd.DataFrame, col: str, played: pd.Series, fn: Callable[[pd.Series], pd.Series]
+    long_df: pd.DataFrame, col: str, played: pd.Series, fn: Callable[[pd.Series], pd.Series],
+    reset_each_season: bool = False,
 ) -> pd.Series:
     """
     For every team-match row returns the statistic computed over the team's PLAYED matches strictly
     before that row. Unplayed fixtures inherit the state after the team's latest played match.
     """
     out = pd.Series(np.nan, index=long_df.index)
-    for _, idx in long_df.groupby("team_id", sort=False).groups.items():
+    group_cols = ["team_id", "season"] if reset_each_season and "season" in long_df.columns else ["team_id"]
+    for _, idx in long_df.groupby(group_cols, sort=False, dropna=False).groups.items():
         s = long_df.loc[idx, col]
         s_played = s[played.loc[idx]].dropna()
         if s_played.empty:
@@ -261,11 +264,13 @@ def compute_pre_match_features(long_df: pd.DataFrame) -> pd.DataFrame:
         # Rolling means
         for w in ROLLING_WINDOWS:
             new_cols[f"{col}_roll_{w}"] = _lagged_team_state(
-                long_df, col, played, lambda s, w=w: s.rolling(w, min_periods=1).mean())
+                long_df, col, played, lambda s, w=w: s.rolling(w, min_periods=1).mean(),
+                reset_each_season=False)
         # EWMA
         for a in EWMA_ALPHAS:
             new_cols[f"{col}_ewma_{_alpha_str(a)}"] = _lagged_team_state(
-                long_df, col, played, lambda s, a=a: s.ewm(alpha=a, min_periods=1).mean())
+                long_df, col, played, lambda s, a=a: s.ewm(alpha=a, min_periods=1).mean(),
+                reset_each_season=False)
 
     return pd.concat([
         long_df,
@@ -287,7 +292,8 @@ def compute_team_states(long_df: pd.DataFrame, until: Optional[pd.Timestamp] = N
     for tid, g in d.sort_values(["match_date", "match_id"], kind="mergesort").groupby("team_id"):
         rec: Dict[str, Any] = {"last_match_date": g["match_date"].max()}
         for col in STAT_COLS:
-            s = g[col].dropna()
+            state = g
+            s = state[col].dropna()
             for w in ROLLING_WINDOWS:
                 rec[f"{col}_roll_{w}"] = float(s.tail(w).mean()) if len(s) else np.nan
             for a in EWMA_ALPHAS:
@@ -433,7 +439,11 @@ def _prior_for(col: str) -> float:
 
 def fill_feature_priors(df: pd.DataFrame) -> pd.DataFrame:
     """Fills cold-start NaNs of rolling / EWMA / interaction features with fixed league priors."""
-    cols = [c for c in df.columns if "_roll_" in c or "_ewma_" in c or c.startswith("exp_")]
+    cols = [
+        c for c in df.columns
+        if ("_roll_" in c or "_ewma_" in c or c.startswith("exp_"))
+        and not c.startswith(("home_xg_", "away_xg_"))
+    ]
     for c in cols:
         if df[c].isna().any():
             df[c] = df[c].fillna(_prior_for(c))
@@ -638,6 +648,10 @@ def build_feature_dataset(
     output_path = Path(output_path)
     logger.info(f"Loading match dataset from {input_matches_path}...")
     df = pd.read_parquet(input_matches_path)
+    df = attach_statsapi_xg(df)
+    # Keep only explicitly sourced provider xG in the feature dataset. Legacy
+    # aggregate-stat proxy columns are neither provider xG nor model inputs.
+    df = df.drop(columns=[c for c in ("home_xg", "away_xg", "total_xg") if c in df.columns])
     logger.info(f"Loaded {len(df)} matches.")
 
     df = calculate_rest_days(df)

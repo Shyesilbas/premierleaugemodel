@@ -21,9 +21,14 @@ import joblib
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from src.models.model_utils import apply_probability_calibrator, blend_log, count_tail_probability
+from src.models.model_utils import (
+    apply_probability_calibrator,
+    blend_log,
+    count_tail_probability,
+    safe_feature_frame as _safe_features,
+)
 from src.models.dixon_coles import btts_prob, over_prob
-from src.db.database import get_referees_list, get_referee_detail, get_all_grouped_fixtures, get_referee_summary
+from src.db.database import get_referees_list, get_referee_detail, get_all_grouped_fixtures, get_referee_summary, get_db, attach_statsapi_xg
 from src.features.build_features import (
     calculate_rest_days,
     build_team_match_history,
@@ -66,6 +71,8 @@ matches_parquet = matches_all
 features_parquet = features_all
 
 df_matches = pd.read_parquet(matches_parquet) if matches_parquet.exists() else pd.DataFrame()
+if not df_matches.empty:
+    df_matches = attach_statsapi_xg(df_matches)
 df_features = pd.read_parquet(features_parquet) if features_parquet.exists() else pd.DataFrame()
 
 # Load trained models
@@ -303,6 +310,8 @@ def reload_runtime_datasets() -> None:
     global teams_list, _matches_prepared, _long_history, _played_matches, CURRENT_SEASON, _live_state_cache
 
     df_matches = pd.read_parquet(matches_parquet) if matches_parquet.exists() else pd.DataFrame()
+    if not df_matches.empty:
+        df_matches = attach_statsapi_xg(df_matches)
     df_features = pd.read_parquet(features_parquet) if features_parquet.exists() else pd.DataFrame()
     if fix_2627_path.exists():
         with fix_2627_path.open("r", encoding="utf-8") as stream:
@@ -693,6 +702,12 @@ def get_grouped_fixtures(season: str = "2026_27"):
             "total_fouls": r.get("total_fouls"),
             "ref_avg_cards": r.get("ref_avg_cards"),
             "ref_strictness": r.get("ref_strictness"),
+            "home_xg": round(float(r["statsapi_home_xg"]), 2) if r.get("statsapi_home_xg") is not None else None,
+            "away_xg": round(float(r["statsapi_away_xg"]), 2) if r.get("statsapi_away_xg") is not None else None,
+            "total_xg": round(float(r["statsapi_home_xg"] + r["statsapi_away_xg"]), 2)
+                if r.get("statsapi_home_xg") is not None and r.get("statsapi_away_xg") is not None else None,
+            "xg_source": r.get("xg_provider") if r.get("statsapi_home_xg") is not None and r.get("statsapi_away_xg") is not None else None,
+            "xg_quality": r.get("statsapi_xg_quality"),
             "status": "COMPLETED" if is_completed else "UPCOMING",
             "season": r.get("season") or season,
             "prediction": pred,
@@ -1082,6 +1097,29 @@ def get_match_full_details(match_id: int):
     team_stats = []
     player_stats = {"home": [], "away": []}
 
+    # Query DB for match xG and score stats if available
+    h_xg = None
+    a_xg = None
+    tot_xg = None
+    xg_source = None
+    xg_quality = None
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""SELECT x.provider, x.home_xg, x.away_xg, x.xg_quality
+                          FROM matches m LEFT JOIN external_match_xg x ON x.match_id = m.match_id
+                          WHERE m.match_id = ?""", (match_id,))
+        db_match = cursor.fetchone()
+        conn.close()
+        if db_match:
+            h_xg = round(float(db_match["home_xg"]), 2) if db_match["home_xg"] is not None else None
+            a_xg = round(float(db_match["away_xg"]), 2) if db_match["away_xg"] is not None else None
+            tot_xg = round(h_xg + a_xg, 2) if h_xg is not None and a_xg is not None else None
+            xg_source = db_match["provider"] if h_xg is not None and a_xg is not None else None
+            xg_quality = db_match["xg_quality"]
+    except Exception as e:
+        logger.warning(f"Error fetching match {match_id} from SQLite: {e}")
+
     d = {}
     if raw_details.exists():
         with open(raw_details, "r", encoding="utf-8") as f:
@@ -1094,6 +1132,11 @@ def get_match_full_details(match_id: int):
             "attendance": d.get("attendance"),
             "referee": d.get("matchOfficials", [{}])[0].get("matchOfficial", {}).get("name", {}).get("display") if d.get("matchOfficials") else None,
             "halfTimeScore": d.get("halfTimeScore"),
+            "home_xg": h_xg,
+            "away_xg": a_xg,
+            "total_xg": tot_xg,
+            "xg_source": xg_source,
+            "xg_quality": xg_quality,
         }
 
         teams_info = d.get("teams", [])
@@ -1173,6 +1216,15 @@ def get_match_full_details(match_id: int):
             {
                 "category": "Şut & Hücum Hacmi",
                 "items": [
+                    {
+                        "label": "TheStatsAPI Beklenen Gol (xG)",
+                        "home": h_xg if h_xg is not None else "Not Found",
+                        "away": a_xg if a_xg is not None else "Not Found",
+                        "rawHome": h_xg,
+                        "rawAway": a_xg,
+                        "isXg": True,
+                        "notFound": (h_xg is None and a_xg is None),
+                    },
                     {"label": "Toplam Şut", "home": hm.get("total_scoring_att", 0), "away": am.get("total_scoring_att", 0)},
                     {"label": "İsabetli Şut", "home": hm.get("ontarget_scoring_att", 0), "away": am.get("ontarget_scoring_att", 0)},
                     {"label": "İsabetsiz Şut", "home": hm.get("shot_off_target", 0), "away": am.get("shot_off_target", 0)},
@@ -1230,6 +1282,23 @@ def get_match_full_details(match_id: int):
                     {"label": "Ofsayt", "home": hm.get("total_offside", 0), "away": am.get("total_offside", 0)},
                     {"label": "Sarı Kart", "home": hm.get("total_yel_card", 0), "away": am.get("total_yel_card", 0)},
                     {"label": "Kırmızı Kart", "home": hm.get("total_red_card", 0), "away": am.get("total_red_card", 0)},
+                ]
+            }
+        ]
+    elif h_xg is not None or a_xg is not None:
+        team_stats = [
+            {
+                "category": "Şut & Hücum Hacmi",
+                "items": [
+                    {
+                        "label": "TheStatsAPI Beklenen Gol (xG)",
+                        "home": h_xg if h_xg is not None else "Not Found",
+                        "away": a_xg if a_xg is not None else "Not Found",
+                        "rawHome": h_xg,
+                        "rawAway": a_xg,
+                        "isXg": True,
+                        "notFound": (h_xg is None and a_xg is None),
+                    }
                 ]
             }
         ]
@@ -1567,12 +1636,6 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         gameweek=gameweek,
     )
 
-    def _safe_features(df: pd.DataFrame, features: List[str]) -> pd.DataFrame:
-        for c in features:
-            if c not in df.columns:
-                df[c] = 0.0
-        return df[features].fillna(0.0)
-
     # 1. Corner Prediction
     c_features = corner_artifact["feature_names"]
     X_c = _safe_features(simulated_df, c_features)
@@ -1602,7 +1665,12 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     # 4. Outcome & Goals Prediction
     o_features = outcome_artifact.get("feature_names_1x2", outcome_artifact["feature_names"])
     o25_features = outcome_artifact.get("feature_names_o25", o_features)
-    probs_1x2 = outcome_artifact["model_1x2"].predict_proba(_safe_features(simulated_df, o_features))
+    # Preserve missing 1X2 inputs so the fitted sklearn median imputer (or
+    # LightGBM's native missing-value handling) sees the same representation
+    # used at training time. Filling with zero here bypasses that preprocessing.
+    probs_1x2 = outcome_artifact["model_1x2"].predict_proba(
+        _safe_features(simulated_df, o_features, fill_value=np.nan)
+    )
     has_ensemble = "model_dc" in outcome_artifact
     if has_ensemble:
         dc_probs_1x2 = outcome_artifact["model_dc"].predict_proba(simulated_df)

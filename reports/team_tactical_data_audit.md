@@ -1,6 +1,6 @@
 # Takım Taktik Analizi — Veri Kapsamı Denetimi
 
-Snapshot generated 2026-10-13 from cached raw provider responses.
+Snapshot generated 2026-10-14 from cached raw provider responses.
 
 Bu rapor `data/raw/matches/*_stats.json` dosyalarındaki takım düzeyi `M` istatistiklerini inceler. Bir metriğin dosyada bulunmaması sıfır kabul edilmez.
 

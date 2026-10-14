@@ -26,6 +26,31 @@ def get_db():
     return conn
 
 
+def attach_statsapi_xg(matches: pd.DataFrame) -> pd.DataFrame:
+    """Attach explicitly sourced TheStatsAPI xG to a match frame by local match_id."""
+    out = matches.copy()
+    if "match_id" not in out.columns:
+        return out
+    try:
+        conn = get_db()
+        try:
+            xg = pd.read_sql_query(
+                "SELECT match_id, provider, home_xg, away_xg, xg_quality FROM external_match_xg",
+                conn,
+            )
+        finally:
+            conn.close()
+    except Exception as exc:
+        logger.info("Provider xG table unavailable; attaching null provider xG: %s", exc)
+        xg = pd.DataFrame(columns=["match_id", "provider", "home_xg", "away_xg", "xg_quality"])
+    xg = xg.rename(columns={
+        "provider": "xg_provider", "home_xg": "statsapi_home_xg",
+        "away_xg": "statsapi_away_xg", "xg_quality": "statsapi_xg_quality",
+    })
+    out = out.drop(columns=[c for c in xg.columns if c != "match_id" and c in out.columns])
+    return out.merge(xg, on="match_id", how="left", validate="many_to_one")
+
+
 def init_db():
     """Initializes SQLite schema and indexes."""
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -74,6 +99,39 @@ def init_db():
         home_xg REAL,
         away_xg REAL,
         total_xg REAL
+    );
+    """)
+
+    # Provider-sourced xG is kept separate from the legacy aggregate proxy
+    # stored on matches so its source and quality remain explicit.
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS external_match_xg (
+        match_id INTEGER PRIMARY KEY REFERENCES matches(match_id),
+        provider TEXT NOT NULL,
+        provider_match_id TEXT NOT NULL UNIQUE,
+        provider_season_id TEXT NOT NULL,
+        home_xg REAL NOT NULL,
+        away_xg REAL NOT NULL,
+        xg_quality TEXT,
+        fetched_at_utc TEXT NOT NULL
+    );
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS external_match_odds (
+        match_id INTEGER NOT NULL REFERENCES matches(match_id),
+        provider TEXT NOT NULL,
+        provider_match_id TEXT NOT NULL,
+        provider_season_id TEXT NOT NULL,
+        bookmaker TEXT NOT NULL,
+        home_open REAL,
+        draw_open REAL,
+        away_open REAL,
+        home_last_seen REAL,
+        draw_last_seen REAL,
+        away_last_seen REAL,
+        fetched_at_utc TEXT NOT NULL,
+        PRIMARY KEY (match_id, provider, bookmaker)
     );
     """)
 
@@ -502,18 +560,24 @@ def get_all_grouped_fixtures(season: str = "2026_27") -> List[Dict[str, Any]]:
     cursor = conn.cursor()
     if season != "all":
         cursor.execute("""
-            SELECT m.*, r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
+            SELECT m.*, x.provider AS xg_provider, x.home_xg AS statsapi_home_xg,
+                   x.away_xg AS statsapi_away_xg, x.xg_quality AS statsapi_xg_quality,
+                   r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
                    r.avg_red_cards as ref_avg_reds, r.strictness_label as ref_strictness
             FROM matches m
+            LEFT JOIN external_match_xg x ON x.match_id = m.match_id
             LEFT JOIN referees r ON m.referee_name = r.referee_name AND r.season = m.season
             WHERE m.season = ?
             ORDER BY m.gameweek ASC, m.match_date ASC, m.match_id ASC
         """, (season,))
     else:
         cursor.execute("""
-            SELECT m.*, r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
+            SELECT m.*, x.provider AS xg_provider, x.home_xg AS statsapi_home_xg,
+                   x.away_xg AS statsapi_away_xg, x.xg_quality AS statsapi_xg_quality,
+                   r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
                    r.avg_red_cards as ref_avg_reds, r.strictness_label as ref_strictness
             FROM matches m
+            LEFT JOIN external_match_xg x ON x.match_id = m.match_id
             LEFT JOIN referees r ON m.referee_name = r.referee_name AND r.season = 'all'
             ORDER BY m.season DESC, m.gameweek ASC, m.match_date ASC
         """)

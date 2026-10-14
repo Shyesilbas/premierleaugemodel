@@ -140,13 +140,15 @@ def _logreg_o25_probabilities(
     """Fit and calibrate the existing O25 classifier using prior seasons only."""
     train_y = ((train["home_score"] + train["away_score"]) > 2.5).astype(int)
     labels = [0, 1]
-    selected, _ = select_model("o25", train[features], train_y, labels)
+    train_kickoffs = train["kickoff_millis"] if "kickoff_millis" in train else None
+    selected, _ = select_model("o25", train[features], train_y, labels, train_kickoffs)
     model = candidate_models()[selected]
     oof_probabilities, oof_targets = chronological_oof_predictions(
         model,
         train[features],
         train_y,
         labels,
+        kickoff_times=train_kickoffs,
     )
     calibrator = fit_probability_calibrator(oof_probabilities, pd.Series(oof_targets), labels)
     fitted = fit_model(model, train[features], train_y)

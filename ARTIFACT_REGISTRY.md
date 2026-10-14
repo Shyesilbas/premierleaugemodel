@@ -35,6 +35,8 @@ The API loads these files from `models/production/`. Each artifact contains the 
 
 ## Canonical reports
 
+- [Reports index](reports/README.md) is the entry point for all human-readable reports and evaluation artifacts.
+- [Repository Audit](reports/repository_audit.md) contains the current codebase review and prioritized improvement plan.
 - [Model Benchmarks](reports/model_benchmarks.md) owns current evaluation scores and protocol.
 - [Data Quality and Coverage](reports/data_quality.md) owns fixture counts, source coverage, referee coverage, and target distributions.
 - [Team Tactical Data Audit](reports/team_tactical_data_audit.md) owns detailed team-stat coverage by season.

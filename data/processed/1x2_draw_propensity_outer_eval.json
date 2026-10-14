@@ -1,46 +1,22 @@
 {
-  "policy": "exclude_2022_23; early 2023/24 outer season uses 2022/23 because otherwise no training rows remain",
+  "policy": "exclude 2022/23; require at least three full outer seasons without fallback history",
   "outer_seasons": [
-    {
-      "season": "2023_24",
-      "partial_season": false,
-      "early_season_fallback_included_excluded_history": true,
-      "test_samples": 380,
-      "log_loss_with": 0.953,
-      "log_loss_without": 0.9539,
-      "delta_log_loss": -0.0009,
-      "draw_auc_with": 0.5274,
-      "draw_auc_without": 0.5216,
-      "delta_draw_auc": 0.0058
-    },
     {
       "season": "2024_25",
       "partial_season": false,
       "early_season_fallback_included_excluded_history": false,
       "test_samples": 380,
-      "log_loss_with": 1.0013,
-      "log_loss_without": 0.9981,
-      "delta_log_loss": 0.0032,
-      "draw_auc_with": 0.537,
-      "draw_auc_without": 0.5196,
-      "delta_draw_auc": 0.0174
-    },
-    {
-      "season": "2025_26",
-      "partial_season": false,
-      "early_season_fallback_included_excluded_history": false,
-      "test_samples": 380,
-      "log_loss_with": 1.0326,
-      "log_loss_without": 1.0259,
-      "delta_log_loss": 0.0067,
+      "log_loss_with": 1.0021,
+      "log_loss_without": 0.998,
+      "delta_log_loss": 0.0041,
       "draw_auc_with": 0.5347,
-      "draw_auc_without": 0.5459,
-      "delta_draw_auc": -0.0112
+      "draw_auc_without": 0.5128,
+      "delta_draw_auc": 0.0219
     }
   ],
-  "season_count": 3,
-  "mean_delta_log_loss": 0.003,
-  "mean_delta_draw_auc": 0.004,
+  "season_count": 1,
+  "mean_delta_log_loss": 0.0041,
+  "mean_delta_draw_auc": 0.0219,
   "gate_passed": false,
   "gate": "mean log-loss delta < -0.002 and mean draw-AUC delta >= +0.01 across three full seasons"
 }

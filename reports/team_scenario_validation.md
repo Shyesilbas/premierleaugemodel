@@ -1,6 +1,6 @@
 # Skor Durumu ve Korner Analizi — Veri Doğrulaması
 
-Snapshot generated 2026-10-13 from cached event streams and raw team stats.
+Snapshot generated 2026-10-14 from cached event streams and raw team stats.
 
 Bu denetim play-by-play akışını maç ve takım istatistikleriyle karşılaştırır.
 

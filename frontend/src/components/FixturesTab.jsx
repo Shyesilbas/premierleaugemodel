@@ -810,7 +810,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                                   )}
                                 </div>
 
-                                <div className="grid grid-cols-4 gap-1.5 text-[10px] font-mono text-center">
+                                <div className="grid grid-cols-5 gap-1.5 text-[10px] font-mono text-center">
                                   <div className="bg-slate-50 py-1 px-1 rounded-lg">
                                     <span className="text-[9px] text-slate-500 font-sans block">KORNER</span>
                                     <strong className="text-emerald-700 font-bold">{m.home_won_corners ?? '-'} - {m.away_won_corners ?? '-'}</strong>
@@ -826,6 +826,18 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                                   <div className="bg-slate-50 py-1 px-1 rounded-lg">
                                     <span className="text-[9px] text-slate-500 font-sans block">KURTARIŞ</span>
                                     <strong className="text-purple-700 font-bold">{m.total_saves ?? '-'}</strong>
+                                  </div>
+                                  <div className="bg-slate-50 py-1 px-1 rounded-lg border border-slate-100">
+                                    <span className="text-[9px] text-rose-700 font-sans font-bold block">TheStatsAPI xG</span>
+                                    {(m.home_xg != null || m.away_xg != null) ? (
+                                      <strong className="text-rose-600 font-bold">
+                                        {m.home_xg != null ? Number(m.home_xg).toFixed(2) : '-'} - {m.away_xg != null ? Number(m.away_xg).toFixed(2) : '-'}
+                                      </strong>
+                                    ) : (
+                                      <span className="text-slate-400 font-normal italic text-[8.5px] block leading-[15px]">
+                                        Not Found
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>

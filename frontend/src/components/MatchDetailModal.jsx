@@ -197,6 +197,20 @@ export default function MatchDetailModal({ match, onClose }) {
                   İY: {meta.halfTimeScore.homeScore} - {meta.halfTimeScore.awayScore}
                 </span>
               )}
+              {isCompleted && (
+                <div className="mt-1.5 flex items-center justify-center">
+                  {((match.home_xg ?? meta.home_xg) != null || (match.away_xg ?? meta.away_xg) != null) ? (
+                    <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-sm">
+                      <span className="text-[9px] font-sans font-bold text-rose-500 uppercase tracking-wider">TheStatsAPI xG:</span>
+                      {(match.home_xg ?? meta.home_xg) != null ? Number(match.home_xg ?? meta.home_xg).toFixed(2) : '-'} - {(match.away_xg ?? meta.away_xg) != null ? Number(match.away_xg ?? meta.away_xg).toFixed(2) : '-'}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-slate-400 italic">
+                      xG: Not Found
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Away Team */}
@@ -327,7 +341,7 @@ export default function MatchDetailModal({ match, onClose }) {
                     </h4>
                   </div>
                   <span className="text-[11px] font-mono font-bold text-slate-500">
-                    Opta Canlı Maç Verisi
+                    Premier League Maç Verisi
                   </span>
                 </div>
 
@@ -355,32 +369,46 @@ export default function MatchDetailModal({ match, onClose }) {
                             const hVal = item.home !== undefined ? item.home : '-';
                             const aVal = item.away !== undefined ? item.away : '-';
                             const suffix = item.suffix || '';
+                            const isNotFound = (hVal === 'Not Found' && aVal === 'Not Found') || Boolean(item.notFound);
+                            const isXg = Boolean(item.isXg || item.label?.includes('xG'));
 
                             return (
-                              <div key={itemIdx} className="space-y-1 text-xs">
+                              <div key={itemIdx} className={`space-y-1 text-xs ${isXg ? 'bg-rose-50/40 p-2 rounded-xl border border-rose-100/60' : ''}`}>
                                 <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
-                                  <span className="font-mono font-bold text-slate-900 min-w-[36px]">
-                                    {hVal}{suffix}
+                                  <span className={`font-mono min-w-[36px] ${isXg ? 'text-rose-700 font-black' : 'font-bold text-slate-900'}`}>
+                                    {hVal === 'Not Found' ? (
+                                      <span className="text-slate-400 font-normal italic text-[10px]">Not Found</span>
+                                    ) : (
+                                      `${hVal}${suffix}`
+                                    )}
                                   </span>
-                                  <span className="text-slate-600 font-medium text-center truncate px-2">
+                                  <span className={`font-medium text-center truncate px-2 ${isXg ? 'text-rose-900 font-bold' : 'text-slate-600'}`}>
                                     {item.label}
                                   </span>
-                                  <span className="font-mono font-bold text-slate-900 min-w-[36px] text-right">
-                                    {aVal}{suffix}
+                                  <span className={`font-mono min-w-[36px] text-right ${isXg ? 'text-rose-700 font-black' : 'font-bold text-slate-900'}`}>
+                                    {aVal === 'Not Found' ? (
+                                      <span className="text-slate-400 font-normal italic text-[10px]">Not Found</span>
+                                    ) : (
+                                      `${aVal}${suffix}`
+                                    )}
                                   </span>
                                 </div>
 
                                 {/* Comparison Dual Bar */}
-                                <div className="h-1.5 rounded-full overflow-hidden flex bg-slate-200 gap-0.5">
-                                  <div 
-                                    style={{ width: `${homePct}%` }}
-                                    className="h-full bg-[#38003c] transition-all duration-500 rounded-l-full"
-                                  />
-                                  <div 
-                                    style={{ width: `${awayPct}%` }}
-                                    className="h-full bg-emerald-600 transition-all duration-500 rounded-r-full"
-                                  />
-                                </div>
+                                {isNotFound ? (
+                                  <div className="h-1.5 rounded-full overflow-hidden bg-slate-100 border border-dashed border-slate-200" title="Veri Bulunamadı" />
+                                ) : (
+                                  <div className="h-1.5 rounded-full overflow-hidden flex bg-slate-200 gap-0.5">
+                                    <div 
+                                      style={{ width: `${homePct}%` }}
+                                      className={`h-full transition-all duration-500 rounded-l-full ${isXg ? 'bg-rose-600' : 'bg-[#38003c]'}`}
+                                    />
+                                    <div 
+                                      style={{ width: `${awayPct}%` }}
+                                      className={`h-full transition-all duration-500 rounded-r-full ${isXg ? 'bg-pink-600' : 'bg-emerald-600'}`}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             );
                           })}

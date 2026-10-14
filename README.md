@@ -18,9 +18,11 @@ Start the frontend in a second terminal:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
+
+Vite 8 requires Node.js `^20.19.0` or `>=22.12.0`. Use one of those versions for the frontend commands.
 
 ## Refresh data and models
 
@@ -45,21 +47,17 @@ python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14
 python3 -m src.analytics.prospective_1x2_benchmark score
 ```
 
-The append-only log keeps 1X2 and goal-market predictions with their model-artifact fingerprints. The generated `reports/prospective_1x2_scorecard.json` scores 1X2, Over 1.5/2.5/3.5, and BTTS forecasts when completed outcomes are available.
+The append-only log keeps 1X2 and goal-market predictions with their model-artifact fingerprints. After logged matches finish, the score command creates `reports/prospective_1x2_scorecard.json` with 1X2, Over 1.5/2.5/3.5, and BTTS scores.
 
-## Model and data reports
+## Reports and status
 
-- [Model Benchmarks](reports/model_benchmarks.md): one chronological benchmark report for all prediction targets.
-- [Data Quality](reports/data_quality.md): fixture counts, referee/raw-stat coverage, target distributions, and missing-label patterns by season, team, and match outcome.
-- [Team Tactical Data Audit](reports/team_tactical_data_audit.md): detailed coverage for team-level tactical fields.
-- [Team Scenario Validation](reports/team_scenario_validation.md): compares event-stream shot and corner counts with match statistics.
-- [1X2 Model Audit](reports/1x2_model_audit.md): detailed findings on draw separation, temporal drift, and prospective evaluation.
-- [Model Diagnostic Follow-up](reports/model_diagnostic_followup.md): historical investigation; current scores are owned by Model Benchmarks and the 1X2 Model Audit.
-- [Artifact Registry](ARTIFACT_REGISTRY.md): current processed datasets and model artifacts.
+- [Reports index](reports/README.md): all reports and machine-readable evaluation artifacts in one place.
+- [Comprehensive codebase audit](reports/repository_audit.md): current benchmark summary, engineering findings, test coverage, and improvement plan.
 - [Project Status](PROJECT_STATUS.md): current snapshot and known model limitations.
+- [Artifact Registry](ARTIFACT_REGISTRY.md): processed datasets and production model artifacts.
 
 ## Evaluation and interpretation
 
-All model rows are ordered by kickoff. Candidate selection uses expanding-window folds; the final 20% is held out and scored once. Results also include season-by-season holdouts where each test season is evaluated using only earlier seasons. Probability calibration is fitted from chronological out-of-fold development predictions. Regression imputation and scaling are fitted within each training fold. Production models are refit on all eligible rows only after evaluation. The 1X2 report includes a Dixon–Coles team attack/defence baseline on the same temporal holdouts; it is currently an evaluation comparator, not the API's production outcome model.
+All model rows are ordered by kickoff. For 1X2 and Over 2.5, the main split uses the nearest boundary to 80% while keeping matches with equal kickoff times together; expanding-window CV folds also keep kickoff groups intact. Current 1X2 feature, ensemble, and recency-calibration gates use development data only. Season-by-season holdouts evaluate each test season using only earlier seasons. Probability calibration is fitted from chronological out-of-fold development predictions. Regression imputation and scaling are fitted within each training fold. Production models are refit on eligible rows after evaluation. The 1X2 report includes a Dixon–Coles baseline using the same main holdout and 1X2 training-season exclusion; it remains an evaluation comparator, not the API's production outcome model.
 
-The data covers only a few seasons, and the latest season is incomplete. Treat small improvements over a mean or class-prior baseline as preliminary. Count thresholds use a negative-binomial distribution with dispersion estimated on training targets; reports compare it with Poisson and training-rate baselines. Raw metric omissions are kept as nulls with per-team `_reported` flags; models exclude rows whose target metrics are incomplete. The repository does not contain a trained xG model. The low-coverage aggregate-stat xG proxy was removed from active features and the API in F7; it is not an available production input.
+The data covers only a few seasons, and the latest season is incomplete. Treat small improvements over a mean or class-prior baseline as preliminary. Count thresholds use a negative-binomial distribution with dispersion estimated on training targets; reports compare it with Poisson and training-rate baselines. Raw metric omissions are kept as nulls with per-team `_reported` flags; models exclude rows whose target metrics are incomplete. Provider-sourced TheStatsAPI xG is stored with its source and shown in match details for post-match use; it is excluded from pre-match 1X2 features because actual match xG is only available after kickoff. Legacy aggregate-stat xG proxies are also excluded from the model. There is no model trained to predict pre-match xG.

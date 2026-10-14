@@ -8,8 +8,9 @@ Trains:
 Methodology:
   - Curated feature sets (team strength + attacking/defensive form); noisy stats (throws, offsides, cards...) excluded.
   - Candidate models (regularised multinomial Logistic Regression vs. LightGBM) are selected by
-    walk-forward (expanding window) time-series CV log-loss on the development set (first 80%).
-  - The selected model is evaluated on the chronological hold-out (last 20%) against
+    kickoff-grouped walk-forward (expanding window) CV log-loss on the development set.
+  - The selected model is evaluated on a chronological hold-out at the nearest kickoff-group
+    boundary to 80% against
     class-frequency baselines (accuracy AND log-loss).
   - The production model is finally re-fitted on ALL played matches.
 """
@@ -53,24 +54,23 @@ FORM_STATS = [
     "shots_ontarget_for", "shots_ontarget_against",
     "big_chances_for", "touches_in_opp_box", "possession",
 ]
-FORM_SUFFIXES = ["roll_5", "roll_10", "ewma_02", "ewma_04"]
+FORM_SUFFIXES = ["roll_10", "ewma_02"]
 STRENGTH_FEATURES = [
     "elo_home", "elo_away", "elo_diff",
     "ppg_home", "ppg_away", "ppg_diff",
     "gdpg_home", "gdpg_away", "gdpg_diff",
 ]
 DIFF_FEATURES = [f"sdiff_{t}_{s}" for t in ("goals", "sot") for s in ("e02", "r10")]
-XG_FRESHNESS_FEATURES = []
-EXTRA_1X2 = ["home_rest_days", "away_rest_days"]
-EXTRA_O25 = EXTRA_1X2 + ["exp_match_shots_5"]
+EXTRA_1X2 = []
+EXTRA_O25 = ["exp_match_shots_5"]
 DRAW_BALANCE_FEATURES = [
     "abs_elo_diff", "abs_ppg_diff", "abs_gdpg_diff",
 ]
 
 N_CV_SPLITS = 4
-# Paired chronological holdouts showed that supervised 1X2 training on 2022-23
-# consistently weakened draw probabilities and usually worsened proper scores.
-# Keep those matches in feature history, but don't fit the 1X2 classifier on them.
+# Pre-existing policy from earlier paired chronological experiments. This run
+# holds it fixed; it is not re-selected on the main holdout. Keep those matches
+# in feature history, but don't fit 1X2 on their labels.
 EXCLUDED_1X2_TRAINING_SEASONS = {"2022_23"}
 # This season is excluded from all evaluation, selection, and calibration.
 # Played matches may still be used to fit the final production estimator.
@@ -97,7 +97,10 @@ def candidate_models() -> Dict[str, Any]:
     cands: Dict[str, Any] = {}
     for c in (0.001, 0.003, 0.01, 0.03, 0.1):
         cands[f"logreg_C{c}"] = make_pipeline(
-            SimpleImputer(strategy="median"),
+            # Keep sparse provider features in the pipeline schema when an
+            # evaluation fold predates their coverage; production can then
+            # learn them as backfilled data becomes available.
+            SimpleImputer(strategy="median", keep_empty_features=True),
             StandardScaler(),
             LogisticRegression(C=c, max_iter=5000),
         )
@@ -188,17 +191,79 @@ def recency_weights(n: int, half_life_rows: float = 300.0) -> np.ndarray:
     return weights / weights.mean()
 
 
+def forward_time_splits(
+    n_samples: int,
+    kickoff_times: pd.Series | np.ndarray | None = None,
+    n_splits: int = N_CV_SPLITS,
+) -> List[Tuple[np.ndarray, np.ndarray]]:
+    """Expanding-window folds whose train/test boundary never splits a kickoff."""
+    if kickoff_times is None:
+        return list(TimeSeriesSplit(n_splits=n_splits).split(np.arange(n_samples)))
+    times = pd.Series(kickoff_times).reset_index(drop=True)
+    if len(times) != n_samples:
+        raise ValueError("kickoff_times must align with the model rows")
+    if times.isna().any():
+        raise ValueError("kickoff_times contains missing values")
+    group_codes, unique_times = pd.factorize(times, sort=False)
+    if len(unique_times) < n_splits + 1:
+        raise ValueError(
+            f"Need at least {n_splits + 1} distinct kickoffs for grouped CV; got {len(unique_times)}"
+        )
+    if np.any(np.diff(group_codes) < 0):
+        raise ValueError("Rows must be sorted chronologically before grouped CV")
+
+    group_chunks = np.array_split(np.arange(len(unique_times)), n_splits + 1)
+    splits: List[Tuple[np.ndarray, np.ndarray]] = []
+    for valid_groups in group_chunks[1:]:
+        first_valid_group = int(valid_groups[0])
+        after_valid_group = int(valid_groups[-1]) + 1
+        train_idx = np.flatnonzero(group_codes < first_valid_group)
+        valid_idx = np.flatnonzero(
+            (group_codes >= first_valid_group) & (group_codes < after_valid_group)
+        )
+        if not len(train_idx) or not len(valid_idx):
+            raise ValueError("Grouped CV produced an empty training or validation fold")
+        splits.append((train_idx, valid_idx))
+    return splits
+
+
+def chronological_holdout_split(
+    n_samples: int,
+    kickoff_times: pd.Series | np.ndarray | None = None,
+    train_fraction: float = 0.8,
+) -> int:
+    """Choose the nearest chronological split while keeping kickoff groups intact."""
+    if not 0.0 < train_fraction < 1.0:
+        raise ValueError("train_fraction must be between zero and one")
+    target = int(n_samples * train_fraction)
+    if kickoff_times is None:
+        return target
+    times = pd.Series(kickoff_times).reset_index(drop=True)
+    if len(times) != n_samples:
+        raise ValueError("kickoff_times must align with the model rows")
+    if times.isna().any():
+        raise ValueError("kickoff_times contains missing values")
+    group_codes, unique_times = pd.factorize(times, sort=False)
+    if np.any(np.diff(group_codes) < 0):
+        raise ValueError("Rows must be sorted chronologically before the holdout split")
+    boundaries = np.flatnonzero(np.r_[group_codes[1:] != group_codes[:-1], True]) + 1
+    candidates = boundaries[(boundaries > 0) & (boundaries < n_samples)]
+    if not len(candidates):
+        raise ValueError("Cannot create a chronological holdout from a single kickoff group")
+    return int(min(candidates, key=lambda boundary: (abs(int(boundary) - target), -int(boundary))))
+
+
 def chronological_oof_predictions(
     model: Any,
     X: pd.DataFrame,
     y: pd.Series,
     labels: List[int],
     sample_weight: np.ndarray | None = None,
+    kickoff_times: pd.Series | np.ndarray | None = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    splitter = TimeSeriesSplit(n_splits=N_CV_SPLITS)
     probability_rows = []
     target_rows = []
-    for train_idx, valid_idx in splitter.split(X):
+    for train_idx, valid_idx in forward_time_splits(len(X), kickoff_times):
         fold_weight = None if sample_weight is None else sample_weight[train_idx]
         fold_model = fit_model(model, X.iloc[train_idx], y.iloc[train_idx], sample_weight=fold_weight)
         probability_rows.append(ordered_probabilities(fold_model, X.iloc[valid_idx], labels))
@@ -210,6 +275,7 @@ def dc_forward_for_blocks(
     df_all: pd.DataFrame,
     df_fit: pd.DataFrame,
     half_life_days: float | None = None,
+    kickoff_times: pd.Series | np.ndarray | None = None,
 ) -> np.ndarray:
     """Predict the logistic OOF blocks using DC fits from all earlier matches.
 
@@ -221,7 +287,10 @@ def dc_forward_for_blocks(
     all_matches = df_all.sort_values("kickoff_millis", kind="mergesort")
     fit_matches = df_fit.sort_values("kickoff_millis", kind="mergesort")
     probabilities: List[np.ndarray] = []
-    for _, valid_idx in TimeSeriesSplit(n_splits=N_CV_SPLITS).split(fit_matches):
+    split_times = kickoff_times
+    if split_times is None:
+        split_times = fit_matches["kickoff_millis"].reset_index(drop=True)
+    for _, valid_idx in forward_time_splits(len(fit_matches), split_times):
         block = fit_matches.iloc[valid_idx]
         start = pd.to_numeric(block["kickoff_millis"], errors="coerce").min()
         earlier = pd.to_numeric(all_matches["kickoff_millis"], errors="coerce") < start
@@ -287,13 +356,19 @@ def evaluate_1x2_ensemble_outer_seasons(
         if len(X_fit) < N_CV_SPLITS + 2:
             continue
 
-        selected, cv_scores = select_model("1x2", X_fit, y_fit, labels)
+        fit_kickoffs = fit_matches["kickoff_millis"].reset_index(drop=True)
+        selected, cv_scores = select_model("1x2", X_fit, y_fit, labels, fit_kickoffs)
         base_model = candidate_models()[selected]
-        lr_oof, oof_targets = chronological_oof_predictions(base_model, X_fit, y_fit, labels)
-        dc_oof = dc_forward_for_blocks(all_train, fit_matches)
+        lr_oof, oof_targets = chronological_oof_predictions(
+            base_model, X_fit, y_fit, labels, kickoff_times=fit_kickoffs
+        )
+        # Keep the DC comparator on exactly the same training rows as logistic.
+        dc_oof = dc_forward_for_blocks(
+            fit_matches, fit_matches, kickoff_times=fit_kickoffs
+        )
         if len(lr_oof) != len(dc_oof) or not np.array_equal(oof_targets, np.concatenate([
             y_fit.iloc[valid_idx].to_numpy(dtype=int)
-            for _, valid_idx in TimeSeriesSplit(n_splits=N_CV_SPLITS).split(X_fit)
+            for _, valid_idx in forward_time_splits(len(X_fit), fit_kickoffs)
         ])):
             raise ValueError(f"Outer-season OOF rows failed alignment for {season}")
 
@@ -306,7 +381,7 @@ def evaluate_1x2_ensemble_outer_seasons(
         valid_matches = matches.iloc[valid_positions]
         X_valid = X.iloc[valid_positions]
         lr_valid = ordered_probabilities(fitted_lr, X_valid, labels)
-        dc_model = DixonColesModel().fit(all_train)
+        dc_model = DixonColesModel().fit(fit_matches)
         dc_valid = dc_model.predict_proba(valid_matches)
         lr_calibrated = apply_probability_calibrator(lr_valid, lr_calibrator)
         ensemble = apply_probability_calibrator(blend_log(lr_valid, dc_valid, weight), ensemble_calibrator)
@@ -331,7 +406,11 @@ def evaluate_1x2_ensemble_outer_seasons(
             "optimizer_converged": dc_model.fit_ok_,
         })
 
-    full_seasons = [row for row in results if not row["partial_season"]]
+    full_seasons = [
+        row for row in results
+        if not row["partial_season"]
+        and not row["early_season_fallback_included_excluded_history"]
+    ]
     deltas = [float(row["delta_log_loss"]) for row in full_seasons]
     wins = sum(delta < 0.0 for delta in deltas)
     season_count = len(deltas)
@@ -360,7 +439,9 @@ def evaluate_season_holdouts(
     seasons: pd.Series,
     labels: List[int],
     excluded_training_seasons: set[str] | None = None,
+    kickoff_times: pd.Series | np.ndarray | None = None,
 ) -> List[Dict[str, Any]]:
+    kickoff_values = None if kickoff_times is None else pd.Series(kickoff_times).reset_index(drop=True)
     ordered_seasons = list(pd.unique(seasons.astype(str)))
     results = []
     for season_idx, season in enumerate(ordered_seasons):
@@ -374,13 +455,18 @@ def evaluate_season_holdouts(
             keep = ~prior_seasons.isin(excluded_training_seasons).to_numpy()
             X_train = X_train.iloc[keep].reset_index(drop=True)
             y_train = y_train.iloc[keep].reset_index(drop=True)
+            train_kickoffs = None if kickoff_values is None else kickoff_values.iloc[:train_end].iloc[keep].reset_index(drop=True)
+        else:
+            train_kickoffs = None if kickoff_values is None else kickoff_values.iloc[:train_end].reset_index(drop=True)
         X_valid, y_valid = X.iloc[valid_positions], y.iloc[valid_positions]
         if len(X_train) < N_CV_SPLITS + 2:
             continue
 
-        selected, cv_scores = select_model(kind, X_train, y_train, labels)
+        selected, cv_scores = select_model(kind, X_train, y_train, labels, train_kickoffs)
         model = candidate_models()[selected]
-        oof_probs, oof_targets = chronological_oof_predictions(model, X_train, y_train, labels)
+        oof_probs, oof_targets = chronological_oof_predictions(
+            model, X_train, y_train, labels, kickoff_times=train_kickoffs
+        )
         calibrator = fit_probability_calibrator(oof_probs, pd.Series(oof_targets), labels)
         fitted = fit_model(model, X_train, y_train)
         raw_probs = ordered_probabilities(fitted, X_valid, labels)
@@ -407,6 +493,7 @@ def evaluate_1x2_training_variants(
     X: pd.DataFrame,
     y: pd.Series,
     seasons: pd.Series,
+    kickoff_times: pd.Series | np.ndarray | None = None,
 ) -> List[Dict[str, Any]]:
     """Outer-season comparison of history windows, xG proxy, and draw-balance features.
 
@@ -418,6 +505,7 @@ def evaluate_1x2_training_variants(
     season_values = seasons.astype(str).reset_index(drop=True)
     X = X.reset_index(drop=True)
     y = y.reset_index(drop=True)
+    kickoff_values = None if kickoff_times is None else pd.Series(kickoff_times).reset_index(drop=True)
     ordered_seasons = list(pd.unique(season_values))
     draw_propensity = set(DRAW_PROPENSITY_FEATURES)
     if not draw_propensity.issubset(X.columns):
@@ -455,6 +543,7 @@ def evaluate_1x2_training_variants(
             X_train = X_prior.iloc[keep].reset_index(drop=True)
             y_train = y_prior.iloc[keep].reset_index(drop=True)
             train_season_values = prior_seasons.iloc[keep].reset_index(drop=True)
+            train_kickoffs = None if kickoff_values is None else kickoff_values.iloc[:train_end].iloc[keep].reset_index(drop=True)
             if len(X_train) < N_CV_SPLITS + 2:
                 continue
 
@@ -473,13 +562,14 @@ def evaluate_1x2_training_variants(
                 X_fit = X_train[feature_columns]
                 X_valid = X.iloc[valid_positions][feature_columns]
                 oof_probs, oof_targets = chronological_oof_predictions(
-                    fixed_model, X_fit, y_train, labels, sample_weight=sample_weight
+                    fixed_model, X_fit, y_train, labels,
+                    sample_weight=sample_weight, kickoff_times=train_kickoffs,
                 )
                 oof_weights = None
                 if sample_weight is not None:
                     oof_weights = np.concatenate([
                         sample_weight[valid_idx]
-                        for _, valid_idx in TimeSeriesSplit(n_splits=N_CV_SPLITS).split(X_fit)
+                        for _, valid_idx in forward_time_splits(len(X_fit), train_kickoffs)
                     ])
                 calibrator = fit_probability_calibrator(
                     oof_probs,
@@ -522,6 +612,7 @@ def summarize_draw_propensity_gate(variant_results: List[Dict[str, Any]]) -> Dic
         if row["policy"] == "exclude_2022_23"
         and row["features"] in {"with_draw_propensity", "without_draw_propensity"}
         and not row["partial_season"]
+        and not row["early_season_fallback_included_excluded_history"]
     ]
     by_season: Dict[str, Dict[str, Dict[str, Any]]] = {}
     for row in selected:
@@ -557,12 +648,12 @@ def summarize_draw_propensity_gate(variant_results: List[Dict[str, Any]]) -> Dic
     mean_log_loss_delta = float(np.mean(log_loss_deltas)) if log_loss_deltas else float("nan")
     mean_draw_auc_delta = float(np.mean(draw_auc_deltas)) if draw_auc_deltas else float("nan")
     gate_passed = bool(
-        len(comparisons) == 3
+        len(comparisons) >= 3
         and mean_log_loss_delta < -0.002
         and mean_draw_auc_delta >= 0.01
     )
     return {
-        "policy": "exclude_2022_23; early 2023/24 outer season uses 2022/23 because otherwise no training rows remain",
+        "policy": "exclude 2022/23; require at least three full outer seasons without fallback history",
         "outer_seasons": comparisons,
         "season_count": len(comparisons),
         "mean_delta_log_loss": round(mean_log_loss_delta, 5) if np.isfinite(mean_log_loss_delta) else None,
@@ -572,24 +663,49 @@ def summarize_draw_propensity_gate(variant_results: List[Dict[str, Any]]) -> Dic
     }
 
 
-def _dixon_coles_oof_predictions(matches: pd.DataFrame, y: pd.Series, labels: List[int]) -> Tuple[np.ndarray, np.ndarray]:
+def _dixon_coles_oof_predictions(
+    matches: pd.DataFrame,
+    y: pd.Series,
+    labels: List[int],
+    kickoff_times: pd.Series | np.ndarray | None = None,
+) -> Tuple[np.ndarray, np.ndarray]:
     """Generate strictly forward predictions for fitting the DC probability calibrator."""
     probabilities: List[np.ndarray] = []
     targets: List[np.ndarray] = []
-    for train_idx, valid_idx in TimeSeriesSplit(n_splits=N_CV_SPLITS).split(matches):
+    if kickoff_times is None and "kickoff_millis" in matches:
+        kickoff_times = matches["kickoff_millis"].reset_index(drop=True)
+    for train_idx, valid_idx in forward_time_splits(len(matches), kickoff_times):
         model = DixonColesModel().fit(matches.iloc[train_idx])
         probabilities.append(model.predict_proba(matches.iloc[valid_idx]))
         targets.append(y.iloc[valid_idx].to_numpy(dtype=int))
     return np.vstack(probabilities), np.concatenate(targets)
 
 
-def evaluate_dixon_coles(matches: pd.DataFrame, y: pd.Series, seasons: pd.Series) -> Dict[str, Any]:
-    """Compare a Dixon–Coles 1X2 baseline on the same temporal holdouts as the classifier."""
+def evaluate_dixon_coles(
+    matches: pd.DataFrame,
+    y: pd.Series,
+    seasons: pd.Series,
+    split_idx: int | None = None,
+    excluded_training_seasons: set[str] | None = None,
+) -> Dict[str, Any]:
+    """Compare DC using the classifier's exact chronological holdout and train policy."""
     labels = [0, 1, 2]
-    split_idx = int(len(matches) * 0.8)
-    dev, hold = matches.iloc[:split_idx], matches.iloc[split_idx:]
-    y_dev, y_hold = y.iloc[:split_idx], y.iloc[split_idx:]
-    oof_probs, oof_targets = _dixon_coles_oof_predictions(dev, y_dev, labels)
+    matches = matches.reset_index(drop=True)
+    y = y.reset_index(drop=True)
+    seasons = seasons.astype(str).reset_index(drop=True)
+    if split_idx is None:
+        split_idx = chronological_holdout_split(
+            len(matches), matches["kickoff_millis"] if "kickoff_millis" in matches else None
+        )
+    dev_all, hold = matches.iloc[:split_idx], matches.iloc[split_idx:]
+    y_dev_all, y_hold = y.iloc[:split_idx], y.iloc[split_idx:]
+    keep = np.ones(len(dev_all), dtype=bool)
+    if excluded_training_seasons:
+        keep = ~seasons.iloc[:split_idx].isin(excluded_training_seasons).to_numpy()
+    dev = dev_all.iloc[keep].reset_index(drop=True)
+    y_dev = y_dev_all.iloc[keep].reset_index(drop=True)
+    dev_kickoffs = dev["kickoff_millis"].reset_index(drop=True) if "kickoff_millis" in dev else None
+    oof_probs, oof_targets = _dixon_coles_oof_predictions(dev, y_dev, labels, dev_kickoffs)
     calibrator = fit_probability_calibrator(oof_probs, pd.Series(oof_targets), labels)
     fitted = DixonColesModel().fit(dev)
     raw = fitted.predict_proba(hold)
@@ -613,11 +729,21 @@ def evaluate_dixon_coles(matches: pd.DataFrame, y: pd.Series, seasons: pd.Series
         if season_idx == 0 or not len(valid_positions):
             continue
         train_end = int(valid_positions[0])
-        season_train, season_valid = matches.iloc[:train_end], matches.iloc[valid_positions]
-        target_train, target_valid = y.iloc[:train_end], y.iloc[valid_positions]
+        season_train_all = matches.iloc[:train_end]
+        target_train_all = y.iloc[:train_end]
+        keep_train = np.ones(train_end, dtype=bool)
+        if excluded_training_seasons:
+            keep_train = ~seasons.iloc[:train_end].isin(excluded_training_seasons).to_numpy()
+        season_train = season_train_all.iloc[keep_train].reset_index(drop=True)
+        target_train = target_train_all.iloc[keep_train].reset_index(drop=True)
+        season_valid = matches.iloc[valid_positions]
+        target_valid = y.iloc[valid_positions]
         if len(season_train) < N_CV_SPLITS + 2:
             continue
-        season_oof, season_oof_y = _dixon_coles_oof_predictions(season_train, target_train, labels)
+        train_kickoffs = season_train["kickoff_millis"].reset_index(drop=True) if "kickoff_millis" in season_train else None
+        season_oof, season_oof_y = _dixon_coles_oof_predictions(
+            season_train, target_train, labels, train_kickoffs
+        )
         season_calibrator = fit_probability_calibrator(season_oof, pd.Series(season_oof_y), labels)
         season_model = DixonColesModel().fit(season_train)
         season_raw = season_model.predict_proba(season_valid)
@@ -625,7 +751,7 @@ def evaluate_dixon_coles(matches: pd.DataFrame, y: pd.Series, seasons: pd.Series
         season_rows.append({
             "season": season,
             "partial_season": bool(len(valid_positions) < 300),
-            "train_samples": int(train_end),
+            "train_samples": int(len(season_train)),
             "test_samples": int(len(valid_positions)),
             "raw": scores(target_valid, season_raw),
             "calibrated": scores(target_valid, season_calibrated),
@@ -639,6 +765,7 @@ def evaluate_dixon_coles(matches: pd.DataFrame, y: pd.Series, seasons: pd.Series
 
     return {
         "development_samples": int(len(dev)),
+        "development_samples_before_exclusions": int(len(dev_all)),
         "test_samples": int(len(hold)),
         "raw": scores(y_hold, raw),
         "calibrated": scores(y_hold, calibrated),
@@ -648,6 +775,7 @@ def evaluate_dixon_coles(matches: pd.DataFrame, y: pd.Series, seasons: pd.Series
             labels,
         ), 4),
         "calibrator": calibrator,
+        "excluded_training_seasons": sorted(excluded_training_seasons or set()),
         "model_parameters": model_summary(fitted),
         "season_holdouts": season_rows,
     }
@@ -658,13 +786,13 @@ def select_model(
     X: pd.DataFrame,
     y: pd.Series,
     labels: List[int],
+    kickoff_times: pd.Series | np.ndarray | None = None,
 ) -> Tuple[str, Dict[str, float]]:
     """Walk-forward CV on the development set; returns best candidate name and all CV scores."""
-    tscv = TimeSeriesSplit(n_splits=N_CV_SPLITS)
     scores: Dict[str, float] = {}
     for name, model in candidate_models().items():
         fold_ll = []
-        for tr_idx, va_idx in tscv.split(X):
+        for tr_idx, va_idx in forward_time_splits(len(X), kickoff_times):
             m = fit_model(model, X.iloc[tr_idx], y.iloc[tr_idx])
             fold_ll.append(_ll(y.iloc[va_idx], ordered_probabilities(m, X.iloc[va_idx], labels), labels))
         scores[name] = round(float(np.mean(fold_ll)), 4)
@@ -702,12 +830,15 @@ def evaluate_calibration_drift_outer_seasons(
         train_rows = np.flatnonzero(keep)
         X_train = X.iloc[:train_end].iloc[train_rows].reset_index(drop=True)
         y_train = y.iloc[:train_end].iloc[train_rows].reset_index(drop=True)
+        train_kickoffs = matches.iloc[:train_end].iloc[train_rows]["kickoff_millis"].reset_index(drop=True)
         if len(X_train) < N_CV_SPLITS + 2:
             continue
 
-        selected, cv_scores = select_model("1x2", X_train, y_train, labels)
+        selected, cv_scores = select_model("1x2", X_train, y_train, labels, train_kickoffs)
         base_model = candidate_models()[selected]
-        oof_probs, oof_targets = chronological_oof_predictions(base_model, X_train, y_train, labels)
+        oof_probs, oof_targets = chronological_oof_predictions(
+            base_model, X_train, y_train, labels, kickoff_times=train_kickoffs
+        )
         standard_calibrator = fit_probability_calibrator(
             oof_probs, pd.Series(oof_targets), labels
         )
@@ -744,7 +875,11 @@ def evaluate_calibration_drift_outer_seasons(
             "calibration_candidates": candidate_rows,
         })
 
-    full_seasons = [row for row in results if not row["partial_season"]]
+    full_seasons = [
+        row for row in results
+        if not row["partial_season"]
+        and not row["early_season_fallback_included_excluded_history"]
+    ]
     summaries: Dict[str, Any] = {}
     for half_life in half_lives:
         key = str(int(half_life))
@@ -808,12 +943,17 @@ def train_match_outcome_models(
     locked_mask = df_all["season"].astype(str).isin(LOCKED_SEASONS)
     locked_matches = int(locked_mask.sum())
     df = df_all.loc[~locked_mask].reset_index(drop=True)
+    split_idx = chronological_holdout_split(
+        len(df), df["kickoff_millis"] if "kickoff_millis" in df else None
+    )
+    dev, hold = df.iloc[:split_idx], df.iloc[split_idx:]
     base_1x2_features = feature_set("1x2", list(df.columns))
     draw_1x2_features = feature_set("1x2", list(df.columns), include_draw_propensity=True)
     variant_results = evaluate_1x2_training_variants(
-        df[draw_1x2_features],
-        df["target_1x2"],
-        df["season"] if "season" in df else pd.Series(["all"] * len(df)),
+        dev[draw_1x2_features],
+        dev["target_1x2"],
+        dev["season"] if "season" in dev else pd.Series(["all"] * len(dev)),
+        kickoff_times=dev["kickoff_millis"] if "kickoff_millis" in dev else None,
     )
     draw_propensity_gate = summarize_draw_propensity_gate(variant_results)
     include_draw_propensity = draw_propensity_gate["gate_passed"]
@@ -823,11 +963,9 @@ def train_match_outcome_models(
     }
     targets = {"1x2": ("target_1x2", [0, 1, 2]), "o25": ("target_o25", [0, 1])}
 
-    split_idx = int(len(df) * 0.8)
-    dev, hold = df.iloc[:split_idx], df.iloc[split_idx:]
     logger.info(
-        "Played matches: %s | locked-season matches excluded from evaluation: %s | dev: %s | hold-out: %s",
-        len(df_all), locked_matches, len(dev), len(hold),
+        "Played matches: %s | locked-season matches excluded from evaluation: %s | dev: %s | hold-out: %s (grouped kickoff boundary)",
+        len(df_all), locked_matches, split_idx, len(hold),
     )
 
     final_models: Dict[str, Any] = {}
@@ -844,18 +982,21 @@ def train_match_outcome_models(
         dev_fit = dev
         if excluded_training_seasons:
             dev_fit = dev[~dev["season"].astype(str).isin(excluded_training_seasons)]
-        best, cv_scores = select_model(kind, dev_fit[cols], dev_fit[tcol], labels)
+        fit_kickoffs = dev_fit["kickoff_millis"] if "kickoff_millis" in dev_fit else None
+        best, cv_scores = select_model(kind, dev_fit[cols], dev_fit[tcol], labels, fit_kickoffs)
         base_model = candidate_models()[best]
 
-        # Calibrate on out-of-fold development predictions only. The final holdout
-        # remains untouched until every model and calibration choice is fixed.
+        # Candidate selection, feature gating, and calibration now use development
+        # rows only; the grouped chronological holdout is never used for decisions.
         oof_probs, oof_targets = chronological_oof_predictions(
-            base_model, dev_fit[cols], dev_fit[tcol], labels
+            base_model, dev_fit[cols], dev_fit[tcol], labels, kickoff_times=fit_kickoffs
         )
         evaluation_calibrator = fit_probability_calibrator(oof_probs, pd.Series(oof_targets), labels)
         holdout_ensemble: Dict[str, Any] | None = None
         if kind == "1x2":
-            dc_oof_probs = dc_forward_for_blocks(dev, dev_fit)
+            dc_oof_probs = dc_forward_for_blocks(
+                dev_fit, dev_fit, kickoff_times=fit_kickoffs
+            )
             blend_weight, blend_curve = choose_blend_weight(
                 oof_probs, dc_oof_probs, oof_targets, labels
             )
@@ -863,7 +1004,7 @@ def train_match_outcome_models(
             ensemble_calibrator = fit_probability_calibrator(
                 ensemble_oof, pd.Series(oof_targets), labels
             )
-            dc_dev = DixonColesModel().fit(dev)
+            dc_dev = DixonColesModel().fit(dev_fit)
             holdout_ensemble = {
                 "weight_logreg": blend_weight,
                 "weight_curve": blend_curve,
@@ -903,7 +1044,10 @@ def train_match_outcome_models(
                 kind, df[cols].reset_index(drop=True), df[tcol].reset_index(drop=True),
                 df["season"].reset_index(drop=True) if "season" in df else pd.Series(["all"] * len(df)), labels,
                 excluded_training_seasons=excluded_training_seasons,
+                kickoff_times=df["kickoff_millis"] if "kickoff_millis" in df else None,
             ),
+            "holdout_split_index": int(split_idx),
+            "holdout_split_strategy": "nearest_80_percent_boundary_without_splitting_equal_kickoff_matches",
         }
         if kind == "1x2" and holdout_ensemble is not None:
             ensemble_probs = apply_probability_calibrator(
@@ -978,13 +1122,17 @@ def train_match_outcome_models(
                 ~calibration_fit["season"].astype(str).isin(excluded_training_seasons)
             ]
         production_oof_probs, production_oof_targets = chronological_oof_predictions(
-            base_model, calibration_fit[cols], calibration_fit[tcol], labels
+            base_model, calibration_fit[cols], calibration_fit[tcol], labels,
+            kickoff_times=calibration_fit["kickoff_millis"] if "kickoff_millis" in calibration_fit else None,
         )
         production_calibrator = fit_probability_calibrator(
             production_oof_probs, pd.Series(production_oof_targets), labels
         )
         if kind == "1x2":
-            production_dc_oof = dc_forward_for_blocks(df, calibration_fit)
+            production_dc_oof = dc_forward_for_blocks(
+                calibration_fit, calibration_fit,
+                kickoff_times=calibration_fit["kickoff_millis"] if "kickoff_millis" in calibration_fit else None,
+            )
             production_blend_weight, production_blend_curve = choose_blend_weight(
                 production_oof_probs, production_dc_oof, production_oof_targets, labels
             )
@@ -1020,6 +1168,19 @@ def train_match_outcome_models(
     metrics["evaluation_matches_total"] = int(len(df))
     metrics["locked_seasons_excluded"] = sorted(LOCKED_SEASONS)
     metrics["locked_season_matches_excluded"] = locked_matches
+    metrics["evaluation_protocol"] = {
+        "main_split": "nearest_80_percent_boundary_without_splitting_equal_kickoff_matches",
+        "development_period_samples": int(split_idx),
+        "holdout_samples": int(len(hold)),
+        "holdout_start_kickoff_millis": (
+            int(hold["kickoff_millis"].iloc[0])
+            if len(hold) and "kickoff_millis" in hold else None
+        ),
+        "candidate_cv": "four expanding folds grouped by kickoff time",
+        "feature_and_production_decision_scope": "development_period_only",
+        "dixon_coles_main_comparison_same_holdout_and_training_rows": True,
+        "1x2_training_seasons_excluded": sorted(EXCLUDED_1X2_TRAINING_SEASONS),
+    }
     metrics["1x2_variant_outer_holdouts"] = variant_results
     metrics["1x2_draw_propensity_outer_eval"] = draw_propensity_gate
     metrics["draw_propensity_enabled"] = bool(include_draw_propensity)
@@ -1029,22 +1190,24 @@ def train_match_outcome_models(
     metrics["dixon_coles_1x2"] = evaluate_dixon_coles(
         df.reset_index(drop=True), df["target_1x2"].reset_index(drop=True),
         df["season"].reset_index(drop=True) if "season" in df else pd.Series(["all"] * len(df)),
+        split_idx=split_idx,
+        excluded_training_seasons=EXCLUDED_1X2_TRAINING_SEASONS,
     )
     metrics["1x2_ensemble_outer_eval"] = evaluate_1x2_ensemble_outer_seasons(
-        df.reset_index(drop=True),
-        df[feats["1x2"]].reset_index(drop=True),
-        df["target_1x2"].reset_index(drop=True),
-        df["season"].reset_index(drop=True) if "season" in df else pd.Series(["all"] * len(df)),
+        dev.reset_index(drop=True),
+        dev[feats["1x2"]].reset_index(drop=True),
+        dev["target_1x2"].reset_index(drop=True),
+        dev["season"].reset_index(drop=True) if "season" in dev else pd.Series(["all"] * len(dev)),
     )
     outer_eval_path = Path("data/processed/1x2_ensemble_outer_eval.json")
     outer_eval_path.parent.mkdir(parents=True, exist_ok=True)
     outer_eval_path.write_text(json.dumps(metrics["1x2_ensemble_outer_eval"], indent=2), encoding="utf-8")
 
     metrics["1x2_calibration_drift_outer_eval"] = evaluate_calibration_drift_outer_seasons(
-        df.reset_index(drop=True),
-        df[feats["1x2"]].reset_index(drop=True),
-        df["target_1x2"].reset_index(drop=True),
-        df["season"].reset_index(drop=True) if "season" in df else pd.Series(["all"] * len(df)),
+        dev.reset_index(drop=True),
+        dev[feats["1x2"]].reset_index(drop=True),
+        dev["target_1x2"].reset_index(drop=True),
+        dev["season"].reset_index(drop=True) if "season" in dev else pd.Series(["all"] * len(dev)),
     )
     drift_eval_path = Path("data/processed/1x2_calibration_drift_outer_eval.json")
     drift_eval_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1073,7 +1236,12 @@ def train_match_outcome_models(
 
     ensemble_gate_passed = metrics["1x2_ensemble_outer_eval"]["gate_passed"]
     if ensemble_gate_passed and production_ensemble is not None:
-        final_models["dc"] = DixonColesModel().fit(df_all)
+        dc_final_fit = df_all
+        if EXCLUDED_1X2_TRAINING_SEASONS and "season" in dc_final_fit:
+            dc_final_fit = dc_final_fit[
+                ~dc_final_fit["season"].astype(str).isin(EXCLUDED_1X2_TRAINING_SEASONS)
+            ]
+        final_models["dc"] = DixonColesModel().fit(dc_final_fit)
         calibrators["1x2_ensemble"] = production_ensemble["calibrator"]
         production_calibration_samples["1x2_ensemble"] = production_ensemble["oof_samples"]
         metrics["1x2_ensemble_production"] = {
@@ -1094,6 +1262,7 @@ def train_match_outcome_models(
         if k in {
             "dixon_coles_1x2", "played_matches_total", "evaluation_matches_total",
             "locked_seasons_excluded", "locked_season_matches_excluded",
+            "evaluation_protocol",
             "1x2_variant_outer_holdouts", "1x2_ensemble_outer_eval", "1x2_ensemble_production",
             "1x2_calibration_drift_outer_eval", "1x2_calibration_drift_production",
             "1x2_draw_propensity_outer_eval", "draw_propensity_enabled",

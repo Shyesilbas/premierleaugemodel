@@ -1,16 +1,20 @@
 # 1X2 Maç Sonucu Modeli: Uçtan Uca Denetim
 
-**İnceleme tarihi:** 13 Ekim 2026  
+**İnceleme tarihi:** 14 Ekim 2026
 **Veri anlık görüntüsü:** 1.580 tamamlanmış maç, 2022/23–2026/27; son sezon 60 maçlık kısmi örnek.  
-**Kapsam:** sonuç etiketleri, maç öncesi özellikler, zaman sıralı eğitim/değerlendirme, beraberlik olasılıkları ve API sunumu. Yerel pipeline yeniden çalıştırıldı; test paketi çalıştırılmadı.
+**Kapsam:** sonuç etiketleri, maç öncesi özellikler, zaman sıralı eğitim/değerlendirme, beraberlik olasılıkları ve API sunumu. Tam yerel pipeline yeniden çalıştırıldı; otomatik test paketi **18/18** geçti.
+
+**Son benchmark yenilemesi:** 14 Ekim 2026'da tam pipeline yeniden çalıştırıldı. Güncel ana sınıflandırma holdout'u kilitli sezon hariç 304 maçtır; aşağıdaki kısa sonuç ve beraberlik özeti bu yeni ölçüme göre güncellendi.
+
+**TheStatsAPI xG (14 Ekim 2026):** Sağlayıcı xG'si ayrı kaynak tablosunda ve maç detayı/API'sinde duruyor. Gerçekleşmiş maç xG'si maç sonrasında bilindiği için lag'li xG feature'ları ön-tahmin modelinden çıkarıldı. Güncel 1X2 artefaktı xG içermiyor; sağlayıcı xG'si yalnız maç verisi/gösterimi ve maç-sonrası analiz için kullanılıyor. Kapsama [harici veri pilotunda](1x2_external_data_pilot.md).
 
 ## Kısa sonuç
 
-Model tamamen başarısız değil: güncel kronolojik holdout'ta log-loss **1,045**, sınıf-prior baseline'ında **1,114**; çok sınıflı Brier **0,630**, baseline'da **0,675**. Dixon–Coles karşılaştırması **1,065** log-loss verdi. Genel olasılık skoru baseline'dan iyi, ancak beraberlik ayrımı hâlâ zayıf.
+Model tamamen başarısız değil: güncel 304 maçlık kronolojik holdout'ta log-loss **1,030**, sınıf-prior baseline'ında **1,092**; çok sınıflı Brier **0,621**, baseline'da **0,661**. Eşleştirilmiş bootstrap model-prior log-loss farkı **−0,0622** (95% CI **[−0,0999, −0,0225]**). Dixon–Coles aynı eğitim satırları ve holdout üzerinde **1,0428** log-loss verdi. Genel olasılık skoru baseline'dan iyi, ancak beraberlik ayrımı hâlâ zayıf.
 
-Asıl açık, **beraberlik olasılığının düşük kalması ve maçları beraberlik olarak ayıracak sinyalin zayıf olması**. Aynı 316 maçta gerçek sonuçların 98'i beraberlik (%31,0); modelin ortalama beraberlik olasılığı %23,4 ve yalnızca **4 maçı** en olası sonuç olarak beraberlik seçti. Beraberlik AUC'si **0,5381**, Brier'ı **0,2188**. Gerçek beraberliklerdeki ortalama tahmin %23,9, diğer maçlarda %23,1; sıralama sinyali hâlâ çok zayıf.
+Asıl açık, **beraberlik olasılığını maçlar arasında ayıracak sinyalin zayıf olması**. Güncel holdout'ta 304 maçın 85'i beraberlik (**%28,0**); ortalama beraberlik olasılığı **%24,7**, draw AUC **0,5131** ve yalnızca **1 maç** en olası sonuç olarak beraberlik seçildi. Gerçek beraberliklerde ortalama tahmin %24,9, diğer maçlarda %24,6; ayırma gücü zayıf.
 
-İkinci önemli etken zaman içindeki sonuç dağılımı. 2025/26 sezonunun ilk 124 maçında beraberlik oranı **%20,2**, kalan 256 maçta **%30,9** olmuş. Ana 80/20 bölmesi sezonun içine denk geldiği için model, düşük beraberlik oranlı başlangıç döneminden öğrenip daha yüksek oranlı sonraki dönemde sınanıyor.
+Ana holdout 2025/26 sezonunda 18 Ekim 2025'te başlıyor. Sezonun geliştirme dönemine düşen ilk 76 maçında 19 beraberlik (**%25,0**), sonraki 304 holdout maçında 85 beraberlik (**%28,0**) var. Fark daha sınırlı; bu kesit tek başına dönemsel değişimin nedenini açıklamıyor.
 
 ## Model akışı
 
@@ -18,28 +22,56 @@ Asıl açık, **beraberlik olasılığının düşük kalması ve maçları bera
 |---|---|---|
 | Etiket | `home_score` ve `away_score` karşılaştırılarak H/D/A üretiliyor; oynanmamış maçlar dışarıda. | Etiketler saklanan `match_result` ile 1.580 maçın tamamında uyuştu. Tekrarlanan maç kimliği, negatif veya kesirli skor görülmedi. |
 | Zaman sırası | Maçlar kickoff ve maç kimliğiyle sıralanıyor. | Kronolojik sıra tutarlı. |
-| Takım formu | Gol, şut, xG proxy'si ve diğer takım metrikleri; rolling ve EWMA ile geçmişten hesaplanıyor, mevcut maçtan önce bir adım kaydırılıyor. | Kodda mevcut maç sonucunu kendi özelliğine katan doğrudan bir kaçak bulmadım. Bu, tüm olası sızıntıların biçimsel olarak kanıtlandığı anlamına gelmez. |
+| Takım formu | Gol, şut ve diğer maç sonrası takım metrikleri rolling/EWMA ile geçmiş maçlardan hesaplanıp mevcut maçtan önce bir adım kaydırılıyor. xG form özellikleri kaldırıldı. | Maçın kendi TheStatsAPI xG'si yalnız maç tamamlandıktan sonra saklanır/gösterilir; ön-tahmin modeline girmez. |
 | Takım gücü | Elo ve sezon içi puan/averaj durumları sonuç güncellenmeden önce kaydediliyor; sezon geçişinde Elo ortalamaya çekiliyor ve lig tablosu önsel değere dönüyor. | Eğitim tarafının zaman sırası mantıklı. Yaklaşan fikstürün sezon etiketi artık API feature satırına aktarılıyor; geçiş kodu eklendi, entegrasyon testi yapılmadı (aşağıda). |
-| 1X2 özellikleri | 100 özellik: Elo/PPG/averaj ve mutlak farkları, gol/xG/kaleyi bulan şut formu, beklenen xG dengesi, xG proxy gözlem yaşı ve dinlenme. | 884 ana geliştirme satırı var. Yeni özellikler basit, maç öncesi ölçüler; dış sezon kıyası bunların ek katkısını sınırlı ve karışık gösteriyor. |
-| Model seçimi | Düzenlileştirilmiş multinomial lojistik regresyon ve küçük LightGBM adayları; dört expanding-window zaman katında log-loss ile seçim. En iyi aday `logreg_C0.003`. | Zaman sıralı seçim uygun bir başlangıç. Kalibrasyon ve aday seçimi yalnız geliştirme bölümünde yapılıyor. |
-| Kalibrasyon | Holdout ölçümünde geliştirme OOF'si, üretim artefaktında uygun tüm etiketlerin forward OOF'si kullanılıyor. | Üretim kalibrasyonu 960 OOF tahminini kapsıyor. Tek bir global dönüşüm dönem içi değişimi bütünüyle çözmüyor; sınıf ayrımını da tek başına yaratamaz. |
+| 1X2 özellikleri | Takım gücü, xG dışı geçmiş formu ve dinlenme gibi maç öncesi ölçüler. Gerçekleşmiş sağlayıcı xG'si dışarıda. | Ana bölmede 1.216 geliştirme ve 304 holdout satırı var; güncel artefakt xG sütunu içermiyor. |
+| Model seçimi | Düzenlileştirilmiş multinomial lojistik regresyon ve küçük LightGBM adayları; kickoff gruplarını bölmeyen dört expanding-window katta log-loss ile seçim. En iyi aday `logreg_C0.003`. | Aday, özellik ve kalibrasyon kararları ana holdout dışında veriliyor. Aynı kickoff'taki maçlar CV ve ana split sınırında ayrılmıyor. |
+| Kalibrasyon | Holdout ölçümünde geliştirme OOF'si, üretim artefaktında uygun kilitsiz sezonlardan gruplu forward OOF'si kullanılıyor. | Üretim kalibrasyonu 922 OOF tahminini kapsıyor. Tek bir global dönüşüm dönem içi değişimi bütünüyle çözmüyor; sınıf ayrımını da tek başına yaratamaz. |
 | Üretim | API model olasılıklarını kalibre edip H/D/A yüzdeleri olarak döndürüyor. | 2022/23 sonuçları 1X2 fitinden çıkarılmış; sezon, daha yeni maçların geçmiş özelliklerini üretmek için veri geçmişinde tutuluyor. |
 
-Ana değerlendirme modeli 884 geliştirme satırıyla fit edilip 316 maçta ölçülüyor. Üretim sınıflandırıcısı 2022/23 dışındaki **1.200 etiketli maça** tekrar fit ediliyor.
+Ana değerlendirme modeli 836 geliştirme satırıyla fit edilip 304 maçta ölçülüyor. Üretim sınıflandırıcısı 2022/23 dışındaki **1.200 etiketli maça** tekrar fit ediliyor. Eski 2022/23 dışlama kuralı bu çalışmada sabit tutuldu; geliştirme dönemi yalnız bir uygun tam outer sezon verdiği için bu kuralı yeniden seçmek için yeterli kanıt yok. 2026/27 kayıtlı tahminleri bundan sonraki prospektif doğrulama için korunmalı.
+
+## Koddan doğrulanmış 1X2 çalışma biçimi
+
+1. **Etiket ve zaman sırası:** Skoru olan maçlarda ev sahibi galibiyeti `0`, beraberlik `1`, deplasman galibiyeti `2` olarak kodlanıyor. Maçlar `kickoff_millis` ve `match_id` ile sıralanıyor. `2026_27` değerlendirme, model seçimi ve kalibrasyondan kilitli; 60 sonucu yalnızca son üretim fitine dahil ediliyor. `2022_23` sonuçları özellik geçmişinde kalıyor, sınıflandırıcı fitinden çıkarılıyor.
+2. **Özellik vektörü:** Güncel artefakt 44 sütun içeriyor; TheStatsAPI xG, kadro/sakatlık bilgisi ve oranlar vektörde yok. Dokuz ayrı draw-propensity özelliği karar kapısını geçmediği için üretim özelliklerine girmedi.
+3. **Aday ve seçim:** Beş düzenlileştirme değerli lojistik regresyon ile üç küçük LightGBM adayı, kickoff gruplarını koruyan dört genişleyen zaman katında ortalama log-loss ile karşılaştırılıyor. Seçilen `logreg_C0.003`; geliştirme CV log-loss'u `0.9803`. Model hattı eğitimde medyanla eksik değer doldurma, standardizasyon ve lojistik regresyondan oluşuyor.
+4. **Kalibrasyon:** Geliştirme içindeki dört ileri OOF bloğu kalibratörü fit ediyor; 836 geliştirme satırından 666 grouped-OOF tahmini çıkıyor. Dönüşüm `softmax(log(p) / T + sınıf_ofseti)` biçiminde. Holdout değerlendirme kalibratörü `T=0.951`, ofsetler `[ev -0.057, beraberlik +0.046, deplasman +0.011]`. Holdout etiketleri bu kalibratörü fit etmekte kullanılmıyor.
+5. **Üretim ve API:** Son lojistik model 1.200 oynanmış maça fit ediliyor; bunun içinde 2026/27'den 60 maç var, 2022/23 yok. Üretim kalibratörü kilitsiz ve uygun 1.140 maçtan üretilen 922 gruplu ileri OOF tahmininde fit ediliyor; recency gate yeterli outer sezon bulmadığı için standart kalibrasyon kullanılıyor. API 1X2 için eksik değerleri sıfırla ezmiyor; NaN'leri modelin eğitimdeki medyan imputasyonuna bırakıyor. Dixon–Coles üretim gate'i geçmediğinden mevcut 1X2 API tahmininde ensemble kullanılmıyor.
+
+### Log-loss'un sınıf bazında açılımı
+
+Değerlendirme modelini yalnız 836 geliştirme satırında yeniden fit edip saklanan değerlendirme kalibratörünü uyguladım. Genel log-loss ham olasılıkta `1.03039`, kalibre olasılıkta `1.02954` (benchmark'ta ikisi de `1.030`). Aşağıdaki sınıf satırları sadece o sonucu gerçekten veren maçlardaki ortalama `−log(P(gerçek sınıf))` değeridir.
+
+| Gerçek sonuç | Maç | Model sınıf log-loss | Sabit sınıf-prior log-loss | Modelin o sınıfa verdiği ortalama olasılık |
+|---|---:|---:|---:|---:|
+| Ev sahibi | 124 | 0.7868 | 0.8205 | 0.4816 |
+| Beraberlik | 85 | 1.4089 | 1.4608 | 0.2491 |
+| Deplasman | 95 | 1.0070 | 1.1155 | 0.3983 |
+
+Model üç sınıfın her birinde sabit prior'dan iyi; toplam kaybın yaklaşık **%38'i** beraberlik maçlarından geliyor. Buna rağmen ayırt etme zayıf: beraberlik AUC `0.5131`; maç başına ortalama `P(D)` gerçek beraberliklerde `%24.91`, diğerlerinde `%24.60`. Kalibrasyon toplam log-loss'u yaklaşık `1.03039 → 1.02954` değiştiriyor; esas darboğazı kalibrasyon tek başına çözmüyor.
+
+`1.030` sayısının 1'in üzerinde olması tek başına hata göstergesi değil: üç sınıfta eşit olasılık tahmininin log-loss'u `ln(3)=1.0986`; geliştirme sınıf oranlarını her maça veren prior baseline `1.092`. Model ikisini de geçiyor, fakat kazanım mütevazı. 1X2 log-loss'u iki sınıflı Over 2.5 log-loss'uyla doğrudan kıyaslanmamalı; sınıf sayısı ve belirsizlik tabanı farklı.
+
+### Benchmark güvenilirliği için bulunan kusur
+
+Önceki kod feature gate'ini ana holdout dahil bütün kilitsiz veride çalıştırıyordu. Bu düzeltmede holdout split'i önce kuruluyor; draw-propensity, ensemble ve recency gate'leri yalnız geliştirme dönemindeki dış sezonlarla besleniyor. Fallback ile 2022/23'ü yeniden içeren sezonlar ve kısmi sezon gate sayımına alınmıyor. Geliştirme tarafında şu an yalnız bir uygun tam outer sezon bulunduğundan bu gate'ler üretim değişikliği yapmıyor. Önceden var olan 2022/23 fit dışı kuralı bu turda sabit tutuldu ve Dixon–Coles kıyasına da uygulandı; bu kuralın tarihsel seçimi nedeniyle 2025/26'yı tüm geçmiş politika kararlarından bağımsız bir final test olarak görmemek gerekir. 2026/27 prospektif günlüğü yeni bağımsız değerlendirme olmalı.
+
+CV ve ana split eşit kickoff'lardaki maçları artık ayırmıyor. API tarafında `_safe_features` eksik 1X2 alanlarını NaN bırakıyor; `SimpleImputer` eğitimde öğrenilmiş medyanı uygular. Bu davranış için unit test eklendi; tam API/offline feature-parity testi hâlâ açık.
 
 ## Bulgular
 
 ### 1. Yüksek öncelik: beraberlik olasılığı son holdout'ta düşük ve ayrıştırma zayıf
 
-Ana kronolojik holdout, 29 Kasım 2025–12 Ekim 2026 arasındaki 316 maç. Sınıf sırası ev sahibi / beraberlik / deplasman.
+Ana kronolojik holdout, kilitli 2026/27 sezonu dışındaki son 304 maç. Sınıf sırası ev sahibi / beraberlik / deplasman.
 
 | Sonuç | Gerçek maç sayısı | Gerçek oran | Modelin en olası sınıf seçimi |
 |---|---:|---:|---:|
-| Ev sahibi | 120 | %38,0 | 202 |
-| Beraberlik | 98 | %31,0 | 4 |
-| Deplasman | 98 | %31,0 | 110 |
+| Ev sahibi | 124 | %40,8 | 188 |
+| Beraberlik | 85 | %28,0 | 1 |
+| Deplasman | 95 | %31,3 | 115 |
 
-Güncel holdout olasılık metrikleri `reports/model_benchmarks.md` içinde veriliyor. Sınıf ofsetini artırmak toplam beraberlik tahminini yükseltebilir; gerçek beraberlikleri diğer maçlardan ayırma farkı yalnızca 0,8 yüzde puan olduğundan bu tek başına yeterli çözüm olmaz.
+Güncel holdout olasılık metrikleri `reports/model_benchmarks.md` içinde veriliyor. Sınıf ofsetini artırmak toplam beraberlik tahminini yükseltebilir; gerçek beraberliklerde ve diğer maçlarda ortalama P(D) farkı yalnızca 0,3 yüzde puan olduğundan bu tek başına yeterli çözüm olmaz.
 
 **Yorum:** Genel 1X2 skoru baseline'dan iyi; tüm modeli atmak için kanıt yok. Ancak beraberlik yüzdesini ayrı bir kalite boyutu olarak ele almak gerekiyor. Sadece beraberlik sabitini yükseltmek daha çok maçı “D” seçtirir ama hangi maçların beraberlik olduğunu öğrenmiş olmaz.
 
@@ -53,51 +85,51 @@ Güncel holdout olasılık metrikleri `reports/model_benchmarks.md` içinde veri
 | 2025/26 | 380 | %42,6 | %27,4 | %30,0 |
 | 2026/27 (kısmi) | 60 | %38,3 | %31,7 | %30,0 |
 
-Ana modelin geliştirme diliminde 2022/23 fit dışı bırakılınca kalan 884 maçın beraberlik oranı **%22,6**. Holdout oranı **%31,0**. Özellikle 2025/26 içindeki fark büyük: ilk 124 maçta **%20,2**, sonraki 256 maçta **%30,9** beraberlik var. Bu, mevcut ana değerlendirmedeki düşük beraberlik tahmininin önemli bir açıklaması; oran değişiminin nedeni bu veriden tek başına çıkarılamaz.
+Ana modelin geliştirme diliminde 2022/23 fit dışı bırakılınca kalan 836 maçın beraberlik oranı **%23,2**. Ana holdout'ta 304 maçın 85'i beraberliktir (**%28,0**). 2025/26 sezonunun geliştirmeye giren ilk 76 maçında beraberlik oranı **%25,0**, kalan 304 maçta **%28,0**; bu yaklaşık üç puanlık fark sınırlı bir dönem kaymasına işaret ediyor, fakat nedenini kanıtlamıyor.
 
-Tam sezon ilerlemeli kontrolleri, 2025/26 verisinin işe yaramadığını göstermiyor. Kalibrasyonlu ortalama beraberlik olasılığı / gerçek oran:
+Önceki tam-sezon tahmin karşılaştırmaları farklı eğitim/holdout kapsamlarını kullandı; aşağıdaki 2026/27 satırı mevcut kilitli sezon ölçümü değildir. Bu nedenle bu tabloyu güncel politika kapısı olarak kullanmıyorum. Güncel feature/ensemble/recency kapıları yalnız geliştirme döneminde tek uygun tam outer sezon gördü ve henüz karar vermek için yeterli değil. Sayısal gate sonuçları bu raporun sonundaki güncellemede yer alıyor.
 
-| Test sezonu | Tahmin edilen ortalama P(D) | Gerçek beraberlik oranı | Test maç sayısı |
+| Önceki outer değerlendirme | Tahmin edilen ortalama P(D) | Gerçek beraberlik oranı | Test maç sayısı |
 |---|---:|---:|---:|
 | 2024/25 | %24,4 | %24,5 | 380 |
 | 2025/26 | %26,4 | %27,4 | 380 |
 | 2026/27 | %28,3 | %31,7 | 60 |
 
-2026/27 tahmini, 2025/26 tam sezonunu eğitimde kullanan ileri-zamanlı kontroldür; 60 maçlık örnek geçicidir. 2025/26 verisi sonraki sezonun tahminini geçmiş sezonlara kıyasla yaklaştırmış, ama yükselen beraberlik oranını bütünüyle yakalayamamıştır. Bu nedenle “yeni sezon işe yaramadı” sonucu doğru olmaz; daha doğru sonuç, **yeni verinin katkısı var ama dönem/kalibrasyon farkı sürüyor**.
+Bu değerler geçmiş raporlama turundaki teşhis ölçüleridir; güncel performans için [Model Benchmarks](model_benchmarks.md), geleceğe dönük bağımsız skor için tahmin günlüğü kullanılmalıdır.
 
 ### 3. Uygulandı: üretim kalibratörünü tüm uygun geçmişle fit et
 
-Üretim kalibratörü, 2022/23 etiketleri hariç 1.200 üretim etiketinin ileri-zamanlı OOF tahminleriyle fit ediliyor; OOF doğrulama blokları toplam **960 tahmin** içeriyor. Holdout metrikleri yalnız geliştirme döneminde fit edilen ayrı kalibratörle hesaplanıyor.
+Üretim modeli 2022/23 etiketleri hariç **1.200** oynanmış maça fit ediliyor; buna kilitli 2026/27'den 60 maç dahil. Kalibrasyon ise kilitli sezon hariç uygun **1.140** satırdaki kickoff-gruplu ileri OOF tahminleriyle fit ediliyor ve **922** OOF tahmini içeriyor. Holdout metrikleri geliştirme döneminin ayrı, 666 tahminli OOF'siyle fit edilen ayrı kalibratörle hesaplanıyor.
 
 Bu değişiklik üretim kalibratörüne son sezon bilgisini ekler. Bunun gelecekteki kalibrasyonu iyileştirdiği henüz bağımsız gelecek sezonla ölçülmedi; OOF fit değerleri performans sonucu olarak yorumlanmamalı.
 
 ### 4. Uygulandı: dış sezonlarda karşılaştırmalı değerlendirme; son sezon hâlâ kilitli değil
 
-Koddaki ana prosedür ilk %80'de model seçip son %20'yi sınama olarak ayırıyor. Ancak 2022/23'ü fit dışı bırakma kararı ve çeşitli model denemeleri, raporlanan aynı sezon kontrollerine bakılarak verilmiş. Bu sonuçlar faydalı teşhis verileri; artık tamamen dokunulmamış bir final test seti gibi yorumlanmamalı.
+Ana split en yakın kickoff-gruplu %80 sınırında yapılıyor. Draw-propensity, ensemble ve recency gate'leri yalnız geliştirme dönemindeki dış sezonlarla hesaplanıyor; geliştirme tarafındaki uygun tam outer sezon sayısı **1**, dolayısıyla üç sezon gerektiren gate'ler geçmiyor. Dixon–Coles artık lojistik modelle aynı geliştirme fit satırlarını (2022/23 hariç) ve aynı 304 maçlık ana holdout'u kullanıyor. Eski 2022/23 dışlama kuralı bu çalışmada sabit tutuldu; kuralın ilk seçimi tarihsel deneylere dayandığından 2025/26'yı tüm politika kararlarından bağımsız final test olarak sunmuyorum.
 
-Birden fazla tam sezon dışarıda tutularak 1X2 geçmiş penceresi, recency ağırlığı ve xG proxy ablasyonu karşılaştırıldı. Log-loss, çok sınıflı ve beraberlik Brier'ı, beraberlik AUC'si, gerçekleşen/tahmin edilen beraberlik oranı ve beraberlik sınıf tahminleri rapora eklendi. Ancak bu kontroller politika seçmek için kullanıldığı için artık tamamen dokunulmamış test sayılmaz; 2026/27 tamamlanınca son sezonu yeni kararlar için kilitli tutmak gerekir. Olasılık dilimi raporu bu turda eklenmedi.
+Geçmiş penceresi, recency ağırlığı ve özellik varyantları artık yalnız geliştirme döneminde ölçülüyor. Bir tam uygun sezon politika seçimi için az olduğundan bu değişiklikler üretime alınmadı; 2026/27 maç öncesi tahmin günlüğü yeni prospektif doğrulamayı sağlayacak. Olasılık dilimi raporu bu turda eklenmedi.
 
 ### 5. Uygulandı: yakın dönem, xG proxy'si ve beraberlik dengesi özelliklerini dış sezonlarda karşılaştır
 
-Her dış sezonda aynı `logreg_C0.003` modeli sabit tutuldu; tüm geçmiş, 2022/23'ü çıkarma, son iki sezon ve 1,5 sezon yarı ömürlü recency ağırlığı; tüm özellikler, xG proxy'siz özellikler ve beraberlik dengesi özellikleri çıkarılmış özellikler karşılaştırıldı. Kalibrasyon her dış sezon için yalnız o sezondan önceki OOF tahminleriyle fit edildi. Kıyaslama ayrıntıları `reports/model_benchmarks.md` içindeki yeni tabloda.
+Her dış sezonda aynı `logreg_C0.003` modeli sabit tutuldu; tüm geçmiş, 2022/23'ü çıkarma, son iki sezon ve 1,5 sezon yarı ömürlü recency ağırlığı; tüm özellikler, xG proxy'siz özellikler ve beraberlik dengesi özellikleri karşılaştırıldı. Bu tarihsel deney geliştirme döneminde kaldı. Yalnız 2024/25 temiz tam sezon olduğundan sonuçlar karar için sınırlı. O sıradaki feature listesinde xG sütunu bulunmadığından `all_features` ile `without_xg_proxy` satırları aynı girdileri içeriyordu; TheStatsAPI katkısını ölçmüyordu.
 
-2024/25–2026/27 ortak dış sezonlarında `exclude_2022_23` tüm özellikler ortalaması log-loss **1,0161** oldu; beraberlik dengesi özelliklerini çıkarmak **1,0179** verdi. Fark küçük ve sezon sonuçları karışık; bu özellikler güçlü veya kesin bir kazanç sayılmaz. 2026/27 de yalnız 60 maçtır. Mevcut 2022/23 fit dışı politikayı korudum, ancak bunu doğrulanmış genel kural saymıyorum.
+Geliştirme kapsamındaki temiz 2024/25 dış sezonunda `exclude_2022_23` tüm özellikler log-loss'u **0,9986**; beraberlik dengesi özelliklerini çıkarmak **0,9984** verdi. Fark pratik olarak çok küçük; bu tek sezon eğitim politikası veya özellik katkısı için kesin kanıt değildir. 2022/23 fit dışı kuralı sabit kaldı, ancak bu rapor onu yeni bir sonuçla doğrulamıyor.
 
-xG proxy'sini kaldırmak log-loss'ta tutarlı sonuç vermedi; bazı sezonlarda iyileştirirken bazılarında kötüleştirdi. Beraberlik AUC etkisi de sezona göre değişti. Bu nedenle proxy üretim özelliklerinde kaldı; sonuçlar yeni bir sabit ayarı seçmek için yeterli değil.
+xG proxy'sinin tarihsel ablasyonu eski, artık kullanılmayan feature şemasına aittir. Gerçekleşmiş maç xG'si sonradan oluştuğu için lag'li form sütunları 1X2 feature datasetinden ve modelden çıkarıldı. Ham TheStatsAPI xG'si maç kaydı ve API/UI üzerinde tutuluyor. Güncel xG'siz holdout sonucu [benchmark raporunda](model_benchmarks.md#classification-results) yer alıyor.
 
-### 6. Orta öncelik: xG özellikleri seyrek bir proxy'den geliyor; gözlem yaşı artık modele veriliyor
+### 6. Tarihsel not: eski xG proxy ölçümü
 
-Resmi şut-başı xG kullanılmıyor. Yerel xG, şut ve büyük şans toplamlarından üretilmiş bir proxy. Bu proxy, oynanmış maçlardaki 3.160 takım-maç satırının yalnızca **1.337'sinde (%42,3)** kaynak verisiyle mevcut.
+Önceki sürümde resmi şut-başı xG yerine şut ve büyük şans toplamlarından türetilen proxy kullanılmıştı. Kaynak verisi oynanmış 3.160 takım-maç satırının yalnızca **1.337'sinde (%42,3)** vardı. Bu kapsam oranı tarihsel özelliğe aittir; proxy artık üretim modelinde yok.
 
-Özellik üretimi eksik xG maçlarını rolling penceresine almıyor; son geçerli xG gözlemlerinin ortalamasını kullanıyor. Bu yenilemede her takım için xG proxy'sinin son geçerli maçından beri geçen gün sayısı da eklendi; eğitim ve canlı tahminde aynı maç öncesi zaman sırası uygulanıyor.
+Önceki iterasyonda eksik xG gözlemleri rolling penceresine alınmıyor, son geçerli gözlem yaşı ayrı özellik olarak tutuluyordu. Bu özellikler F7 ile aktif eğitim ve canlı tahmin yolundan kaldırıldı.
 
-Bu durumun beraberlik açığının doğrudan nedeni olduğunu söylemek için kanıt yok. xG gözlem yaşının tek başına etkisi henüz ayrıştırılmadı. Doğrulanmış maç başı xG bulunursa bunu aynı dış sezon protokolünde değerlendirmek gerekir.
+Bu proxy'nin beraberlik açığının nedeni olduğuna dair kanıt yok. Doğrulanmış maç başı xG bulunursa, yalnız geliştirme döneminde karar verilmiş yeni bir dış sezon protokolünde değerlendirmek gerekir.
 
 ### 7. Uygulandı: API'de yaklaşan fikstür sezonuna geçiş
 
 Eğitimde `_run_strength`, yeni sezonun ilk maçını işlerken Elo'yu %20 ortalamaya çekiyor ve PPG/averaj tablosunu sıfırlanmış sezon önselinden başlatıyor. `build_prediction_row` yaklaşan fikstürün sezonunu kullanarak canlı tahminde aynı geçişi uyguluyor.
 
-Önceki API mantığıyla karşılaştırmada 2025/26 açılışındaki Liverpool–Bournemouth için `elo_diff` yaklaşık **37,2**, `ppg_diff` **0,68**, `gdpg_diff` **0,80** farklıydı. Form özellikleri aynıydı; fark sezon geçişindeydi. Yeni model özellikleriyle 20 ileriye dönük API tahmini kaydedildi; otomatik feature-parity testi ve genel test paketi bu çalışmada çalıştırılmadı.
+Önceki API mantığıyla karşılaştırmada 2025/26 açılışındaki Liverpool–Bournemouth için `elo_diff` yaklaşık **37,2**, `ppg_diff` **0,68**, `gdpg_diff` **0,80** farklıydı. Form özellikleri aynıydı; fark sezon geçişindeydi. Bu turda eksik 1X2 girdilerinin NaN olarak model pipeline'ına taşınmasını sağlayan ortak helper eklendi ve test edildi. Tam API feature-parity testi hâlâ açık.
 
 ### 8. Ürün arayüzü kapsam dışı
 
@@ -105,11 +137,11 @@ Bu çalışma boyunca bahis oranları kullanılmadı; model girdisi veya sonuç 
 
 ## Geliştirme sırası ve bu turdaki durumu
 
-1. **Tamamlandı — dış zaman ölçümü:** sezon bazlı dış holdout'lar ve beraberlik metrikleri eklendi. Aynı sonuçlar üzerinde politika kıyası yapıldığı için 2026/27'nin kalan maçlarını kilitli test olarak tut.
-2. **Tamamlandı — zaman penceresi deneyi:** tüm geçmiş, 2022/23 etiketlerini çıkarma, son iki sezon ve 1,5 sezon yarı ömürlü ağırlıklar karşılaştırıldı. Mevcut fit politikasını korudum; üstünlük küçük ve üç sezonla sınırlı.
-3. **Tamamlandı — Dixon–Coles kıyası:** sezon dış katları ve ana holdout'ta değerlendirildi. Prior baseline'ı geçti ama ana holdout'ta mevcut sınıflandırıcıyı geçmedi; üretim modeli olarak seçilmedi. Model karışımı denenmedi.
+1. **Tamamlandı — sızıntısız karar akışı:** feature, ensemble ve recency gate'leri geliştirme dönemiyle sınırlandı; ana holdout artık bu kapıların seçimine katılmıyor. Üç temiz tam outer sezon oluşana kadar gate'ler üretim değişikliği yapmıyor.
+2. **Tamamlandı — kickoff gruplu zaman bölmeleri:** CV ve ana holdout aynı kickoff anındaki maçları birlikte tutuyor.
+3. **Tamamlandı — eşit Dixon–Coles kıyası:** ana holdout ve eğitim satırları lojistik modelle aynı. DC holdout log-loss'u **1,0428**, lojistik model **1,0295**; DC üretim modeli olarak seçilmedi.
 4. **Kısmen tamamlandı — xG proxy:** proxy var/yok dış sezonlarda kıyaslandı ve gözlem yaşı özelliği eklendi. Proxy'nin doğrulanmış xG ile karşılaştırılması açık.
-5. **Kodlandı — API özellik eşleşmesi:** sezon sınırı ve yeni xG gözlem yaşı/beraberlik özellikleri canlı feature satırında üretiliyor; 20 ileriye dönük API tahmini başarıyla kaydedildi. Otomatik test paketi çalıştırılmadı.
+5. **Tamamlandı — API eksik değer yolu:** 1X2 eksikleri artık sıfır yerine NaN kalıyor ve eğitimdeki imputera bırakılıyor; helper için otomatik test eklendi. Uçtan uca API/offline parity testi açık.
 6. **Başlatıldı — ileriye dönük holdout:** `src/analytics/prospective_1x2_benchmark.py` gerçek API tahminlerini maçtan önce kaydediyor. 13 Ekim 2026'da güncel üretim artefaktıyla önümüzdeki 14 gün içindeki 20 maç için tahmin saklandı (SHA-256 öneki `d9cb30d28d02`); aynı maçların önceki artefakt kayıtları korunuyor. Tahminler `data/processed/1x2_forecast_log.jsonl` içinde tutuluyor ve maç sonucu geldiğinde yeniden tahmin edilmiyor.
 7. **Bekliyor — yeni sonuçlar:** veri eşitlendikten sonra `python3 -m src.analytics.prospective_1x2_benchmark score` komutu, maç öncesi kaydedilmiş tahminleri tamamlanmış sonuçlarla eşleştirip log-loss, çok sınıflı/beraberlik Brier'ı, beraberlik AUC'si ve oran uyumunu hesaplar. 2026/27 tamamlanınca sezonun kalan bölümünü kilitli dış test olarak kullan; ilk 60 maçtan kesin sonuç çıkarma.
 
@@ -123,16 +155,16 @@ Bu çalışma boyunca bahis oranları kullanılmadı; model girdisi veya sonuç 
 - `src/api/server.py`: canlı state ve `/api/predict` olasılık dönüşümü.
 - `frontend/src/components/PredictorTab.jsx`: olasılıktan türetilen teorik oran metni.
 
-## Güncelleme — 14 Ekim 2026: F4–F7 kararları ve ileriye dönük günlük
+## Güncelleme — 14 Ekim 2026: protokol düzeltmeleri ve güncel F4–F7 durumu
 
-Bu ek, raporun 13 Ekim tarihli ilk incelemesinden sonraki faz kararlarını kaydeder. Aşağıdaki sonuçlar, aynı üç tam dış sezon üzerinde karşılaştırma yapıldığı için yeni bağımsız sezon verisi gibi yorumlanmamalıdır.
+Tam pipeline 14 Ekim'de yeniden çalıştırıldı; test paketi **18/18** geçti. Aşağıdaki outer-season karar ölçümleri yalnız geliştirme dönemini kullanıyor. Temiz tam sezon sayısı henüz üçten az.
 
 | Faz | Dış sezon sonucu | Karar |
 |---|---|---|
-| F4 — Lojistik + Dixon–Coles ensemble | Ensemble 3 sezonun **1** tanesinde iyileşti; ortalama ensemble−lojistik log-loss farkı **+0,00312**. Karar kapısı en az 2/3 sezon ve ortalama Δ < −0,002 gerektiriyordu. | Kapı geçmedi. `model_dc` üretim artefaktına eklenmedi; API mevcut lojistik 1X2 olasılıklarını kullanmayı sürdürüyor. |
-| F5 — Beraberlik eğilim özellikleri | Ortalama log-loss farkı **+0,0037**; Draw AUC farkı **+0,0067**. Kapı log-loss Δ < −0,002 ve Draw AUC Δ ≥ +0,01 gerektiriyordu. | Kapı geçmedi. Dokuz özellik ortak offline/canlı hesaplayıcıda mevcut, ancak production feature listesine alınmadı. |
-| F6 — Zaman ağırlıklı kalibrasyon | 150/300/600 satır yarı ömürleri için ortalama dış sezon log-loss farkları sırasıyla **−0,00006 / −0,00019 / −0,00014**; gerekli eşik **≤ −0,002** idi. | Hiçbir yarı ömür seçilmedi; standart kalibratör ve 1X2 artefaktı korundu. |
-| F7 — xG proxy | Aggregate şut istatistiklerinden türetilen ve yalnızca %42,3 kapsaması olan proxy model özelliklerinden, feature üretiminden ve API/UI yolundan kaldırıldı. | Üretim tahmininde xG proxy kullanılmıyor. Bu raporun 13 Ekim tarihli ilk bölümlerinde proxy hakkında yazılanlar tarihsel durumu anlatır; yeni kararı değiştirmez. |
+| F4 — Lojistik + Dixon–Coles ensemble | Geliştirmedeki tek uygun tam sezonda ensemble−lojistik log-loss farkı **+0,00211**; 2023/24 fallback ve 2025/26 kısmi sezon gate sayımına girmiyor. | Üç sezon gereksinimi karşılanmadı ve gözlenen tek sezon iyileşmedi. `model_dc` üretim artefaktına eklenmedi. |
+| F5 — Beraberlik eğilim özellikleri | Tek uygun sezonda log-loss farkı **+0,0047**, draw-AUC farkı **+0,0168**. | Log-loss koşulu geçmedi; gate toplamda **1** temiz outer sezon gördü. Dokuz özellik production feature listesine alınmadı. |
+| F6 — Zaman ağırlıklı kalibrasyon | Tek uygun sezonda 150/300/600 satır yarı ömürleri için log-loss farkı **−0,00300 / −0,00201 / −0,00113**. | Üç sezon koşulu karşılanmadı; hiçbir yarı ömür seçilmedi ve standart kalibrasyon korundu. |
+| F7 — xG proxy ve sağlayıcı xG | Düşük kapsamalı aggregate proxy kaldırıldı. TheStatsAPI xG ayrı kaynak tablosuna ve maç gösterimine bağlandı. | Gerçekleşmiş xG ön-tahmin girdisi değil; lag'li xG form sütunları da model/parquet feature setinden kaldırıldı. |
 
-F4–F6 deney ayrıntıları, dış sezon JSON'ları ve artefakt parmak izleri [model-improvement guide yürütme kaydında](model_improvement_guide.md) tutuluyor. F10 ile `data/processed/1x2_forecast_log.jsonl` günlük kayıtları gol-market tahminlerini ve ayrı goals-model SHA-256 değerini de saklıyor. Mevcut üretim artefaktında F4 ensemble bulunmadığından ensemble alanı yeni kayıtlarda oluşmuyor; bu alan ileride API çıktısına bir ensemble eklenirse koşullu olarak yazılır. Tahminler maç sonuçları geldikçe `reports/prospective_1x2_scorecard.json` içinde 1X2, Over 1.5/2.5/3.5 ve BTTS için skorlanır.
+F4–F6 ölçümlerinin sayısal kaynağı [Model Benchmarks](model_benchmarks.md) ve `data/processed/` altındaki JSON'lardır. F10 ile `data/processed/1x2_forecast_log.jsonl` maç öncesi tahminleri ve model SHA-256 değerlerini saklıyor. Tahminler maç sonuçları geldikçe `reports/prospective_1x2_scorecard.json` içinde 1X2 ve gol pazarları için skorlanır.
 

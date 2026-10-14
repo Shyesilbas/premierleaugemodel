@@ -1,0 +1,50 @@
+{
+  "status": "evaluated",
+  "holdout_samples": 304,
+  "development_samples": 1216,
+  "development_current_match_provider_xg_matches": 477,
+  "holdout_current_match_provider_xg_matches": 304,
+  "development_rows_with_lagged_xg_features": 456,
+  "holdout_rows_with_lagged_xg_features": 304,
+  "xg_lagged_feature_columns": [
+    "home_xg_for_roll_10",
+    "home_xg_for_ewma_02",
+    "home_xg_against_roll_10",
+    "home_xg_against_ewma_02",
+    "away_xg_for_roll_10",
+    "away_xg_for_ewma_02",
+    "away_xg_against_roll_10",
+    "away_xg_against_ewma_02"
+  ],
+  "holdout_policy": "same chronological holdout and selected estimator; development-only forward OOF calibration; paired feature ablation",
+  "provider_xg_feature_count": 8,
+  "variants": {
+    "without_xg": {
+      "selected_model": "logreg_C0.003",
+      "cv_log_loss": 0.9788,
+      "feature_count": 44,
+      "log_loss": 1.03346,
+      "multiclass_brier": 0.62345,
+      "accuracy_pct": 48.03,
+      "draw_auc": 0.53892,
+      "mean_draw_probability": 0.22572
+    },
+    "with_xg": {
+      "selected_model": "logreg_C0.003",
+      "cv_log_loss": 0.9788,
+      "feature_count": 52,
+      "log_loss": 1.03757,
+      "multiclass_brier": 0.62549,
+      "accuracy_pct": 48.03,
+      "draw_auc": 0.52092,
+      "mean_draw_probability": 0.22205
+    }
+  },
+  "delta_with_xg_minus_without_xg_log_loss": {
+    "mean_delta": 0.0041116449139087284,
+    "ci_low": -0.0009700810668273078,
+    "ci_high": 0.009315296039296242,
+    "p_a_better": 0.0556,
+    "n": 304
+  }
+}
