@@ -62,6 +62,12 @@ STRENGTH_FEATURES = [
     "ppg_home", "ppg_away", "ppg_diff",
     "gdpg_home", "gdpg_away", "gdpg_diff",
 ]
+STRENGTH_FEATURES_O25 = [
+    "elo_home", "elo_away",
+    "elo_venue_home", "elo_venue_away",
+    "ppg_home", "ppg_away",
+    "gdpg_home", "gdpg_away",
+]
 DIFF_FEATURES = [f"sdiff_{t}_{s}" for t in ("goals", "sot") for s in ("e02", "r10")]
 EXTRA_1X2 = ["exp_match_xg_10", "xg_diff_10"]
 EXTRA_O25 = ["exp_match_shots_5", "exp_match_xg_10"]
@@ -84,9 +90,17 @@ def _form_features() -> List[str]:
 
 
 def feature_set(kind: str, columns: List[str], include_draw_propensity: bool = False) -> List[str]:
-    extra = EXTRA_1X2 if kind == "1x2" else EXTRA_O25
-    draw_balance = DRAW_BALANCE_FEATURES if kind == "1x2" else []
-    wanted = STRENGTH_FEATURES + DIFF_FEATURES + _form_features() + extra + draw_balance
+    if kind == "1x2":
+        extra = EXTRA_1X2
+        draw_balance = DRAW_BALANCE_FEATURES
+        diffs = DIFF_FEATURES
+        strength = STRENGTH_FEATURES
+    else:
+        extra = EXTRA_O25
+        draw_balance = []
+        diffs = []
+        strength = STRENGTH_FEATURES_O25
+    wanted = strength + diffs + _form_features() + extra + draw_balance
     if kind == "1x2" and include_draw_propensity:
         wanted = wanted + list(DRAW_PROPENSITY_FEATURES)
     missing = [c for c in wanted if c not in columns]

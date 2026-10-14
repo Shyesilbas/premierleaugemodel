@@ -1746,12 +1746,16 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         except Exception as e:
             logger.warning("Error predicting offsides: %s", e)
 
-        # Dynamic home/away offside split based on team rates
-        if "home_offsides_for_roll_5" in simulated_df.columns and "away_offsides_for_roll_5" in simulated_df.columns:
-            h_off = float(simulated_df["home_offsides_for_roll_5"].iloc[0] or 1.6)
-            a_off = float(simulated_df["away_offsides_for_roll_5"].iloc[0] or 1.6)
-            if (h_off + a_off) > 0:
-                home_off_share = max(0.2, min(0.8, h_off / (h_off + a_off)))
+        # Dynamic home/away offside split blending offside tendency and opponent trap/line
+        h_off_for = float(simulated_df.get("home_offsides_for_roll_5", pd.Series([1.6])).iloc[0] or 1.6)
+        a_off_for = float(simulated_df.get("away_offsides_for_roll_5", pd.Series([1.6])).iloc[0] or 1.6)
+        h_off_against = float(simulated_df.get("home_offsides_against_roll_5", pd.Series([1.6])).iloc[0] or 1.6)
+        a_off_against = float(simulated_df.get("away_offsides_against_roll_5", pd.Series([1.6])).iloc[0] or 1.6)
+        home_exp_off = 0.5 * (h_off_for + a_off_against)
+        away_exp_off = 0.5 * (a_off_for + h_off_against)
+        total_exp_off = home_exp_off + away_exp_off
+        if total_exp_off > 0:
+            home_off_share = max(0.20, min(0.80, home_exp_off / total_exp_off))
 
     # 6. Cards Prediction
     exp_cards = 4.2
@@ -1776,12 +1780,15 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         except Exception as e:
             logger.warning("Error predicting cards: %s", e)
 
-    if "home_cards_for_roll_5" in simulated_df.columns and "away_cards_for_roll_5" in simulated_df.columns:
-        h_c = float(simulated_df["home_cards_for_roll_5"].iloc[0] or 2.1)
-        a_c = float(simulated_df["away_cards_for_roll_5"].iloc[0] or 2.1)
-        if (h_c + a_c) > 0:
-            home_cards_share = max(0.2, min(0.8, h_c / (h_c + a_c)))
-
+    h_c_for = float(simulated_df.get("home_cards_for_roll_5", pd.Series([2.1])).iloc[0] or 2.1)
+    a_c_for = float(simulated_df.get("away_cards_for_roll_5", pd.Series([2.1])).iloc[0] or 2.1)
+    h_c_against = float(simulated_df.get("home_cards_against_roll_5", pd.Series([2.1])).iloc[0] or 2.1)
+    a_c_against = float(simulated_df.get("away_cards_against_roll_5", pd.Series([2.1])).iloc[0] or 2.1)
+    home_exp_cards = 0.5 * (h_c_for + a_c_against)
+    away_exp_cards = 0.5 * (a_c_for + h_c_against)
+    total_exp_cards = home_exp_cards + away_exp_cards
+    if total_exp_cards > 0:
+        home_cards_share = max(0.20, min(0.80, home_exp_cards / total_exp_cards))
 
     raw_ref = simulated_df.get("referee_name", pd.Series([None])).iloc[0]
     ref_name = str(raw_ref) if pd.notnull(raw_ref) and raw_ref else "Premier League Hakem Heyeti"
@@ -1795,27 +1802,33 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         "cards": _regression_model_skill(cards_artifact),
     }
 
-    # Splits (Home vs Away breakdown dynamically calculated from team rolling rates)
-    home_c_share = 0.55
-    if "home_corners_for_roll_5" in simulated_df.columns and "away_corners_for_roll_5" in simulated_df.columns:
-        h_crn = float(simulated_df["home_corners_for_roll_5"].iloc[0] or 5.2)
-        a_crn = float(simulated_df["away_corners_for_roll_5"].iloc[0] or 4.8)
-        if (h_crn + a_crn) > 0:
-            home_c_share = max(0.25, min(0.75, h_crn / (h_crn + a_crn)))
+    # Dynamic splits blending team production (FOR) and opponent volume conceded (AGAINST)
+    h_crn_for = float(simulated_df.get("home_corners_for_roll_5", pd.Series([5.2])).iloc[0] or 5.2)
+    a_crn_for = float(simulated_df.get("away_corners_for_roll_5", pd.Series([4.8])).iloc[0] or 4.8)
+    h_crn_against = float(simulated_df.get("home_corners_against_roll_5", pd.Series([4.8])).iloc[0] or 4.8)
+    a_crn_against = float(simulated_df.get("away_corners_against_roll_5", pd.Series([5.2])).iloc[0] or 5.2)
+    home_exp_crn = 0.5 * (h_crn_for + a_crn_against)
+    away_exp_crn = 0.5 * (a_crn_for + h_crn_against)
+    total_exp_crn = home_exp_crn + away_exp_crn
+    home_c_share = max(0.20, min(0.80, home_exp_crn / total_exp_crn)) if total_exp_crn > 0 else 0.55
 
-    home_t_share = 0.51
-    if "home_throws_roll_5" in simulated_df.columns and "away_throws_roll_5" in simulated_df.columns:
-        h_th = float(simulated_df["home_throws_roll_5"].iloc[0] or 18.0)
-        a_th = float(simulated_df["away_throws_roll_5"].iloc[0] or 17.0)
-        if (h_th + a_th) > 0:
-            home_t_share = max(0.30, min(0.70, h_th / (h_th + a_th)))
+    h_th_for = float(simulated_df.get("home_throws_roll_5", pd.Series([18.0])).iloc[0] or 18.0)
+    a_th_for = float(simulated_df.get("away_throws_roll_5", pd.Series([17.0])).iloc[0] or 17.0)
+    h_th_opp = float(simulated_df.get("home_opponent_throws_roll_5", pd.Series([17.0])).iloc[0] or 17.0)
+    a_th_opp = float(simulated_df.get("away_opponent_throws_roll_5", pd.Series([18.0])).iloc[0] or 18.0)
+    home_exp_th = 0.5 * (h_th_for + a_th_opp)
+    away_exp_th = 0.5 * (a_th_for + h_th_opp)
+    total_exp_th = home_exp_th + away_exp_th
+    home_t_share = max(0.25, min(0.75, home_exp_th / total_exp_th)) if total_exp_th > 0 else 0.51
 
-    home_s_share = 0.48
-    if "home_saves_roll_5" in simulated_df.columns and "away_saves_roll_5" in simulated_df.columns:
-        h_sv = float(simulated_df["home_saves_roll_5"].iloc[0] or 2.8)
-        a_sv = float(simulated_df["away_saves_roll_5"].iloc[0] or 2.9)
-        if (h_sv + a_sv) > 0:
-            home_s_share = max(0.25, min(0.75, h_sv / (h_sv + a_sv)))
+    h_sv = float(simulated_df.get("home_saves_roll_5", pd.Series([2.8])).iloc[0] or 2.8)
+    a_sv = float(simulated_df.get("away_saves_roll_5", pd.Series([2.9])).iloc[0] or 2.9)
+    h_sot_for = float(simulated_df.get("home_shots_ontarget_for_roll_5", pd.Series([4.5])).iloc[0] or 4.5)
+    a_sot_for = float(simulated_df.get("away_shots_ontarget_for_roll_5", pd.Series([4.0])).iloc[0] or 4.0)
+    home_exp_sv = 0.5 * (h_sv + a_sot_for * 0.70)
+    away_exp_sv = 0.5 * (a_sv + h_sot_for * 0.70)
+    total_exp_sv = home_exp_sv + away_exp_sv
+    home_s_share = max(0.20, min(0.80, home_exp_sv / total_exp_sv)) if total_exp_sv > 0 else 0.48
 
     return {
         "home_team": home_meta,
