@@ -14,10 +14,11 @@ to build the training dataset and to build live prediction rows in the API (see 
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 import numpy as np
+from src.features.draw_features import DrawFeatureState, add_draw_features
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,7 +41,6 @@ STAT_COLS = [
     "big_chances_for", "touches_in_opp_box",
     "fouls_committed", "fouls_drawn",
     "cards_for", "cards_against",
-    "xg_for", "xg_against",
 ]
 
 # Strictly historical league priors used to fill cold-start NaNs (NO FUTURE LEAKAGE)
@@ -55,11 +55,10 @@ LEAGUE_PRIORS = {
     "big_chances_for": 1.8, "touches_in_opp_box": 24.5,
     "fouls_committed": 10.5, "fouls_drawn": 10.5,
     "cards_for": 2.1, "cards_against": 2.1,
-    "xg_for": 1.45, "xg_against": 1.45,
 }
 # Priors for interaction features: per-team side (exp_home_* / exp_away_*) and match totals (exp_match_*)
-EXP_SIDE_PRIORS = {"corners": 5.15, "shots": 13.0, "offsides": 1.63, "cards": 2.1, "xg": 1.45}
-EXP_MATCH_PRIORS = {"corners": 10.3, "throws": 32.9, "shots": 26.0, "offsides": 3.26, "cards": 4.2, "xg": 2.9}
+EXP_SIDE_PRIORS = {"corners": 5.15, "shots": 13.0, "offsides": 1.63, "cards": 2.1}
+EXP_MATCH_PRIORS = {"corners": 10.3, "throws": 32.9, "shots": 26.0, "offsides": 3.26, "cards": 4.2}
 
 # Team strength (Elo + season-to-date table) parameters
 ELO_INIT = 1500.0
@@ -71,6 +70,7 @@ PPG_PRIOR = 1.37             # League-average points per game
 PRIOR_GAMES = 3.0            # Shrinkage strength for season-to-date ppg / goal difference
 
 REFEREE_DEFAULTS = {"referee_avg_cards": 4.15, "referee_avg_fouls": 21.5, "referee_prior_matches": 0}
+REFEREE_SHRINKAGE_MATCHES = 10.0
 
 
 def prepare_matches(df: pd.DataFrame) -> pd.DataFrame:
@@ -182,8 +182,6 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "touches_in_opp_box": row.get("home_touches_in_opp_box", 24.0),
             "cards_for": row.get("home_total_yel_card", 0.0) + row.get("home_total_red_card", 0.0),
             "cards_against": row.get("away_total_yel_card", 0.0) + row.get("away_total_red_card", 0.0),
-            "xg_for": row.get("home_xg", 1.4),
-            "xg_against": row.get("away_xg", 1.2),
         })
 
         # Away perspective
@@ -219,8 +217,6 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "touches_in_opp_box": row.get("away_touches_in_opp_box", 24.0),
             "cards_for": row.get("away_total_yel_card", 0.0) + row.get("away_total_red_card", 0.0),
             "cards_against": row.get("home_total_yel_card", 0.0) + row.get("home_total_red_card", 0.0),
-            "xg_for": row.get("away_xg", 1.2),
-            "xg_against": row.get("home_xg", 1.4),
         })
 
     long_df = pd.DataFrame(records)
@@ -271,7 +267,10 @@ def compute_pre_match_features(long_df: pd.DataFrame) -> pd.DataFrame:
             new_cols[f"{col}_ewma_{_alpha_str(a)}"] = _lagged_team_state(
                 long_df, col, played, lambda s, a=a: s.ewm(alpha=a, min_periods=1).mean())
 
-    return pd.concat([long_df, pd.DataFrame(new_cols, index=long_df.index)], axis=1)
+    return pd.concat([
+        long_df,
+        pd.DataFrame(new_cols, index=long_df.index),
+    ], axis=1)
 
 
 def compute_team_states(long_df: pd.DataFrame, until: Optional[pd.Timestamp] = None) -> pd.DataFrame:
@@ -480,15 +479,14 @@ def add_interaction_features(merged: pd.DataFrame) -> pd.DataFrame:
         merged["exp_away_cards_5"] = (merged["away_cards_for_roll_5"] + merged["home_cards_against_roll_5"]) / 2.0
         merged["exp_match_cards_5"] = merged["exp_home_cards_5"] + merged["exp_away_cards_5"]
 
-    # Expected xG interaction
-    if "home_xg_for_roll_5" in merged.columns and "away_xg_against_roll_5" in merged.columns:
-        merged["exp_home_xg_5"] = (merged["home_xg_for_roll_5"] + merged["away_xg_against_roll_5"]) / 2.0
-        merged["exp_away_xg_5"] = (merged["away_xg_for_roll_5"] + merged["home_xg_against_roll_5"]) / 2.0
-        merged["exp_match_xg_5"] = merged["exp_home_xg_5"] + merged["exp_away_xg_5"]
+
+    for difference in ("elo_diff", "ppg_diff", "gdpg_diff"):
+        if difference in merged.columns:
+            merged[f"abs_{difference}"] = merged[difference].abs()
 
     # Home-minus-away net strength differentials (used by the outcome models).
     # Names intentionally avoid "_roll_"/"_ewma_" so other models' feature filters are unaffected.
-    for stat, tag in (("xg", "xg"), ("goals", "goals"), ("shots_ontarget", "sot")):
+    for stat, tag in (("goals", "goals"), ("shots_ontarget", "sot")):
         for suffix, short in (("ewma_02", "e02"), ("roll_10", "r10")):
             cols = [f"home_{stat}_for_{suffix}", f"home_{stat}_against_{suffix}",
                     f"away_{stat}_for_{suffix}", f"away_{stat}_against_{suffix}"]
@@ -505,7 +503,10 @@ def merge_features_to_matches(df_matches: pd.DataFrame, long_df: pd.DataFrame) -
     for both home and away teams.
     """
     # Filter features created in long_df
-    feature_cols = [c for c in long_df.columns if "_roll_" in c or "_ewma_" in c]
+    feature_cols = [
+        c for c in long_df.columns
+        if "_roll_" in c or "_ewma_" in c or c.endswith("_obs_age_days")
+    ]
 
     # Home features
     home_lookup = long_df[long_df["is_home"] == 1][["match_id", "team_id"] + feature_cols].copy()
@@ -540,38 +541,36 @@ def compute_referee_features(df: pd.DataFrame) -> pd.DataFrame:
     sort_cols = ["match_date", "match_id"] if "match_id" in df.columns else ["match_date"]
     df = df.sort_values(by=sort_cols, kind="mergesort").reset_index(drop=True)
 
-    ref_avg_cards = []
-    ref_avg_fouls = []
-    ref_prior_matches = []
+    ref_avg_cards = [np.nan] * len(df)
+    ref_avg_fouls = [np.nan] * len(df)
+    ref_prior_matches = [0] * len(df)
 
     # Historical state: referee_name -> list of (cards, fouls)
     ref_history: Dict[str, List[Tuple[float, float]]] = {}
 
-    for _, row in df.iterrows():
-        ref_name = row.get("referee_name") or "Unknown"
-        cards = row.get("total_cards")
-        fouls = row.get("total_fouls")
-
-        # Compute strictly pre-match statistics for this referee
-        if ref_name in ref_history and len(ref_history[ref_name]) > 0:
-            hist = ref_history[ref_name]
-            avg_c = np.mean([h[0] for h in hist])
-            avg_f = np.mean([h[1] for h in hist])
+    for _, batch in df.groupby("match_date", sort=False, dropna=False):
+        # All matches at the same kickoff use the history from before that batch.
+        for index, row in batch.iterrows():
+            ref_name = row.get("referee_name") or "Unknown"
+            hist = ref_history.get(ref_name, [])
             count = len(hist)
-        else:
-            avg_c = REFEREE_DEFAULTS["referee_avg_cards"]  # Premier League historical mean cards/match
-            avg_f = REFEREE_DEFAULTS["referee_avg_fouls"]  # Premier League historical mean fouls/match
-            count = 0
+            sum_cards = sum(item[0] for item in hist)
+            sum_fouls = sum(item[1] for item in hist)
+            ref_avg_cards[index] = (
+                sum_cards + REFEREE_SHRINKAGE_MATCHES * REFEREE_DEFAULTS["referee_avg_cards"]
+            ) / (count + REFEREE_SHRINKAGE_MATCHES)
+            ref_avg_fouls[index] = (
+                sum_fouls + REFEREE_SHRINKAGE_MATCHES * REFEREE_DEFAULTS["referee_avg_fouls"]
+            ) / (count + REFEREE_SHRINKAGE_MATCHES)
+            ref_prior_matches[index] = int(count)
 
-        ref_avg_cards.append(float(avg_c))
-        ref_avg_fouls.append(float(avg_f))
-        ref_prior_matches.append(int(count))
-
-        # Update state after match if target data is not null
-        if ref_name != "Unknown" and pd.notnull(cards) and pd.notnull(fouls):
-            if ref_name not in ref_history:
-                ref_history[ref_name] = []
-            ref_history[ref_name].append((float(cards), float(fouls)))
+        # Update referee histories only after every feature in the kickoff batch is read.
+        for _, row in batch.iterrows():
+            ref_name = row.get("referee_name") or "Unknown"
+            cards = row.get("total_cards")
+            fouls = row.get("total_fouls")
+            if ref_name != "Unknown" and pd.notna(cards) and pd.notna(fouls):
+                ref_history.setdefault(ref_name, []).append((float(cards), float(fouls)))
 
     df["referee_avg_cards"] = ref_avg_cards
     df["referee_avg_fouls"] = ref_avg_fouls
@@ -587,6 +586,8 @@ def build_prediction_row(
     match_date: pd.Timestamp,
     referee: Optional[Dict[str, Any]] = None,
     season: Optional[str] = None,
+    draw_state: Optional[DrawFeatureState] = None,
+    gameweek: Optional[float] = None,
 ) -> pd.DataFrame:
     """
     Builds a single live feature row for (home_id vs away_id) from each team's CURRENT state,
@@ -619,6 +620,8 @@ def build_prediction_row(
     row["referee_name"] = None
     if referee:
         row.update({k: v for k, v in referee.items() if v is not None})
+    if draw_state is not None:
+        row.update(draw_state.features(home_id, away_id, gameweek))
 
     out = pd.DataFrame([row])
     out = fill_feature_priors(out)
@@ -627,10 +630,12 @@ def build_prediction_row(
 
 
 def build_feature_dataset(
-    input_matches_path: Path,
-    output_path: Path,
+    input_matches_path: Union[str, Path],
+    output_path: Union[str, Path],
 ) -> pd.DataFrame:
     """Main feature construction flow."""
+    input_matches_path = Path(input_matches_path)
+    output_path = Path(output_path)
     logger.info(f"Loading match dataset from {input_matches_path}...")
     df = pd.read_parquet(input_matches_path)
     logger.info(f"Loaded {len(df)} matches.")
@@ -641,6 +646,8 @@ def build_feature_dataset(
     featured_matches = merge_features_to_matches(df, long_df)
     featured_matches = compute_referee_features(featured_matches)
     featured_matches = compute_strength_features(featured_matches)
+    featured_matches = add_interaction_features(featured_matches)
+    featured_matches = add_draw_features(featured_matches)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     featured_matches.to_parquet(output_path, index=False)

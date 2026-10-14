@@ -30,4 +30,5 @@ Bu denetim play-by-play akışını maç ve takım istatistikleriyle karşılaş
 - Skor durumu, her gol olayında metinde yazan skor kullanılarak sonraki aksiyonlar için güncellenir. Böylece şut ve kornerler eşitlikte, öndeyken veya gerideyken sayılabilir.
 - Tempo, olay sayısının ilgili skor durumunda geçen oyun dakikasına bölünüp 90 dakikaya ölçeklenmesiyle hesaplanır. Bir skor durumu için 90 dakikadan az örnek varsa arayüz oranı gizler.
 - Ham `won_corners` sayısı 3087/3093 karşılaştırılan takım-maçta olay akışıyla eşleşti. `corner_taken` ve korner isabet alt ölçüleri daha az tutarlı; ilk analiz bunlara dayandırılmaz.
+- İşlenmiş eğitim hedefinde, ham `won_corners` eksikse takım adı olay akışından eşleşen korner sayısı kullanılır; `_raw`, `_reported` ve `_event_reconstructed` alanları kaynak ve kurtarma durumunu ayrı tutar.
 - Korner olayında hedef koordinatı bulunmadığından ön direk/arka direk tercihi çıkarılmaz.

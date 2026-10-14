@@ -71,7 +71,7 @@ TACTICAL_METRICS = {
     "shots_on_target_share": {
         "label": "İsabetli şut oranı",
         "unit": "%",
-        "description": "Kaleyi bulan şutların tüm şutlara oranı. Şutların gol olma olasılığını veya xG değerini ölçmez.",
+        "description": "Kaleyi bulan şutların tüm şutlara oranı. Şutların gol olma olasılığını ölçmez.",
     },
     "corners_into_box_share": {
         "label": "Ceza sahasına gönderilen korner",
@@ -148,6 +148,11 @@ TACTICAL_METRICS = {
         "unit": "maç başına",
         "description": "Maç başına yapılan toplam uzaklaştırma sayısı.",
     },
+    "shots_conceded_per_match": {
+        "label": "İzin verilen şut",
+        "unit": "maç başına",
+        "description": "Maç başına rakibe izin verilen toplam şut sayısı.",
+    },
 }
 
 
@@ -186,18 +191,28 @@ def load_team_match_rows() -> tuple[dict[int, list[dict[str, Any]]], dict[int, s
             if entry.get("team", {}).get("id") is not None
         }
 
-        for raw_team_id, team_stats in payload.get("data", {}).items():
+        fixture_data = payload.get("data", {})
+        fixture_metrics_by_team: dict[int, dict[str, Any]] = {}
+        for raw_team_id, team_stats in fixture_data.items():
             try:
                 team_id = int(raw_team_id)
             except (TypeError, ValueError):
                 continue
-            meta = fixture_teams.get(team_id, {})
-            team_names[team_id] = meta.get("name") or meta.get("shortName") or team_names.get(team_id, str(team_id))
-            metrics = {
+            fixture_metrics_by_team[team_id] = {
                 item.get("name"): item.get("value")
                 for item in team_stats.get("M", [])
                 if isinstance(item, dict) and item.get("name") and item.get("value") is not None
             }
+
+        for team_id, metrics in fixture_metrics_by_team.items():
+            meta = fixture_teams.get(team_id, {})
+            team_names[team_id] = meta.get("name") or meta.get("shortName") or team_names.get(team_id, str(team_id))
+            opp_id = next((tid for tid in fixture_metrics_by_team if tid != team_id), None)
+            if opp_id is not None:
+                opp_shots = fixture_metrics_by_team[opp_id].get("total_scoring_att")
+                if opp_shots is not None:
+                    metrics["shots_conceded"] = opp_shots
+
             by_team[team_id].append(
                 {
                     "match_id": int(fixture_id),
@@ -272,6 +287,8 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
     aerial_won = aerial_lost = 0.0
     aerial_matches = 0
     clearances: list[float] = []
+    total_shots_conceded = 0.0
+    total_shots_conceded_matches = 0
 
     for row in rows:
         metrics = row["metrics"]
@@ -421,6 +438,10 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
         value = _number(metrics.get("total_clearance"))
         if value is not None:
             clearances.append(value)
+        conceded = _number(metrics.get("shots_conceded"))
+        if conceded is not None and conceded >= 0:
+            total_shots_conceded += conceded
+            total_shots_conceded_matches += 1
 
     def mean(values: list[float]) -> float | None:
         return sum(values) / len(values) if values else None
@@ -488,6 +509,12 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
             aerial_matches,
         ),
         "clearances": (mean(clearances), len(clearances)),
+        "shots_conceded_per_match": (
+            total_shots_conceded / total_shots_conceded_matches
+            if total_shots_conceded_matches
+            else None,
+            total_shots_conceded_matches,
+        ),
     }
     return {
         name: {"value": value, "matches": count}

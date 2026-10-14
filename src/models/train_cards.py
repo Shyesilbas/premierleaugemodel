@@ -15,7 +15,7 @@ from typing import Dict, Any, List
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import PoissonRegressor, Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import joblib
 from src.models.model_utils import (
@@ -104,6 +104,12 @@ def train_cards_model(
             f"ridge_{alpha:g}": make_regression_pipeline(Ridge(alpha=alpha), scale=True)
             for alpha in (0.1, 1.0, 10.0, 50.0, 100.0, 250.0, 500.0)
         },
+        **{
+            f"poisson_{alpha:g}": make_regression_pipeline(
+                PoissonRegressor(alpha=alpha, max_iter=2000), scale=True
+            )
+            for alpha in (1.0, 10.0, 50.0, 200.0)
+        },
     }
 
     best_name, eval_model, prod_model, metrics, preds_test, y_test = chronological_regression_evaluation(
@@ -127,10 +133,12 @@ def train_cards_model(
         imps = fitted_estimator.feature_importances_
         sorted_idx = np.argsort(imps)[::-1]
         top_features = [{"feature": feature_cols[i], "importance": float(imps[i])} for i in sorted_idx[:10]]
-    else:
+    elif hasattr(fitted_estimator, "coef_"):
         coefs = np.abs(fitted_estimator.coef_)
         sorted_idx = np.argsort(coefs)[::-1]
         top_features = [{"feature": feature_cols[i], "importance": float(coefs[i])} for i in sorted_idx[:10]]
+    else:
+        top_features = []
 
     metrics.update({
         "train_rmse": round(float(mean_squared_error(y_train, eval_model.predict(X_train)) ** 0.5), 4),

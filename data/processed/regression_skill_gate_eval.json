@@ -1,0 +1,879 @@
+{
+  "corners": {
+    "selected_model": "poisson_10",
+    "raw_selected_model": "poisson_10",
+    "skill_gate_applied": false,
+    "skill_gate_passed": true,
+    "skill_gate": {
+      "raw_selected_model": "poisson_10",
+      "selected_model": "poisson_10",
+      "skill_gate_applied": false,
+      "skill_gate_passed": true,
+      "reason": "model_cleared_skill_gate",
+      "baseline": "training_mean",
+      "relative_rmse_gain": 0.006769,
+      "fold_wins": 3,
+      "fold_count": 4,
+      "minimum_relative_gain": 0.005,
+      "minimum_fold_wins": 3
+    },
+    "selection_metric": "mean RMSE across 4 expanding-window folds; feature model must beat training_mean by >=0.5% and win >=3 folds",
+    "cv_rmse": {
+      "lgbm_shallow": 3.4317,
+      "ridge_1.0": 3.4527,
+      "ridge_10.0": 3.447,
+      "ridge_50.0": 3.4348,
+      "ridge_100.0": 3.4293,
+      "poisson_1": 3.4328,
+      "poisson_10": 3.4292,
+      "poisson_50": 3.4385,
+      "poisson_200": 3.4461,
+      "training_mean": 3.4525
+    },
+    "train_samples": 1264,
+    "test_samples": 316,
+    "test_rmse": 3.2198,
+    "test_mae": 2.6224,
+    "test_r2": -0.0083,
+    "baseline_mean": 10.3726,
+    "baseline_test_rmse": 3.2405,
+    "baseline_test_mae": 2.661,
+    "beats_baseline_rmse": true,
+    "beats_baseline_mae": true,
+    "n_features": 19,
+    "count_dispersion_alpha_dev": 0.012752,
+    "season_holdouts": [
+      {
+        "season": "2023_24",
+        "partial_season": false,
+        "train_samples": 380,
+        "test_samples": 380,
+        "selected_model": "training_mean",
+        "raw_selected_model": "poisson_200",
+        "skill_gate_applied": true,
+        "skill_gate_passed": false,
+        "skill_gate_relative_rmse_gain": 6.3e-05,
+        "skill_gate_fold_wins": 2,
+        "cv_rmse": 3.2254,
+        "rmse": 3.5986,
+        "baseline_rmse": 3.5986,
+        "mae": 2.8548,
+        "baseline_mae": 2.8548,
+        "r2": -0.0457,
+        "beats_baseline_rmse": false
+      },
+      {
+        "season": "2024_25",
+        "partial_season": false,
+        "train_samples": 760,
+        "test_samples": 380,
+        "selected_model": "training_mean",
+        "raw_selected_model": "ridge_100.0",
+        "skill_gate_applied": true,
+        "skill_gate_passed": false,
+        "skill_gate_relative_rmse_gain": 0.003801,
+        "skill_gate_fold_wins": 1,
+        "cv_rmse": 3.4125,
+        "rmse": 3.4719,
+        "baseline_rmse": 3.4719,
+        "mae": 2.7732,
+        "baseline_mae": 2.7732,
+        "r2": -0.003,
+        "beats_baseline_rmse": false
+      },
+      {
+        "season": "2025_26",
+        "partial_season": false,
+        "train_samples": 1140,
+        "test_samples": 380,
+        "selected_model": "ridge_100.0",
+        "raw_selected_model": "ridge_100.0",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.00839,
+        "skill_gate_fold_wins": 3,
+        "cv_rmse": 3.4236,
+        "rmse": 3.305,
+        "baseline_rmse": 3.2892,
+        "mae": 2.6596,
+        "baseline_mae": 2.6663,
+        "r2": -0.0266,
+        "beats_baseline_rmse": false
+      },
+      {
+        "season": "2026_27",
+        "partial_season": true,
+        "train_samples": 1520,
+        "test_samples": 60,
+        "selected_model": "poisson_10",
+        "raw_selected_model": "poisson_10",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.008307,
+        "skill_gate_fold_wins": 3,
+        "cv_rmse": 3.4049,
+        "rmse": 3.1816,
+        "baseline_rmse": 3.2401,
+        "mae": 2.6642,
+        "baseline_mae": 2.7507,
+        "r2": -0.0546,
+        "beats_baseline_rmse": true
+      }
+    ],
+    "model_type": "Chronological CV-selected poisson_10 (Corners)",
+    "train_rmse": 3.3825,
+    "train_mae": 2.7086,
+    "over_9_5_accuracy_pct": 53.48,
+    "majority_baseline_pct": 53.48,
+    "count_threshold_metrics": {
+      "over_8_5": {
+        "threshold": 8,
+        "development_rate": 0.694620253164557,
+        "dispersion_alpha": 0.012752,
+        "negative_binomial": {
+          "log_loss": 0.6648680487744325,
+          "brier": 0.2357906166285669,
+          "accuracy_pct": 62.65822784810127
+        },
+        "poisson": {
+          "log_loss": 0.6691437663733538,
+          "brier": 0.23761432080408562,
+          "accuracy_pct": 62.65822784810127
+        },
+        "prior": {
+          "log_loss": 0.671268109084641,
+          "brier": 0.23860609277359401,
+          "accuracy_pct": 62.65822784810127
+        },
+        "majority_accuracy_pct": 62.65822784810127
+      },
+      "over_9_5": {
+        "threshold": 9,
+        "development_rate": 0.5830696202531646,
+        "dispersion_alpha": 0.012752,
+        "negative_binomial": {
+          "log_loss": 0.6903988552876487,
+          "brier": 0.2486532400493318,
+          "accuracy_pct": 53.48101265822785
+        },
+        "poisson": {
+          "log_loss": 0.6917749925090759,
+          "brier": 0.24933020528124097,
+          "accuracy_pct": 54.11392405063291
+        },
+        "prior": {
+          "log_loss": 0.6954674784549731,
+          "brier": 0.25111723381669604,
+          "accuracy_pct": 53.48101265822785
+        },
+        "majority_accuracy_pct": 53.48101265822785
+      },
+      "over_10_5": {
+        "threshold": 10,
+        "development_rate": 0.4786392405063291,
+        "dispersion_alpha": 0.012752,
+        "negative_binomial": {
+          "log_loss": 0.6753276040131322,
+          "brier": 0.24114530695097353,
+          "accuracy_pct": 60.75949367088608
+        },
+        "poisson": {
+          "log_loss": 0.6754991913527668,
+          "brier": 0.24123269949614207,
+          "accuracy_pct": 59.49367088607595
+        },
+        "prior": {
+          "log_loss": 0.6864850653350439,
+          "brier": 0.24667083099663517,
+          "accuracy_pct": 58.86075949367089
+        },
+        "majority_accuracy_pct": 58.86075949367089
+      }
+    },
+    "top_features": {
+      "home_corners_for_roll_10": 0.011347490076384636,
+      "exp_match_corners_5": 0.008139555885235662,
+      "home_shots_for_roll_5": 0.008014097449276184,
+      "home_shots_against_roll_5": 0.007798897482452312,
+      "home_touches_in_opp_box_roll_5": 0.007729485944588433,
+      "away_shots_for_roll_5": 0.006680900408202762,
+      "home_corners_against_roll_5": 0.005791830278349456,
+      "away_possession_roll_5": 0.00569993170773057,
+      "home_possession_roll_5": 0.005013805318412742,
+      "exp_home_corners_5": 0.004893375901675231
+    }
+  },
+  "throws": {
+    "selected_model": "poisson_10",
+    "raw_selected_model": "poisson_10",
+    "skill_gate_applied": false,
+    "skill_gate_passed": true,
+    "skill_gate": {
+      "raw_selected_model": "poisson_10",
+      "selected_model": "poisson_10",
+      "skill_gate_applied": false,
+      "skill_gate_passed": true,
+      "reason": "model_cleared_skill_gate",
+      "baseline": "training_mean",
+      "relative_rmse_gain": 0.146346,
+      "fold_wins": 4,
+      "fold_count": 4,
+      "minimum_relative_gain": 0.005,
+      "minimum_fold_wins": 3
+    },
+    "selection_metric": "mean RMSE across 4 expanding-window folds; feature model must beat training_mean by >=0.5% and win >=3 folds",
+    "cv_rmse": {
+      "lgbm_shallow": 7.5598,
+      "ridge_1.0": 7.3661,
+      "ridge_10.0": 7.3452,
+      "ridge_50.0": 7.3222,
+      "ridge_100.0": 7.3231,
+      "ridge_500.0": 7.4089,
+      "poisson_1": 7.3458,
+      "poisson_10": 7.3221,
+      "poisson_50": 7.4231,
+      "poisson_200": 7.7334,
+      "training_mean": 8.5774
+    },
+    "train_samples": 1264,
+    "test_samples": 316,
+    "test_rmse": 7.0675,
+    "test_mae": 5.6202,
+    "test_r2": 0.0801,
+    "baseline_mean": 35.6345,
+    "baseline_test_rmse": 7.3881,
+    "baseline_test_mae": 5.9665,
+    "beats_baseline_rmse": true,
+    "beats_baseline_mae": true,
+    "n_features": 15,
+    "count_dispersion_alpha_dev": 0.029127,
+    "season_holdouts": [
+      {
+        "season": "2023_24",
+        "partial_season": false,
+        "train_samples": 380,
+        "test_samples": 380,
+        "selected_model": "poisson_10",
+        "raw_selected_model": "poisson_10",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.086887,
+        "skill_gate_fold_wins": 4,
+        "cv_rmse": 8.1599,
+        "rmse": 7.6095,
+        "baseline_rmse": 9.1766,
+        "mae": 6.0727,
+        "baseline_mae": 7.5414,
+        "r2": 0.2577,
+        "beats_baseline_rmse": true
+      },
+      {
+        "season": "2024_25",
+        "partial_season": false,
+        "train_samples": 760,
+        "test_samples": 380,
+        "selected_model": "ridge_10.0",
+        "raw_selected_model": "ridge_10.0",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.140449,
+        "skill_gate_fold_wins": 4,
+        "cv_rmse": 7.8453,
+        "rmse": 7.0411,
+        "baseline_rmse": 8.5265,
+        "mae": 5.4934,
+        "baseline_mae": 6.9717,
+        "r2": 0.1482,
+        "beats_baseline_rmse": true
+      },
+      {
+        "season": "2025_26",
+        "partial_season": false,
+        "train_samples": 1140,
+        "test_samples": 380,
+        "selected_model": "ridge_50.0",
+        "raw_selected_model": "ridge_50.0",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.160066,
+        "skill_gate_fold_wins": 4,
+        "cv_rmse": 7.4251,
+        "rmse": 6.94,
+        "baseline_rmse": 7.203,
+        "mae": 5.5762,
+        "baseline_mae": 5.9098,
+        "r2": 0.069,
+        "beats_baseline_rmse": true
+      },
+      {
+        "season": "2026_27",
+        "partial_season": true,
+        "train_samples": 1520,
+        "test_samples": 60,
+        "selected_model": "poisson_10",
+        "raw_selected_model": "poisson_10",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.132464,
+        "skill_gate_fold_wins": 4,
+        "cv_rmse": 7.2218,
+        "rmse": 7.3438,
+        "baseline_rmse": 7.3005,
+        "mae": 5.6297,
+        "baseline_mae": 5.6321,
+        "r2": -0.0128,
+        "beats_baseline_rmse": false
+      }
+    ],
+    "model_type": "Chronological CV-selected poisson_10 (Throws)",
+    "train_rmse": 7.4177,
+    "train_mae": 5.8948,
+    "over_34_5_accuracy_pct": 62.03,
+    "majority_baseline_pct": 51.58,
+    "count_threshold_metrics": {
+      "over_34_5": {
+        "threshold": 34,
+        "development_rate": 0.5276898734177216,
+        "dispersion_alpha": 0.029127,
+        "negative_binomial": {
+          "log_loss": 0.6639539522289489,
+          "brier": 0.23546634051970858,
+          "accuracy_pct": 62.0253164556962
+        },
+        "poisson": {
+          "log_loss": 0.6697496848195875,
+          "brier": 0.23725198865280717,
+          "accuracy_pct": 61.39240506329114
+        },
+        "prior": {
+          "log_loss": 0.6929286765001104,
+          "brier": 0.24989046727287295,
+          "accuracy_pct": 51.58227848101266
+        },
+        "majority_accuracy_pct": 51.58227848101266
+      }
+    },
+    "top_features": {
+      "home_possession_roll_5": 0.03384869713665192,
+      "home_opponent_throws_roll_10": 0.02471963390567212,
+      "away_throws_roll_10": 0.020174124265769824,
+      "away_possession_roll_5": 0.013122618221114813,
+      "exp_home_throws_5": 0.012505713215492422,
+      "away_opponent_throws_roll_10": 0.012247912546093923,
+      "exp_match_throws_5": 0.010029320909148765,
+      "away_opponent_throws_roll_5": 0.009305672698327612,
+      "home_throws_roll_5": 0.00897043864805487,
+      "home_throws_roll_10": 0.008570745255232774
+    }
+  },
+  "saves": {
+    "selected_model": "training_mean",
+    "raw_selected_model": "ridge_500",
+    "skill_gate_applied": true,
+    "skill_gate_passed": false,
+    "skill_gate": {
+      "raw_selected_model": "ridge_500",
+      "selected_model": "training_mean",
+      "skill_gate_applied": true,
+      "skill_gate_passed": false,
+      "reason": "model_failed_skill_gate",
+      "baseline": "training_mean",
+      "relative_rmse_gain": 0.006077,
+      "fold_wins": 2,
+      "fold_count": 4,
+      "minimum_relative_gain": 0.005,
+      "minimum_fold_wins": 3
+    },
+    "selection_metric": "mean RMSE across 4 expanding-window folds; feature model must beat training_mean by >=0.5% and win >=3 folds",
+    "cv_rmse": {
+      "ridge_0.1": 2.5997,
+      "ridge_1": 2.5993,
+      "ridge_10": 2.5961,
+      "ridge_50": 2.5899,
+      "ridge_100": 2.5869,
+      "ridge_500": 2.5852,
+      "ridge_1000": 2.5872,
+      "poisson_1": 2.59,
+      "poisson_10": 2.5891,
+      "poisson_50": 2.5951,
+      "poisson_200": 2.5989,
+      "lgbm_shallow": 2.5889,
+      "training_mean": 2.601
+    },
+    "train_samples": 1264,
+    "test_samples": 316,
+    "test_rmse": 2.3785,
+    "test_mae": 1.9203,
+    "test_r2": -0.0328,
+    "baseline_mean": 6.1203,
+    "baseline_test_rmse": 2.3785,
+    "baseline_test_mae": 1.9203,
+    "beats_baseline_rmse": false,
+    "beats_baseline_mae": false,
+    "n_features": 13,
+    "count_dispersion_alpha_dev": 0.016019,
+    "season_holdouts": [
+      {
+        "season": "2023_24",
+        "partial_season": false,
+        "train_samples": 380,
+        "test_samples": 380,
+        "selected_model": "training_mean",
+        "raw_selected_model": "training_mean",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.0,
+        "skill_gate_fold_wins": 0,
+        "cv_rmse": 2.4994,
+        "rmse": 2.8066,
+        "baseline_rmse": 2.8066,
+        "mae": 2.1661,
+        "baseline_mae": 2.1661,
+        "r2": -0.0696,
+        "beats_baseline_rmse": false
+      },
+      {
+        "season": "2024_25",
+        "partial_season": false,
+        "train_samples": 760,
+        "test_samples": 380,
+        "selected_model": "training_mean",
+        "raw_selected_model": "ridge_500",
+        "skill_gate_applied": true,
+        "skill_gate_passed": false,
+        "skill_gate_relative_rmse_gain": 0.00813,
+        "skill_gate_fold_wins": 2,
+        "cv_rmse": 2.6206,
+        "rmse": 2.577,
+        "baseline_rmse": 2.577,
+        "mae": 2.0697,
+        "baseline_mae": 2.0697,
+        "r2": -0.0007,
+        "beats_baseline_rmse": false
+      },
+      {
+        "season": "2025_26",
+        "partial_season": false,
+        "train_samples": 1140,
+        "test_samples": 380,
+        "selected_model": "ridge_500",
+        "raw_selected_model": "ridge_500",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.008064,
+        "skill_gate_fold_wins": 3,
+        "cv_rmse": 2.6035,
+        "rmse": 2.3597,
+        "baseline_rmse": 2.3785,
+        "mae": 1.8983,
+        "baseline_mae": 1.9297,
+        "r2": -0.0593,
+        "beats_baseline_rmse": true
+      },
+      {
+        "season": "2026_27",
+        "partial_season": true,
+        "train_samples": 1520,
+        "test_samples": 60,
+        "selected_model": "poisson_1",
+        "raw_selected_model": "poisson_1",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.008111,
+        "skill_gate_fold_wins": 3,
+        "cv_rmse": 2.5359,
+        "rmse": 2.3212,
+        "baseline_rmse": 2.2825,
+        "mae": 1.9219,
+        "baseline_mae": 1.8748,
+        "r2": -0.0381,
+        "beats_baseline_rmse": false
+      }
+    ],
+    "model_type": "Chronological CV-selected training_mean (Saves)",
+    "train_rmse": 2.5913,
+    "train_mae": 2.0558,
+    "top_features": {}
+  },
+  "cards": {
+    "selected_model": "ridge_500",
+    "raw_selected_model": "ridge_500",
+    "skill_gate_applied": false,
+    "skill_gate_passed": true,
+    "skill_gate": {
+      "raw_selected_model": "ridge_500",
+      "selected_model": "ridge_500",
+      "skill_gate_applied": false,
+      "skill_gate_passed": true,
+      "reason": "model_cleared_skill_gate",
+      "baseline": "training_mean",
+      "relative_rmse_gain": 0.014405,
+      "fold_wins": 4,
+      "fold_count": 4,
+      "minimum_relative_gain": 0.005,
+      "minimum_fold_wins": 3
+    },
+    "selection_metric": "mean RMSE across 4 expanding-window folds; feature model must beat training_mean by >=0.5% and win >=3 folds",
+    "cv_rmse": {
+      "lgbm_shallow": 2.202,
+      "ridge_0.1": 2.2003,
+      "ridge_1": 2.2,
+      "ridge_10": 2.1978,
+      "ridge_50": 2.1929,
+      "ridge_100": 2.1905,
+      "ridge_250": 2.1883,
+      "ridge_500": 2.188,
+      "poisson_1": 2.1886,
+      "poisson_10": 2.1894,
+      "poisson_50": 2.2047,
+      "poisson_200": 2.2148,
+      "training_mean": 2.22
+    },
+    "train_samples": 1264,
+    "test_samples": 316,
+    "test_rmse": 2.0298,
+    "test_mae": 1.6394,
+    "test_r2": -0.0353,
+    "baseline_mean": 4.0736,
+    "baseline_test_rmse": 2.0014,
+    "baseline_test_mae": 1.6082,
+    "beats_baseline_rmse": false,
+    "beats_baseline_mae": false,
+    "n_features": 17,
+    "count_dispersion_alpha_dev": 0.033936,
+    "season_holdouts": [
+      {
+        "season": "2023_24",
+        "partial_season": false,
+        "train_samples": 380,
+        "test_samples": 380,
+        "selected_model": "training_mean",
+        "raw_selected_model": "training_mean",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.0,
+        "skill_gate_fold_wins": 0,
+        "cv_rmse": 2.069,
+        "rmse": 2.3007,
+        "baseline_rmse": 2.3007,
+        "mae": 1.7889,
+        "baseline_mae": 1.7889,
+        "r2": -0.0938,
+        "beats_baseline_rmse": false
+      },
+      {
+        "season": "2024_25",
+        "partial_season": false,
+        "train_samples": 760,
+        "test_samples": 380,
+        "selected_model": "training_mean",
+        "raw_selected_model": "ridge_250",
+        "skill_gate_applied": true,
+        "skill_gate_passed": false,
+        "skill_gate_relative_rmse_gain": 0.012405,
+        "skill_gate_fold_wins": 2,
+        "cv_rmse": 2.1818,
+        "rmse": 2.2572,
+        "baseline_rmse": 2.2572,
+        "mae": 1.7319,
+        "baseline_mae": 1.7319,
+        "r2": -0.0075,
+        "beats_baseline_rmse": false
+      },
+      {
+        "season": "2025_26",
+        "partial_season": false,
+        "train_samples": 1140,
+        "test_samples": 380,
+        "selected_model": "ridge_250",
+        "raw_selected_model": "ridge_250",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.018603,
+        "skill_gate_fold_wins": 4,
+        "cv_rmse": 2.193,
+        "rmse": 2.066,
+        "baseline_rmse": 2.0379,
+        "mae": 1.6618,
+        "baseline_mae": 1.631,
+        "r2": -0.0415,
+        "beats_baseline_rmse": false
+      },
+      {
+        "season": "2026_27",
+        "partial_season": true,
+        "train_samples": 1520,
+        "test_samples": 60,
+        "selected_model": "poisson_1",
+        "raw_selected_model": "poisson_1",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.01236,
+        "skill_gate_fold_wins": 3,
+        "cv_rmse": 2.1635,
+        "rmse": 1.8987,
+        "baseline_rmse": 1.8762,
+        "mae": 1.5869,
+        "baseline_mae": 1.5587,
+        "r2": -0.0252,
+        "beats_baseline_rmse": false
+      }
+    ],
+    "train_rmse": 2.1083,
+    "train_mae": 1.6726,
+    "o35_accuracy": 54.43,
+    "o35_majority_baseline": 56.96,
+    "o45_accuracy": 62.97,
+    "count_threshold_metrics": {
+      "over_3_5": {
+        "threshold": 3,
+        "development_rate": 0.5814873417721519,
+        "dispersion_alpha": 0.033936,
+        "negative_binomial": {
+          "log_loss": 0.6921602826263327,
+          "brier": 0.24942223094512578,
+          "accuracy_pct": 54.43037974683544
+        },
+        "poisson": {
+          "log_loss": 0.6927076847745796,
+          "brier": 0.24962804277726588,
+          "accuracy_pct": 57.27848101265823
+        },
+        "prior": {
+          "log_loss": 0.683710256380729,
+          "brier": 0.24529384814132352,
+          "accuracy_pct": 56.9620253164557
+        },
+        "majority_accuracy_pct": 56.9620253164557
+      },
+      "over_4_5": {
+        "threshold": 4,
+        "development_rate": 0.39319620253164556,
+        "dispersion_alpha": 0.033936,
+        "negative_binomial": {
+          "log_loss": 0.6686303680609846,
+          "brier": 0.23735519120130355,
+          "accuracy_pct": 62.9746835443038
+        },
+        "poisson": {
+          "log_loss": 0.6698013461321454,
+          "brier": 0.2378711566903686,
+          "accuracy_pct": 62.9746835443038
+        },
+        "prior": {
+          "log_loss": 0.6588283364135743,
+          "brier": 0.2330161682823265,
+          "accuracy_pct": 63.29113924050633
+        },
+        "majority_accuracy_pct": 63.29113924050633
+      }
+    },
+    "top_features": [
+      {
+        "feature": "home_cards_for_roll_10",
+        "importance": 0.10866494802369013
+      },
+      {
+        "feature": "away_fouls_drawn_roll_5",
+        "importance": 0.08889596766198199
+      },
+      {
+        "feature": "home_cards_against_roll_5",
+        "importance": 0.08285312902938574
+      },
+      {
+        "feature": "exp_away_cards_5",
+        "importance": 0.06509025626174234
+      },
+      {
+        "feature": "away_cards_for_roll_3",
+        "importance": 0.05593121478181506
+      },
+      {
+        "feature": "home_fouls_drawn_roll_5",
+        "importance": 0.049872936403342866
+      },
+      {
+        "feature": "away_cards_for_roll_10",
+        "importance": 0.042160221444986
+      },
+      {
+        "feature": "exp_match_cards_5",
+        "importance": 0.03890090941691475
+      },
+      {
+        "feature": "referee_avg_fouls",
+        "importance": 0.03706311983776404
+      },
+      {
+        "feature": "home_fouls_committed_roll_5",
+        "importance": 0.02841892295519916
+      }
+    ]
+  },
+  "offsides": {
+    "selected_model": "ridge_250",
+    "raw_selected_model": "ridge_250",
+    "skill_gate_applied": false,
+    "skill_gate_passed": true,
+    "skill_gate": {
+      "raw_selected_model": "ridge_250",
+      "selected_model": "ridge_250",
+      "skill_gate_applied": false,
+      "skill_gate_passed": true,
+      "reason": "model_cleared_skill_gate",
+      "baseline": "training_mean",
+      "relative_rmse_gain": 0.036571,
+      "fold_wins": 4,
+      "fold_count": 4,
+      "minimum_relative_gain": 0.005,
+      "minimum_fold_wins": 3
+    },
+    "selection_metric": "mean RMSE across 4 expanding-window folds; feature model must beat training_mean by >=0.5% and win >=3 folds",
+    "cv_rmse": {
+      "lgbm_shallow": 2.043,
+      "ridge_0.1": 2.0549,
+      "ridge_1": 2.0541,
+      "ridge_10": 2.0481,
+      "ridge_50": 2.0346,
+      "ridge_100": 2.0276,
+      "ridge_250": 2.0216,
+      "ridge_500": 2.0222,
+      "poisson_1": 2.0266,
+      "poisson_10": 2.0341,
+      "poisson_50": 2.0722,
+      "poisson_200": 2.0904,
+      "training_mean": 2.0983
+    },
+    "train_samples": 1264,
+    "test_samples": 316,
+    "test_rmse": 1.9043,
+    "test_mae": 1.518,
+    "test_r2": 0.0991,
+    "baseline_mean": 3.4842,
+    "baseline_test_rmse": 2.0238,
+    "baseline_test_mae": 1.6302,
+    "beats_baseline_rmse": true,
+    "beats_baseline_mae": true,
+    "n_features": 15,
+    "count_dispersion_alpha_dev": 0.07443,
+    "season_holdouts": [
+      {
+        "season": "2023_24",
+        "partial_season": false,
+        "train_samples": 380,
+        "test_samples": 380,
+        "selected_model": "lgbm_shallow",
+        "raw_selected_model": "lgbm_shallow",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.021836,
+        "skill_gate_fold_wins": 3,
+        "cv_rmse": 2.078,
+        "rmse": 2.1826,
+        "baseline_rmse": 2.2248,
+        "mae": 1.6786,
+        "baseline_mae": 1.7247,
+        "r2": 0.0041,
+        "beats_baseline_rmse": true
+      },
+      {
+        "season": "2024_25",
+        "partial_season": false,
+        "train_samples": 760,
+        "test_samples": 380,
+        "selected_model": "poisson_1",
+        "raw_selected_model": "poisson_1",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.048534,
+        "skill_gate_fold_wins": 3,
+        "cv_rmse": 2.0959,
+        "rmse": 1.9887,
+        "baseline_rmse": 2.0401,
+        "mae": 1.58,
+        "baseline_mae": 1.6299,
+        "r2": 0.0348,
+        "beats_baseline_rmse": true
+      },
+      {
+        "season": "2025_26",
+        "partial_season": false,
+        "train_samples": 1140,
+        "test_samples": 380,
+        "selected_model": "ridge_250",
+        "raw_selected_model": "ridge_250",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.037107,
+        "skill_gate_fold_wins": 4,
+        "cv_rmse": 2.0583,
+        "rmse": 1.7944,
+        "baseline_rmse": 1.9255,
+        "mae": 1.4452,
+        "baseline_mae": 1.5732,
+        "r2": 0.0854,
+        "beats_baseline_rmse": true
+      },
+      {
+        "season": "2026_27",
+        "partial_season": true,
+        "train_samples": 1520,
+        "test_samples": 60,
+        "selected_model": "ridge_250",
+        "raw_selected_model": "ridge_250",
+        "skill_gate_applied": false,
+        "skill_gate_passed": true,
+        "skill_gate_relative_rmse_gain": 0.043836,
+        "skill_gate_fold_wins": 4,
+        "cv_rmse": 1.989,
+        "rmse": 2.2498,
+        "baseline_rmse": 2.2377,
+        "mae": 1.6888,
+        "baseline_mae": 1.6805,
+        "r2": -0.0415,
+        "beats_baseline_rmse": false
+      }
+    ],
+    "model_type": "Chronological CV-selected ridge_250 (Offsides)",
+    "train_rmse": 1.997,
+    "train_mae": 1.5631,
+    "over_3_5_accuracy_pct": 63.29,
+    "majority_baseline_pct": 58.54,
+    "count_threshold_metrics": {
+      "over_3_5": {
+        "threshold": 3,
+        "development_rate": 0.4509493670886076,
+        "dispersion_alpha": 0.07443,
+        "negative_binomial": {
+          "log_loss": 0.640553551816541,
+          "brier": 0.2246900127553205,
+          "accuracy_pct": 63.29113924050633
+        },
+        "poisson": {
+          "log_loss": 0.6396297683653484,
+          "brier": 0.22425749818562898,
+          "accuracy_pct": 62.9746835443038
+        },
+        "prior": {
+          "log_loss": 0.6811641824210278,
+          "brier": 0.24402389440794747,
+          "accuracy_pct": 58.54430379746836
+        },
+        "majority_accuracy_pct": 58.54430379746836
+      }
+    },
+    "top_features": {
+      "away_offsides_against_roll_10": 0.1867,
+      "away_possession_roll_5": 0.1662,
+      "home_offsides_against_roll_5": 0.1287,
+      "exp_match_offsides_5": 0.1151,
+      "home_offsides_against_roll_10": 0.1146,
+      "home_offsides_for_roll_3": 0.1048,
+      "away_offsides_against_roll_5": 0.0999,
+      "exp_home_offsides_5": 0.0887,
+      "home_possession_roll_5": 0.0868,
+      "exp_away_offsides_5": 0.0644
+    }
+  }
+}

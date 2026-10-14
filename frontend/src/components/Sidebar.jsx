@@ -33,7 +33,8 @@ export default function Sidebar({
     { value: '2025_26', label: '2025-26 (Tam Sezon)', note: '380 Maç' },
     { value: '2024_25', label: '2024-25 (Tam Sezon)', note: '380 Maç' },
     { value: '2023_24', label: '2023-24 (Tam Sezon)', note: '380 Maç' },
-    { value: 'all', label: 'Tüm Sezonlar', note: '1,140 Maç' },
+    { value: '2022_23', label: '2022-23 (Tam Sezon)', note: '380 Maç' },
+    { value: 'all', label: 'Tüm Sezonlar', note: '1,520+ Maç' },
   ];
 
   const handleNavClick = (tabId) => {

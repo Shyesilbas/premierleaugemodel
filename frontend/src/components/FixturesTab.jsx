@@ -271,6 +271,16 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
             >
               2023-24
             </button>
+            <button
+              onClick={() => setSelectedSeason('2022_23')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                selectedSeason === '2022_23'
+                  ? 'bg-[#38003c] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              2022-23
+            </button>
           </div>
           <div className="flex flex-col items-end gap-1.5">
             <button
@@ -853,22 +863,29 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                                 </div>
 
                                 {m.prediction && (
-                                  <div className="grid grid-cols-4 gap-1.5 text-[10px] font-mono text-center">
-                                    <div className="bg-rose-50/70 border border-rose-100/80 py-1 px-1 rounded-lg">
-                                      <span className="text-[8px] text-rose-600 font-sans font-bold block" title="Toplam şut ve büyük şans istatistiklerinden türetilen proxy; resmî xG değildir.">GOL TAH. *</span>
-                                      <strong className="text-rose-900 font-bold">{m.prediction.expected_home_xg} - {m.prediction.expected_away_xg}</strong>
-                                    </div>
+                                  <div className="grid grid-cols-3 gap-1.5 text-[10px] font-mono text-center">
                                     <div className="bg-emerald-50/70 border border-emerald-100/80 py-1 px-1 rounded-lg">
                                       <span className="text-[8px] text-emerald-600 font-sans font-bold block">KORNER</span>
                                       <strong className="text-emerald-900 font-bold">~{m.prediction.expected_corners}</strong>
+                                      {m.prediction.corners_model_skill === 'baseline' && (
+                                        <span className="block text-[7px] leading-tight text-amber-700 font-sans font-semibold">Veri ortalaması</span>
+                                      )}
                                     </div>
                                     <div className="bg-amber-50/70 border border-amber-100/80 py-1 px-1 rounded-lg">
                                       <span className="text-[8px] text-amber-600 font-sans font-bold block">KART (+3.5)</span>
                                       <strong className="text-amber-900 font-bold">%{m.prediction.prob_over_3_5_cards}</strong>
+                                      {m.prediction.cards_model_skill === 'baseline' && (
+                                        <span className="block text-[7px] leading-tight text-amber-700 font-sans font-semibold">Veri ortalaması</span>
+                                      )}
                                     </div>
                                     <div className="bg-slate-50 border border-slate-200 py-1 px-1 rounded-lg">
                                       <span className="text-[8px] text-slate-500 font-sans font-bold block">2.5 ÜST GOL</span>
                                       <strong className="text-slate-800 font-bold">%{m.prediction.over_2_5_goals_pct}</strong>
+                                      {m.prediction.over_2_5_source === 'baseline' && (
+                                        <span className="block text-[7px] leading-tight text-amber-700 font-sans font-semibold">
+                                          Taban oran (sinyal zayıf)
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 )}

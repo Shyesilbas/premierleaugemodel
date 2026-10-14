@@ -140,7 +140,7 @@ def build_report() -> str:
         "",
         "## Raw provider field coverage",
         "",
-        "Coverage counts team-match rows where the raw stats response contains a non-null value. `_reported` flags describe this stats endpoint only. Missing yellow-card, red-card, and offside values are filled from the match event stream when available; source values remain in `_raw` columns. If no stream is available, an omitted red-card value retains the sparse-event zero convention.",
+        "Coverage counts team-match rows where the raw stats response contains a non-null value. `_reported` flags describe this stats endpoint only. Missing saves, corners, yellow-card, red-card, and offside values are filled from the match event stream when available; source values remain in `_raw` columns. If no stream is available, an omitted red-card value retains the sparse-event zero convention.",
         "",
         "| Raw metric | Present team-match rows | Coverage |",
         "|---|---:|---:|",
@@ -158,13 +158,15 @@ def build_report() -> str:
         "",
         "## Event-based label recovery",
         "",
-        "The PulseLive match event stream contains team-attributed yellow-card, red-card, and offside events. For a missing stats-endpoint value, processing fills the effective metric from that match's event stream and records an `_event_reconstructed` flag; the original provider value remains in a `_raw` column and `_reported` continues to indicate stats-endpoint coverage. Existing reported stats values take precedence.",
+        "The PulseLive match event stream contains team-attributed corner, yellow-card, red-card, and offside events, plus saved-shot events. For saves, the shooter's team is read from the event text and the save is attributed to the opposing goalkeeper's team. For a missing stats-endpoint value, processing fills the effective metric from that match's event stream and records an `_event_reconstructed` flag; the original provider value remains in a `_raw` column and `_reported` continues to indicate stats-endpoint coverage. Existing reported stats values take precedence.",
         "",
         "| Target | Stats API complete match labels | Reconstructed team values | Usable match labels |",
         "|---|---:|---:|---:|",
     ])
     if not played.empty:
         recovery_rows = [
+            ("Saves", ("home_saves_event_reconstructed", "away_saves_event_reconstructed"), "total_saves_reported", "total_saves_target_usable"),
+            ("Corners", ("home_won_corners_event_reconstructed", "away_won_corners_event_reconstructed"), "total_corners_reported", "total_corners_target_usable"),
             ("Cards", ("home_total_yel_card_event_reconstructed", "away_total_yel_card_event_reconstructed", "home_total_red_card_event_reconstructed", "away_total_red_card_event_reconstructed"), "total_yellow_cards_reported", "total_cards_target_usable"),
             ("Offsides", ("home_total_offside_event_reconstructed", "away_total_offside_event_reconstructed"), "total_offsides_reported", "total_offsides_target_usable"),
         ]
@@ -199,7 +201,7 @@ def build_report() -> str:
     missingness_targets = {
         "Corners": ("total_corners_reported", "home_won_corners_reported", "away_won_corners_reported"),
         "Throw-ins": ("total_throws_reported", "home_total_throws_reported", "away_total_throws_reported"),
-        "Saves": ("total_saves_reported", "home_saves_reported", "away_saves_reported"),
+        "Saves": ("total_saves_target_usable", "home_saves_usable", "away_saves_usable"),
         "Cards": ("total_cards_target_usable", "home_total_cards_usable", "away_total_cards_usable"),
         "Offsides": ("total_offsides_target_usable", "home_total_offside_usable", "away_total_offside_usable"),
     }
@@ -236,7 +238,7 @@ def build_report() -> str:
             "",
             "### Missingness versus match outcome",
             "",
-            "| Target | Label coverage | Sample | Home win | Draw | Away win | Mean total goals |",
+        "| Target | Usable label coverage | Sample | Home win | Draw | Away win | Mean total goals |",
             "|---|---:|---|---:|---:|---:|---:|",
         ])
         for target, (match_flag, _, _) in missingness_targets.items():
@@ -301,8 +303,8 @@ def build_report() -> str:
         "",
         "## Known data limits",
         "",
-        "- Training excludes rows when a target remains unavailable. Cards and offsides now use event-derived fallbacks for missing stats values; corners and saves still have incomplete target coverage and can select for matches with better provider coverage.",
-        "- Event-derived values fill only missing yellow-card, red-card, and offside stats. The source metric remains available in a `_raw` column, and provider coverage remains visible through `_reported` flags. A match without a usable event stream and without the provider value can still have a missing target.",
+        "- Training excludes rows when a target remains unavailable. Saves, corners, cards, and offsides use event-derived fallbacks for missing stats values, so provider coverage no longer determines whether a saves match label is usable when a complete event stream is available.",
+        "- Event-derived values fill only missing stats values. The source metric remains available in a `_raw` column, and provider coverage remains visible through `_reported` flags. A match without a usable event stream and without the provider value can still have a missing target.",
         "- The historical `home_xg`, `away_xg`, and `total_xg` columns are an aggregate-stat proxy. It is produced only when all required inputs are present; it is not official Opta shot-level xG or a trained xG model.",
         "- The current season is incomplete. Its season holdout is marked partial and should not be compared as if it were a full-season result.",
         "",

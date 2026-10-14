@@ -18,7 +18,9 @@ import {
   Zap,
   Eye,
   CreditCard,
-  Scale
+  Scale,
+  Flame,
+  TrendingUp
 } from 'lucide-react';
 import { getTeam } from '../data/teams';
 
@@ -561,243 +563,576 @@ export default function MatchDetailModal({ match, onClose }) {
                 </div>
               ) : (
                 <>
-                  {/* Outcome Probabilities Card */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 shadow-xs">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-[#38003c]" />
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-800">
-                          Karşılaşma Öngörüsü & 1X2 Olasılık Dağılımı
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
-                        {prediction.favorite_label}
-                      </span>
-                    </div>
+                  {/* HERO 1X2 PREDICTION BANNER */}
+                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1b0022] via-[#280033] to-[#0d0012] p-5 sm:p-6 text-white shadow-xl border border-purple-500/20">
+                    {/* Ambient Glows */}
+                    <div className="absolute -top-20 -left-20 w-52 h-52 bg-[#04f5ff]/15 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-20 -right-20 w-52 h-52 bg-[#e90052]/15 rounded-full blur-3xl pointer-events-none" />
 
-                    {/* 1X2 Probabilities Bar */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-bold">
-                        <span className="text-slate-900">{homeTeam.short}: %{prediction.outcome.home_win_pct}</span>
-                        <span className="text-slate-500">Beraberlik: %{prediction.outcome.draw_pct}</span>
-                        <span className="text-slate-900">{awayTeam.short}: %{prediction.outcome.away_win_pct}</span>
-                      </div>
-                      <div className="h-3 rounded-full bg-slate-200 overflow-hidden flex">
-                        <div 
-                          style={{ width: `${prediction.outcome.home_win_pct}%` }} 
-                          className="h-full bg-[#38003c] transition-all" 
-                          title={`Ev Sahibi: %${prediction.outcome.home_win_pct}`}
-                        />
-                        <div 
-                          style={{ width: `${prediction.outcome.draw_pct}%` }} 
-                          className="h-full bg-slate-400 transition-all" 
-                          title={`Beraberlik: %${prediction.outcome.draw_pct}`}
-                        />
-                        <div 
-                          style={{ width: `${prediction.outcome.away_win_pct}%` }} 
-                          className="h-full bg-emerald-500 transition-all" 
-                          title={`Deplasman: %${prediction.outcome.away_win_pct}`}
-                        />
-                      </div>
-                    </div>
+                    <div className="relative z-10 space-y-5">
+                      {/* Top Bar: Title & Dynamic Badges */}
+                      <div className="flex flex-wrap items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-xl bg-purple-500/20 border border-purple-400/30 text-[#04f5ff] shadow-xs">
+                            <Sparkles className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-xs sm:text-sm font-black tracking-wider uppercase text-white">
+                                1X2 Maç Sonucu Olasılıkları
+                              </h3>
+                              <span className="hidden sm:inline-flex text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/20">
+                                Multi-LGBM + Poisson
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-purple-200/70 font-medium">
+                              Gelişmiş makine öğrenmesi ve takım form ağırlıklı sonuç projeksiyonu
+                            </p>
+                          </div>
+                        </div>
 
-                    <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between text-xs gap-2">
-                      <span className="text-slate-600 font-medium">2.5 Gol Üst Olasılığı: <strong className="text-rose-700 font-mono font-bold">%{prediction.outcome.over_2_5_goals_pct}</strong></span>
-                      <span className="text-slate-500 font-medium">Model: <strong className="text-slate-800 font-mono">Multi-LGBM + XGBoost</strong></span>
+                        {/* Favorite Badge */}
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs font-bold font-mono shadow-xs">
+                          <Flame className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{prediction.favorite_label}</span>
+                        </div>
+                      </div>
+
+                      {/* 3 Outcome Interactive Pillars (Home - Draw - Away) */}
+                      <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                        {/* 1 - Home */}
+                        <div className={`rounded-2xl p-3.5 sm:p-4 text-center flex flex-col items-center justify-between transition-all border ${
+                          prediction.outcome.home_win_pct >= prediction.outcome.away_win_pct && prediction.outcome.home_win_pct >= prediction.outcome.draw_pct
+                            ? 'bg-white/12 border-[#04f5ff]/40 shadow-[0_0_25px_rgba(4,245,255,0.18)] ring-1 ring-[#04f5ff]/30'
+                            : 'bg-white/5 border-white/10 hover:bg-white/8'
+                        }`}>
+                          <div className="flex flex-col items-center">
+                            <img 
+                              src={homeTeam.badge} 
+                              alt={homeTeam.name} 
+                              className="w-9 h-9 sm:w-11 sm:h-11 object-contain drop-shadow mb-1.5"
+                              onError={(e) => { e.target.src = '/badges/1.svg'; }}
+                            />
+                            <span className="text-xs sm:text-sm font-bold text-slate-100 truncate max-w-full">
+                              {homeTeam.short}
+                            </span>
+                            <span className="text-[10px] uppercase tracking-wider font-bold text-[#04f5ff] mt-0.5">
+                              1 · Ev Sahibi
+                            </span>
+                          </div>
+                          <div className="mt-2 w-full">
+                            <div className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
+                              %{prediction.outcome.home_win_pct}
+                            </div>
+                            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-cyan-400 to-[#04f5ff] rounded-full transition-all duration-700"
+                                style={{ width: `${Math.min(100, prediction.outcome.home_win_pct)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* X - Draw */}
+                        <div className={`rounded-2xl p-3.5 sm:p-4 text-center flex flex-col items-center justify-between transition-all border ${
+                          prediction.outcome.draw_pct >= prediction.outcome.home_win_pct && prediction.outcome.draw_pct >= prediction.outcome.away_win_pct
+                            ? 'bg-white/12 border-slate-300/40 shadow-[0_0_25px_rgba(255,255,255,0.15)] ring-1 ring-slate-300/30'
+                            : 'bg-white/5 border-white/10 hover:bg-white/8'
+                        }`}>
+                          <div className="flex flex-col items-center">
+                            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center font-black text-slate-200 font-mono text-base mb-1.5 shadow-inner">
+                              X
+                            </div>
+                            <span className="text-xs sm:text-sm font-bold text-slate-200">
+                              Beraberlik
+                            </span>
+                            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mt-0.5">
+                              X · Eşitlik
+                            </span>
+                          </div>
+                          <div className="mt-2 w-full">
+                            <div className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-slate-200">
+                              %{prediction.outcome.draw_pct}
+                            </div>
+                            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+                              <div 
+                                className="h-full bg-slate-300 rounded-full transition-all duration-700"
+                                style={{ width: `${Math.min(100, prediction.outcome.draw_pct)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2 - Away */}
+                        <div className={`rounded-2xl p-3.5 sm:p-4 text-center flex flex-col items-center justify-between transition-all border ${
+                          prediction.outcome.away_win_pct >= prediction.outcome.home_win_pct && prediction.outcome.away_win_pct >= prediction.outcome.draw_pct
+                            ? 'bg-white/12 border-emerald-400/40 shadow-[0_0_25px_rgba(16,185,129,0.2)] ring-1 ring-emerald-400/30'
+                            : 'bg-white/5 border-white/10 hover:bg-white/8'
+                        }`}>
+                          <div className="flex flex-col items-center">
+                            <img 
+                              src={awayTeam.badge} 
+                              alt={awayTeam.name} 
+                              className="w-9 h-9 sm:w-11 sm:h-11 object-contain drop-shadow mb-1.5"
+                              onError={(e) => { e.target.src = '/badges/1.svg'; }}
+                            />
+                            <span className="text-xs sm:text-sm font-bold text-slate-100 truncate max-w-full">
+                              {awayTeam.short}
+                            </span>
+                            <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-300 mt-0.5">
+                              2 · Deplasman
+                            </span>
+                          </div>
+                          <div className="mt-2 w-full">
+                            <div className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
+                              %{prediction.outcome.away_win_pct}
+                            </div>
+                            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 rounded-full transition-all duration-700"
+                                style={{ width: `${Math.min(100, prediction.outcome.away_win_pct)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Continuous Spectrum Bar */}
+                      <div className="space-y-1.5">
+                        <div className="h-3 rounded-full bg-black/40 p-0.5 flex gap-1 overflow-hidden border border-white/10">
+                          <div 
+                            style={{ width: `${prediction.outcome.home_win_pct}%` }} 
+                            className="h-full bg-gradient-to-r from-cyan-400 to-[#04f5ff] rounded-l-full transition-all duration-700" 
+                            title={`${homeTeam.short}: %${prediction.outcome.home_win_pct}`}
+                          />
+                          <div 
+                            style={{ width: `${prediction.outcome.draw_pct}%` }} 
+                            className="h-full bg-slate-400/80 transition-all duration-700" 
+                            title={`Beraberlik: %${prediction.outcome.draw_pct}`}
+                          />
+                          <div 
+                            style={{ width: `${prediction.outcome.away_win_pct}%` }} 
+                            className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 rounded-r-full transition-all duration-700" 
+                            title={`${awayTeam.short}: %${prediction.outcome.away_win_pct}`}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[11px] font-mono text-purple-200/80 px-1 font-semibold">
+                          <span>{homeTeam.short} %{prediction.outcome.home_win_pct}</span>
+                          <span>Beraberlik %{prediction.outcome.draw_pct}</span>
+                          <span>{awayTeam.short} %{prediction.outcome.away_win_pct}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* 5 Micro-Metric Models Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    
-                    {/* Card 1: Corners */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs hover:border-emerald-300 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-emerald-700">
-                          <Flag className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Toplam Korner</span>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
-                          XGBoost
-                        </span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-3xl font-black font-mono text-slate-900">{prediction.corners.expected_total}</span>
-                          <span className="text-xs text-slate-500 font-medium">beklenen korner</span>
-                        </div>
-                        <p className="text-xs text-slate-600 font-medium">
-                          {homeTeam.short}: <strong className="text-slate-900">{prediction.corners.expected_home}</strong> • {awayTeam.short}: <strong className="text-slate-900">{prediction.corners.expected_away}</strong>
-                        </p>
-                      </div>
-                      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
-                        <div className="flex justify-between text-slate-600">
-                          <span>9.5 Üst Olasılığı:</span>
-                          <strong className="text-emerald-700 font-mono font-bold">%{prediction.corners.prob_over_9_5_pct}</strong>
-                        </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>10.5 Üst:</span>
-                          <strong className="text-slate-800 font-mono font-bold">%{prediction.corners.prob_over_10_5_pct}</strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card 2: Throws */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs hover:border-sky-300 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sky-700">
-                          <Activity className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Taç Atışları</span>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold bg-sky-50 text-sky-800 px-2 py-0.5 rounded border border-sky-200">
-                          LightGBM
-                        </span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-3xl font-black font-mono text-slate-900">{prediction.throws.expected_total}</span>
-                          <span className="text-xs text-slate-500 font-medium">beklenen taç</span>
-                        </div>
-                        <p className="text-xs text-slate-600 font-medium">
-                          {homeTeam.short}: <strong className="text-slate-900">{prediction.throws.expected_home}</strong> • {awayTeam.short}: <strong className="text-slate-900">{prediction.throws.expected_away}</strong>
-                        </p>
-                      </div>
-                      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
-                        <div className="flex justify-between text-slate-600">
-                          <span>33.5 Üst Olasılığı:</span>
-                          <strong className="text-sky-700 font-mono font-bold">%{prediction.throws.prob_over_33_5_pct}</strong>
-                        </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>36.5 Üst:</span>
-                          <strong className="text-slate-800 font-mono font-bold">%{prediction.throws.prob_over_36_5_pct}</strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card 3: Saves */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs hover:border-purple-300 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-purple-700">
-                          <Shield className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Kaleci Kurtarışları</span>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
-                          XGBoost
-                        </span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-3xl font-black font-mono text-slate-900">{prediction.saves.expected_total}</span>
-                          <span className="text-xs text-slate-500 font-medium">toplam kurtarış</span>
-                        </div>
-                        <p className="text-xs text-slate-600 font-medium">
-                          Ev GK: <strong className="text-slate-900">{prediction.saves.expected_home}</strong> • Dep GK: <strong className="text-slate-900">{prediction.saves.expected_away}</strong>
-                        </p>
-                      </div>
-                      <div className="pt-2 border-t border-slate-100 text-xs text-slate-600 flex justify-between">
-                        <span>Kurtarış Baskısı:</span>
-                        <strong className="text-purple-700 font-bold">
-                          {prediction.saves.expected_away > prediction.saves.expected_home ? `${awayTeam.short} GK Yoğun` : `${homeTeam.short} GK Yoğun`}
-                        </strong>
-                      </div>
-                    </div>
-
-                    {/* Card 4: Offsides */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs hover:border-amber-300 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-amber-700">
-                          <Eye className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Yakalanılan Ofsayt</span>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-200">
-                          XGBoost + Poisson
-                        </span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-3xl font-black font-mono text-slate-900">{prediction.offsides?.expected_total || '3.3'}</span>
-                          <span className="text-xs text-slate-500 font-medium">beklenen ofsayt</span>
-                        </div>
-                        <p className="text-xs text-slate-600 font-medium">
-                          {homeTeam.short}: <strong className="text-slate-900">{prediction.offsides?.expected_home || '1.7'}</strong> • {awayTeam.short}: <strong className="text-slate-900">{prediction.offsides?.expected_away || '1.6'}</strong>
-                        </p>
-                      </div>
-                      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
-                        <div className="flex justify-between text-slate-600">
-                          <span>3.5 Üst Olasılığı:</span>
-                          <strong className="text-amber-700 font-mono font-bold">%{prediction.offsides?.prob_over_3_5_pct || '45.0'}</strong>
-                        </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>Hat Analizi:</span>
-                          <strong className="text-amber-800 font-bold">
-                            {(prediction.offsides?.expected_total || 3.3) >= 3.6 ? 'Yüksek Çizgi / Tuzak' : 'Derin Blok'}
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card 5: Cards & Disciplinary */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs hover:border-amber-300 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-amber-700">
-                          <CreditCard className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Kartlar & Hakem</span>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-200">
-                          XGBoost + Hakem
-                        </span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-3xl font-black font-mono text-slate-900">{prediction.cards?.expected_total || '4.2'}</span>
-                          <span className="text-xs text-slate-500 font-medium">beklenen kart</span>
-                        </div>
-                        <p className="text-xs text-slate-600 font-medium">
-                          {homeTeam.short}: <strong className="text-slate-900">{prediction.cards?.expected_home || '2.1'}</strong> • {awayTeam.short}: <strong className="text-slate-900">{prediction.cards?.expected_away || '2.1'}</strong>
-                        </p>
-                      </div>
-                      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
-                        <div className="flex justify-between text-slate-600">
-                          <span>3.5 Üst Olasılığı:</span>
-                          <strong className="text-amber-700 font-mono font-bold">%{prediction.cards?.prob_over_3_5_pct || '62.0'}</strong>
-                        </div>
-                        <div className="flex justify-between text-slate-600 items-center">
-                          <span className="flex items-center gap-1"><Scale className="w-3 h-3 text-slate-400" /> Hakem:</span>
-                          <strong className="text-slate-800 font-bold truncate max-w-[130px]" title={prediction.referee?.name}>
-                            {prediction.referee?.name || 'Hakem Heyeti'} ({prediction.referee?.avg_cards || '4.2'} k/m)
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card 6: Expected Goals (xG) & Shots */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs hover:border-rose-300 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-rose-700">
+                  {/* GOALS & SCORE MATRIX HUB */}
+                  <div className="bg-gradient-to-br from-rose-50/60 via-purple-50/30 to-slate-50 border border-rose-200/70 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-rose-500/10 text-rose-700 border border-rose-200">
                           <Target className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Gol Tahmini · Şut İstatistikleri</span>
                         </div>
-                        <span className="text-[10px] font-mono font-bold bg-rose-50 text-rose-800 px-2 py-0.5 rounded border border-rose-200">
-                          İstatistik Proksisi
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900">
+                            Gol Beklentisi & Skor Dağılımı
+                          </h4>
+                          <p className="text-[11px] text-slate-500 font-medium">
+                            Dixon-Coles & İki Değişkenli Poisson Simülasyonu
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold bg-rose-100/80 text-rose-800 px-2.5 py-1 rounded-full border border-rose-200">
+                        Skor Modeli
+                      </span>
+                    </div>
+
+                    {/* Goals Hero & Tug-of-War Split */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-white/90 border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">
+                      {/* Left: Expected Total Goals Metric */}
+                      <div className="md:col-span-4 flex flex-col items-center md:items-start text-center md:text-left border-b md:border-b-0 md:border-r border-slate-200 pb-3 md:pb-0 md:pr-4">
+                        <span className="text-[11px] uppercase tracking-wider font-bold text-slate-500">
+                          Beklenen Toplam Gol
+                        </span>
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="text-4xl sm:text-5xl font-black font-mono text-slate-900">
+                            {prediction.goals?.expected_total_goals || (Number(prediction.goals?.expected_home_goals || 1.4) + Number(prediction.goals?.expected_away_goals || 1.2)).toFixed(2)}
+                          </span>
+                          <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
+                            gol / maç
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 mt-1">
+                          Tahmini toplam skor hacmi
                         </span>
                       </div>
-                      <div className="space-y-0.5">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-3xl font-black font-mono text-slate-900">{prediction.xg?.expected_total || '2.90'}</span>
-                          <span className="text-xs text-slate-500 font-medium">tahmini gol · resmî xG değil</span>
+
+                      {/* Right: Team Goal Split Tug-of-War */}
+                      <div className="md:col-span-8 space-y-2.5">
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <div className="flex items-center gap-1.5 text-slate-800">
+                            <img src={homeTeam.badge} alt="" className="w-4 h-4 object-contain" onError={(e) => { e.target.src = '/badges/1.svg'; }} />
+                            <span>{homeTeam.short}</span>
+                            <span className="text-rose-700 font-mono font-black ml-1 text-sm">{prediction.goals?.expected_home_goals || '1.4'} gol</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-slate-800">
+                            <span className="text-rose-700 font-mono font-black mr-1 text-sm">{prediction.goals?.expected_away_goals || '1.2'} gol</span>
+                            <span>{awayTeam.short}</span>
+                            <img src={awayTeam.badge} alt="" className="w-4 h-4 object-contain" onError={(e) => { e.target.src = '/badges/1.svg'; }} />
+                          </div>
                         </div>
-                        <p className="text-xs text-slate-600 font-medium">
-                          {homeTeam.short}: <strong className="text-rose-700 font-mono font-bold">{prediction.xg?.expected_home || '1.45'} gol</strong> • {awayTeam.short}: <strong className="text-rose-700 font-mono font-bold">{prediction.xg?.expected_away || '1.45'} gol</strong>
-                        </p>
+
+                        {/* Split Bar */}
+                        {(() => {
+                          const hG = Number(prediction.goals?.expected_home_goals || 1.4);
+                          const aG = Number(prediction.goals?.expected_away_goals || 1.2);
+                          const totG = hG + aG || 1;
+                          const hPct = Math.round((hG / totG) * 100);
+                          const aPct = 100 - hPct;
+                          return (
+                            <div className="space-y-1">
+                              <div className="h-3 rounded-full bg-slate-100 overflow-hidden flex border border-slate-200">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-[#38003c] to-purple-700 transition-all duration-700"
+                                  style={{ width: `${hPct}%` }}
+                                  title={`${homeTeam.short}: %${hPct}`}
+                                />
+                                <div 
+                                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700"
+                                  style={{ width: `${aPct}%` }}
+                                  title={`${awayTeam.short}: %${aPct}`}
+                                />
+                              </div>
+                              <div className="flex justify-between text-[10px] font-mono text-slate-400 font-semibold px-0.5">
+                                <span>%{hPct} Pay</span>
+                                <span>%{aPct} Pay</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
-                      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
-                        <div className="flex justify-between text-slate-600">
-                          <span>2.5 Gol Üst Olasılığı:</span>
-                          <strong className="text-rose-700 font-mono font-bold">%{prediction.outcome.over_2_5_goals_pct}</strong>
+                    </div>
+
+                    {/* 4 Market Cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                      {/* Market 1: 1.5 Üst */}
+                      <div className="bg-white border border-slate-200 rounded-2xl p-3.5 text-center shadow-xs hover:border-rose-300 transition-all">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                          1.5 Gol Üst
+                        </span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 mt-1">
+                          %{prediction.goals?.['over_1.5']?.pct || '75.0'}
                         </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>Beklenen Şut:</span>
-                          <strong className="text-slate-800 font-mono font-bold">{prediction.shots.expected_total} şut</strong>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                          <div 
+                            className="h-full bg-rose-500 rounded-full" 
+                            style={{ width: `${prediction.goals?.['over_1.5']?.pct || 75}%` }} 
+                          />
+                        </div>
+                      </div>
+
+                      {/* Market 2: 2.5 Üst */}
+                      <div className="bg-white border-2 border-rose-300/80 rounded-2xl p-3.5 text-center shadow-xs hover:border-rose-400 transition-all relative overflow-hidden">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 block">
+                          2.5 Gol Üst ⭐
+                        </span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-rose-700 mt-1">
+                          %{prediction.outcome?.over_2_5_goals_pct}
+                        </div>
+                        <div className="w-full bg-rose-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                          <div 
+                            className="h-full bg-rose-600 rounded-full" 
+                            style={{ width: `${prediction.outcome?.over_2_5_goals_pct}%` }} 
+                          />
+                        </div>
+                      </div>
+
+                      {/* Market 3: 3.5 Üst */}
+                      <div className="bg-white border border-slate-200 rounded-2xl p-3.5 text-center shadow-xs hover:border-rose-300 transition-all">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                          3.5 Gol Üst
+                        </span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 mt-1">
+                          %{prediction.goals?.['over_3.5']?.pct || '32.0'}
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                          <div 
+                            className="h-full bg-purple-500 rounded-full" 
+                            style={{ width: `${prediction.goals?.['over_3.5']?.pct || 32}%` }} 
+                          />
+                        </div>
+                      </div>
+
+                      {/* Market 4: BTTS / KG Var */}
+                      <div className="bg-white border border-slate-200 rounded-2xl p-3.5 text-center shadow-xs hover:border-emerald-300 transition-all">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                          Karşılıklı Gol (KG)
+                        </span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-emerald-700 mt-1">
+                          %{prediction.goals?.btts_pct || '55.0'}
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-500 rounded-full" 
+                            style={{ width: `${prediction.goals?.btts_pct || 55}%` }} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4 DETAILED ANALYTICAL MODULES (BENTO GRID) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {/* BENTO CARD 1: CORNERS */}
+                    <div className="bg-white border border-slate-200 hover:border-emerald-300 rounded-3xl p-5 space-y-4 shadow-xs transition-all flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <Flag className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                              Korner Dinamiği
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                            prediction.corners.model_skill === 'baseline' 
+                              ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          }`}>
+                            {prediction.corners.model_skill === 'baseline' ? 'Ortalama' : 'Model Tahmini'}
+                          </span>
+                        </div>
+
+                        {/* Corner Big Metric */}
+                        <div className="flex items-baseline justify-between pt-1">
+                          <div>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-3xl sm:text-4xl font-black font-mono text-slate-900">
+                                {prediction.corners.expected_total}
+                              </span>
+                              <span className="text-xs text-slate-500 font-semibold">beklenen korner</span>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-0.5">
+                              {homeTeam.short}: <strong className="text-slate-900 font-mono">{prediction.corners.expected_home}</strong> • {awayTeam.short}: <strong className="text-slate-900 font-mono">{prediction.corners.expected_away}</strong>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Corner Breakdown Bar */}
+                        {(() => {
+                          const hC = Number(prediction.corners.expected_home || 5);
+                          const aC = Number(prediction.corners.expected_away || 5);
+                          const totC = hC + aC || 1;
+                          const hPct = Math.round((hC / totC) * 100);
+                          return (
+                            <div className="h-2 rounded-full bg-slate-100 overflow-hidden flex border border-slate-200">
+                              <div style={{ width: `${hPct}%` }} className="h-full bg-emerald-500" title={`${homeTeam.short}: %${hPct}`} />
+                              <div style={{ width: `${100 - hPct}%` }} className="h-full bg-teal-400" title={`${awayTeam.short}: %${100 - hPct}`} />
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Threshold Probabilities */}
+                      <div className="pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
+                          <span className="text-[10px] font-bold text-slate-500 block">8.5 ÜST</span>
+                          <span className="text-xs font-black font-mono text-emerald-700">%{prediction.corners.prob_over_8_5_pct || '70.3'}</span>
+                        </div>
+                        <div className="bg-emerald-50/70 rounded-xl p-2 border border-emerald-200">
+                          <span className="text-[10px] font-black text-emerald-800 block">9.5 ÜST ⭐</span>
+                          <span className="text-xs font-black font-mono text-emerald-800">%{prediction.corners.prob_over_9_5_pct}</span>
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
+                          <span className="text-[10px] font-bold text-slate-500 block">10.5 ÜST</span>
+                          <span className="text-xs font-black font-mono text-slate-800">%{prediction.corners.prob_over_10_5_pct}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* BENTO CARD 2: CARDS & REFEREE */}
+                    <div className="bg-white border border-slate-200 hover:border-amber-300 rounded-3xl p-5 space-y-4 shadow-xs transition-all flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+                              <CreditCard className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                              Kartlar & Hakem Heyeti
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                            prediction.cards?.model_skill === 'baseline' 
+                              ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
+                            Disiplin Modeli
+                          </span>
+                        </div>
+
+                        {/* Cards Big Metric */}
+                        <div className="flex items-baseline justify-between pt-1">
+                          <div>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-3xl sm:text-4xl font-black font-mono text-slate-900">
+                                {prediction.cards?.expected_total || '4.2'}
+                              </span>
+                              <span className="text-xs text-slate-500 font-semibold">beklenen kart</span>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-0.5">
+                              {homeTeam.short}: <strong className="text-slate-900 font-mono">{prediction.cards?.expected_home || '2.1'}</strong> • {awayTeam.short}: <strong className="text-slate-900 font-mono">{prediction.cards?.expected_away || '2.1'}</strong>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Referee Dossier Box */}
+                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <Scale className="w-3.5 h-3.5 text-amber-600" />
+                            <span className="font-bold text-slate-800 truncate max-w-[150px]" title={prediction.referee?.name}>
+                              {prediction.referee?.name || 'Hakem Heyeti'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono text-[11px] text-slate-600">
+                            <span><strong className="text-slate-900">{prediction.referee?.avg_cards || '4.2'}</strong> kart/m</span>
+                            <span>•</span>
+                            <span><strong className="text-slate-900">{prediction.referee?.avg_fouls || '21.5'}</strong> faul/m</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Threshold Probabilities */}
+                      <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-center">
+                        <div className="bg-amber-50/70 rounded-xl p-2 border border-amber-200">
+                          <span className="text-[10px] font-black text-amber-800 block">3.5 KART ÜST</span>
+                          <span className="text-xs font-black font-mono text-amber-800">%{prediction.cards?.prob_over_3_5_pct || '62.0'}</span>
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
+                          <span className="text-[10px] font-bold text-slate-500 block">4.5 KART ÜST</span>
+                          <span className="text-xs font-black font-mono text-slate-800">%{prediction.cards?.prob_over_4_5_pct || '44.0'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* BENTO CARD 3: SHOTS & SAVES */}
+                    <div className="bg-white border border-slate-200 hover:border-purple-300 rounded-3xl p-5 space-y-4 shadow-xs transition-all flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-200">
+                              <Shield className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                              Şut Hacmi & Kaleci Kurtarışları
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                            prediction.saves.model_skill === 'baseline' 
+                              ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                              : 'bg-purple-50 text-purple-800 border-purple-200'
+                          }`}>
+                            {prediction.saves.model_skill === 'baseline' ? 'Ortalama' : 'Model Tahmini'}
+                          </span>
+                        </div>
+
+                        {/* Dual Numbers: Total Shots & Total Saves */}
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          <div className="bg-purple-50/50 rounded-2xl p-3 border border-purple-100 text-center">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-900 block">
+                              Beklenen Toplam Şut
+                            </span>
+                            <div className="text-2xl sm:text-3xl font-black font-mono text-purple-950 mt-1">
+                              {prediction.shots?.expected_total || '26.0'}
+                            </div>
+                            <span className="text-[10px] text-purple-700 font-medium">şut / maç</span>
+                          </div>
+
+                          <div className="bg-indigo-50/50 rounded-2xl p-3 border border-indigo-100 text-center">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-900 block">
+                              Toplam Kurtarış
+                            </span>
+                            <div className="text-2xl sm:text-3xl font-black font-mono text-indigo-950 mt-1">
+                              {prediction.saves.expected_total}
+                            </div>
+                            <span className="text-[10px] text-indigo-700 font-medium">kurtarış / maç</span>
+                          </div>
+                        </div>
+
+                        {/* Goalkeeper Workload Split */}
+                        <div className="flex justify-between items-center text-xs text-slate-600 px-1">
+                          <span>Ev GK ({homeTeam.short}): <strong className="text-slate-900 font-mono font-bold">{prediction.saves.expected_home}</strong></span>
+                          <span>Dep GK ({awayTeam.short}): <strong className="text-slate-900 font-mono font-bold">{prediction.saves.expected_away}</strong></span>
+                        </div>
+                      </div>
+
+                      {/* Goalkeeper Pressure Insight Pill */}
+                      <div className="pt-3 border-t border-slate-100">
+                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80 flex items-center justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Baskı Altındaki Kaleci:</span>
+                          <span className="font-bold text-purple-800 flex items-center gap-1">
+                            <Zap className="w-3.5 h-3.5 text-amber-500" />
+                            {prediction.saves.expected_away > prediction.saves.expected_home ? `${awayTeam.short} GK Yoğun` : `${homeTeam.short} GK Yoğun`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* BENTO CARD 4: GAME FLOW & OFFSIDES */}
+                    <div className="bg-white border border-slate-200 hover:border-sky-300 rounded-3xl p-5 space-y-4 shadow-xs transition-all flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">
+                              <Activity className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                              Oyun Akışı & Taktiksel Çizgi
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold bg-sky-50 text-sky-800 px-2.5 py-0.5 rounded-full border border-sky-200">
+                            Taç & Ofsayt
+                          </span>
+                        </div>
+
+                        {/* Dual Sub-sections: Throws and Offsides */}
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          {/* Throws */}
+                          <div className="bg-sky-50/50 rounded-2xl p-3 border border-sky-100 space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-900 block">
+                              Taç Atışları
+                            </span>
+                            <div className="text-2xl font-black font-mono text-sky-950">
+                              {prediction.throws.expected_total}
+                            </div>
+                            <div className="text-[11px] text-slate-600 font-medium">
+                              33.5 Üst: <strong className="text-sky-700 font-mono">%{prediction.throws.prob_over_33_5_pct}</strong>
+                            </div>
+                          </div>
+
+                          {/* Offsides */}
+                          <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
+                              Ofsayt Beklentisi
+                            </span>
+                            <div className="text-2xl font-black font-mono text-slate-900">
+                              {prediction.offsides?.expected_total || '3.3'}
+                            </div>
+                            <div className="text-[11px] text-slate-600 font-medium">
+                              3.5 Üst: <strong className="text-amber-700 font-mono">%{prediction.offsides?.prob_over_3_5_pct || '45.0'}</strong>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tactical Assessment */}
+                      <div className="pt-3 border-t border-slate-100">
+                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80 flex items-center justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Savunma Hattı Öngörüsü:</span>
+                          <span className="font-bold text-slate-800">
+                            {(prediction.offsides?.expected_total || 3.3) >= 3.6 ? '🚩 Yüksek Çizgi / Ofsayt Tuzağı' : '🛡️ Derin Blok Savunma'}
+                          </span>
                         </div>
                       </div>
                     </div>

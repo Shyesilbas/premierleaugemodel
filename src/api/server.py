@@ -21,7 +21,8 @@ import joblib
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from src.models.model_utils import apply_probability_calibrator, count_tail_probability
+from src.models.model_utils import apply_probability_calibrator, blend_log, count_tail_probability
+from src.models.dixon_coles import btts_prob, over_prob
 from src.db.database import get_referees_list, get_referee_detail, get_all_grouped_fixtures, get_referee_summary
 from src.features.build_features import (
     calculate_rest_days,
@@ -30,6 +31,7 @@ from src.features.build_features import (
     compute_strength_state,
     build_prediction_row,
 )
+from src.features.draw_features import build_draw_state
 from src.analytics.team_tactics import get_team_tactical_profile
 from src.analytics.team_scenarios import get_team_scenario_profile
 from src.analytics.team_attackers import get_team_attacking_leaders
@@ -71,6 +73,7 @@ corner_artifact = joblib.load(MODELS_DIR / "corner_model_v1.joblib") if (MODELS_
 throws_artifact = joblib.load(MODELS_DIR / "throws_model_v1.joblib") if (MODELS_DIR / "throws_model_v1.joblib").exists() else None
 saves_artifact = joblib.load(MODELS_DIR / "saves_model_v1.joblib") if (MODELS_DIR / "saves_model_v1.joblib").exists() else None
 outcome_artifact = joblib.load(MODELS_DIR / "outcome_models_v1.joblib") if (MODELS_DIR / "outcome_models_v1.joblib").exists() else None
+goals_artifact = joblib.load(MODELS_DIR / "goals_models_v1.joblib") if (MODELS_DIR / "goals_models_v1.joblib").exists() else None
 offside_artifact = joblib.load(MODELS_DIR / "offside_model_v1.joblib") if (MODELS_DIR / "offside_model_v1.joblib").exists() else None
 cards_artifact = joblib.load(MODELS_DIR / "cards_model_v1.joblib") if (MODELS_DIR / "cards_model_v1.joblib").exists() else None
 
@@ -264,11 +267,13 @@ _played_matches = _matches_prepared[_matches_prepared["is_played"]] if not _matc
 CURRENT_SEASON = (
     str(_played_matches["season"].iloc[-1]) if not _played_matches.empty and "season" in _played_matches.columns else None
 )
-_live_state_cache: Dict[str, Tuple[pd.DataFrame, Dict[str, Any], Optional[pd.Timestamp]]] = {}
+_live_state_cache: Dict[str, Tuple[pd.DataFrame, Dict[str, Any], Optional[pd.Timestamp], Any]] = {}
 
 
-def get_live_state(season: Optional[str]) -> Tuple[pd.DataFrame, Dict[str, Any], Optional[pd.Timestamp]]:
-    """Returns (team form states, strength state, cutoff date). Historical seasons use end-of-season state."""
+def get_live_state(
+    season: Optional[str],
+) -> Tuple[pd.DataFrame, Dict[str, Any], Optional[pd.Timestamp], Any]:
+    """Return team form, strength, draw history, and cutoff; past seasons use end state."""
     key = "current" if (not season or season in ("all", CURRENT_SEASON)) else season
     if key not in _live_state_cache:
         until: Optional[pd.Timestamp] = None
@@ -276,10 +281,14 @@ def get_live_state(season: Optional[str]) -> Tuple[pd.DataFrame, Dict[str, Any],
             season_played = _played_matches[_played_matches["season"] == season]
             if not season_played.empty:
                 until = season_played["match_date"].max()
+        draw_history = _played_matches
+        if until is not None:
+            draw_history = draw_history[draw_history["match_date"] <= until]
         _live_state_cache[key] = (
             compute_team_states(_long_history, until=until),
             compute_strength_state(_matches_prepared, until=until),
             until,
+            build_draw_state(draw_history),
         )
     return _live_state_cache[key]
 
@@ -370,7 +379,7 @@ def _run_season_sync_job(job_id: str, season: str) -> None:
 @app.post("/api/admin/sync-season")
 def start_season_sync(season: str = Query("2026_27")):
     """Start an incremental season sync in the background."""
-    if season not in {"2023_24", "2024_25", "2025_26", "2026_27"}:
+    if season not in {"2022_23", "2023_24", "2024_25", "2025_26", "2026_27"}:
         raise HTTPException(status_code=400, detail="Unsupported season")
     with _sync_job_lock:
         if _sync_job.get("status") in {"queued", "running"}:
@@ -465,12 +474,13 @@ def get_quick_fixture_prediction(home_id: int, away_id: int, season: Optional[st
             "draw_pct": p["outcome"]["draw_pct"],
             "away_win_pct": p["outcome"]["away_win_pct"],
             "over_2_5_goals_pct": p["outcome"]["over_2_5_goals_pct"],
+            "over_2_5_source": p["outcome"].get("over_2_5_source", "legacy"),
+            "goals": p.get("goals", {}),
             "expected_corners": p["corners"]["expected_total"],
+            "corners_model_skill": p["corners"]["model_skill"],
             "expected_cards": p["cards"]["expected_total"],
+            "cards_model_skill": p["cards"]["model_skill"],
             "prob_over_3_5_cards": p["cards"]["prob_over_3_5_pct"],
-            "expected_tot_xg": p["xg"]["expected_total"],
-            "expected_home_xg": p["xg"]["expected_home"],
-            "expected_away_xg": p["xg"]["expected_away"],
             "referee_name": p["referee"]["name"],
         }
         _fixture_pred_cache[cache_key] = summary
@@ -478,6 +488,16 @@ def get_quick_fixture_prediction(home_id: int, away_id: int, season: Optional[st
     except Exception as e:
         logger.warning(f"Error generating quick prediction for {home_id} vs {away_id}: {e}")
         return None
+
+
+def _regression_model_skill(artifact: Optional[Dict[str, Any]]) -> str:
+    """Expose whether a count prediction uses the gated model or mean baseline."""
+    if artifact is None:
+        return "baseline"
+    metrics = artifact.get("metrics") or {}
+    if metrics.get("selected_model") == "training_mean" or metrics.get("skill_gate_applied"):
+        return "baseline"
+    return "model"
 
 
 @app.get("/api/teams/manager-changes")
@@ -1017,7 +1037,7 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
 
     # Clone player dict and ensure teamId and teamName match the active season
     player_data = dict(player)
-    season_order = {'2024_25': 1, '2025_26': 2, '2026_27': 3}
+    season_order = {'2022_23': 0, '2023_24': 0.5, '2024_25': 1, '2025_26': 2, '2026_27': 3}
     active_logs = logs if logs else raw_logs
     if active_logs:
         sorted_active = sorted(
@@ -1508,8 +1528,9 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     if not home_meta or not away_meta:
         raise HTTPException(status_code=404, detail="Team not found.")
 
-    team_states, strength_state, until = get_live_state(season)
+    team_states, strength_state, until, draw_state = get_live_state(season)
     target_season = str(season) if season and season != "all" else CURRENT_SEASON
+    gameweek: Optional[float] = None
 
     # Reference date & referee: use the scheduled (unplayed) fixture of this pairing if it exists
     referee_info: Optional[Dict[str, Any]] = None
@@ -1524,6 +1545,8 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
                 match_date = pd.Timestamp(fx["match_date"])
                 if pd.notnull(fx.get("season")):
                     target_season = str(fx["season"])
+                if pd.notnull(fx.get("gameweek")):
+                    gameweek = float(fx["gameweek"])
                 referee_info = {
                     c: (fx[c] if pd.notnull(fx.get(c)) else None)
                     for c in ["referee_name", "referee_avg_cards", "referee_avg_fouls", "referee_prior_matches"]
@@ -1533,12 +1556,26 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         match_date = until + pd.Timedelta(days=7)  # Hypothetical next match after season end
 
     simulated_df = build_prediction_row(
-        team_states, strength_state, home_id, away_id, match_date, referee_info, season=target_season
+        team_states,
+        strength_state,
+        home_id,
+        away_id,
+        match_date,
+        referee_info,
+        season=target_season,
+        draw_state=draw_state,
+        gameweek=gameweek,
     )
+
+    def _safe_features(df: pd.DataFrame, features: List[str]) -> pd.DataFrame:
+        for c in features:
+            if c not in df.columns:
+                df[c] = 0.0
+        return df[features].fillna(0.0)
 
     # 1. Corner Prediction
     c_features = corner_artifact["feature_names"]
-    X_c = simulated_df[c_features]
+    X_c = _safe_features(simulated_df, c_features)
     exp_corners = float(corner_artifact["model"].predict(X_c)[0])
     exp_corners = max(5.0, min(18.0, exp_corners))
     # Use the count distribution fitted with the production model.
@@ -1549,7 +1586,7 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
 
     # 2. Throws Prediction
     t_features = throws_artifact["feature_names"]
-    X_t = simulated_df[t_features]
+    X_t = _safe_features(simulated_df, t_features)
     exp_throws = float(throws_artifact["model"].predict(X_t)[0])
     exp_throws = max(20.0, min(50.0, exp_throws))
     throws_alpha = throws_artifact.get("count_dispersion_alpha", 0.0)
@@ -1558,15 +1595,21 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
 
     # 3. Saves Prediction
     s_features = saves_artifact["feature_names"]
-    X_s = simulated_df[s_features]
+    X_s = _safe_features(simulated_df, s_features)
     exp_saves = float(saves_artifact["model"].predict(X_s)[0])
     exp_saves = max(2.0, min(12.0, exp_saves))
 
     # 4. Outcome & Goals Prediction
     o_features = outcome_artifact.get("feature_names_1x2", outcome_artifact["feature_names"])
     o25_features = outcome_artifact.get("feature_names_o25", o_features)
-    probs_1x2 = outcome_artifact["model_1x2"].predict_proba(simulated_df[o_features])
-    calibrator_1x2 = outcome_artifact.get("calibrators", {}).get("1x2")
+    probs_1x2 = outcome_artifact["model_1x2"].predict_proba(_safe_features(simulated_df, o_features))
+    has_ensemble = "model_dc" in outcome_artifact
+    if has_ensemble:
+        dc_probs_1x2 = outcome_artifact["model_dc"].predict_proba(simulated_df)
+        probs_1x2 = blend_log(probs_1x2, dc_probs_1x2, outcome_artifact["ensemble_weight"])
+        calibrator_1x2 = outcome_artifact.get("calibrators", {}).get("1x2_ensemble")
+    else:
+        calibrator_1x2 = outcome_artifact.get("calibrators", {}).get("1x2")
     if calibrator_1x2:
         probs_1x2 = apply_probability_calibrator(probs_1x2, calibrator_1x2)
     probs_1x2 = probs_1x2[0]
@@ -1574,11 +1617,40 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     prob_d = float(probs_1x2[1] * 100)
     prob_a = float(probs_1x2[2] * 100)
 
-    probs_o25 = outcome_artifact["model_o25"].predict_proba(simulated_df[o25_features])
-    calibrator_o25 = outcome_artifact.get("calibrators", {}).get("o25")
-    if calibrator_o25:
-        probs_o25 = apply_probability_calibrator(probs_o25, calibrator_o25)
-    prob_o25 = float(probs_o25[0][1] * 100)
+    goals_extra: Dict[str, Any] = {}
+    over_source = "legacy"
+    if goals_artifact is not None:
+        goal_model = goals_artifact["model"]
+        score_matrix = goal_model.predict_matrices(simulated_df)
+        lam_h, lam_a = goal_model.lambdas(simulated_df)
+        for line in goals_artifact.get("ou_lines", [1.5, 2.5, 3.5]):
+            key = f"over_{line}"
+            gate = goals_artifact.get("skill_gate", {}).get(key, "model_matrix")
+            if gate == "baseline":
+                p_line = float(goals_artifact["base_rates"][key])
+                source = "baseline"
+            else:
+                p_line = float(over_prob(score_matrix, line)[0])
+                calibrator = goals_artifact.get("calibrators", {}).get(key)
+                if calibrator:
+                    binary = np.array([[1.0 - p_line, p_line]], dtype=float)
+                    p_line = float(apply_probability_calibrator(binary, calibrator)[0, 1])
+                source = "model" if gate == "model" else "model_matrix"
+            goals_extra[key] = {"pct": round(p_line * 100.0, 1), "source": source}
+
+        goals_extra["btts_pct"] = round(float(btts_prob(score_matrix)[0]) * 100.0, 1)
+        goals_extra["btts_source"] = "model_matrix"
+        goals_extra["expected_home_goals"] = round(float(lam_h[0]), 2)
+        goals_extra["expected_away_goals"] = round(float(lam_a[0]), 2)
+        goals_extra["expected_total_goals"] = round(float(lam_h[0] + lam_a[0]), 2)
+        over_source = goals_extra["over_2.5"]["source"]
+        prob_o25 = float(goals_extra["over_2.5"]["pct"])
+    else:
+        probs_o25 = outcome_artifact["model_o25"].predict_proba(_safe_features(simulated_df, o25_features))
+        calibrator_o25 = outcome_artifact.get("calibrators", {}).get("o25")
+        if calibrator_o25:
+            probs_o25 = apply_probability_calibrator(probs_o25, calibrator_o25)
+        prob_o25 = float(probs_o25[0][1] * 100)
 
     fav = home_meta["name"] if prob_h > prob_a else away_meta["name"]
     fav_label = f"{fav} Favori" if abs(prob_h - prob_a) > 10 else "Dengeli Mücadele"
@@ -1642,19 +1714,18 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         if (h_c + a_c) > 0:
             home_cards_share = max(0.2, min(0.8, h_c / (h_c + a_c)))
 
-    # 7. Expected Goals (xG) & Referee Details
-    exp_h_xg = 1.45
-    exp_a_xg = 1.25
-    if "home_xg_for_roll_5" in simulated_df.columns:
-        exp_h_xg = float(simulated_df["home_xg_for_roll_5"].iloc[0] or 1.45)
-    if "away_xg_for_roll_5" in simulated_df.columns:
-        exp_a_xg = float(simulated_df["away_xg_for_roll_5"].iloc[0] or 1.25)
-    exp_tot_xg = round(exp_h_xg + exp_a_xg, 2)
 
     raw_ref = simulated_df.get("referee_name", pd.Series([None])).iloc[0]
     ref_name = str(raw_ref) if pd.notnull(raw_ref) and raw_ref else "Premier League Hakem Heyeti"
     ref_avg_c = float(simulated_df.get("referee_avg_cards", pd.Series([4.15])).iloc[0] or 4.15)
     ref_avg_f = float(simulated_df.get("referee_avg_fouls", pd.Series([21.5])).iloc[0] or 21.5)
+    regression_skills = {
+        "corners": _regression_model_skill(corner_artifact),
+        "throws": _regression_model_skill(throws_artifact),
+        "saves": _regression_model_skill(saves_artifact),
+        "offsides": _regression_model_skill(offside_artifact),
+        "cards": _regression_model_skill(cards_artifact),
+    }
 
     # Splits (Home vs Away breakdown dynamically calculated from team rolling rates)
     home_c_share = 0.55
@@ -1686,14 +1757,17 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             "home_win_pct": round(prob_h, 1),
             "draw_pct": round(prob_d, 1),
             "away_win_pct": round(prob_a, 1),
+            **({
+                "ensemble_probabilities_pct": [
+                    round(float(prob_h), 1), round(float(prob_d), 1), round(float(prob_a), 1)
+                ]
+            } if has_ensemble else {}),
             "over_2_5_goals_pct": round(prob_o25, 1),
+            "over_2_5_source": over_source,
         },
-        "xg": {
-            "expected_total": round(exp_tot_xg, 2),
-            "expected_home": round(exp_h_xg, 2),
-            "expected_away": round(exp_a_xg, 2),
-        },
+        "goals": goals_extra,
         "corners": {
+            "model_skill": regression_skills["corners"],
             "expected_total": round(exp_corners, 1),
             "expected_home": round(exp_corners * home_c_share, 1),
             "expected_away": round(exp_corners * (1 - home_c_share), 1),
@@ -1702,6 +1776,7 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             "prob_over_10_5_pct": round(prob_c105, 1),
         },
         "cards": {
+            "model_skill": regression_skills["cards"],
             "expected_total": round(exp_cards, 1),
             "expected_home": round(exp_cards * home_cards_share, 1),
             "expected_away": round(exp_cards * (1 - home_cards_share), 1),
@@ -1715,6 +1790,7 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             "avg_fouls": round(ref_avg_f, 1),
         },
         "throws": {
+            "model_skill": regression_skills["throws"],
             "expected_total": round(exp_throws, 1),
             "expected_home": round(exp_throws * home_t_share, 1),
             "expected_away": round(exp_throws * (1 - home_t_share), 1),
@@ -1722,6 +1798,7 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             "prob_over_36_5_pct": round(prob_t365, 1),
         },
         "saves": {
+            "model_skill": regression_skills["saves"],
             "expected_total": round(exp_saves, 1),
             "expected_home": round(exp_saves * home_s_share, 1),
             "expected_away": round(exp_saves * (1 - home_s_share), 1),
@@ -1730,6 +1807,7 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             "expected_total": round(exp_saves * 4.1, 1),
         },
         "offsides": {
+            "model_skill": regression_skills["offsides"],
             "expected_total": round(exp_offsides, 1),
             "expected_home": round(exp_offsides * home_off_share, 1),
             "expected_away": round(exp_offsides * (1 - home_off_share), 1),

@@ -134,7 +134,7 @@ export default function TeamProfilesTab({ selectedSeason }) {
   useEffect(() => {
     const controller = new AbortController();
     const seasons = teamSeason === 'all'
-      ? ['2023_24', '2024_25', '2025_26', '2026_27']
+      ? ['2022_23', '2023_24', '2024_25', '2025_26', '2026_27']
       : [teamSeason];
     Promise.all(seasons.map(season =>
       fetch(`/api/teams/manager-changes?season=${season}`, { signal: controller.signal })
@@ -292,8 +292,9 @@ export default function TeamProfilesTab({ selectedSeason }) {
       id: 'defense',
       label: 'Savunma',
       title: 'Savunma aksiyonları',
-      explanation: 'Top kazanma, pas arası, müdahale ve uzaklaştırma aksiyonlarının maç başına düzeyini gösterir.',
+      explanation: 'İzin verilen şut, top kazanma, pas arası, müdahale ve uzaklaştırma aksiyonlarının maç başına düzeyini gösterir.',
       keys: [
+        'shots_conceded_per_match',
         'ball_recoveries',
         'defensive_third_recoveries',
         'mid_third_recoveries',
@@ -371,12 +372,13 @@ export default function TeamProfilesTab({ selectedSeason }) {
       return `${name} için ${corners}. Bu oran korner tercihini anlatır; ceza sahasına gönderilen topların isabetini veya oluşturduğu şut ve gol sayısını göstermez.`;
     }
     if (activeTacticalTab === 'defense') {
+      const shotsConceded = compareWithLeague('shots_conceded_per_match');
       const ppda = compareWithLeague('pressing_intensity');
       const attackingThird = compareWithLeague('attacking_third_recoveries');
       const aerialDuels = compareWithLeague('aerial_duel_success');
-      const observations = [ppda, attackingThird, aerialDuels].filter(Boolean);
+      const observations = [shotsConceded, ppda, attackingThird, aerialDuels].filter(Boolean);
       if (!observations.length) return 'Karşılaştırmalı yorum için henüz yeterli veri yok.';
-      return `${name} için ${observations.join('; ')}. PPDA düşükse baskı daha yoğundur; hücum bölgesindeki top kazanımları topun nerede geri alındığını, hava topu oranı ise bu mücadelelerin ne kadarının kazanıldığını gösterir.`;
+      return `${name} için ${observations.join('; ')}. İzin verilen şut kaleye gelen toplam şut hacmini, PPDA düşükse baskının yoğunluğunu; hücum bölgesindeki top kazanımları topun nerede geri alındığını, hava topu oranı ise bu mücadelelerin ne kadarının kazanıldığını gösterir.`;
     }
     if (activeTacticalTab === 'losses') {
       const totalLosses = compareWithLeague('possession_losses');
@@ -630,6 +632,16 @@ export default function TeamProfilesTab({ selectedSeason }) {
                 }`}
               >
                 2023-24
+              </button>
+              <button
+                onClick={() => setTeamSeason('2022_23')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  teamSeason === '2022_23'
+                    ? 'bg-[#38003c] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                2022-23
               </button>
               <button
                 onClick={() => setTeamSeason('all')}

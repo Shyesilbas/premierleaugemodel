@@ -7,6 +7,7 @@ from typing import Any, Dict, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.base import clone
+from sklearn.dummy import DummyRegressor
 from sklearn.impute import SimpleImputer
 from scipy.stats import nbinom, poisson
 from sklearn.metrics import brier_score_loss, log_loss, mean_absolute_error, mean_squared_error, r2_score
@@ -51,6 +52,22 @@ def apply_probability_calibrator(probabilities: np.ndarray, calibrator: Dict[str
     return calibrated / calibrated.sum(axis=1, keepdims=True)
 
 
+def blend_log(p_a: np.ndarray, p_b: np.ndarray, weight_a: float) -> np.ndarray:
+    """Blend two class-probability matrices in log space and normalize rows."""
+    first = np.asarray(p_a, dtype=float)
+    second = np.asarray(p_b, dtype=float)
+    if first.shape != second.shape or first.ndim != 2:
+        raise ValueError("Probability matrices must have the same two-dimensional shape")
+    weight = float(weight_a)
+    if not np.isfinite(weight) or not 0.0 <= weight <= 1.0:
+        raise ValueError("Blend weight must be finite and between 0 and 1")
+    logits = weight * np.log(np.clip(first, 1e-12, 1.0))
+    logits += (1.0 - weight) * np.log(np.clip(second, 1e-12, 1.0))
+    logits -= logits.max(axis=1, keepdims=True)
+    probabilities = np.exp(logits)
+    return probabilities / probabilities.sum(axis=1, keepdims=True)
+
+
 def evaluate_count_threshold(
     y_train: pd.Series,
     y_test: pd.Series,
@@ -84,12 +101,67 @@ def evaluate_count_threshold(
     }
 
 
-def select_regression_candidate(X: pd.DataFrame, y: pd.Series, candidates: Dict[str, Any]) -> Tuple[str, Dict[str, float]]:
-    """Select a candidate using expanding-window CV over all supplied training rows."""
+def apply_skill_gate(
+    fold_scores: Dict[str, list[float]],
+    raw_selected: str,
+    baseline: str = "training_mean",
+    min_relative_gain: float = 0.005,
+    min_fold_wins: int = 3,
+) -> Tuple[str, Dict[str, Any]]:
+    """Keep a feature model only when it clears the fold-wise mean-baseline gate."""
+    if baseline not in fold_scores:
+        raise KeyError(f"Skill-gate baseline '{baseline}' is missing from fold scores")
+    if raw_selected not in fold_scores:
+        raise KeyError(f"Selected candidate '{raw_selected}' is missing from fold scores")
+
+    base = np.asarray(fold_scores[baseline], dtype=float)
+    candidate = np.asarray(fold_scores[raw_selected], dtype=float)
+    if base.size == 0 or candidate.size != base.size:
+        raise ValueError("Skill-gate candidates must have the same non-empty fold scores")
+
+    fold_wins = int(np.sum(candidate < base))
+    base_mean = float(base.mean())
+    relative_gain = (
+        float((base_mean - candidate.mean()) / base_mean)
+        if base_mean > 0.0
+        else 0.0
+    )
+    if raw_selected == baseline:
+        passed = True
+        selected = baseline
+        reason = "training_mean_was_cv_winner"
+    else:
+        passed = bool(relative_gain >= min_relative_gain and fold_wins >= min_fold_wins)
+        selected = raw_selected if passed else baseline
+        reason = "model_cleared_skill_gate" if passed else "model_failed_skill_gate"
+
+    return selected, {
+        "raw_selected_model": raw_selected,
+        "selected_model": selected,
+        "skill_gate_applied": bool(selected != raw_selected),
+        "skill_gate_passed": passed,
+        "reason": reason,
+        "baseline": baseline,
+        "relative_rmse_gain": round(relative_gain, 6),
+        "fold_wins": fold_wins,
+        "fold_count": int(base.size),
+        "minimum_relative_gain": float(min_relative_gain),
+        "minimum_fold_wins": int(min_fold_wins),
+    }
+
+
+def select_regression_candidate(
+    X: pd.DataFrame,
+    y: pd.Series,
+    candidates: Dict[str, Any],
+) -> Tuple[str, Dict[str, float], Dict[str, Any]]:
+    """Select by expanding-window CV, then require repeatable skill over the mean."""
     if len(X) < CV_SPLITS + 2:
         raise ValueError(f"Too few rows for time-series CV: {len(X)}")
+    candidates = _include_training_mean(candidates)
     splitter = TimeSeriesSplit(n_splits=CV_SPLITS)
     scores: Dict[str, float] = {}
+    fold_scores_by_model: Dict[str, list[float]] = {}
     for name, candidate in candidates.items():
         fold_scores = []
         for train_idx, valid_idx in splitter.split(X):
@@ -97,8 +169,19 @@ def select_regression_candidate(X: pd.DataFrame, y: pd.Series, candidates: Dict[
             model.fit(X.iloc[train_idx], y.iloc[train_idx])
             pred = model.predict(X.iloc[valid_idx])
             fold_scores.append(float(mean_squared_error(y.iloc[valid_idx], pred) ** 0.5))
+        fold_scores_by_model[name] = fold_scores
         scores[name] = float(np.mean(fold_scores))
-    return min(scores, key=scores.get), {name: round(score, 4) for name, score in scores.items()}
+    raw_selected = min(scores, key=scores.get)
+    selected, gate = apply_skill_gate(fold_scores_by_model, raw_selected)
+    return selected, {name: round(score, 4) for name, score in scores.items()}, gate
+
+
+def _include_training_mean(candidates: Dict[str, Any]) -> Dict[str, Any]:
+    """Add a fold-fitted constant baseline so weak models cannot win by default."""
+    if "training_mean" in candidates:
+        return candidates
+    baseline = make_regression_pipeline(DummyRegressor(strategy="mean"))
+    return {**candidates, "training_mean": baseline}
 
 
 def incomplete_seasons(df: pd.DataFrame) -> set[str]:
@@ -131,8 +214,9 @@ def evaluate_season_holdouts(
             continue
         X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         X_valid, y_valid = X.iloc[valid_positions], y.iloc[valid_positions]
-        selected, cv_scores = select_regression_candidate(X_train, y_train, candidates)
-        model = clone(candidates[selected]).fit(X_train, y_train)
+        candidate_set = _include_training_mean(candidates)
+        selected, cv_scores, gate = select_regression_candidate(X_train, y_train, candidate_set)
+        model = clone(candidate_set[selected]).fit(X_train, y_train)
         pred = np.asarray(model.predict(X_valid), dtype=float)
         baseline = np.full(len(y_valid), float(y_train.mean()))
         rmse = float(mean_squared_error(y_valid, pred) ** 0.5)
@@ -143,6 +227,11 @@ def evaluate_season_holdouts(
             "train_samples": int(len(train_idx)),
             "test_samples": int(len(valid_positions)),
             "selected_model": selected,
+            "raw_selected_model": gate["raw_selected_model"],
+            "skill_gate_applied": gate["skill_gate_applied"],
+            "skill_gate_passed": gate["skill_gate_passed"],
+            "skill_gate_relative_rmse_gain": gate["relative_rmse_gain"],
+            "skill_gate_fold_wins": gate["fold_wins"],
             "cv_rmse": cv_scores[selected],
             "rmse": round(rmse, 4),
             "baseline_rmse": round(baseline_rmse, 4),
@@ -186,6 +275,7 @@ def chronological_regression_evaluation(
         raise ValueError(f"Too few rows for chronological evaluation: {len(X)}")
     if not candidates:
         raise ValueError("At least one regression candidate is required")
+    candidates = _include_training_mean(candidates)
 
     split_idx = int(len(X) * (1.0 - HOLDOUT_FRACTION))
     if split_idx <= CV_SPLITS or len(X) - split_idx == 0:
@@ -193,19 +283,8 @@ def chronological_regression_evaluation(
 
     X_dev, y_dev = X.iloc[:split_idx], y.iloc[:split_idx]
     X_test, y_test = X.iloc[split_idx:], y.iloc[split_idx:]
-    cv = TimeSeriesSplit(n_splits=CV_SPLITS)
-    cv_rmse: Dict[str, float] = {}
-
-    for name, candidate in candidates.items():
-        fold_scores = []
-        for train_idx, valid_idx in cv.split(X_dev):
-            model = clone(candidate)
-            model.fit(X_dev.iloc[train_idx], y_dev.iloc[train_idx])
-            pred = model.predict(X_dev.iloc[valid_idx])
-            fold_scores.append(float(mean_squared_error(y_dev.iloc[valid_idx], pred) ** 0.5))
-        cv_rmse[name] = float(np.mean(fold_scores))
-
-    selected_name = min(cv_rmse, key=cv_rmse.get)
+    selected_name, cv_scores, skill_gate = select_regression_candidate(X_dev, y_dev, candidates)
+    raw_selected_name = skill_gate["raw_selected_model"]
     holdout_model = clone(candidates[selected_name])
     holdout_model.fit(X_dev, y_dev)
     test_pred = np.asarray(holdout_model.predict(X_test), dtype=float)
@@ -222,8 +301,12 @@ def chronological_regression_evaluation(
 
     metrics: Dict[str, Any] = {
         "selected_model": selected_name,
-        "selection_metric": "mean RMSE across 4 expanding-window folds in development period",
-        "cv_rmse": {name: round(score, 4) for name, score in cv_rmse.items()},
+        "raw_selected_model": raw_selected_name,
+        "skill_gate_applied": skill_gate["skill_gate_applied"],
+        "skill_gate_passed": skill_gate["skill_gate_passed"],
+        "skill_gate": skill_gate,
+        "selection_metric": "mean RMSE across 4 expanding-window folds; feature model must beat training_mean by >=0.5% and win >=3 folds",
+        "cv_rmse": cv_scores,
         "train_samples": int(len(X_dev)),
         "test_samples": int(len(X_test)),
         "test_rmse": round(test_rmse, 4),

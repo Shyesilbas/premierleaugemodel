@@ -86,6 +86,7 @@ def build_report() -> str:
             "karşılaştırılan takım-maçta olay akışıyla eşleşti. "
             "`corner_taken` ve korner isabet alt ölçüleri daha az tutarlı; "
             "ilk analiz bunlara dayandırılmaz.",
+            "- İşlenmiş eğitim hedefinde, ham `won_corners` eksikse takım adı olay akışından eşleşen korner sayısı kullanılır; `_raw`, `_reported` ve `_event_reconstructed` alanları kaynak ve kurtarma durumunu ayrı tutar.",
             "- Korner olayında hedef koordinatı bulunmadığından ön direk/arka direk tercihi çıkarılmaz.",
             "",
         ]

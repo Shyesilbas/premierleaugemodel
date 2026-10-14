@@ -12,6 +12,7 @@ Outputs:
 import json
 import logging
 import re
+import unicodedata
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -69,8 +70,8 @@ def _threshold_if_known(value: Any, threshold: float) -> Any:
     return np.nan if pd.isna(value) else int(float(value) > threshold)
 
 
-def _event_counts_by_team(fixture: Dict[str, Any], stream_data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Dict[str, int]]]:
-    """Count card and offside events from a valid PulseLive textstream payload."""
+def _event_counts_by_team(fixture: Dict[str, Any], stream_data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Count team-attributed match events from a valid textstream."""
     if not isinstance(stream_data, dict) or not isinstance(stream_data.get("events"), dict):
         return None
     events = stream_data["events"].get("content")
@@ -82,18 +83,38 @@ def _event_counts_by_team(fixture: Dict[str, Any], stream_data: Optional[Dict[st
     names = [str(team.get("team", {}).get("name") or "") for team in teams[:2]]
 
     def normalize(name: str) -> str:
-        # PulseLive uses both "Brighton and Hove Albion" and "Brighton & Hove Albion".
-        return "".join(char for char in name.lower().replace("and", "") if char.isalnum())
+        # Normalize punctuation, accents, and the provider's "and" / "&" variants.
+        value = unicodedata.normalize("NFKD", name.lower().replace("&", " and "))
+        value = value.encode("ascii", "ignore").decode("ascii")
+        value = re.sub(r"\band\b", " ", value)
+        return "".join(char for char in value if char.isalnum())
 
     normalized_names = [normalize(name) for name in names]
     counts = {
         metric: {"home": 0, "away": 0}
-        for metric in ("yellow_cards", "red_cards", "offsides")
+        for metric in ("corners", "yellow_cards", "red_cards", "offsides", "saves")
     }
+    saves_attribution_complete = True
     for event in events:
         event_type = event.get("type")
         text = str(event.get("text") or "")
-        if event_type == "offside":
+        if event_type in ("attempt saved", "penalty saved"):
+            # The event identifies the shooter and their team in parentheses.
+            # The saved shot belongs to the opposing goalkeeper's team.
+            match = re.search(r"\(([^()]*)\)", text)
+            shooter_team = normalize(match.group(1)) if match else ""
+            matched_sides = [i for i, name in enumerate(normalized_names) if name and name == shooter_team]
+            if len(matched_sides) == 1:
+                keeper_side = "away" if matched_sides[0] == 0 else "home"
+                counts["saves"][keeper_side] += 1
+            else:
+                saves_attribution_complete = False
+            continue
+        if event_type == "corner":
+            match = re.match(r"corner\s+(.+?)\s+conceded by", text, flags=re.IGNORECASE)
+            team_name = match.group(1) if match else ""
+            metric = "corners"
+        elif event_type == "offside":
             match = re.match(r"Offside, (.+?)\.", text)
             metric = "offsides"
             team_name = match.group(1) if match else ""
@@ -108,6 +129,7 @@ def _event_counts_by_team(fixture: Dict[str, Any], stream_data: Optional[Dict[st
         if len(matched_sides) == 1:
             side = "home" if matched_sides[0] == 0 else "away"
             counts[metric][side] += 1
+    counts["_saves_attribution_complete"] = saves_attribution_complete
     return counts
 
 
@@ -206,6 +228,10 @@ def parse_match(
     # event stream. Source flags continue to describe the stats endpoint itself.
     event_counts = _event_counts_by_team(fixture, stream_data)
     event_fields = {
+        "home_saves": ("saves", "home"),
+        "away_saves": ("saves", "away"),
+        "home_won_corners": ("corners", "home"),
+        "away_won_corners": ("corners", "away"),
         "home_total_yel_card": ("yellow_cards", "home"),
         "away_total_yel_card": ("yellow_cards", "away"),
         "home_total_red_card": ("red_cards", "home"),
@@ -221,6 +247,10 @@ def parse_match(
             not source_reported
             and event_counts is not None
             and metric in event_counts
+            and (
+                metric != "saves"
+                or event_counts.get("_saves_attribution_complete", False)
+            )
         )
         record[f"{field}_event_reconstructed"] = reconstructed
         if reconstructed:
@@ -258,10 +288,20 @@ def parse_match(
     record["total_offsides_target_usable"] = bool(
         record["home_total_offside_usable"] and record["away_total_offside_usable"]
     )
+    record["total_corners_target_usable"] = bool(
+        record["home_won_corners_usable"] and record["away_won_corners_usable"]
+    )
     record["total_cards_target_usable"] = bool(
         record["total_yellow_cards_target_usable"]
         and record["home_total_red_card_usable"]
         and record["away_total_red_card_usable"]
+    )
+    record["total_saves_target_usable"] = bool(
+        record["home_saves_usable"] and record["away_saves_usable"]
+    )
+    record["total_saves_event_reconstructed"] = bool(
+        record["home_saves_event_reconstructed"]
+        or record["away_saves_event_reconstructed"]
     )
     for side in ("home", "away"):
         record[f"{side}_total_cards_usable"] = bool(
@@ -279,24 +319,6 @@ def parse_match(
             cutoff = str(threshold).replace(".", "_")
             record[f"over_{cutoff}_{target}"] = _threshold_if_known(value, threshold)
 
-    # Historical aggregate-stat xG proxy; require every input and expose completeness.
-    for side in ("home", "away"):
-        required = (
-            f"{side}_att_ibox_target", f"{side}_att_obox_target",
-            f"{side}_big_chance_created", f"{side}_total_scoring_att",
-            f"{side}_ontarget_scoring_att",
-        )
-        complete = all(pd.notna(record.get(field)) for field in required)
-        record[f"{side}_xg_proxy_reported"] = complete
-        if complete:
-            ibox, obox, big_chances, shots, on_target = (float(record[field]) for field in required)
-            missed = max(0.0, shots - on_target)
-            record[f"{side}_xg"] = round(
-                ibox * 0.33 + obox * 0.08 + big_chances * 0.34 + missed * 0.025, 2
-            )
-        else:
-            record[f"{side}_xg"] = np.nan
-    record["total_xg"] = _sum_if_complete(record["home_xg"], record["away_xg"])
 
     # Referee & Match Officials
     referee_id = None
@@ -337,7 +359,7 @@ def parse_stream_events(match_id: int, stream_data: Dict[str, Any]) -> List[Dict
         ev_type = ev.get("type", "")
         # Keep shots, goals, saves, corners, cards
         target_types = {
-            "goal", "attempt saved", "miss", "attempt blocked",
+            "goal", "attempt saved", "penalty saved", "miss", "attempt blocked",
             "corner", "yellow card", "red card", "secondyellow card", "offside"
         }
         if ev_type in target_types:

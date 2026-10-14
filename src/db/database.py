@@ -263,7 +263,7 @@ def populate_db_from_sources():
     cursor.execute("DELETE FROM referees;")
 
     # Seasons to process + 'all'
-    seasons = ["2026_27", "2025_26", "2024_25", "2023_24"]
+    seasons = ["2026_27", "2025_26", "2024_25", "2023_24", "2022_23"]
     for s in seasons:
         cursor.execute("""
         SELECT 

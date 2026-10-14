@@ -29,9 +29,9 @@ def parse_player_data():
     processed_dir = Path("data/processed")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load 2024-25, 2025-26 and 2026-27 fixtures to map match_id to season & gameweek
+    # Load all seasons' fixtures to map match_id to season & gameweek
     match_meta = {}
-    for season in ["2024_25", "2025_26", "2026_27"]:
+    for season in ["2022_23", "2023_24", "2024_25", "2025_26", "2026_27"]:
         fix_path = raw_dir / f"fixtures_{season}.json"
         if fix_path.exists():
             with open(fix_path, "r", encoding="utf-8") as f:
@@ -78,11 +78,21 @@ def parse_player_data():
         if raw_mid is None:
             continue
         mid = int(raw_mid)
-        meta = match_meta.get(mid, {
-            "season": "2024_25", "gameweek": 0, "kickoff": "",
-            "home_id": 0, "home_name": "", "home_score": 0,
-            "away_id": 0, "away_name": "", "away_score": 0,
-        })
+        meta = match_meta.get(mid)
+        if meta is None:
+            # Fallback: derive from the details file itself
+            dt = d.get("teams") or []
+            def _t(i, k, default=None):
+                return (dt[i].get("team") or {}).get(k, default) if len(dt) > i else default
+            gw_d = (d.get("gameweek") or {}).get("gameweek") if isinstance(d.get("gameweek"), dict) else d.get("gameweek")
+            meta = {
+                "season": "unknown", "gameweek": gw_d or 0,
+                "kickoff": (d.get("kickoff") or {}).get("label", ""),
+                "home_id": _t(0, "id", 0), "home_name": _t(0, "name", ""),
+                "home_score": dt[0].get("score") if len(dt) > 0 else None,
+                "away_id": _t(1, "id", 0), "away_name": _t(1, "name", ""),
+                "away_score": dt[1].get("score") if len(dt) > 1 else None,
+            }
 
         events = d.get("events", [])
 
@@ -269,7 +279,7 @@ def parse_player_data():
                     })
 
     # Sort player logs chronologically and set latest team
-    season_order = {'2024_25': 1, '2025_26': 2, '2026_27': 3}
+    season_order = {'2022_23': -1, '2023_24': 0, '2024_25': 1, '2025_26': 2, '2026_27': 3}
     for pid in player_logs:
         player_logs[pid] = sorted(
             player_logs[pid], 

@@ -4,11 +4,15 @@ import { Trophy, Target, Flag, Shield, Activity, ArrowRightLeft, Eye, CreditCard
 
 export default function PredictorTab({ selectedSeason }) {
   // Season team ID memberships
+  const teams2223Ids = [1, 2, 4, 6, 7, 9, 10, 11, 12, 15, 20, 21, 23, 25, 26, 34, 38, 127, 130, 131];
   const teams2324Ids = [1, 2, 4, 6, 7, 10, 11, 12, 15, 18, 21, 23, 25, 34, 38, 43, 127, 130, 131, 163];
   const teams2425Ids = [1, 2, 4, 6, 7, 8, 10, 11, 12, 15, 20, 21, 23, 25, 26, 34, 38, 127, 130, 131];
   const teams2526Ids = [1, 2, 4, 6, 7, 9, 10, 11, 12, 15, 21, 23, 25, 29, 34, 38, 43, 127, 130, 131];
 
   const availableTeams = useMemo(() => {
+    if (selectedSeason === '2022_23') {
+      return TEAMS.filter(t => teams2223Ids.includes(t.id));
+    }
     if (selectedSeason === '2023_24') {
       return TEAMS.filter(t => teams2324Ids.includes(t.id));
     }
@@ -284,6 +288,9 @@ export default function PredictorTab({ selectedSeason }) {
                 </span>
                 <span className="text-xs font-semibold text-slate-500">beklenen korner</span>
               </div>
+              <span className={`mb-3 inline-block text-[10px] font-semibold ${prediction.corners.model_skill === 'baseline' ? 'text-amber-700' : 'text-emerald-700'}`} title={prediction.corners.model_skill === 'baseline' ? 'Özellikli model beceri kapısını geçemedi; toplam tahmin eğitim ortalamasını kullanıyor.' : 'Tahmin beceri kapısını geçen özellikli modelden geliyor.'}>
+                {prediction.corners.model_skill === 'baseline' ? 'Veri ortalaması tabanlı tahmin' : 'Model tahmini'}
+              </span>
 
               {/* Team split pill */}
               <div className="flex items-center justify-between text-xs text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 mb-4">
@@ -347,6 +354,9 @@ export default function PredictorTab({ selectedSeason }) {
                 </span>
                 <span className="text-xs font-semibold text-slate-500">beklenen taç atışı</span>
               </div>
+              <span className={`mb-3 inline-block text-[10px] font-semibold ${prediction.throws.model_skill === 'baseline' ? 'text-amber-700' : 'text-emerald-700'}`} title={prediction.throws.model_skill === 'baseline' ? 'Özellikli model beceri kapısını geçemedi; toplam tahmin eğitim ortalamasını kullanıyor.' : 'Tahmin beceri kapısını geçen özellikli modelden geliyor.'}>
+                {prediction.throws.model_skill === 'baseline' ? 'Veri ortalaması tabanlı tahmin' : 'Model tahmini'}
+              </span>
 
               {/* Team split pill */}
               <div className="flex items-center justify-between text-xs text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 mb-4">
@@ -410,6 +420,9 @@ export default function PredictorTab({ selectedSeason }) {
                 </span>
                 <span className="text-xs font-semibold text-slate-500">toplam kurtarış</span>
               </div>
+              <span className={`mb-3 inline-block text-[10px] font-semibold ${prediction.saves.model_skill === 'baseline' ? 'text-amber-700' : 'text-emerald-700'}`} title={prediction.saves.model_skill === 'baseline' ? 'Özellikli model beceri kapısını geçemedi; toplam tahmin eğitim ortalamasını kullanıyor.' : 'Tahmin beceri kapısını geçen özellikli modelden geliyor.'}>
+                {prediction.saves.model_skill === 'baseline' ? 'Veri ortalaması tabanlı tahmin' : 'Model tahmini'}
+              </span>
 
               {/* Team split pill */}
               <div className="flex items-center justify-between text-xs text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 mb-4">
@@ -455,6 +468,9 @@ export default function PredictorTab({ selectedSeason }) {
                 </span>
                 <span className="text-xs font-semibold text-slate-500">beklenen ofsayt</span>
               </div>
+              <span className={`mb-3 inline-block text-[10px] font-semibold ${prediction.offsides?.model_skill === 'baseline' ? 'text-amber-700' : 'text-emerald-700'}`} title={prediction.offsides?.model_skill === 'baseline' ? 'Özellikli model beceri kapısını geçemedi; toplam tahmin eğitim ortalamasını kullanıyor.' : 'Tahmin beceri kapısını geçen özellikli modelden geliyor.'}>
+                {prediction.offsides?.model_skill === 'baseline' ? 'Veri ortalaması tabanlı tahmin' : 'Model tahmini'}
+              </span>
 
               {/* Team split pill */}
               <div className="flex items-center justify-between text-xs text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 mb-4">
@@ -484,7 +500,35 @@ export default function PredictorTab({ selectedSeason }) {
                     className="h-full bg-slate-700 rounded-full"
                   />
                 </div>
+                {prediction.outcome.over_2_5_source === 'baseline' && (
+                  <span className="mt-1 block text-[10px] font-semibold text-amber-700">
+                    Taban oran (model sinyali zayıf)
+                  </span>
+                )}
               </div>
+
+              {prediction.goals && (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 pt-3 border-t border-slate-100 text-xs">
+                  <div className="flex justify-between text-slate-600">
+                    <span>1.5 Gol Üstü</span>
+                    <strong className="text-slate-800 font-mono">%{prediction.goals['over_1.5']?.pct}</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>3.5 Gol Üstü</span>
+                    <strong className="text-slate-800 font-mono">%{prediction.goals['over_3.5']?.pct}</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Karşılıklı Gol</span>
+                    <strong className="text-slate-800 font-mono">%{prediction.goals.btts_pct}</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Gol modeli λ</span>
+                    <strong className="text-slate-800 font-mono">
+                      {prediction.goals.expected_home_goals} – {prediction.goals.expected_away_goals}
+                    </strong>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-100 gap-2">
                 <span className="text-slate-500 font-medium shrink-0">Taktiksel Çizgi</span>
@@ -511,6 +555,9 @@ export default function PredictorTab({ selectedSeason }) {
                 </span>
                 <span className="text-xs font-semibold text-slate-500">beklenen kart</span>
               </div>
+              <span className={`mb-3 inline-block text-[10px] font-semibold ${prediction.cards?.model_skill === 'baseline' ? 'text-amber-700' : 'text-emerald-700'}`} title={prediction.cards?.model_skill === 'baseline' ? 'Özellikli model beceri kapısını geçemedi; toplam tahmin eğitim ortalamasını kullanıyor.' : 'Tahmin beceri kapısını geçen özellikli modelden geliyor.'}>
+                {prediction.cards?.model_skill === 'baseline' ? 'Veri ortalaması tabanlı tahmin' : 'Model tahmini'}
+              </span>
 
               {/* Team split pill */}
               <div className="flex items-center justify-between text-xs text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 mb-4">
@@ -566,21 +613,21 @@ export default function PredictorTab({ selectedSeason }) {
 
               <div className="flex items-baseline gap-2 mb-2">
                 <span className="text-3xl sm:text-4xl font-black tracking-tight font-mono text-slate-900">
-                  {prediction.xg?.expected_total || '2.90'}
+                  {prediction.goals?.expected_total_goals || (Number(prediction.goals?.expected_home_goals || 1.4) + Number(prediction.goals?.expected_away_goals || 1.2)).toFixed(2)}
                 </span>
-                <span className="text-xs font-semibold text-slate-500">tahmini gol · istatistik proxy'si</span>
+                <span className="text-xs font-semibold text-slate-500">beklenen toplam gol</span>
               </div>
 
               {/* Team split pill */}
               <div className="flex items-center justify-between text-xs text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 mb-4">
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="text-slate-500">{homeTeam.abbr || homeTeam.short}:</span>
-                  <strong className="text-slate-900 font-mono font-bold">{prediction.xg?.expected_home || '1.45'} gol</strong>
+                  <strong className="text-slate-900 font-mono font-bold">{prediction.goals?.expected_home_goals || '1.4'} gol</strong>
                 </div>
                 <span className="text-slate-300">•</span>
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="text-slate-500">{awayTeam.abbr || awayTeam.short}:</span>
-                  <strong className="text-slate-900 font-mono font-bold">{prediction.xg?.expected_away || '1.45'} gol</strong>
+                  <strong className="text-slate-900 font-mono font-bold">{prediction.goals?.expected_away_goals || '1.2'} gol</strong>
                 </div>
               </div>
             </div>

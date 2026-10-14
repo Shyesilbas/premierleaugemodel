@@ -26,9 +26,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FEATURES_PATH = PROJECT_ROOT / "data" / "processed" / "features_matches_all.parquet"
 MATCHES_PATH = PROJECT_ROOT / "data" / "processed" / "matches_summary_all.parquet"
 MODEL_PATH = PROJECT_ROOT / "models" / "production" / "outcome_models_v1.joblib"
+GOALS_MODEL_PATH = PROJECT_ROOT / "models" / "production" / "goals_models_v1.joblib"
 FORECAST_LOG = PROJECT_ROOT / "data" / "processed" / "1x2_forecast_log.jsonl"
 SCORECARD_PATH = PROJECT_ROOT / "reports" / "prospective_1x2_scorecard.json"
 logger = logging.getLogger("prospective_1x2_benchmark")
+GOAL_MARKETS = ("over_1.5", "over_2.5", "over_3.5", "btts")
 
 
 def _artifact_fingerprint(path: Path) -> str:
@@ -63,7 +65,7 @@ def snapshot(horizon_days: int = 14) -> int:
 
     # Import the same live prediction path used by the API so the saved forecast
     # includes the API's feature construction and production calibrator.
-    from src.api.server import df_features, predict_match
+    from src.api.server import df_features, goals_artifact, predict_match
 
     if df_features.empty:
         raise ValueError("API loaded an empty feature dataset")
@@ -75,9 +77,17 @@ def snapshot(horizon_days: int = 14) -> int:
     now = datetime.now(timezone.utc)
     horizon = now + timedelta(days=horizon_days)
     artifact_hash = _artifact_fingerprint(MODEL_PATH)
+    goals_artifact_hash = (
+        _artifact_fingerprint(GOALS_MODEL_PATH) if GOALS_MODEL_PATH.exists() else None
+    )
     existing = _read_forecast_log()
     already_saved_today = {
-        (str(row.get("match_id")), row.get("artifact_sha256"), str(row.get("prediction_made_at_utc", ""))[:10])
+        (
+            str(row.get("match_id")),
+            row.get("artifact_sha256"),
+            row.get("goal_artifact_sha256"),
+            str(row.get("prediction_made_at_utc", ""))[:10],
+        )
         for row in existing
     }
 
@@ -94,7 +104,9 @@ def snapshot(horizon_days: int = 14) -> int:
     new_rows: List[Dict[str, Any]] = []
     for _, fixture in upcoming.iterrows():
         match_id = int(fixture["match_id"])
-        daily_key = (str(match_id), artifact_hash, now.date().isoformat())
+        daily_key = (
+            str(match_id), artifact_hash, goals_artifact_hash, now.date().isoformat()
+        )
         if daily_key in already_saved_today:
             continue
         try:
@@ -112,8 +124,40 @@ def snapshot(horizon_days: int = 14) -> int:
             if not np.isfinite(probabilities).all() or (probabilities < 0).any() or probabilities.sum() <= 0:
                 raise ValueError("API returned invalid 1X2 probabilities")
             probabilities /= probabilities.sum()
+            goal_markets: Dict[str, Dict[str, Any]] = {}
+            goals = result.get("goals", {})
+            base_rates = goals_artifact.get("base_rates", {}) if goals_artifact else {}
+            if goals_artifact_hash and isinstance(goals, dict):
+                for market in GOAL_MARKETS:
+                    if market == "btts":
+                        raw_probability = goals.get("btts_pct")
+                        raw_source = goals.get("btts_source", "model_matrix")
+                    else:
+                        market_result = goals.get(market)
+                        if not isinstance(market_result, dict):
+                            continue
+                        raw_probability = market_result.get("pct")
+                        raw_source = market_result.get("source", "model")
+                    if raw_probability is None:
+                        continue
+                    probability = float(raw_probability) / 100.0
+                    if not np.isfinite(probability) or not 0.0 <= probability <= 1.0:
+                        raise ValueError(f"API returned invalid {market} probability")
+                    source = "baseline" if raw_source == "baseline" else "model"
+                    baseline_probability = None
+                    # Baseline probabilities are captured with each forecast so
+                    # future scoring never estimates them from held-out results.
+                    baseline_probability = base_rates.get(market)
+                    goal_markets[market] = {
+                        "probability": round(probability, 6),
+                        "source": source,
+                        "baseline_probability": (
+                            round(float(baseline_probability), 6)
+                            if baseline_probability is not None else None
+                        ),
+                    }
             forecasted_at = datetime.now(timezone.utc)
-            new_rows.append({
+            row = {
                 "match_id": match_id,
                 "season": str(fixture["season"]),
                 "home_id": int(fixture["home_id"]),
@@ -125,7 +169,26 @@ def snapshot(horizon_days: int = 14) -> int:
                 "artifact_sha256": artifact_hash,
                 "class_order": ["home", "draw", "away"],
                 "probabilities": [round(float(value), 6) for value in probabilities],
-            })
+            }
+            if goals_artifact_hash:
+                row["goal_artifact_sha256"] = goals_artifact_hash
+                if goal_markets:
+                    row["goal_markets"] = goal_markets
+            ensemble = outcome.get("ensemble_probabilities_pct")
+            if ensemble is not None:
+                ensemble_probabilities = np.asarray(ensemble, dtype=float) / 100.0
+                if (
+                    ensemble_probabilities.shape != (3,)
+                    or not np.isfinite(ensemble_probabilities).all()
+                    or (ensemble_probabilities < 0).any()
+                    or ensemble_probabilities.sum() <= 0
+                ):
+                    raise ValueError("API returned invalid 1X2 ensemble probabilities")
+                ensemble_probabilities /= ensemble_probabilities.sum()
+                row["ensemble_probabilities"] = [
+                    round(float(value), 6) for value in ensemble_probabilities
+                ]
+            new_rows.append(row)
             already_saved_today.add(daily_key)
         except Exception:
             logger.exception("Could not save forecast for match_id=%s", match_id)
@@ -156,9 +219,10 @@ def score() -> Dict[str, Any]:
     completed["match_id"] = completed["match_id"].astype(int)
     outcomes = completed.set_index("match_id")
 
-    # Keep only forecasts made before the recorded kickoff, then use the latest
-    # forecast for each match/model version (e.g. after fixture rescheduling).
-    latest: Dict[tuple[str, str], Dict[str, Any]] = {}
+    # Keep only forecasts made before kickoff. The independent latest maps avoid
+    # counting a match twice when just one of the two production artifacts changes.
+    latest_1x2: Dict[tuple[str, str], Dict[str, Any]] = {}
+    latest_goals: Dict[tuple[str, str], Dict[str, Any]] = {}
     for row in forecasts:
         try:
             match_id = int(row["match_id"])
@@ -168,15 +232,23 @@ def score() -> Dict[str, Any]:
             kickoff = pd.Timestamp(row["kickoff_utc"])
             if forecasted_at.tzinfo is None or kickoff.tzinfo is None or forecasted_at >= kickoff:
                 continue
-            key = (str(row["artifact_sha256"]), str(match_id))
-            previous = latest.get(key)
+            outcome_key = (str(row["artifact_sha256"]), str(match_id))
+            previous = latest_1x2.get(outcome_key)
             if previous is None or forecasted_at > pd.Timestamp(previous["prediction_made_at_utc"]):
-                latest[key] = row
+                latest_1x2[outcome_key] = row
+            if row.get("goal_markets"):
+                goal_hash = str(row.get("goal_artifact_sha256", "legacy"))
+                goal_key = (goal_hash, str(match_id))
+                previous_goal = latest_goals.get(goal_key)
+                if previous_goal is None or forecasted_at > pd.Timestamp(
+                    previous_goal["prediction_made_at_utc"]
+                ):
+                    latest_goals[goal_key] = row
         except (KeyError, TypeError, ValueError):
             logger.warning("Skipping malformed forecast record: %s", row)
 
     groups: Dict[str, List[tuple[Dict[str, Any], int]]] = {}
-    for (artifact_hash, match_id), row in latest.items():
+    for (artifact_hash, match_id), row in latest_1x2.items():
         match = outcomes.loc[int(match_id)]
         home_score, away_score = float(match["home_score"]), float(match["away_score"])
         actual = 0 if home_score > away_score else (1 if home_score == away_score else 2)
@@ -208,10 +280,93 @@ def score() -> Dict[str, Any]:
             "predicted_draws": int((predicted == 1).sum()),
         })
 
+    goal_groups: Dict[str, List[tuple[Dict[str, Any], Dict[str, int]]]] = {}
+    for (goal_hash, match_id), row in latest_goals.items():
+        match = outcomes.loc[int(match_id)]
+        home_score, away_score = float(match["home_score"]), float(match["away_score"])
+        actuals = {
+            "over_1.5": int(home_score + away_score > 1.5),
+            "over_2.5": int(home_score + away_score > 2.5),
+            "over_3.5": int(home_score + away_score > 3.5),
+            "btts": int(home_score > 0 and away_score > 0),
+        }
+        goal_groups.setdefault(goal_hash, []).append((row, actuals))
+
+    goal_results: List[Dict[str, Any]] = []
+    for goal_hash, rows in sorted(goal_groups.items()):
+        market_results: Dict[str, Any] = {}
+        for market in GOAL_MARKETS:
+            observations = []
+            for row, actuals in rows:
+                entry = row.get("goal_markets", {}).get(market)
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    probability = float(entry["probability"])
+                    baseline_probability = entry.get("baseline_probability")
+                    if baseline_probability is not None:
+                        baseline_probability = float(baseline_probability)
+                    actual = actuals[market]
+                    if (
+                        not np.isfinite(probability) or not 0.0 <= probability <= 1.0
+                        or (baseline_probability is not None and (
+                            not np.isfinite(baseline_probability)
+                            or not 0.0 <= baseline_probability <= 1.0
+                        ))
+                    ):
+                        continue
+                    observations.append((probability, baseline_probability, actual, entry.get("source", "model")))
+                except (KeyError, TypeError, ValueError):
+                    continue
+            if not observations:
+                continue
+            model_p = np.clip(np.asarray([item[0] for item in observations]), 1e-9, 1.0 - 1e-9)
+            actual = np.asarray([item[2] for item in observations], dtype=int)
+            market_score: Dict[str, Any] = {
+                "matches": int(len(actual)),
+                "source_counts": {
+                    source: sum(item[3] == source for item in observations)
+                    for source in ("model", "baseline")
+                },
+                "log_loss": round(float(log_loss(actual, model_p, labels=[0, 1])), 4),
+                "brier": round(float(brier_score_loss(actual, model_p)), 4),
+            }
+            baseline_rows = [item for item in observations if item[1] is not None]
+            if baseline_rows:
+                baseline_p = np.clip(
+                    np.asarray([item[1] for item in baseline_rows]), 1e-9, 1.0 - 1e-9
+                )
+                baseline_y = np.asarray([item[2] for item in baseline_rows], dtype=int)
+                comparable_model_p = np.clip(
+                    np.asarray([item[0] for item in baseline_rows]), 1e-9, 1.0 - 1e-9
+                )
+                comparable_model_log_loss = float(
+                    log_loss(baseline_y, comparable_model_p, labels=[0, 1])
+                )
+                comparable_model_brier = float(brier_score_loss(baseline_y, comparable_model_p))
+                baseline_log_loss = float(log_loss(baseline_y, baseline_p, labels=[0, 1]))
+                baseline_brier = float(brier_score_loss(baseline_y, baseline_p))
+                market_score.update({
+                    "baseline_matches": int(len(baseline_y)),
+                    "baseline_log_loss": round(baseline_log_loss, 4),
+                    "baseline_brier": round(baseline_brier, 4),
+                    "comparable_model_log_loss": round(comparable_model_log_loss, 4),
+                    "comparable_model_brier": round(comparable_model_brier, 4),
+                    "log_loss_delta_vs_baseline": round(comparable_model_log_loss - baseline_log_loss, 4),
+                    "brier_delta_vs_baseline": round(comparable_model_brier - baseline_brier, 4),
+                })
+            market_results[market] = market_score
+        if market_results:
+            goal_results.append({
+                "goal_artifact_sha256": goal_hash,
+                "markets": market_results,
+            })
+
     scorecard = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "source": "immutable pre-kickoff API forecasts matched to completed local results",
         "groups": results,
+        "goal_market_groups": goal_results,
     }
     SCORECARD_PATH.parent.mkdir(parents=True, exist_ok=True)
     SCORECARD_PATH.write_text(json.dumps(scorecard, indent=2), encoding="utf-8")
@@ -224,6 +379,14 @@ def score() -> Dict[str, Any]:
             f"draw_Brier={row['draw_brier']:.4f} draw_AUC={row['draw_auc']} "
             f"P(draw)={row['mean_draw_probability']:.3f}/{row['actual_draw_rate']:.3f}"
         )
+    for group in goal_results:
+        for market, metrics in group["markets"].items():
+            baseline_delta = metrics.get("log_loss_delta_vs_baseline")
+            print(
+                f"goal_artifact={group['goal_artifact_sha256'][:12]} market={market} "
+                f"n={metrics['matches']} LL={metrics['log_loss']:.4f} "
+                f"Brier={metrics['brier']:.4f} baseline_LL_delta={baseline_delta}"
+            )
     print(f"Scorecard: {SCORECARD_PATH.relative_to(PROJECT_ROOT)}")
     return scorecard
 

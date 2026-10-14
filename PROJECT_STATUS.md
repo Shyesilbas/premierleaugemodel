@@ -1,30 +1,30 @@
 # Project Status
 
-**Snapshot:** 2026-10-13, local cached data
+**Snapshot:** 2026-10-14, local cached data  
 **Current season:** 2026/27, 60 of 380 fixtures completed
 
 ## Current state
 
-- Four cached seasons contain 1,520 fixtures, including 1,200 completed matches and 320 upcoming fixtures.
-- Processed match and feature tables were rebuilt from the local raw cache; the combined feature table has 534 columns, including raw-stat presence flags.
-- All production model families were retrained. Candidate selection uses expanding-window time-series folds, with both a final chronological holdout and prior-season holdouts recorded in [Model Benchmarks](reports/model_benchmarks.md).
-- The 1X2 classifier was compared with a Dixon–Coles team attack/defence baseline on identical chronological and season holdouts. The benchmark is evaluative; the existing classifier remains the production model.
-- Data coverage, missing-stat selection patterns, and event-stream reports were regenerated. See [Data Quality](reports/data_quality.md), [Team Tactical Data Audit](reports/team_tactical_data_audit.md), and [Team Scenario Validation](reports/team_scenario_validation.md).
+- Five seasons contain 1,900 fixtures: 1,580 completed matches and 320 upcoming fixtures. Processed match and feature tables and production models were rebuilt from the local raw cache.
+- Missing `won_corners` values are reconstructed from team-attributed event streams when the raw stat is absent. This adds 67 recovered team values and makes the total-corners target usable for all 1,580 completed matches. Raw values and reconstruction flags remain separate.
+- Count-model selection now compares each feature model with a training-mean candidate inside every expanding-window fold. This gives the trainer a conservative fallback when the features do not generalize.
+- F7 removed the low-coverage aggregate xG proxy from active features and the API path. The repository has no trained or production xG input; historical proxy comparisons remain only as audit records.
+- F10 extends prospective logging to Over 1.5/2.5/3.5 and BTTS, alongside 1X2, with outcome and goal-model fingerprints. See [model-improvement guide, F10](reports/model_improvement_guide.md) and the append-only [forecast log](data/processed/1x2_forecast_log.jsonl).
+- Current benchmark scores and temporal comparisons are in [Model Benchmarks](reports/model_benchmarks.md). Data coverage and source quality are in [Data Quality](reports/data_quality.md); event-stream corner checks are in [Team Scenario Validation](reports/team_scenario_validation.md).
 
 ## Known model limits
 
-- Results remain preliminary because only three season holdouts are available and the latest one is partial. Compare the per-season score ranges with the single chronological holdout.
-- 1X2 and over/under probabilities now use a chronological out-of-fold temperature and class-offset calibrator. The calibration needs more seasons before it can be considered stable.
-- Count thresholds now use a negative-binomial distribution with dispersion fit on training targets; the benchmark compares NB2, Poisson, and training-rate baselines.
-- Omitted raw metrics remain null with `_reported` flags. Incomplete target rows are excluded from count-model training. Red-card omissions are still treated as zero under a sparse-event assumption, so card labels can be understated if the provider omits a real red card.
-- Missingness is not uniform: offsides coverage drops from 65.8% in 2023/24 to 56.6% in 2025/26, and cards coverage also declines. The report compares this selection with team and match-outcome patterns; these are descriptive associations, not proof of cause.
-- The Dixon–Coles comparator improves on the class-prior log-loss baseline but trails the current calibrated classifier on the main holdout; it also rarely chooses draws as its top class. It has not replaced the production model.
-- The `xg` columns are a hand-built aggregate-stat proxy, not Opta shot-level xG and not a separately trained model.
-- An incremental fixture sync refreshes processed data but does not retrain models. Run `python3 run_full_pipeline.py` after a sync and restart the API to load current artifacts.
+- The main 1X2 holdout log loss is 1.045 versus 1.114 for the class-prior baseline; multiclass Brier is 0.630 versus 0.675. Actual draws were 31.0%, mean predicted draw probability was 23.4%, draw AUC was 0.5381, and the model selected a draw as its most likely outcome in 4 of 316 matches. Draw-focused features gave small, mixed changes across season holdouts, so this is not a solved problem.
+- Only three full prior-season holdouts and one 60-match partial-season holdout are available. Several policy and feature comparisons have been reviewed on those same seasons; keep the remainder of 2026/27 as a prospective evaluation set.
+- Reliable shot-level xG is not available locally. The low-coverage aggregate proxy is not used in the current feature or API path.
+- Saves are now usable for all 1,580 completed matches through event-stream recovery; raw provider values remain complete for 1,371 matches, and the original source flags are preserved. The saves model still selects `training_mean` after the CV skill gate. Details: [model-improvement guide, F9](reports/model_improvement_guide.md).
+- Count-model improvements over the mean are small for corners, saves, and cards. The fold-fitted mean candidate prevents selecting a more complex model unless it wins chronological CV, but holdout scores remain the authority.
+- Dixon–Coles remains an evaluation comparator: its 1X2 ensemble failed the three-season production gate (1/3 seasons improved; mean log-loss change +0.00312), so the production classifier remains unchanged. Full F4–F6 decisions are in the [1X2 audit](reports/1x2_model_audit.md).
 
 ## Next work
 
-1. Recover or supplement missing yellow-card, save, and offside data, then recheck whether the current coverage gaps are provider-side or source-side.
-2. Add more completed seasons and monitor whether the current classifier's advantage over Dixon–Coles persists.
-3. Validate omitted sparse-count fields against event streams or another authoritative source, especially red cards.
-4. Replace the xG proxy with verified shot-level xG input or remove the xG label from predictions.
+1. Keep saving immutable pre-kickoff 1X2 and goal-market forecasts, then score them after matches finish; do not use the partially evaluated season to repeatedly tune the model.
+2. Compare high-coverage tactical features, such as forward-zone passing and final-third entries, through the same season holdouts before adding them to production.
+3. Validate the event-derived corner fallback against source stats and unresolved team attribution as new raw data arrives.
+4. Investigate authoritative goalkeeper-save data to recover the remaining missing target rows.
+5. Run `python3 run_full_pipeline.py` after each raw-cache update and restart the API to load rebuilt production artifacts.

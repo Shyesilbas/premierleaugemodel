@@ -156,7 +156,7 @@ export default function PitchVisualizer() {
               <>
                 {/* Central Danger Shot Area */}
                 <div className="absolute top-1/2 -translate-y-1/2 right-6 w-24 h-24 rounded-full bg-rose-500/25 border border-rose-500/60 flex flex-col items-center justify-center text-center animate-pulse">
-                  <span className="text-[10px] font-extrabold text-white">Yüksek xG Bölgesi</span>
+                  <span className="text-[10px] font-extrabold text-white">Tehlikeli Şut Bölgesi</span>
                   <span className="text-[8px] text-rose-200">14.2 Şut</span>
                 </div>
 

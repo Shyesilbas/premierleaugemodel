@@ -1,52 +1,257 @@
 {
+  "2022_23": {
+    "source": "https://en.wikipedia.org/wiki/2022%E2%80%9323_Premier_League",
+    "managers": {
+      "1": {
+        "team_name": "Arsenal",
+        "name": "Mikel Arteta"
+      },
+      "2": {
+        "team_name": "Aston Villa",
+        "name": "Steven Gerrard"
+      },
+      "4": {
+        "team_name": "Chelsea",
+        "name": "Thomas Tuchel"
+      },
+      "6": {
+        "team_name": "Crystal Palace",
+        "name": "Patrick Vieira"
+      },
+      "7": {
+        "team_name": "Everton",
+        "name": "Frank Lampard"
+      },
+      "9": {
+        "team_name": "Leeds United",
+        "name": "Jesse Marsch"
+      },
+      "10": {
+        "team_name": "Liverpool",
+        "name": "Jürgen Klopp"
+      },
+      "11": {
+        "team_name": "Manchester City",
+        "name": "Pep Guardiola"
+      },
+      "12": {
+        "team_name": "Manchester United",
+        "name": "Erik ten Hag"
+      },
+      "15": {
+        "team_name": "Nottingham Forest",
+        "name": "Steve Cooper"
+      },
+      "20": {
+        "team_name": "Southampton",
+        "name": "Ralph Hasenhüttl"
+      },
+      "21": {
+        "team_name": "Tottenham Hotspur",
+        "name": "Antonio Conte"
+      },
+      "23": {
+        "team_name": "Newcastle United",
+        "name": "Eddie Howe"
+      },
+      "25": {
+        "team_name": "West Ham United",
+        "name": "David Moyes"
+      },
+      "26": {
+        "team_name": "Leicester City",
+        "name": "Brendan Rodgers"
+      },
+      "34": {
+        "team_name": "Fulham",
+        "name": "Marco Silva"
+      },
+      "38": {
+        "team_name": "Wolverhampton Wanderers",
+        "name": "Bruno Lage"
+      },
+      "127": {
+        "team_name": "Bournemouth",
+        "name": "Scott Parker"
+      },
+      "130": {
+        "team_name": "Brentford",
+        "name": "Thomas Frank"
+      },
+      "131": {
+        "team_name": "Brighton & Hove Albion",
+        "name": "Graham Potter"
+      }
+    }
+  },
   "2023_24": {
     "source": "https://en.wikipedia.org/wiki/2023%E2%80%9324_Premier_League",
     "managers": {
-      "1": { "team_name": "Arsenal", "name": "Mikel Arteta" },
-      "2": { "team_name": "Aston Villa", "name": "Unai Emery" },
-      "127": { "team_name": "Bournemouth", "name": "Andoni Iraola" },
-      "130": { "team_name": "Brentford", "name": "Thomas Frank" },
-      "131": { "team_name": "Brighton & Hove Albion", "name": "Roberto De Zerbi" },
-      "43": { "team_name": "Burnley", "name": "Vincent Kompany" },
-      "4": { "team_name": "Chelsea", "name": "Mauricio Pochettino" },
-      "6": { "team_name": "Crystal Palace", "name": "Oliver Glasner" },
-      "7": { "team_name": "Everton", "name": "Sean Dyche" },
-      "34": { "team_name": "Fulham", "name": "Marco Silva" },
-      "10": { "team_name": "Liverpool", "name": "Jürgen Klopp" },
-      "163": { "team_name": "Luton Town", "name": "Rob Edwards" },
-      "11": { "team_name": "Manchester City", "name": "Pep Guardiola" },
-      "12": { "team_name": "Manchester United", "name": "Erik ten Hag" },
-      "23": { "team_name": "Newcastle United", "name": "Eddie Howe" },
-      "15": { "team_name": "Nottingham Forest", "name": "Nuno Espírito Santo" },
-      "18": { "team_name": "Sheffield United", "name": "Chris Wilder" },
-      "21": { "team_name": "Tottenham Hotspur", "name": "Ange Postecoglou" },
-      "25": { "team_name": "West Ham United", "name": "David Moyes" },
-      "38": { "team_name": "Wolverhampton Wanderers", "name": "Gary O'Neil" }
+      "1": {
+        "team_name": "Arsenal",
+        "name": "Mikel Arteta"
+      },
+      "2": {
+        "team_name": "Aston Villa",
+        "name": "Unai Emery"
+      },
+      "127": {
+        "team_name": "Bournemouth",
+        "name": "Andoni Iraola"
+      },
+      "130": {
+        "team_name": "Brentford",
+        "name": "Thomas Frank"
+      },
+      "131": {
+        "team_name": "Brighton & Hove Albion",
+        "name": "Roberto De Zerbi"
+      },
+      "43": {
+        "team_name": "Burnley",
+        "name": "Vincent Kompany"
+      },
+      "4": {
+        "team_name": "Chelsea",
+        "name": "Mauricio Pochettino"
+      },
+      "6": {
+        "team_name": "Crystal Palace",
+        "name": "Oliver Glasner"
+      },
+      "7": {
+        "team_name": "Everton",
+        "name": "Sean Dyche"
+      },
+      "34": {
+        "team_name": "Fulham",
+        "name": "Marco Silva"
+      },
+      "10": {
+        "team_name": "Liverpool",
+        "name": "Jürgen Klopp"
+      },
+      "163": {
+        "team_name": "Luton Town",
+        "name": "Rob Edwards"
+      },
+      "11": {
+        "team_name": "Manchester City",
+        "name": "Pep Guardiola"
+      },
+      "12": {
+        "team_name": "Manchester United",
+        "name": "Erik ten Hag"
+      },
+      "23": {
+        "team_name": "Newcastle United",
+        "name": "Eddie Howe"
+      },
+      "15": {
+        "team_name": "Nottingham Forest",
+        "name": "Nuno Espírito Santo"
+      },
+      "18": {
+        "team_name": "Sheffield United",
+        "name": "Chris Wilder"
+      },
+      "21": {
+        "team_name": "Tottenham Hotspur",
+        "name": "Ange Postecoglou"
+      },
+      "25": {
+        "team_name": "West Ham United",
+        "name": "David Moyes"
+      },
+      "38": {
+        "team_name": "Wolverhampton Wanderers",
+        "name": "Gary O'Neil"
+      }
     }
   },
   "2024_25": {
     "source": "https://en.wikipedia.org/wiki/2024%E2%80%9325_Premier_League",
     "managers": {
-      "1": { "team_name": "Arsenal", "name": "Mikel Arteta" },
-      "2": { "team_name": "Aston Villa", "name": "Unai Emery" },
-      "127": { "team_name": "Bournemouth", "name": "Andoni Iraola" },
-      "130": { "team_name": "Brentford", "name": "Thomas Frank" },
-      "131": { "team_name": "Brighton & Hove Albion", "name": "Fabian Hürzeler" },
-      "4": { "team_name": "Chelsea", "name": "Enzo Maresca" },
-      "6": { "team_name": "Crystal Palace", "name": "Oliver Glasner" },
-      "7": { "team_name": "Everton", "name": "David Moyes" },
-      "34": { "team_name": "Fulham", "name": "Marco Silva" },
-      "8": { "team_name": "Ipswich Town", "name": "Kieran McKenna" },
-      "26": { "team_name": "Leicester City", "name": "Ruud van Nistelrooy" },
-      "10": { "team_name": "Liverpool", "name": "Arne Slot" },
-      "11": { "team_name": "Manchester City", "name": "Pep Guardiola" },
-      "12": { "team_name": "Manchester United", "name": "Ruben Amorim" },
-      "23": { "team_name": "Newcastle United", "name": "Eddie Howe" },
-      "15": { "team_name": "Nottingham Forest", "name": "Nuno Espírito Santo" },
-      "20": { "team_name": "Southampton", "name": "Simon Rusk" },
-      "21": { "team_name": "Tottenham Hotspur", "name": "Ange Postecoglou" },
-      "25": { "team_name": "West Ham United", "name": "Graham Potter" },
-      "38": { "team_name": "Wolverhampton Wanderers", "name": "Vítor Pereira" }
+      "1": {
+        "team_name": "Arsenal",
+        "name": "Mikel Arteta"
+      },
+      "2": {
+        "team_name": "Aston Villa",
+        "name": "Unai Emery"
+      },
+      "127": {
+        "team_name": "Bournemouth",
+        "name": "Andoni Iraola"
+      },
+      "130": {
+        "team_name": "Brentford",
+        "name": "Thomas Frank"
+      },
+      "131": {
+        "team_name": "Brighton & Hove Albion",
+        "name": "Fabian Hürzeler"
+      },
+      "4": {
+        "team_name": "Chelsea",
+        "name": "Enzo Maresca"
+      },
+      "6": {
+        "team_name": "Crystal Palace",
+        "name": "Oliver Glasner"
+      },
+      "7": {
+        "team_name": "Everton",
+        "name": "David Moyes"
+      },
+      "34": {
+        "team_name": "Fulham",
+        "name": "Marco Silva"
+      },
+      "8": {
+        "team_name": "Ipswich Town",
+        "name": "Kieran McKenna"
+      },
+      "26": {
+        "team_name": "Leicester City",
+        "name": "Ruud van Nistelrooy"
+      },
+      "10": {
+        "team_name": "Liverpool",
+        "name": "Arne Slot"
+      },
+      "11": {
+        "team_name": "Manchester City",
+        "name": "Pep Guardiola"
+      },
+      "12": {
+        "team_name": "Manchester United",
+        "name": "Ruben Amorim"
+      },
+      "23": {
+        "team_name": "Newcastle United",
+        "name": "Eddie Howe"
+      },
+      "15": {
+        "team_name": "Nottingham Forest",
+        "name": "Nuno Espírito Santo"
+      },
+      "20": {
+        "team_name": "Southampton",
+        "name": "Simon Rusk"
+      },
+      "21": {
+        "team_name": "Tottenham Hotspur",
+        "name": "Ange Postecoglou"
+      },
+      "25": {
+        "team_name": "West Ham United",
+        "name": "Graham Potter"
+      },
+      "38": {
+        "team_name": "Wolverhampton Wanderers",
+        "name": "Vítor Pereira"
+      }
     }
   }
 }

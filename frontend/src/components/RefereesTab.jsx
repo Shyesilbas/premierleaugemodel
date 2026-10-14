@@ -150,6 +150,7 @@ export default function RefereesTab({ selectedSeason }) {
               <option value="2025_26">2025-26 Sezonu</option>
               <option value="2024_25">2024-25 Sezonu</option>
               <option value="2023_24">2023-24 Sezonu</option>
+              <option value="2022_23">2022-23 Sezonu</option>
               <option value="all">Tüm Sezonlar (Kariyer)</option>
             </select>
           </div>

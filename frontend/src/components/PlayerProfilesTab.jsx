@@ -339,6 +339,7 @@ export default function PlayerProfilesTab({ selectedSeason }) {
                 <option value="2025_26">2025-26</option>
                 <option value="2024_25">2024-25</option>
                 <option value="2023_24">2023-24</option>
+                <option value="2022_23">2022-23</option>
                 <option value="all">Tüm sezonlar</option>
               </select>
             </label>
