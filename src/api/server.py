@@ -655,6 +655,13 @@ def get_grouped_fixtures(season: str = "2026_27"):
     db_fixtures = get_all_grouped_fixtures(season)
     raw_fixtures = []
 
+    # Determine current active gameweek (the earliest gameweek with unplayed matches)
+    unplayed_gws = [
+        int(r["gameweek"]) for r in db_fixtures
+        if not (r.get("status") == "COMPLETED" or (r.get("home_score") is not None and r.get("away_score") is not None))
+    ]
+    current_gw = min(unplayed_gws) if unplayed_gws else (int(db_fixtures[-1]["gameweek"]) if db_fixtures else 1)
+
     for r in db_fixtures:
         mid = int(r["match_id"])
         h_id = int(r["home_id"])
@@ -665,8 +672,12 @@ def get_grouped_fixtures(season: str = "2026_27"):
         is_completed = (r["status"] == "COMPLETED" or (h_score is not None and a_score is not None))
         match_stats = match_stats_map.get(mid, {})
 
-        # Compute AI predictions for uncompleted matches in current/upcoming gameweeks
-        pred = get_quick_fixture_prediction(h_id, a_id, r.get("season") or season) if (not is_completed and gw in [6, 7, 8]) else None
+        # Compute AI predictions strictly for uncompleted matches in the CURRENT gameweek only
+        pred = (
+            get_quick_fixture_prediction(h_id, a_id, r.get("season") or season)
+            if (not is_completed and gw == current_gw)
+            else None
+        )
 
         raw_fixtures.append({
             "match_id": mid,

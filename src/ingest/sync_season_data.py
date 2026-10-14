@@ -9,11 +9,14 @@ the processed all-season datasets and SQLite database.
 import argparse
 import json
 import logging
+import re
 import subprocess
 import sys
 import time
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timedelta, timezone
 
 from fetch_season_data import (
     build_session,
@@ -27,6 +30,7 @@ from fetch_season_data import (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 logger = logging.getLogger("sync_season_data")
+SDP_API_BASE = "https://sdp-prem-prod.premier-league-prod.pulselive.com/api"
 
 
 def load_fixture_file(path: Path) -> List[Dict[str, Any]]:
@@ -62,6 +66,133 @@ def details_have_main_referee(path: Path) -> bool:
         if official.get("role") == "MAIN" and (official.get("name") or {}).get("display"):
             return True
     return False
+
+
+def normalize_team_name(name: str) -> str:
+    value = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().casefold()
+    value = re.sub(r"[^a-z0-9]+", "", value)
+    aliases = {
+        "brightonandhovealbion": "brightonhovealbion",
+        "newcastle": "newcastleunited",
+        "manutd": "manchesterunited",
+        "mancity": "manchestercity",
+        "nottmforest": "nottinghamforest",
+        "spurs": "tottenhamhotspur",
+    }
+    return aliases.get(value, value)
+
+
+def fixture_pair(fixture: Dict[str, Any]) -> Tuple[str, str]:
+    teams = fixture.get("teams") or []
+    if len(teams) < 2:
+        return "", ""
+    home = (teams[0].get("team") or {}).get("name") or ""
+    away = (teams[1].get("team") or {}).get("name") or ""
+    return normalize_team_name(home), normalize_team_name(away)
+
+
+def main_referee_name(officials: Any) -> Optional[str]:
+    for entry in officials or []:
+        official = entry.get("official") or entry.get("matchOfficial") or entry
+        role = entry.get("type") or entry.get("role") or official.get("role")
+        name_value = official.get("name")
+        name = name_value.get("display") or name_value.get("name") if isinstance(name_value, dict) else name_value
+        name = name or " ".join(
+            part for part in (official.get("firstName"), official.get("lastName")) if part
+        )
+        if role in {"Referee", "MAIN"} and name:
+            return str(name).strip()
+    return None
+
+
+def sync_upcoming_referees(
+    session,
+    season_name: str,
+    fresh_fixtures: List[Dict[str, Any]],
+    old_by_id: Dict[int, Dict[str, Any]],
+) -> int:
+    """Refresh appointments for upcoming fixtures in the next two weeks.
+
+    The legacy fixture/details feed does not publish these assignments. The
+    current PL SDP API exposes them through /api/v1/matches/{id}/officials.
+    """
+    now = datetime.now(timezone.utc)
+    horizon = now + timedelta(days=14)
+    targets = []
+    for fixture in fresh_fixtures:
+        kickoff_ms = (fixture.get("kickoff") or {}).get("millis")
+        if kickoff_ms is None:
+            continue
+        kickoff = datetime.fromtimestamp(float(kickoff_ms) / 1000, tz=timezone.utc)
+        if now < kickoff <= horizon:
+            targets.append(fixture)
+    if not targets:
+        return 0
+
+    season_id = season_name.split("_", 1)[0]
+    matches_by_week: Dict[int, Dict[Tuple[str, str], str]] = {}
+    updates = 0
+    for fixture in targets:
+        gameweek = int((fixture.get("gameweek") or {}).get("gameweek") or 0)
+        if gameweek < 1:
+            continue
+        if gameweek not in matches_by_week:
+            try:
+                response = session.get(
+                    f"{SDP_API_BASE}/v2/matches",
+                    params={"competition": 8, "season": season_id, "matchweek": gameweek, "_limit": 50},
+                    timeout=20,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                by_pair: Dict[Tuple[str, str], str] = {}
+                for match in payload.get("data") or []:
+                    pair = (
+                        normalize_team_name((match.get("homeTeam") or {}).get("name") or ""),
+                        normalize_team_name((match.get("awayTeam") or {}).get("name") or ""),
+                    )
+                    if all(pair):
+                        by_pair[pair] = str(match.get("matchId") or "")
+                matches_by_week[gameweek] = by_pair
+            except Exception:
+                logger.exception("Could not fetch PL matchweek %s for referee sync", gameweek)
+                matches_by_week[gameweek] = {}
+
+        pair = fixture_pair(fixture)
+        external_match_id = matches_by_week[gameweek].get(pair)
+        if not external_match_id:
+            logger.warning("Could not map referee appointment: %s GW%s %s", season_name, gameweek, pair)
+            continue
+        try:
+            response = session.get(
+                f"{SDP_API_BASE}/v1/matches/{external_match_id}/officials",
+                timeout=20,
+            )
+            response.raise_for_status()
+            officials = response.json().get("matchOfficials") or []
+        except Exception:
+            logger.exception("Could not fetch officials for PL match %s", external_match_id)
+            continue
+
+        referee = main_referee_name(officials)
+        if not referee:
+            # Preserve a previously sourced appointment if the provider has
+            # temporarily returned an empty list.
+            old = old_by_id.get(int(fixture["id"]), {})
+            referee = main_referee_name(old.get("matchOfficials"))
+            if not referee:
+                continue
+            officials = old.get("matchOfficials") or []
+
+        existing_referee = main_referee_name(fixture.get("matchOfficials"))
+        if existing_referee != referee:
+            fixture["matchOfficials"] = [{
+                "role": "MAIN",
+                "name": {"display": referee},
+            }]
+            updates += 1
+            logger.info("Referee assigned for %s GW%s %s: %s", season_name, gameweek, pair, referee)
+    return updates
 
 
 def atomic_write_json(path: Path, payload: Any) -> None:
@@ -129,7 +260,23 @@ def sync_season(
     old_by_id = {int(f["id"]): f for f in old_fixtures if f.get("id") is not None}
     fresh_by_id = {int(f["id"]): f for f in fresh_fixtures if f.get("id") is not None}
 
-    fixture_changes = sum(old_by_id.get(mid) != fixture for mid, fixture in fresh_by_id.items())
+    appointment_updates = sync_upcoming_referees(session, season_name, fresh_fixtures, old_by_id)
+    fixture_changes = sum(
+        {
+            key: value for key, value in old_by_id.get(mid, {}).items()
+            if key != "matchOfficials"
+        }
+        != {
+            key: value for key, value in fixture.items()
+            if key != "matchOfficials"
+        }
+        for mid, fixture in fresh_by_id.items()
+    )
+    appointment_changes = sum(
+        main_referee_name(old_by_id.get(mid, {}).get("matchOfficials"))
+        != main_referee_name(fixture.get("matchOfficials"))
+        for mid, fixture in fresh_by_id.items()
+    )
     completed_changes = []
     needs_download: Dict[int, List[str]] = {}
     for match_id, fixture in fresh_by_id.items():
@@ -157,12 +304,13 @@ def sync_season(
             needs_download[match_id] = missing
 
     logger.info(
-        "Season %s: %s fixtures; %s fixture records changed; %s newly completed/score-updated; %s matches need data downloads",
-        season_name, len(fresh_fixtures), fixture_changes, len(completed_changes), len(needs_download),
+        "Season %s: %s fixtures; %s fixture records changed; %s referee appointments refreshed; %s newly completed/score-updated; %s matches need data downloads",
+        season_name, len(fresh_fixtures), fixture_changes, appointment_updates, len(completed_changes), len(needs_download),
     )
     summary = {
         "fixtures": len(fresh_fixtures),
         "fixture_changes": fixture_changes,
+        "referee_appointments_updated": appointment_changes,
         "completed_or_score_changes": len(completed_changes),
         "matches_with_downloads": len(needs_download),
         "files_downloaded": 0,
@@ -196,7 +344,9 @@ def sync_season(
     raw_dir.mkdir(parents=True, exist_ok=True)
     atomic_write_json(fixture_path, fixtures_to_save)
 
-    rebuild_needed = bool(fixture_changes or summary["files_downloaded"] or pending_path.exists())
+    rebuild_needed = bool(
+        fixture_changes or appointment_changes or summary["files_downloaded"] or pending_path.exists()
+    )
     if rebuild_needed:
         pending_path.write_text("Derived datasets need rebuilding.\n", encoding="utf-8")
 

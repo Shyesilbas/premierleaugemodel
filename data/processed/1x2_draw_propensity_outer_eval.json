@@ -6,17 +6,17 @@
       "partial_season": false,
       "early_season_fallback_included_excluded_history": false,
       "test_samples": 380,
-      "log_loss_with": 0.9977,
-      "log_loss_without": 0.9939,
-      "delta_log_loss": 0.0038,
-      "draw_auc_with": 0.5484,
-      "draw_auc_without": 0.5272,
-      "delta_draw_auc": 0.0212
+      "log_loss_with": 0.9937,
+      "log_loss_without": 0.9891,
+      "delta_log_loss": 0.0046,
+      "draw_auc_with": 0.5391,
+      "draw_auc_without": 0.5143,
+      "delta_draw_auc": 0.0248
     }
   ],
   "season_count": 1,
-  "mean_delta_log_loss": 0.0038,
-  "mean_delta_draw_auc": 0.0212,
+  "mean_delta_log_loss": 0.0046,
+  "mean_delta_draw_auc": 0.0248,
   "gate_passed": false,
   "gate": "mean log-loss delta < -0.002 and mean draw-AUC delta >= +0.01 across three full seasons"
 }

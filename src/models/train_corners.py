@@ -15,7 +15,7 @@ from typing import Dict, Any, List
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor
-from sklearn.linear_model import PoissonRegressor, Ridge
+from sklearn.linear_model import ElasticNet, PoissonRegressor, Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import joblib
 from src.models.model_utils import (
@@ -35,23 +35,14 @@ logging.basicConfig(
 logger = logging.getLogger("train_corners")
 
 CURATED_FEATURES = [
-    "home_corners_for_roll_3",
-    "home_corners_for_roll_5",
     "home_corners_for_roll_10",
-    "away_corners_for_roll_3",
-    "away_corners_for_roll_5",
     "away_corners_for_roll_10",
-    "home_corners_against_roll_5",
-    "away_corners_against_roll_5",
+    "home_corners_against_roll_10",
+    "away_corners_against_roll_10",
+    "home_corners_for_roll_5",
+    "away_corners_for_roll_5",
     "home_shots_for_roll_5",
     "away_shots_for_roll_5",
-    "home_shots_against_roll_5",
-    "away_shots_against_roll_5",
-    "exp_match_corners_5",
-    "exp_home_corners_5",
-    "exp_away_corners_5",
-    "home_possession_roll_5",
-    "away_possession_roll_5",
     "home_touches_in_opp_box_roll_5",
     "away_touches_in_opp_box_roll_5",
 ]
@@ -102,14 +93,20 @@ def train_corners_model(
             verbosity=-1,
         )),
         **{
-            f"ridge_{alpha}": make_regression_pipeline(Ridge(alpha=alpha), scale=True)
-            for alpha in (1.0, 10.0, 50.0, 100.0)
+            f"ridge_{alpha:g}": make_regression_pipeline(Ridge(alpha=alpha), scale=True)
+            for alpha in (1.0, 10.0, 50.0, 100.0, 250.0, 500.0)
         },
         **{
             f"poisson_{alpha:g}": make_regression_pipeline(
                 PoissonRegressor(alpha=alpha, max_iter=2000), scale=True
             )
             for alpha in (1.0, 10.0, 50.0, 200.0)
+        },
+        **{
+            f"elastic_{alpha}_{l1}": make_regression_pipeline(
+                ElasticNet(alpha=alpha, l1_ratio=l1, max_iter=2000), scale=True
+            )
+            for alpha in (0.05, 0.1, 0.5) for l1 in (0.2, 0.5, 0.8)
         },
     }
 

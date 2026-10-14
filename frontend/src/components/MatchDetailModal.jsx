@@ -24,24 +24,29 @@ import {
 } from 'lucide-react';
 import { getTeam } from '../data/teams';
 
-export default function MatchDetailModal({ match, onClose }) {
+export default function MatchDetailModal({ match, onClose, currentGameweek }) {
   const isCompleted = Boolean(
     match.status === 'COMPLETED' || 
     (match.home_score !== null && match.home_score !== undefined && match.home_score !== '')
   );
-  const [activeTab, setActiveTab] = useState(isCompleted ? 'stats' : 'prediction');
+  const isPredictable = !isCompleted && (
+    currentGameweek ? Number(match.gameweek) === Number(currentGameweek) : true
+  );
+  const [activeTab, setActiveTab] = useState(
+    isCompleted ? 'stats' : isPredictable ? 'prediction' : 'lineups'
+  );
   const [playerTabSide, setPlayerTabSide] = useState('home'); // 'home' or 'away'
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [prediction, setPrediction] = useState(null);
   const [loadingPrediction, setLoadingPrediction] = useState(false);
 
-  // If match is completed, NEVER show or allow prediction tab
+  // If match is completed or not in current gameweek, NEVER show or allow prediction tab
   useEffect(() => {
-    if (isCompleted && activeTab === 'prediction') {
-      setActiveTab('stats');
+    if ((isCompleted || !isPredictable) && activeTab === 'prediction') {
+      setActiveTab(isCompleted ? 'stats' : 'lineups');
     }
-  }, [isCompleted, activeTab]);
+  }, [isCompleted, isPredictable, activeTab]);
 
   const homeTeam = getTeam(match.home_id, match.home_name);
   const awayTeam = getTeam(match.away_id, match.away_name);
@@ -62,8 +67,8 @@ export default function MatchDetailModal({ match, onClose }) {
   }, [match.match_id]);
 
   useEffect(() => {
-    // NEVER fetch prediction for completed matches
-    if (isCompleted) return;
+    // Only fetch prediction for unplayed matches in the current active gameweek
+    if (isCompleted || !isPredictable) return;
     if (!match.home_id || !match.away_id) return;
     setLoadingPrediction(true);
     fetch(`/api/predict?home_id=${match.home_id}&away_id=${match.away_id}`)
@@ -76,7 +81,7 @@ export default function MatchDetailModal({ match, onClose }) {
         console.error('Error fetching prediction:', err);
         setLoadingPrediction(false);
       });
-  }, [match.home_id, match.away_id, isCompleted]);
+  }, [match.home_id, match.away_id, isCompleted, isPredictable]);
 
   const renderEventIcon = (type) => {
     switch (type) {
@@ -261,7 +266,7 @@ export default function MatchDetailModal({ match, onClose }) {
               </button>
             )}
 
-            {!isCompleted && (
+            {!isCompleted && isPredictable && (
               <button
                 onClick={() => setActiveTab('prediction')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -273,6 +278,13 @@ export default function MatchDetailModal({ match, onClose }) {
                 <Sparkles className="w-3.5 h-3.5 text-[#00ff87]" />
                 <span>Model Tahminleri</span>
               </button>
+            )}
+
+            {!isCompleted && !isPredictable && (
+              <span className="px-3 py-1 rounded-xl text-[11px] font-bold bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-1.5" title="Model tahminleri takım formu ve sakatlık güncelliği için yalnızca mevcut haftanın maçlarında aktiftir">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span>Tahminler {match.gameweek}. Haftada Açılacak</span>
+              </span>
             )}
 
             <button
@@ -579,7 +591,7 @@ export default function MatchDetailModal({ match, onClose }) {
 
             </div>
 
-          ) : (activeTab === 'prediction' && !isCompleted) ? (
+          ) : (activeTab === 'prediction' && !isCompleted && isPredictable) ? (
 
             /* PREDICTION TAB: Live Match Predictions & 5 Micro-Metric Models */
             <div className="space-y-6">

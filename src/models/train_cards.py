@@ -15,7 +15,7 @@ from typing import Dict, Any, List
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor
-from sklearn.linear_model import PoissonRegressor, Ridge
+from sklearn.linear_model import ElasticNet, PoissonRegressor, Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import joblib
 from src.models.model_utils import (
@@ -35,21 +35,15 @@ logging.basicConfig(
 logger = logging.getLogger("train_cards")
 
 CURATED_FEATURES = [
-    "home_cards_for_roll_3",
     "home_cards_for_roll_5",
-    "home_cards_for_roll_10",
-    "away_cards_for_roll_3",
     "away_cards_for_roll_5",
-    "away_cards_for_roll_10",
     "home_cards_against_roll_5",
     "away_cards_against_roll_5",
     "home_fouls_committed_roll_5",
     "away_fouls_committed_roll_5",
     "home_fouls_drawn_roll_5",
     "away_fouls_drawn_roll_5",
-    "exp_match_cards_5",
-    "exp_home_cards_5",
-    "exp_away_cards_5",
+    "abs_elo_diff",
     "referee_avg_cards",
     "referee_avg_fouls",
 ]
@@ -109,6 +103,12 @@ def train_cards_model(
                 PoissonRegressor(alpha=alpha, max_iter=2000), scale=True
             )
             for alpha in (1.0, 10.0, 50.0, 200.0)
+        },
+        **{
+            f"elastic_{alpha}_{l1}": make_regression_pipeline(
+                ElasticNet(alpha=alpha, l1_ratio=l1, max_iter=2000), scale=True
+            )
+            for alpha in (0.05, 0.1, 0.5) for l1 in (0.2, 0.5, 0.8)
         },
     }
 

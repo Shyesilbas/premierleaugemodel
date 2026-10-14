@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  Sparkles, 
   Calendar, 
   Shield, 
   User, 
@@ -22,7 +21,6 @@ export default function Sidebar({
 
   const navItems = [
     { id: 'fixtures', label: 'Fikstür & Günler', icon: Calendar },
-    { id: 'predictor', label: 'Tahmin Motoru', icon: Sparkles },
     { id: 'teams', label: 'Takım Profilleri', icon: Shield },
     { id: 'players', label: 'Oyuncu Profilleri', icon: User },
     { id: 'referees', label: 'Hakem Profilleri', icon: Scale },

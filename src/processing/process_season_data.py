@@ -323,25 +323,21 @@ def parse_match(
     # Referee & Match Officials
     referee_id = None
     referee_name = "Unknown"
-    detail_officials = (details_data or {}).get("matchOfficials") or []
-    main_official = next((official for official in detail_officials
-                          if official.get("role") == "MAIN"
-                          and (official.get("name") or {}).get("display")), None)
+    def find_main_official(officials):
+        for entry in officials or []:
+            official = entry.get("official") or entry.get("matchOfficial") or entry
+            role = entry.get("role") or entry.get("type") or official.get("role")
+            name = official.get("name") or {}
+            display = name.get("display") if isinstance(name, dict) else name
+            if role in {"MAIN", "Referee"} and display:
+                return official
+        return None
+
+    # The refreshed fixture cache carries the current appointment from the PL
+    # officials feed. Prefer it over any older cached match-details response.
+    main_official = find_main_official(fixture.get("matchOfficials"))
     if main_official is None:
-        # Some fixture responses carry the assigned official before the details
-        # endpoint does, using a nested {matchOfficial: ...} shape.
-        fixture_officials = fixture.get("matchOfficials") or []
-        for entry in fixture_officials:
-            official = entry.get("matchOfficial") or entry
-            role = entry.get("role") or official.get("role")
-            if role == "MAIN" and (official.get("name") or {}).get("display"):
-                main_official = official
-                break
-        if main_official is None and fixture_officials:
-            first = fixture_officials[0]
-            candidate = first.get("matchOfficial") or first
-            if (candidate.get("name") or {}).get("display"):
-                main_official = candidate
+        main_official = find_main_official((details_data or {}).get("matchOfficials"))
     if main_official:
         referee_id = main_official.get("id")
         referee_name = (main_official.get("name") or {}).get("display") or "Unknown"

@@ -25,11 +25,11 @@ Provider xG coverage by season (both team values): 2022_23 366/380, 2023_24 120/
 
 | Target | Raw CV winner | Selected model | Skill decision | Features | Dev rows | Holdout rows | CV RMSE | Holdout RMSE | Mean baseline RMSE | Holdout MAE | Mean baseline MAE | R² |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Corners | `poisson_10` | `poisson_10` | gate passed | 19 | 1264 | 316 | 3.4292 | 3.2198 | 3.2405 | 2.6224 | 2.6610 | -0.0083 |
+| Corners | `elastic_0.05_0.5` | `elastic_0.05_0.5` | gate passed | 10 | 1264 | 316 | 3.4210 | 3.1952 | 3.2405 | 2.5932 | 2.6610 | 0.0071 |
 | Throw-ins | `poisson_10` | `poisson_10` | gate passed | 15 | 1264 | 316 | 7.3221 | 7.0675 | 7.3881 | 5.6202 | 5.9665 | 0.0801 |
 | Saves | `ridge_500` | `training_mean` | gate fallback to mean | 13 | 1264 | 316 | 2.6010 | 2.3785 | 2.3785 | 1.9203 | 1.9203 | -0.0328 |
-| Cards | `ridge_500` | `ridge_500` | gate passed | 17 | 1264 | 316 | 2.1880 | 2.0298 | 2.0014 | 1.6394 | 1.6082 | -0.0353 |
-| Offsides | `ridge_250` | `ridge_250` | gate passed | 15 | 1264 | 316 | 2.0216 | 1.9043 | 2.0238 | 1.5180 | 1.6302 | 0.0991 |
+| Cards | `poisson_1` | `poisson_1` | gate passed | 11 | 1264 | 316 | 2.1812 | 2.0201 | 2.0014 | 1.6328 | 1.6082 | -0.0254 |
+| Offsides | `ridge_250` | `ridge_250` | gate passed | 10 | 1264 | 316 | 2.0213 | 1.9064 | 2.0238 | 1.5178 | 1.6302 | 0.0971 |
 
 ## Season-by-season regression holdouts
 
@@ -37,10 +37,10 @@ Each row trains on all earlier seasons only. The current incomplete season is pr
 
 | Target | Holdout season | Raw CV winner | Selected model | Gate fallback | Matches | Prior training matches | RMSE | Mean baseline RMSE | MAE | Mean baseline MAE |
 |---|---|---|---|---|---:|---:|---:|---:|---:|---:|
-| Corners | 2023_24 | `poisson_200` | `training_mean` | yes | 380 | 380 | 3.5986 | 3.5986 | 2.8548 | 2.8548 |
-| Corners | 2024_25 | `ridge_100.0` | `training_mean` | yes | 380 | 760 | 3.4719 | 3.4719 | 2.7732 | 2.7732 |
-| Corners | 2025_26 | `ridge_100.0` | `ridge_100.0` | no | 380 | 1140 | 3.3050 | 3.2892 | 2.6596 | 2.6663 |
-| Corners | 2026_27 (partial) | `poisson_10` | `poisson_10` | no | 60 | 1520 | 3.1816 | 3.2401 | 2.6642 | 2.7507 |
+| Corners | 2023_24 | `training_mean` | `training_mean` | no | 380 | 380 | 3.5986 | 3.5986 | 2.8548 | 2.8548 |
+| Corners | 2024_25 | `ridge_250` | `ridge_250` | no | 380 | 760 | 3.4290 | 3.4719 | 2.7565 | 2.7732 |
+| Corners | 2025_26 | `ridge_50` | `ridge_50` | no | 380 | 1140 | 3.2682 | 3.2892 | 2.6419 | 2.6663 |
+| Corners | 2026_27 (partial) | `poisson_1` | `poisson_1` | no | 60 | 1520 | 3.1649 | 3.2401 | 2.6275 | 2.7507 |
 | Throw-ins | 2023_24 | `poisson_10` | `poisson_10` | no | 380 | 380 | 7.6095 | 9.1766 | 6.0727 | 7.5414 |
 | Throw-ins | 2024_25 | `ridge_10.0` | `ridge_10.0` | no | 380 | 760 | 7.0411 | 8.5265 | 5.4934 | 6.9717 |
 | Throw-ins | 2025_26 | `ridge_50.0` | `ridge_50.0` | no | 380 | 1140 | 6.9400 | 7.2030 | 5.5762 | 5.9098 |
@@ -49,21 +49,21 @@ Each row trains on all earlier seasons only. The current incomplete season is pr
 | Saves | 2024_25 | `ridge_500` | `training_mean` | yes | 380 | 760 | 2.5770 | 2.5770 | 2.0697 | 2.0697 |
 | Saves | 2025_26 | `ridge_500` | `ridge_500` | no | 380 | 1140 | 2.3597 | 2.3785 | 1.8983 | 1.9297 |
 | Saves | 2026_27 (partial) | `poisson_1` | `poisson_1` | no | 60 | 1520 | 2.3212 | 2.2825 | 1.9219 | 1.8748 |
-| Cards | 2023_24 | `training_mean` | `training_mean` | no | 380 | 380 | 2.3007 | 2.3007 | 1.7889 | 1.7889 |
-| Cards | 2024_25 | `ridge_250` | `training_mean` | yes | 380 | 760 | 2.2572 | 2.2572 | 1.7319 | 1.7319 |
-| Cards | 2025_26 | `ridge_250` | `ridge_250` | no | 380 | 1140 | 2.0660 | 2.0379 | 1.6618 | 1.6310 |
-| Cards | 2026_27 (partial) | `poisson_1` | `poisson_1` | no | 60 | 1520 | 1.8987 | 1.8762 | 1.5869 | 1.5587 |
-| Offsides | 2023_24 | `lgbm_shallow` | `lgbm_shallow` | no | 380 | 380 | 2.1826 | 2.2248 | 1.6786 | 1.7247 |
-| Offsides | 2024_25 | `poisson_1` | `poisson_1` | no | 380 | 760 | 1.9887 | 2.0401 | 1.5800 | 1.6299 |
-| Offsides | 2025_26 | `ridge_250` | `ridge_250` | no | 380 | 1140 | 1.7944 | 1.9255 | 1.4452 | 1.5732 |
-| Offsides | 2026_27 (partial) | `ridge_250` | `ridge_250` | no | 60 | 1520 | 2.2498 | 2.2377 | 1.6888 | 1.6805 |
+| Cards | 2023_24 | `ridge_500` | `training_mean` | yes | 380 | 380 | 2.3007 | 2.3007 | 1.7889 | 1.7889 |
+| Cards | 2024_25 | `poisson_1` | `poisson_1` | no | 380 | 760 | 2.1979 | 2.2572 | 1.7159 | 1.7319 |
+| Cards | 2025_26 | `poisson_1` | `poisson_1` | no | 380 | 1140 | 2.0506 | 2.0379 | 1.6502 | 1.6310 |
+| Cards | 2026_27 (partial) | `poisson_1` | `poisson_1` | no | 60 | 1520 | 1.9058 | 1.8762 | 1.5806 | 1.5587 |
+| Offsides | 2023_24 | `elastic_0.1_0.5` | `elastic_0.1_0.5` | no | 380 | 380 | 2.0995 | 2.2248 | 1.6226 | 1.7247 |
+| Offsides | 2024_25 | `poisson_1` | `poisson_1` | no | 380 | 760 | 1.9886 | 2.0401 | 1.5765 | 1.6299 |
+| Offsides | 2025_26 | `poisson_1` | `poisson_1` | no | 380 | 1140 | 1.8012 | 1.9255 | 1.4514 | 1.5732 |
+| Offsides | 2026_27 (partial) | `poisson_1` | `poisson_1` | no | 60 | 1520 | 2.2484 | 2.2377 | 1.6707 | 1.6805 |
 
 ## Classification results
 
 | Target | Selected model | Dev rows | Holdout rows | CV log loss | Raw holdout log loss | Calibrated holdout log loss | Prior baseline log loss | Raw accuracy | Calibrated accuracy | Brier | Prior baseline Brier |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1X2 result | `logreg_C0.003` | 836 | 304 | 0.9788 | 1.025 | 1.025 | 1.092 | 49.34% | 49.01% | 0.618 | 0.661 |
-| Over 2.5 goals | `logreg_C0.001` | 1216 | 304 | 0.6778 | 0.685 | 0.687 | 0.688 | 58.22% | 55.59% | 0.247 | 0.247 |
+| 1X2 result | `logreg_C0.003` | 836 | 304 | 0.9751 | 1.026 | 1.026 | 1.092 | 49.01% | 49.01% | 0.619 | 0.661 |
+| Over 2.5 goals | `logreg_C0.003` | 1216 | 304 | 0.6755 | 0.692 | 0.692 | 0.688 | 56.58% | 54.61% | 0.249 | 0.247 |
 
 ## Goal-market outer-season log loss
 
@@ -122,8 +122,8 @@ Bootstrap deltas use calibrated holdout probabilities and paired per-match log l
 
 | Target | Mean Δ loss | 95% CI low | 95% CI high | P(model better) | Matches | ECE |
 |---|---:|---:|---:|---:|---:|---:|
-| 1X2 result | -0.0668 | -0.1067 | -0.0254 | 0.999 | 304 | 0.0690 |
-| Over 2.5 goals | -0.0012 | -0.0079 | 0.0056 | 0.634 | 304 | 0.0770 |
+| 1X2 result | -0.0656 | -0.1053 | -0.0241 | 0.999 | 304 | 0.0755 |
+| Over 2.5 goals | +0.0040 | -0.0054 | +0.0137 | 0.197 | 304 | 0.0787 |
 
 ### Reliability: Over 2.5 event probability
 

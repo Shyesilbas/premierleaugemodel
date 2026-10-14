@@ -52,7 +52,7 @@ Regresyon holdout'u 316 maç ve son sezonun 60 maçlık kısmi bölümünü içe
 - **F5, beraberlik özellikleri:** Bir temiz tam outer sezonda log-loss farkı **+0,0047**, draw AUC farkı **+0,0168**. Log-loss kapısı geçmedi; dokuz özellik üretim sınıflandırıcısında açılmadı.
 - **F6, zaman ağırlıklı kalibrasyon:** Tek temiz outer sezonda 150/300/600 satır yarı ömürleri **−0,00300 / −0,00201 / −0,00113** fark verdi; üç sezon koşulu karşılanmadığı için standart forward-OOF kalibrasyon devam ediyor.
 - **F7, xG proxy:** Seyrek kapsamalı aggregate-stat proxy aktif model/API girdilerinden kaldırıldı. Depoda shot-level, eğitilmiş bir xG modeli yok.
-- **F8, sayım modeli kapısı:** Korner/taç `poisson_10`, kurtarış `training_mean`, kart `ridge_500`, ofsayt `ridge_250` seçildi. Kart holdout sonucu, CV'de geçen modelin her yeni dönemde üstün kalacağını garanti etmediğini gösteriyor.
+- **F8, sayım modeli kapısı:** Korner (10 feature, `elastic_0.05_0.5`), taç (`poisson_10`), kurtarış (`training_mean`), kart (11 feature, rekabet dengesi/tansiyonu eklenerek `poisson_1`), ofsayt (10 feature, `ridge_250`) seçildi. Korner holdout R² değeri pozitife (+0.0071) döndü; kart modelinde hakem ve çekişme dengesi ağırlıklandırılarak test hatası ve çoklu bağlantı giderildi.
 - **F9, kurtarış etiketi:** Eksik sağlayıcı değerleri takım tarafı belirlenebilen olaylarla tamamlandı; 1.580/1.580 maç etiketi kullanılabilir. Kaynak değerleri ve kurtarma işaretleri ayrıca saklanıyor.
 - **F10, ileriye dönük kayıt:** Günlükte 100 tahmin var; son genişletilmiş kayıtların 40'ında gol marketleri bulunuyor. Bu 100 maçtan **0'ı** yerel maç tablosunda tamamlanmış durumda; `prospective_1x2_scorecard.json` henüz oluşmadı.
 

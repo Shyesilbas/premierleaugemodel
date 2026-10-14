@@ -177,7 +177,7 @@ def import_season(args: argparse.Namespace) -> dict[str, int]:
     ]
     counts = {
         "listed": len(matches), "eligible": len(candidates), "imported": 0,
-        "skipped_existing": 0, "unmatched": 0, "stats_missing_xg": 0,
+        "skipped_existing": 0, "duplicate_conflicts": 0, "unmatched": 0, "stats_missing_xg": 0,
     }
 
     for index, match in enumerate(candidates, start=1):
@@ -199,11 +199,19 @@ def import_season(args: argparse.Namespace) -> dict[str, int]:
             )
             continue
         existing = conn.execute(
-            "SELECT provider_match_id FROM external_match_xg WHERE match_id = ? AND provider = ?",
-            (local["match_id"], PROVIDER),
+            "SELECT provider, provider_match_id FROM external_match_xg WHERE match_id = ?",
+            (local["match_id"],),
         ).fetchone()
-        if existing and existing["provider_match_id"] == match["id"]:
+        if existing:
             counts["skipped_existing"] += 1
+            continue
+        provider_id_exists = conn.execute(
+            "SELECT match_id FROM external_match_xg WHERE provider_match_id = ?",
+            (match["id"],),
+        ).fetchone()
+        if provider_id_exists:
+            counts["duplicate_conflicts"] += 1
+            print(f"Skipped duplicate provider fixture id {match['id']} already mapped to local match {provider_id_exists['match_id']}.", flush=True)
             continue
 
         stats = client.get_json(f"/football/matches/{match['id']}/stats")
@@ -215,23 +223,18 @@ def import_season(args: argparse.Namespace) -> dict[str, int]:
             continue
         fetched = datetime.now(timezone.utc).isoformat(timespec="seconds")
         conn.execute(
-            """INSERT INTO external_match_xg
+            """INSERT OR IGNORE INTO external_match_xg
                (match_id, provider, provider_match_id, provider_season_id, home_xg, away_xg, xg_quality, fetched_at_utc)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-               ON CONFLICT(match_id) DO UPDATE SET
-                 provider=excluded.provider,
-                 provider_match_id=excluded.provider_match_id,
-                 provider_season_id=excluded.provider_season_id,
-                 home_xg=excluded.home_xg,
-                 away_xg=excluded.away_xg,
-                 xg_quality=excluded.xg_quality,
-                 fetched_at_utc=excluded.fetched_at_utc""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 local["match_id"], PROVIDER, match["id"], target["id"], home_xg, away_xg,
                 match.get("xg_quality"), fetched,
             ),
         )
         conn.commit()
+        if conn.execute("SELECT changes()").fetchone()[0] == 0:
+            counts["duplicate_conflicts"] += 1
+            continue
         counts["imported"] += 1
         if index % 10 == 0 or index == len(candidates):
             print(f"Imported {index}/{len(candidates)} for {args.season}.", flush=True)

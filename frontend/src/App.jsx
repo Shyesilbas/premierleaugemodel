@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
-import PredictorTab from './components/PredictorTab';
 import FixturesTab from './components/FixturesTab';
 import TeamProfilesTab from './components/TeamProfilesTab';
 import PlayerProfilesTab from './components/PlayerProfilesTab';
@@ -26,10 +25,6 @@ export default function App() {
         
         {/* Main Content Body */}
         <main className="p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 max-w-7xl w-full mx-auto space-y-6">
-          {activeTab === 'predictor' && (
-            <PredictorTab selectedSeason={selectedSeason} />
-          )}
-
           {activeTab === 'fixtures' && (
             <FixturesTab 
               selectedSeason={selectedSeason} 
