@@ -192,7 +192,7 @@ The joint score probability $P(X=x, Y=y)$ is modified by $\tau_{\lambda, \mu}(x,
 ## Deliverable H — Separate Evaluation of Cards and Corners
 
 ### 1. Cards Model
-- **Target Definition:** Total Yellow Cards + $2 \times$ Red Cards.
+- **Target Definition:** Total Yellow Cards + Total Red Cards (equal 1.0 weight as verified in `process_season_data.py:L282`).
 - **Key Determinants:** `abs_elo_diff` (parity), `ref_avg_cards_roll10`, `home_fouls_roll5`, `away_fouls_roll5`.
 - **Finding:** Parity (`abs_elo_diff`) has a statistically significant negative coefficient ($-0.089$), proving closely matched fixtures produce higher tension and cards.
 - **Referee Influence:** Verified pre-match availability. Referee assignments are officially published by PGMOL on Tuesday preceding weekend fixtures. Fallback to referee league mean is active when assignments are pending.

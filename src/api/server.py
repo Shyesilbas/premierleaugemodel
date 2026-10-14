@@ -1682,7 +1682,12 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     probs_1x2 = outcome_artifact["model_1x2"].predict_proba(
         _safe_features(simulated_df, o_features, fill_value=np.nan)
     )
-    has_ensemble = "model_dc" in outcome_artifact
+    ensemble_gate_passed = bool(
+        outcome_artifact.get("metrics", {})
+        .get("1x2_ensemble_outer_eval", {})
+        .get("gate_passed", False)
+    )
+    has_ensemble = "model_dc" in outcome_artifact and ensemble_gate_passed
     if has_ensemble:
         dc_probs_1x2 = outcome_artifact["model_dc"].predict_proba(simulated_df)
         probs_1x2 = blend_log(probs_1x2, dc_probs_1x2, outcome_artifact["ensemble_weight"])
@@ -1722,6 +1727,14 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
         goals_extra["expected_home_goals"] = round(float(lam_h[0]), 2)
         goals_extra["expected_away_goals"] = round(float(lam_a[0]), 2)
         goals_extra["expected_total_goals"] = round(float(lam_h[0] + lam_a[0]), 2)
+
+        # Enforce mathematical monotonicity: P(Over 1.5) >= P(Over 2.5) >= P(Over 3.5)
+        p_15 = goals_extra["over_1.5"]["pct"]
+        p_25 = min(goals_extra["over_2.5"]["pct"], p_15)
+        p_35 = min(goals_extra["over_3.5"]["pct"], p_25)
+        goals_extra["over_2.5"]["pct"] = p_25
+        goals_extra["over_3.5"]["pct"] = p_35
+
         over_source = goals_extra["over_2.5"]["source"]
         prob_o25 = float(goals_extra["over_2.5"]["pct"])
     else:
