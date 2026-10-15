@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { TEAMS, getTeam } from '../data/teams';
+import { getTeam } from '../data/teams';
 import { 
   Search, 
   User, 
   Clock, 
   ChevronRight, 
   Calendar, 
-  Shield, 
   X
 } from 'lucide-react';
 import MatchDetailModal from './MatchDetailModal';
+import PlayerAvatar from './PlayerAvatar';
 
 function parseKickoff(label) {
   if (!label) return { date: '-', time: '' };
@@ -21,51 +21,14 @@ function parseKickoff(label) {
   };
 }
 
-// Reusable Player Avatar with fallback to jersey number and initials
-function PlayerAvatar({ player, size = 'md', className = '' }) {
-  const [imgError, setImgError] = useState(false);
-  
-  const sizeClasses = {
-    sm: 'w-10 h-10',
-    md: 'w-14 h-14',
-    lg: 'w-20 h-20',
-  };
 
-  const hasPhoto = player?.photo_url && !imgError;
-
-  return (
-    <div className={`relative rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden ${sizeClasses[size] || sizeClasses.md} ${className}`}>
-      {hasPhoto ? (
-        <img
-          src={player.photo_url}
-          alt={player.name}
-          className="w-full h-full object-contain filter drop-shadow-sm transition-transform duration-200 hover:scale-105"
-          onError={() => setImgError(true)}
-          loading="lazy"
-        />
-      ) : (
-        <div className="flex flex-col items-center justify-center text-slate-700 font-mono font-black">
-          {player?.shirt ? (
-            <span className={size === 'lg' ? 'text-2xl font-black' : 'text-xs font-bold'}>#{player.shirt}</span>
-          ) : (
-            <User className={size === 'lg' ? 'w-10 h-10 text-slate-400' : 'w-5 h-5 text-slate-400'} />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function PlayerProfilesTab({ selectedSeason }) {
+export default function PlayerProfilesTab({ selectedSeason, onSelectMatch }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTeamFilter, setSelectedTeamFilter] = useState('');
-  const [selectedPositionFilter, setSelectedPositionFilter] = useState(''); // '', 'F', 'M', 'D', 'G'
   const [playerList, setPlayerList] = useState([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState(65970); // Default Erling Haaland
   const [playerProfile, setPlayerProfile] = useState(null);
   const [playerSeason, setPlayerSeason] = useState(selectedSeason || '2026_27');
   const [selectedMatchGameweek, setSelectedMatchGameweek] = useState('all');
-  const [loadingList, setLoadingList] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [activeModalMatch, setActiveModalMatch] = useState(null);
 
@@ -78,34 +41,25 @@ export default function PlayerProfilesTab({ selectedSeason }) {
 
   // Fetch player search directory
   useEffect(() => {
-    const hasDirectoryFilter = searchTerm.trim() || selectedTeamFilter || selectedPositionFilter;
-    if (!hasDirectoryFilter) {
+    if (!searchTerm.trim()) {
       setPlayerList([]);
-      setLoadingList(false);
       return;
     }
 
-    setLoadingList(true);
     const query = new URLSearchParams();
     if (searchTerm.trim()) query.append('search', searchTerm.trim());
-    if (selectedTeamFilter) query.append('team_id', selectedTeamFilter);
     query.append('limit', '20');
 
     fetch(`/api/players?${query.toString()}`)
       .then(res => res.json())
       .then(data => {
-        let list = data.players || [];
-        if (selectedPositionFilter) {
-          list = list.filter(p => p.position === selectedPositionFilter);
-        }
+        const list = data.players || [];
         setPlayerList(list);
-        setLoadingList(false);
       })
       .catch(err => {
         console.error('Error fetching player directory:', err);
-        setLoadingList(false);
       });
-  }, [searchTerm, selectedTeamFilter, selectedPositionFilter]);
+  }, [searchTerm]);
 
   // Fetch detailed player profile & match logs
   useEffect(() => {
@@ -196,8 +150,8 @@ export default function PlayerProfilesTab({ selectedSeason }) {
     <div className="space-y-6">
 
       {/* Filter and Search Control Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row items-center gap-3">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center gap-3">
           
           {/* Search Input */}
           <div className="relative flex-1 w-full">
@@ -206,7 +160,7 @@ export default function PlayerProfilesTab({ selectedSeason }) {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Oyuncu veya kulüp ara"
+              placeholder="Oyuncu ara"
               className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-9 py-2.5 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none focus:border-slate-400 transition-all"
             />
             {searchTerm && (
@@ -219,62 +173,11 @@ export default function PlayerProfilesTab({ selectedSeason }) {
             )}
           </div>
 
-          {/* Team filter dropdown */}
-          <div className="w-full md:w-56 shrink-0">
-            <select
-              value={selectedTeamFilter}
-              onChange={(e) => setSelectedTeamFilter(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-slate-400 transition-all cursor-pointer"
-            >
-              <option value="">Tüm Kulüpler (20 Takım)</option>
-              {TEAMS.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-
         </div>
-
-        {/* Position Filter Pills */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
-              Mevki:
-            </span>
-            {[
-              { id: '', label: 'Tümü' },
-              { id: 'F', label: 'Forvetler' },
-              { id: 'M', label: 'Orta Sahalar' },
-              { id: 'D', label: 'Defanslar' },
-              { id: 'G', label: 'Kaleciler' },
-            ].map(p => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPositionFilter(p.id)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  selectedPositionFilter === p.id
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          <span className="text-[11px] text-slate-500 font-mono font-medium">
-            {loadingList
-              ? 'Oyuncular aranıyor…'
-              : searchTerm.trim() || selectedTeamFilter || selectedPositionFilter
-              ? `${playerList.length} sonuç`
-              : 'Oyuncu değiştirmek için arayın'}
-          </span>
-        </div>
-
       </div>
 
       {/* Search results appear only after the user applies a filter. */}
-      {playerList.length > 0 && (searchTerm.trim() || selectedTeamFilter || selectedPositionFilter) && (
+      {playerList.length > 0 && searchTerm.trim() && (
         <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
           <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
             {playerList.slice(0, 24).map(pl => {
@@ -420,7 +323,13 @@ export default function PlayerProfilesTab({ selectedSeason }) {
               return (
                 <button
                   key={m.match_id}
-                  onClick={() => setActiveModalMatch(modalMatchObj)}
+                  onClick={() => {
+                    if (onSelectMatch) {
+                      onSelectMatch(modalMatchObj);
+                    } else {
+                      setActiveModalMatch(modalMatchObj);
+                    }
+                  }}
                   className="group flex w-full flex-col gap-2.5 px-4 py-3 text-left transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-3 sm:px-5"
                 >
                   <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 sm:w-40 sm:shrink-0 sm:flex-col sm:items-start sm:gap-1">

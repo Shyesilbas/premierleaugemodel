@@ -54,6 +54,7 @@ def _player_ids(value: Any) -> list[int]:
     return ids
 
 
+@lru_cache(maxsize=128)
 def get_team_attacking_leaders(team_id: int, season: str = "all") -> dict[str, Any]:
     """Return three players ranked by an explainable, team-relative attack score.
 

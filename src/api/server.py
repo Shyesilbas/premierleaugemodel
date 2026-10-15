@@ -95,6 +95,23 @@ if players_reg_file.exists():
 
 player_registry_map: Dict[int, Dict[str, Any]] = {int(p["id"]): p for p in all_players if "id" in p}
 
+def resolve_player_photo(pid: Any, reg_p: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    """Return verified Premier League CDN photo URL or None if not found in registry."""
+    if not pid:
+        return None
+    try:
+        if reg_p is None:
+            reg_p = player_registry_map.get(int(pid), {})
+        if reg_p.get("photo_url"):
+            return reg_p["photo_url"]
+        opta_c = reg_p.get("opta_code")
+        if opta_c:
+            return f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+    except Exception:
+        pass
+    return None
+
+
 
 @app.get("/api/teams/staff")
 def get_team_staff(season: str = "2026_27", team_id: Optional[int] = None):
@@ -233,6 +250,23 @@ def get_player_match_logs(pid: int) -> List[Dict[str, Any]]:
             _player_logs_dict = {}
     return _player_logs_dict.get(str(pid), _player_logs_dict.get(pid, []))
 
+_player_cards_dict: Optional[Dict[str, Any]] = None
+
+def get_player_cards_dict() -> Dict[str, Any]:
+    global _player_cards_dict
+    if _player_cards_dict is None:
+        cards_file = DATA_DIR / "processed" / "player_cards_by_season.json"
+        if cards_file.exists():
+            try:
+                with open(cards_file, "r", encoding="utf-8") as f:
+                    _player_cards_dict = json.load(f)
+            except Exception as e:
+                logger.warning(f"Error loading player cards cache: {e}")
+                _player_cards_dict = {}
+        else:
+            _player_cards_dict = {}
+    return _player_cards_dict
+
 # Load 2026-27 fixtures if available
 raw_fixtures_2627 = []
 fix_2627_path = DATA_DIR / "raw" / "fixtures_2026_27.json"
@@ -275,6 +309,10 @@ CURRENT_SEASON = (
     str(_played_matches["season"].iloc[-1]) if not _played_matches.empty and "season" in _played_matches.columns else None
 )
 _live_state_cache: Dict[str, Tuple[pd.DataFrame, Dict[str, Any], Optional[pd.Timestamp], Any]] = {}
+_historical_manager_changes_cache: Dict[str, Any] = {}
+_completed_match_details_cache: Dict[int, Any] = {}
+_historical_standings_cache: Dict[str, Any] = {}
+_historical_fixtures_grouped_cache: Dict[str, Any] = {}
 
 
 def get_live_state(
@@ -351,6 +389,13 @@ def reload_runtime_datasets() -> None:
     )
     _live_state_cache = {}
     _fixture_pred_cache.clear()
+    _historical_manager_changes_cache.clear()
+    _completed_match_details_cache.clear()
+    _historical_standings_cache.clear()
+    _historical_fixtures_grouped_cache.clear()
+    get_team_tactical_profile.cache_clear()
+    get_team_scenario_profile.cache_clear()
+    get_team_attacking_leaders.cache_clear()
     if not _long_history.empty:
         get_live_state(None)
 
@@ -513,6 +558,9 @@ def _regression_model_skill(artifact: Optional[Dict[str, Any]]) -> str:
 @app.get("/api/teams/manager-changes")
 def get_manager_changes(season: str = "2026_27"):
     """Place verified appointment events on each team's first subsequent league fixture."""
+    if season not in ("2026_27", "all") and season in _historical_manager_changes_cache:
+        return _historical_manager_changes_cache[season]
+
     changes_path = DATA_DIR / "processed" / "manager_changes.json"
     if not changes_path.exists():
         return {"season": season, "events_by_match": {}}
@@ -523,10 +571,22 @@ def get_manager_changes(season: str = "2026_27"):
         logger.exception("Could not read manager change data")
         raise HTTPException(status_code=500, detail="Could not read manager change data") from exc
 
-    season_changes = changes_by_season.get(season, {}).get("events", [])
-    fixtures = get_all_grouped_fixtures(season)
-    events_by_match: Dict[str, List[Dict[str, Any]]] = {}
-    for event in season_changes:
+    seasons = list(changes_by_season) if season == "all" else [season]
+    all_events_by_match: Dict[str, List[Dict[str, Any]]] = {}
+    for current_season in seasons:
+      season_changes = changes_by_season.get(current_season, {}).get("events", [])
+      fixtures = get_all_grouped_fixtures(current_season)
+      fixtures_by_team: Dict[int, List[Tuple[datetime, Dict[str, Any]]]] = {}
+      for fixture in fixtures:
+        kickoff = parse_kickoff_datetime(fixture.get("kickoff_label", ""))
+        if kickoff == datetime.min:
+          continue
+        for current_team_id in (int(fixture["home_id"]), int(fixture["away_id"])):
+          fixtures_by_team.setdefault(current_team_id, []).append((kickoff, fixture))
+      for team_fixtures in fixtures_by_team.values():
+        team_fixtures.sort(key=lambda item: item[0])
+
+      for event in season_changes:
         try:
             appointment_date = datetime.strptime(event["appointment_date"], "%Y-%m-%d").date()
             team_id = int(event["team_id"])
@@ -534,29 +594,28 @@ def get_manager_changes(season: str = "2026_27"):
             logger.warning("Skipping malformed manager change record: %s", event)
             continue
 
-        next_fixture = None
-        next_kickoff = datetime.max
-        for fixture in fixtures:
-            if team_id not in (int(fixture["home_id"]), int(fixture["away_id"])):
-                continue
-            kickoff = parse_kickoff_datetime(fixture.get("kickoff_label", ""))
-            # Appointment sources provide dates, not times. Using the following
-            # calendar day avoids attributing a match played before an announcement.
-            if kickoff == datetime.min or kickoff.date() <= appointment_date:
-                continue
-            if kickoff < next_kickoff:
-                next_fixture, next_kickoff = fixture, kickoff
-
-        if next_fixture is None:
+        # Appointment sources provide dates, not times. The first fixture on a
+        # later calendar date is the first one after the announcement.
+        next_match = next(
+            ((kickoff, fixture) for kickoff, fixture in fixtures_by_team.get(team_id, [])
+             if kickoff.date() > appointment_date),
+            None,
+        )
+        if next_match is None:
             continue
+        _, next_fixture = next_match
         match_id = str(next_fixture["match_id"])
-        events_by_match.setdefault(match_id, []).append({
+        all_events_by_match.setdefault(match_id, []).append({
             **event,
+            "season": current_season,
             "gameweek": next_fixture.get("gameweek"),
             "effective_match_date": next_fixture.get("kickoff_label", ""),
         })
 
-    return {"season": season, "events_by_match": events_by_match}
+    response_data = {"season": season, "events_by_match": all_events_by_match}
+    if season not in ("2026_27", "all"):
+        _historical_manager_changes_cache[season] = response_data
+    return response_data
 
 
 @app.get("/api/teams/manager-performance")
@@ -653,6 +712,9 @@ def get_grouped_fixtures(season: str = "2026_27"):
     Returns fixtures grouped by Gameweek, and within each Gameweek, grouped by match day.
     Uses indexed SQLite database with instant response time and attached referee cards data.
     """
+    if season not in ("2026_27", "current") and season in _historical_fixtures_grouped_cache:
+        return _historical_fixtures_grouped_cache[season]
+
     db_fixtures = get_all_grouped_fixtures(season)
     raw_fixtures = []
 
@@ -680,10 +742,18 @@ def get_grouped_fixtures(season: str = "2026_27"):
             else None
         )
 
+        kickoff_ms = None
+        if "kickoff_millis" in r and pd.notnull(r["kickoff_millis"]):
+            try:
+                kickoff_ms = int(r["kickoff_millis"])
+            except (ValueError, TypeError):
+                kickoff_ms = None
+
         raw_fixtures.append({
             "match_id": mid,
             "gameweek": gw,
             "kickoff_label": r.get("kickoff_label") or "",
+            "kickoff_millis": kickoff_ms,
             "day_label": r.get("day_label") or "",
             "time_label": r.get("time_label") or "",
             "ground_name": r.get("ground_name") or "",
@@ -762,12 +832,26 @@ def get_grouped_fixtures(season: str = "2026_27"):
     elif gw_groups:
         current_gw = max(gw_groups.keys())
 
-    return {
+    next_unplayed = next((f for f in raw_fixtures if f.get("status") == "UPCOMING"), None)
+    next_match_info = None
+    if next_unplayed:
+        next_match_info = {
+            "match_id": next_unplayed["match_id"],
+            "gameweek": next_unplayed["gameweek"],
+            "kickoff_label": next_unplayed["kickoff_label"],
+            "kickoff_millis": next_unplayed.get("kickoff_millis"),
+        }
+
+    res = {
         "season": season,
         "gameweeks": structured,
         "total_matches": len(raw_fixtures),
         "current_gameweek": current_gw,
+        "next_match": next_match_info,
     }
+    if season not in ("2026_27", "current"):
+        _historical_fixtures_grouped_cache[season] = res
+    return res
 
 
 @app.get("/api/referees")
@@ -790,6 +874,9 @@ def get_standings(season: str = "2026_27"):
     Includes Played, Won, Drawn, Lost, GF, GA, GD, Points, and Last 5 Form,
     plus Home and Away breakdowns.
     """
+    if season not in ("2026_27", "current") and season in _historical_standings_cache:
+        return _historical_standings_cache[season]
+
     matches_to_process = []
 
     if season == "2026_27" and raw_fixtures_2627:
@@ -916,11 +1003,112 @@ def get_standings(season: str = "2026_27"):
     for rank, item in enumerate(standings_list, 1):
         item["rank"] = rank
 
-    return {
+    res = {
         "season": season,
         "total_teams": len(standings_list),
         "standings": standings_list
     }
+    if season not in ("2026_27", "current"):
+        _historical_standings_cache[season] = res
+    return res
+
+
+@app.get("/api/match/{match_id}/recent-form")
+def get_match_recent_form(match_id: int):
+    """Return each team's last five completed league results before a match."""
+    # The current season standings are sourced from the live fixture feed, so
+    # use that same source here to ensure current fixtures have pre-match form.
+    if raw_fixtures_2627:
+        current_fixtures = []
+        for fixture in raw_fixtures_2627:
+            fixture_teams = fixture.get("teams", [])
+            if len(fixture_teams) < 2:
+                continue
+            current_fixtures.append({
+                "match_id": int(fixture.get("match", {}).get("id") or fixture.get("match_id") or fixture.get("id") or 0),
+                "gameweek": int((fixture.get("gameweek") or {}).get("gameweek", 1)),
+                "kickoff": (fixture.get("kickoff") or {}).get("millis") or (fixture.get("kickoff") or {}).get("label", ""),
+                "home_id": int(fixture_teams[0]["team"]["id"]),
+                "away_id": int(fixture_teams[1]["team"]["id"]),
+                "home_score": fixture_teams[0].get("score"),
+                "away_score": fixture_teams[1].get("score"),
+            })
+        selected = next((fixture for fixture in current_fixtures if fixture["match_id"] == match_id), None)
+        if selected:
+            selected_kickoff = selected["kickoff"] or ""
+            previous_fixtures = [
+                fixture for fixture in current_fixtures
+                if fixture["match_id"] != match_id
+                and fixture["home_score"] is not None and fixture["away_score"] is not None
+                and (fixture["gameweek"], fixture["kickoff"], fixture["match_id"])
+                    < (selected["gameweek"], selected_kickoff, selected["match_id"])
+                and (fixture["home_id"] in (selected["home_id"], selected["away_id"])
+                     or fixture["away_id"] in (selected["home_id"], selected["away_id"]))
+            ]
+            previous_fixtures.sort(key=lambda fixture: (fixture["gameweek"], fixture["kickoff"], fixture["match_id"]), reverse=True)
+            form = {str(selected["home_id"]): [], str(selected["away_id"]): []}
+            for fixture in previous_fixtures:
+                home_score = int(fixture["home_score"])
+                away_score = int(fixture["away_score"])
+                for team_id in (selected["home_id"], selected["away_id"]):
+                    results = form[str(team_id)]
+                    if len(results) >= 5:
+                        continue
+                    if team_id == fixture["home_id"]:
+                        results.append("W" if home_score > away_score else "L" if home_score < away_score else "D")
+                    elif team_id == fixture["away_id"]:
+                        results.append("W" if away_score > home_score else "L" if away_score < home_score else "D")
+            for results in form.values():
+                results.reverse()
+            return {"match_id": match_id, "season": "2026_27", "form": form}
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT season, match_date, kickoff_label, home_id, away_id, home_score, away_score
+        FROM matches
+        WHERE match_id = ?
+    """, (match_id,))
+    selected = cursor.fetchone()
+    if not selected:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    season = selected["season"]
+    cutoff_date = selected["match_date"] or ""
+    cutoff_kickoff = selected["kickoff_label"] or ""
+    teams = (int(selected["home_id"]), int(selected["away_id"]))
+    cursor.execute("""
+        SELECT match_id, match_date, kickoff_label, home_id, away_id, home_score, away_score
+        FROM matches
+        WHERE season = ? AND match_id != ? AND home_score IS NOT NULL AND away_score IS NOT NULL
+          AND (match_date < ? OR (match_date = ? AND kickoff_label < ?))
+          AND (home_id IN (?, ?) OR away_id IN (?, ?))
+        ORDER BY match_date DESC, kickoff_label DESC, match_id DESC
+    """, (season, match_id, cutoff_date, cutoff_date, cutoff_kickoff, *teams, *teams))
+    previous_matches = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    form = {str(team_id): [] for team_id in teams}
+    for previous in previous_matches:
+        home_id = int(previous["home_id"])
+        away_id = int(previous["away_id"])
+        home_score = int(previous["home_score"])
+        away_score = int(previous["away_score"])
+        for team_id in teams:
+            if len(form[str(team_id)]) >= 5:
+                continue
+            if team_id == home_id:
+                result = "W" if home_score > away_score else "L" if home_score < away_score else "D"
+            elif team_id == away_id:
+                result = "W" if away_score > home_score else "L" if away_score < home_score else "D"
+            else:
+                continue
+            form[str(team_id)].append(result)
+
+    for results in form.values():
+        results.reverse()
+    return {"match_id": match_id, "season": season, "form": form}
 
 
 
@@ -979,12 +1167,20 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
             t_score = None
             o_score = None
 
+        kickoff_ms = None
+        if "kickoff_millis" in r and pd.notnull(r["kickoff_millis"]):
+            try:
+                kickoff_ms = int(r["kickoff_millis"])
+            except (ValueError, TypeError):
+                kickoff_ms = None
+
         matches_list.append({
             "match_id": int(r["match_id"]),
             "season": str(r.get("season", "")),
             "status": "COMPLETED" if pd.notnull(t_score) else "UNPLAYED",
             "gameweek": r.get("gameweek"),
             "kickoff_label": r.get("kickoff_label"),
+            "kickoff_millis": kickoff_ms,
             "is_home": is_home,
             "opponent_id": opp_id,
             "opponent_name": opp_name,
@@ -997,14 +1193,126 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
             "total_saves": int(r["total_saves"]) if pd.notnull(r.get("total_saves")) else None,
         })
 
-    # Squad list
-    squad = [p for p in all_players if p.get("teamId") == team_id]
+    # Find the next upcoming unplayed match
+    next_match = None
+    for m in matches_list:
+        if m["status"] == "UNPLAYED":
+            next_match = {
+                "match_id": m["match_id"],
+                "gameweek": m["gameweek"],
+                "kickoff_label": m["kickoff_label"],
+                "kickoff_millis": m.get("kickoff_millis"),
+                "opponent_id": m["opponent_id"],
+                "opponent_name": m["opponent_name"],
+                "is_home": m["is_home"],
+            }
+            break
+
+    # Squad list with season-accurate statistics
+    all_logs = _player_logs_dict or {}
+    if not all_logs and players_logs_file.exists():
+        get_player_match_logs(0)
+        all_logs = _player_logs_dict or {}
+    cards_dict = get_player_cards_dict()
+
+    # Identify players who played for this team in this season (or any season if season == 'all')
+    pids_season = set()
+    for pid_str, plist in all_logs.items():
+        for l in plist:
+            if (season == "all" or l.get("season") == season) and l.get("team_id") == team_id:
+                try:
+                    pids_season.add(int(pid_str))
+                except (ValueError, TypeError):
+                    pass
+
+    # If 2026_27, use the official verified 2026_27 roster from team_staff.json
+    roster_players = []
+    if season == "2026_27":
+        staff_path = DATA_DIR / "processed" / "team_staff.json"
+        if staff_path.exists():
+            try:
+                with staff_path.open("r", encoding="utf-8") as sf:
+                    staff_data = json.load(sf)
+                    roster_players = staff_data.get("2026_27", {}).get(str(team_id), {}).get("players", [])
+            except Exception:
+                roster_players = []
+        roster_pids = {int(p["id"]) for p in roster_players if "id" in p}
+        all_team_pids = roster_pids.union(pids_season)
+    else:
+        all_team_pids = pids_season
+
+    squad = []
+    for pid in all_team_pids:
+        p = player_registry_map.get(pid)
+        if not p:
+            roster_match = next((x for x in roster_players if x.get("id") == pid), None)
+            if roster_match:
+                n = roster_match.get("name", {})
+                dname = n.get("display") or f"{n.get('first', '')} {n.get('last', '')}".strip()
+                p = {
+                    "id": pid,
+                    "name": dname,
+                    "position": roster_match.get("info", {}).get("position") or roster_match.get("latestPosition"),
+                    "shirt": roster_match.get("info", {}).get("shirtNum"),
+                    "country": roster_match.get("nationalTeam", {}).get("country"),
+                    "captain": False,
+                }
+            else:
+                p = next((x for x in all_players if x.get("id") == pid), {"id": pid, "name": f"Oyuncu {pid}", "position": "M", "shirt": None})
+
+        p_logs = all_logs.get(str(pid), all_logs.get(pid, []))
+        if season == "all":
+            team_logs = [l for l in p_logs if l.get("team_id") == team_id]
+            yc = sum(v.get("yellow", 0) for k, v in cards_dict.items() if k.endswith(f"_{pid}"))
+            rc = sum(v.get("red", 0) for k, v in cards_dict.items() if k.endswith(f"_{pid}"))
+        else:
+            team_logs = [l for l in p_logs if l.get("season") == season and l.get("team_id") == team_id]
+            card_info = cards_dict.get(f"{season}_{pid}", {})
+            yc = card_info.get("yellow", 0)
+            rc = card_info.get("red", 0)
+
+        apps = len(team_logs)
+        starts = sum(1 for l in team_logs if l.get("started"))
+        goals = sum(int(l.get("goals") or 0) for l in team_logs)
+        assists = sum(int(l.get("assists") or 0) for l in team_logs)
+
+        # For historical seasons, don't include players with 0 appearances for this team in this season
+        if season != "all" and season != "2026_27" and apps == 0:
+            continue
+
+        photo_url = resolve_player_photo(pid, p)
+
+        squad.append({
+            "id": pid,
+            "name": p.get("name"),
+            "shirt": p.get("shirt"),
+            "position": p.get("position"),
+            "photo_url": photo_url,
+            "appearances": apps,
+            "starts": starts,
+            "goals": goals,
+            "assists": assists,
+            "yellow_cards": yc,
+            "red_cards": rc,
+            "country": p.get("country"),
+            "captain": p.get("captain", False),
+        })
+
+    # Sort squad: by position order, then by appearances desc, then goals desc
+    pos_order = {"G": 0, "GK": 0, "D": 1, "DF": 1, "M": 2, "MF": 2, "F": 3, "FW": 3}
+    squad.sort(key=lambda x: (
+        pos_order.get(x.get("position", ""), 4),
+        -(x.get("appearances") or 0),
+        -(x.get("goals") or 0),
+        x.get("shirt") if x.get("shirt") is not None else 999
+    ))
 
     return {
         "team": team_meta,
         "season": season,
         "record": {"wins": wins, "draws": draws, "losses": losses, "played": len(matches_list), "gf": gf, "ga": ga},
         "matches": matches_list,
+        "next_match": next_match,
         "squad": squad,
     }
 
@@ -1099,6 +1407,9 @@ def get_match_full_details(match_id: int):
     Returns full match lineup rosters, substitutes, tactical formations,
     and play-by-play events.
     """
+    if match_id in _completed_match_details_cache:
+        return _completed_match_details_cache[match_id]
+
     raw_details = DATA_DIR / "raw" / "matches" / f"{match_id}_details.json"
     raw_stream = DATA_DIR / "raw" / "matches" / f"{match_id}_stream.json"
 
@@ -1162,8 +1473,7 @@ def get_match_full_details(match_id: int):
             for p in tl.get("lineup", []):
                 pid = p.get("id")
                 reg_p = player_registry_map.get(int(pid), {}) if pid else {}
-                opta_c = reg_p.get("opta_code") or f"p{pid}"
-                photo = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+                photo = resolve_player_photo(pid, reg_p)
                 pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
                 starters.append({
                     "id": pid,
@@ -1179,8 +1489,7 @@ def get_match_full_details(match_id: int):
             for p in tl.get("substitutes", []):
                 pid = p.get("id")
                 reg_p = player_registry_map.get(int(pid), {}) if pid else {}
-                opta_c = reg_p.get("opta_code") or f"p{pid}"
-                photo = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+                photo = resolve_player_photo(pid, reg_p)
                 pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
                 subs.append({
                     "id": pid,
@@ -1194,11 +1503,20 @@ def get_match_full_details(match_id: int):
             starters.sort(key=lambda x: (get_position_order(x.get("position")), x.get("shirt") or 99))
             subs.sort(key=lambda x: (get_position_order(x.get("position")), x.get("shirt") or 99))
 
+            formation_obj = tl.get("formation") or {}
+            if isinstance(formation_obj, dict):
+                form_label = formation_obj.get("label", "4-3-3")
+                form_matrix = formation_obj.get("players", [])
+            else:
+                form_label = str(formation_obj) if formation_obj else "4-3-3"
+                form_matrix = []
+
             lineups.append({
                 "team_id": tl.get("teamId"),
                 "team_name": t_obj.get("name"),
                 "score": score_val,
-                "formation": tl.get("formation", {}).get("label", "4-3-3"),
+                "formation": form_label,
+                "formation_matrix": form_matrix,
                 "starters": starters,
                 "substitutes": subs,
             })
@@ -1394,8 +1712,7 @@ def get_match_full_details(match_id: int):
                 continue
             mins = sub_off.get(pid, 90)
             reg_p = player_registry_map.get(int(pid), {}) if pid else {}
-            opta_c = reg_p.get("opta_code") or f"p{pid}"
-            photo = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+            photo = resolve_player_photo(pid, reg_p)
             pos = p.get("matchPosition") or p.get("info", {}).get("position", "M")
             player_stats[side].append({
                 "id": pid,
@@ -1424,8 +1741,7 @@ def get_match_full_details(match_id: int):
                 continue
             mins = max(1, 90 - sub_on[pid])
             reg_p = player_registry_map.get(int(pid), {}) if pid else {}
-            opta_c = reg_p.get("opta_code") or f"p{pid}"
-            photo = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+            photo = resolve_player_photo(pid, reg_p)
             pos = p.get("matchPosition") or p.get("info", {}).get("position", "M")
             player_stats[side].append({
                 "id": pid,
@@ -1466,9 +1782,7 @@ def get_match_full_details(match_id: int):
             if pid:
                 pname = (p.get("name") or {}).get("display") or "Bilinmeyen Oyuncu"
                 player_names[pid] = pname
-                reg_p = player_registry_map.get(int(pid), {})
-                opta_c = reg_p.get("opta_code") or f"p{pid}"
-                player_photos[pid] = reg_p.get("photo_url") or f"https://resources.premierleague.com/premierleague/photos/players/250x250/{opta_c}.png"
+                player_photos[pid] = resolve_player_photo(pid)
 
     team_names_map = {}
     teams_info = d.get("teams", [])
@@ -1532,19 +1846,29 @@ def get_match_full_details(match_id: int):
                     "description": "Karşılaşma Sona Erdi",
                     "score": f"{ev.get('score', {}).get('homeScore', 0)} - {ev.get('score', {}).get('awayScore', 0)}"
                 })
-        elif etype == "G":
+        elif etype in ["G", "P", "O"]:
             pid = ev.get("personId")
             aid = ev.get("assistId")
             desc = ev.get("description", "G")
-            goal_type = "Penaltı Golü" if desc == "P" else ("Kendi Kalesine Gol" if desc == "OG" else "Gol")
+            is_penalty = (etype == "P" or desc == "P")
+            is_own_goal = (etype == "O" or desc in ["OG", "O"])
+            goal_type = "Penaltı Golü" if is_penalty else ("Kendi Kalesine Gol" if is_own_goal else "Gol")
             h_s = ev.get("score", {}).get("homeScore", 0)
             a_s = ev.get("score", {}).get("awayScore", 0)
+            credited_team_id = tid
+            if is_own_goal and tid is not None:
+                credited_team_id = next(
+                    (team_id for team_id in team_names_map if team_id != tid),
+                    tid,
+                )
             key_timeline.append({
                 "type": "goal",
                 "goal_type": goal_type,
+                "is_penalty": is_penalty,
+                "is_own_goal": is_own_goal,
                 "minute": minute_display,
-                "team_id": tid,
-                "team_name": tname,
+                "team_id": credited_team_id,
+                "team_name": team_names_map.get(credited_team_id, tname),
                 "player_id": pid,
                 "player_name": player_names.get(pid, "Bilinmeyen Oyuncu"),
                 "photo_url": player_photos.get(pid),
@@ -1584,7 +1908,63 @@ def get_match_full_details(match_id: int):
                     "player_out_photo": player_photos.get(p_out),
                 })
 
-    return {
+    # Also capture stoppage / added time and missed penalties from stream events
+    for se in events:
+        stype = se.get("type", "")
+        stext = se.get("text", "")
+        time_info = se.get("time", {})
+        s_min = time_info.get("label", "")
+        if s_min and "'" not in s_min:
+            s_min = f"{s_min}'"
+
+        if stype == "added time":
+            key_timeline.append({
+                "type": "added_time",
+                "minute": s_min or "45+'",
+                "label": "Uzatma Süresi",
+                "description": stext or "Uzatma Süresi İlan Edildi",
+            })
+        elif stype == "penalty missed" or "penalty missed" in stext.lower() or "penalty saved" in stext.lower():
+            pids = se.get("playerIds", [])
+            pid = pids[0] if pids else None
+            key_timeline.append({
+                "type": "penalty_missed",
+                "minute": s_min or "-",
+                "label": "Kaçan Penaltı",
+                "description": stext or "Penaltı Kaçtı",
+                "player_id": pid,
+                "player_name": player_names.get(pid) if pid else None,
+                "photo_url": player_photos.get(pid) if pid else None,
+            })
+
+    # Chronologically sort timeline
+    def parse_minute_sort(item):
+        m = str(item.get("minute", "0")).replace("'", "").strip()
+        prio_map = {
+            "period_start": 0,
+            "added_time": 1,
+            "goal": 2,
+            "yellow_card": 2,
+            "red_card": 2,
+            "penalty_missed": 2,
+            "substitution": 2,
+            "period_end": 3
+        }
+        prio = prio_map.get(item.get("type"), 2)
+        if "+" in m:
+            parts = m.split("+")
+            try:
+                return (float(parts[0]) + float(parts[1]) * 0.01, prio)
+            except:
+                pass
+        try:
+            return (float(m), prio)
+        except:
+            return (0.0, prio)
+
+    key_timeline.sort(key=parse_minute_sort)
+
+    res = {
         "metadata": metadata,
         "lineups": lineups,
         "team_stats": team_stats,
@@ -1592,6 +1972,9 @@ def get_match_full_details(match_id: int):
         "events": events,
         "timeline": key_timeline,
     }
+    if bool(team_stats or events):
+        _completed_match_details_cache[match_id] = res
+    return res
 
 
 @app.get("/api/predict")

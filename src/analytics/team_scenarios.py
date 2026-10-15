@@ -273,6 +273,7 @@ def _state_rates(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int 
     return output
 
 
+@lru_cache(maxsize=128)
 def get_team_scenario_profile(team_id: int, season: str = "all") -> dict[str, Any]:
     by_team, names, audit = load_team_match_scenarios()
     selected = [

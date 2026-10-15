@@ -3,12 +3,20 @@
     "source": "https://en.wikipedia.org/wiki/2022%E2%80%9323_Premier_League#Managerial_changes",
     "events": [
       {
+        "team_id": 12,
+        "team_name": "Manchester United",
+        "outgoing_manager": "Ralf Rangnick",
+        "incoming_manager": "Erik ten Hag",
+        "appointment_date": "2022-05-23",
+        "appointment_type": "permanent"
+      },
+      {
         "team_id": 127,
         "team_name": "Bournemouth",
         "outgoing_manager": "Scott Parker",
         "incoming_manager": "Gary O'Neil",
         "appointment_date": "2022-08-30",
-        "appointment_type": "permanent"
+        "appointment_type": "interim"
       },
       {
         "team_id": 4,
@@ -27,19 +35,27 @@
         "appointment_type": "permanent"
       },
       {
-        "team_id": 2,
-        "team_name": "Aston Villa",
-        "outgoing_manager": "Steven Gerrard",
-        "incoming_manager": "Unai Emery",
-        "appointment_date": "2022-11-01",
-        "appointment_type": "permanent"
-      },
-      {
         "team_id": 38,
         "team_name": "Wolverhampton Wanderers",
         "outgoing_manager": "Bruno Lage",
-        "incoming_manager": "Julen Lopetegui",
-        "appointment_date": "2022-11-05",
+        "incoming_manager": "Steve Davis",
+        "appointment_date": "2022-10-02",
+        "appointment_type": "interim"
+      },
+      {
+        "team_id": 5,
+        "team_name": "Aston Villa",
+        "outgoing_manager": "Steven Gerrard",
+        "incoming_manager": "Aaron Danks",
+        "appointment_date": "2022-10-21",
+        "appointment_type": "interim"
+      },
+      {
+        "team_id": 5,
+        "team_name": "Aston Villa",
+        "outgoing_manager": "Aaron Danks",
+        "incoming_manager": "Unai Emery",
+        "appointment_date": "2022-11-01",
         "appointment_type": "permanent"
       },
       {
@@ -51,6 +67,14 @@
         "appointment_type": "permanent"
       },
       {
+        "team_id": 38,
+        "team_name": "Wolverhampton Wanderers",
+        "outgoing_manager": "Steve Davis",
+        "incoming_manager": "Julen Lopetegui",
+        "appointment_date": "2022-11-14",
+        "appointment_type": "permanent"
+      },
+      {
         "team_id": 7,
         "team_name": "Everton",
         "outgoing_manager": "Frank Lampard",
@@ -59,17 +83,25 @@
         "appointment_type": "permanent"
       },
       {
+        "team_id": 9,
+        "team_name": "Leeds United",
+        "outgoing_manager": "Jesse Marsch",
+        "incoming_manager": "Michael Skubala",
+        "appointment_date": "2023-02-06",
+        "appointment_type": "interim"
+      },
+      {
         "team_id": 20,
         "team_name": "Southampton",
         "outgoing_manager": "Nathan Jones",
         "incoming_manager": "Rubén Sellés",
-        "appointment_date": "2023-02-13",
-        "appointment_type": "permanent"
+        "appointment_date": "2023-02-12",
+        "appointment_type": "interim"
       },
       {
         "team_id": 9,
         "team_name": "Leeds United",
-        "outgoing_manager": "Jesse Marsch",
+        "outgoing_manager": "Michael Skubala",
         "incoming_manager": "Javi Gracia",
         "appointment_date": "2023-02-21",
         "appointment_type": "permanent"
@@ -78,9 +110,17 @@
         "team_id": 6,
         "team_name": "Crystal Palace",
         "outgoing_manager": "Patrick Vieira",
+        "incoming_manager": "Paddy McCarthy",
+        "appointment_date": "2023-03-17",
+        "appointment_type": "interim"
+      },
+      {
+        "team_id": 6,
+        "team_name": "Crystal Palace",
+        "outgoing_manager": "Paddy McCarthy",
         "incoming_manager": "Roy Hodgson",
         "appointment_date": "2023-03-21",
-        "appointment_type": "permanent"
+        "appointment_type": "interim"
       },
       {
         "team_id": 21,
@@ -102,9 +142,9 @@
         "team_id": 26,
         "team_name": "Leicester City",
         "outgoing_manager": "Brendan Rodgers",
-        "incoming_manager": "Dean Smith",
-        "appointment_date": "2023-04-03",
-        "appointment_type": "permanent"
+        "incoming_manager": "Adam Sadler",
+        "appointment_date": "2023-04-04",
+        "appointment_type": "interim"
       },
       {
         "team_id": 4,
@@ -113,6 +153,14 @@
         "incoming_manager": "Frank Lampard",
         "appointment_date": "2023-04-06",
         "appointment_type": "interim"
+      },
+      {
+        "team_id": 26,
+        "team_name": "Leicester City",
+        "outgoing_manager": "Adam Sadler",
+        "incoming_manager": "Dean Smith",
+        "appointment_date": "2023-04-10",
+        "appointment_type": "permanent"
       },
       {
         "team_id": 21,
@@ -127,7 +175,7 @@
         "team_name": "Leeds United",
         "outgoing_manager": "Javi Gracia",
         "incoming_manager": "Sam Allardyce",
-        "appointment_date": "2023-05-01",
+        "appointment_date": "2023-05-03",
         "appointment_type": "permanent"
       }
     ]
@@ -135,6 +183,38 @@
   "2023_24": {
     "source": "https://en.wikipedia.org/wiki/2023%E2%80%9324_Premier_League#Managerial_changes",
     "events": [
+      {
+        "team_id": 4,
+        "team_name": "Chelsea",
+        "outgoing_manager": "Frank Lampard",
+        "incoming_manager": "Mauricio Pochettino",
+        "appointment_date": "2023-05-29",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 21,
+        "team_name": "Tottenham Hotspur",
+        "outgoing_manager": "Ryan Mason",
+        "incoming_manager": "Ange Postecoglou",
+        "appointment_date": "2023-06-06",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 127,
+        "team_name": "Bournemouth",
+        "outgoing_manager": "Gary O'Neil",
+        "incoming_manager": "Andoni Iraola",
+        "appointment_date": "2023-06-19",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 38,
+        "team_name": "Wolverhampton Wanderers",
+        "outgoing_manager": "Julen Lopetegui",
+        "incoming_manager": "Gary O'Neil",
+        "appointment_date": "2023-08-09",
+        "appointment_type": "permanent"
+      },
       {
         "team_id": 18,
         "team_name": "Sheffield United",
@@ -164,6 +244,46 @@
   "2024_25": {
     "source": "https://en.wikipedia.org/wiki/2024%E2%80%9325_Premier_League#Managerial_changes",
     "events": [
+      {
+        "team_id": 10,
+        "team_name": "Liverpool",
+        "outgoing_manager": "Jürgen Klopp",
+        "incoming_manager": "Arne Slot",
+        "appointment_date": "2024-06-01",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 4,
+        "team_name": "Chelsea",
+        "outgoing_manager": "Mauricio Pochettino",
+        "incoming_manager": "Enzo Maresca",
+        "appointment_date": "2024-06-03",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 131,
+        "team_name": "Brighton & Hove Albion",
+        "outgoing_manager": "Roberto De Zerbi",
+        "incoming_manager": "Fabian Hürzeler",
+        "appointment_date": "2024-06-15",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 26,
+        "team_name": "Leicester City",
+        "outgoing_manager": "Enzo Maresca",
+        "incoming_manager": "Steve Cooper",
+        "appointment_date": "2024-06-20",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 25,
+        "team_name": "West Ham United",
+        "outgoing_manager": "David Moyes",
+        "incoming_manager": "Julen Lopetegui",
+        "appointment_date": "2024-07-01",
+        "appointment_type": "permanent"
+      },
       {
         "team_id": 12,
         "team_name": "Manchester United",
@@ -197,20 +317,20 @@
         "appointment_type": "permanent"
       },
       {
-        "team_id": 38,
-        "team_name": "Wolverhampton Wanderers",
-        "outgoing_manager": "Gary O'Neil",
-        "incoming_manager": "Vítor Pereira",
-        "appointment_date": "2024-12-19",
-        "appointment_type": "permanent"
-      },
-      {
         "team_id": 20,
         "team_name": "Southampton",
         "outgoing_manager": "Russell Martin",
         "incoming_manager": "Simon Rusk",
         "appointment_date": "2024-12-15",
         "appointment_type": "interim"
+      },
+      {
+        "team_id": 38,
+        "team_name": "Wolverhampton Wanderers",
+        "outgoing_manager": "Gary O'Neil",
+        "incoming_manager": "Vítor Pereira",
+        "appointment_date": "2024-12-19",
+        "appointment_type": "permanent"
       },
       {
         "team_id": 20,
@@ -257,6 +377,22 @@
   "2025_26": {
     "source": "https://en.wikipedia.org/wiki/2025%E2%80%9326_Premier_League#Managerial_changes",
     "events": [
+      {
+        "team_id": 21,
+        "team_name": "Tottenham Hotspur",
+        "outgoing_manager": "Ange Postecoglou",
+        "incoming_manager": "Thomas Frank",
+        "appointment_date": "2025-06-12",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 130,
+        "team_name": "Brentford",
+        "outgoing_manager": "Thomas Frank",
+        "incoming_manager": "Keith Andrews",
+        "appointment_date": "2025-06-27",
+        "appointment_type": "permanent"
+      },
       {
         "team_id": 15,
         "team_name": "Nottingham Forest",
@@ -348,7 +484,80 @@
     ]
   },
   "2026_27": {
-    "source": "https://www.premierleague.com/en/news/4325264/list-of-202627-premier-league-club-managers",
-    "events": []
+    "source": "https://en.wikipedia.org/wiki/2026%E2%80%9327_Premier_League#Managerial_changes",
+    "events": [
+      {
+        "team_id": 127,
+        "team_name": "Bournemouth",
+        "outgoing_manager": "Andoni Iraola",
+        "incoming_manager": "Marco Rose",
+        "appointment_date": "2026-06-01",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 10,
+        "team_name": "Liverpool",
+        "outgoing_manager": "Arne Slot",
+        "incoming_manager": "Andoni Iraola",
+        "appointment_date": "2026-06-04",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 6,
+        "team_name": "Crystal Palace",
+        "outgoing_manager": "Oliver Glasner",
+        "incoming_manager": "Pierre Sage",
+        "appointment_date": "2026-06-15",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 8,
+        "team_name": "Ipswich Town",
+        "outgoing_manager": "Kieran McKenna",
+        "incoming_manager": "Gary O'Neil",
+        "appointment_date": "2026-06-23",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 11,
+        "team_name": "Manchester City",
+        "outgoing_manager": "Pep Guardiola",
+        "incoming_manager": "Enzo Maresca",
+        "appointment_date": "2026-06-29",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 4,
+        "team_name": "Chelsea",
+        "outgoing_manager": "Calum McFarlane",
+        "incoming_manager": "Xabi Alonso",
+        "appointment_date": "2026-07-01",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 15,
+        "team_name": "Nottingham Forest",
+        "outgoing_manager": "Vítor Pereira",
+        "incoming_manager": "Oliver Glasner",
+        "appointment_date": "2026-07-06",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 34,
+        "team_name": "Fulham",
+        "outgoing_manager": "Marco Silva",
+        "incoming_manager": "Álvaro Arbeloa",
+        "appointment_date": "2026-07-07",
+        "appointment_type": "permanent"
+      },
+      {
+        "team_id": 23,
+        "team_name": "Newcastle United",
+        "outgoing_manager": "Eddie Howe",
+        "incoming_manager": "Matthias Jaissle",
+        "appointment_date": "2026-08-05",
+        "appointment_type": "permanent"
+      }
+    ]
   }
 }

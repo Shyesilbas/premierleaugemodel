@@ -530,6 +530,7 @@ def _percentile(value: float | None, comparison: list[float]) -> int | None:
     return round((below + equal / 2) / len(comparison) * 100)
 
 
+@lru_cache(maxsize=128)
 def get_team_tactical_profile(team_id: int, season: str = "all") -> dict[str, Any]:
     by_team, team_names = load_team_match_rows()
     selected = [

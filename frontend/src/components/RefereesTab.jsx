@@ -11,7 +11,7 @@ import {
 import { getTeam } from '../data/teams';
 import MatchDetailModal from './MatchDetailModal';
 
-export default function RefereesTab({ selectedSeason }) {
+export default function RefereesTab({ selectedSeason, onSelectMatch }) {
   const [referees, setReferees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -433,7 +433,13 @@ export default function RefereesTab({ selectedSeason }) {
                           <button
                             key={m.match_id}
                             type="button"
-                            onClick={() => setActiveModalMatch(detailMatch)}
+                            onClick={() => {
+                              if (onSelectMatch) {
+                                onSelectMatch(detailMatch);
+                              } else {
+                                setActiveModalMatch(detailMatch);
+                              }
+                            }}
                             className="group flex w-full flex-col gap-2.5 px-3.5 py-3 text-left transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-3 sm:px-4"
                           >
                             <div className="flex items-center justify-between text-[11px] text-slate-500 sm:w-16 sm:shrink-0 sm:flex-col sm:items-start sm:gap-1">

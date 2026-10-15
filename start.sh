@@ -64,7 +64,7 @@ cleanup() {
     fi
     wait "$BACKEND_PID" 2>/dev/null || true
     wait "$FRONTEND_PID" 2>/dev/null || true
-    echo -e "${GREEN}[OK] Tüm süreçler kapatıldı. İyi çalışmalar!${NC}"
+    echo -e "${GREEN}[OK] Tüm süreçler kapatıldı.{NC}"
     exit 0
 }
 

@@ -17,22 +17,43 @@ import {
   Sparkles,
   RefreshCw,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  List,
+  LayoutGrid,
+  ChevronDown
 } from 'lucide-react';
 import { getTeam } from '../data/teams';
 import MatchDetailModal from './MatchDetailModal';
+import { getCachedTeamData, setCachedTeamData, clearTeamCache } from '../utils/teamProfileCache';
 
-export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
+export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelectMatch, onSelectTeam }) {
   const [data, setData] = useState({ gameweeks: [], total_matches: 0, current_gameweek: 6 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [currentGameweek, setCurrentGameweek] = useState(6);
   const [selectedGameweek, setSelectedGameweek] = useState('6'); // Default to current gameweek
+  const [isGameweekMenuOpen, setIsGameweekMenuOpen] = useState(false);
   const [activeModalMatch, setActiveModalMatch] = useState(null);
   const [teamManagers, setTeamManagers] = useState({});
   const [syncStatus, setSyncStatus] = useState('idle');
   const [syncMessage, setSyncMessage] = useState('');
   const [dataRefreshVersion, setDataRefreshVersion] = useState(0);
+
+  // Display Mode: 'list' (Kompakt Liste) | 'cards' (Detaylı Kartlar)
+  const [displayMode, setDisplayMode] = useState(() => {
+    try {
+      return localStorage.getItem('fixtures_display_mode') || 'list';
+    } catch {
+      return 'list';
+    }
+  });
+
+  const handleDisplayModeChange = (mode) => {
+    setDisplayMode(mode);
+    try {
+      localStorage.setItem('fixtures_display_mode', mode);
+    } catch {}
+  };
 
   // Standings View State
   const [activeView, setActiveView] = useState('fixtures'); // 'fixtures' | 'table'
@@ -41,8 +62,21 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
   const [standingsType, setStandingsType] = useState('all'); // 'all' | 'home' | 'away'
 
   useEffect(() => {
+    const seasonParam = selectedSeason || '2026_27';
+
+    if (dataRefreshVersion === 0) {
+      const cached = getCachedTeamData('fixtures_grouped', 'all', seasonParam);
+      if (cached?.data) {
+        const curGw = cached.data?.current_gameweek || (cached.data?.gameweeks?.length ? cached.data.gameweeks[0].gameweek : 1);
+        setData(cached.data);
+        setCurrentGameweek(curGw);
+        setSelectedGameweek(String(curGw));
+        setLoading(false);
+        return;
+      }
+    }
+
     setLoading(true);
-    const seasonParam = selectedSeason || '2025_26';
     fetch(`/api/fixtures/grouped?season=${seasonParam}`)
       .then(res => res.json())
       .then(resData => {
@@ -50,6 +84,8 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
         setData(resData || { gameweeks: [], total_matches: 0 });
         setCurrentGameweek(curGw);
         setSelectedGameweek(String(curGw));
+        const { expiresAt, label } = calculateTeamExpiry(resData?.next_match, seasonParam);
+        setCachedTeamData('fixtures_grouped', 'all', seasonParam, resData, expiresAt, label);
         setLoading(false);
       })
       .catch(err => {
@@ -59,31 +95,56 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
   }, [selectedSeason, dataRefreshVersion]);
 
   useEffect(() => {
-    const seasonParam = selectedSeason || '2025_26';
+    const seasonParam = selectedSeason || '2026_27';
+
+    if (dataRefreshVersion === 0) {
+      const cached = getCachedTeamData('staff', 'all', seasonParam);
+      if (cached?.data) {
+        setTeamManagers(cached.data.managers || {});
+        return;
+      }
+    }
+
     fetch(`/api/teams/staff?season=${seasonParam}`)
       .then(res => res.ok ? res.json() : { managers: {} })
-      .then(data => setTeamManagers(data.managers || {}))
+      .then(data => {
+        setTeamManagers(data.managers || {});
+        const { expiresAt, label } = calculateTeamExpiry(null, seasonParam);
+        setCachedTeamData('staff', 'all', seasonParam, data, expiresAt, label);
+      })
       .catch(err => {
         console.error('Error fetching team managers:', err);
         setTeamManagers({});
       });
-  }, [selectedSeason]);
+  }, [selectedSeason, dataRefreshVersion]);
 
   // Fetch Standings data on season change
   useEffect(() => {
+    const seasonParam = selectedSeason || '2026_27';
+
+    if (dataRefreshVersion === 0) {
+      const cached = getCachedTeamData('standings', 'all', seasonParam);
+      if (cached?.data) {
+        setStandingsData(cached.data.standings || []);
+        setLoadingStandings(false);
+        return;
+      }
+    }
+
     setLoadingStandings(true);
-    const seasonParam = selectedSeason || '2025_26';
     fetch(`/api/standings?season=${seasonParam}`)
       .then(res => res.json())
       .then(resData => {
         setStandingsData(resData?.standings || []);
+        const { expiresAt, label } = calculateTeamExpiry(data?.next_match, seasonParam);
+        setCachedTeamData('standings', 'all', seasonParam, resData, expiresAt, label);
         setLoadingStandings(false);
       })
       .catch(err => {
         console.error('Error fetching standings:', err);
         setLoadingStandings(false);
       });
-  }, [selectedSeason, dataRefreshVersion]);
+  }, [selectedSeason, dataRefreshVersion, data?.next_match]);
 
   useEffect(() => {
     if (syncStatus !== 'running') return undefined;
@@ -98,6 +159,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
         if (job.status === 'completed') {
           setSyncStatus('completed');
           setSyncMessage(job.message || 'Veriler güncellendi.');
+          clearTeamCache('all', selectedSeason || '2026_27');
           setDataRefreshVersion(version => version + 1);
           return;
         }
@@ -204,147 +266,258 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
   return (
     <div className="space-y-6">
       
-      {/* Top Banner & Season Info */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              {activeView === 'fixtures' ? (
-                <Calendar className="w-5 h-5 text-[#38003c]" />
-              ) : (
-                <Trophy className="w-5 h-5 text-amber-500" />
-              )}
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                {activeView === 'fixtures' ? 'Premier League Fikstürü' : 'Premier League Puan Tablosu'}
-              </h2>
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                {selectedSeason === '2026_27' ? '2026-27 (Güncel Sezon)' : selectedSeason.replace('_', '-')}
-              </span>
+      {/* Consolidated Ultra-Compact Control Bar */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-sm">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
+          
+          {/* Left: View Tabs (Fikstür / Puan Tablosu) + Gameweek Stepper */}
+          <div className="flex flex-wrap items-center gap-2">
+            
+            {/* View Mode: Fikstür vs Puan Tablosu */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveView('fixtures')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeView === 'fixtures'
+                    ? 'bg-[#38003c] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Fikstür</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView('table')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeView === 'table'
+                    ? 'bg-[#38003c] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                <span>Puan Tablosu</span>
+              </button>
             </div>
-            <p className="text-xs text-slate-500 font-medium">
-              {activeView === 'fixtures' 
-                ? 'Hafta hafta ve günlere ayrılmış fikstür akışı. Maç kartına tıklayarak kadroları ve detayları inceleyebilirsiniz.' 
-                : 'Canlı puan durumu, averajlar, iç/dış saha performansı ve son 5 maç formu.'}
-            </p>
+
+            {/* Gameweek Stepper (Only in fixtures view) */}
+            {activeView === 'fixtures' && (
+              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 p-0.5 rounded-xl shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentNum = selectedGameweek === 'all' ? currentGameweek : Number(selectedGameweek);
+                    const prev = Math.max(1, currentNum - 1);
+                    setSelectedGameweek(String(prev));
+                  }}
+                  disabled={selectedGameweek !== 'all' && Number(selectedGameweek) <= 1}
+                  className="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  title="Önceki Hafta"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {/* Gameweek Dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsGameweekMenuOpen(open => !open)}
+                    className="flex items-center gap-1 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 hover:text-[#38003c] transition-colors"
+                  >
+                    <span>{selectedGameweek === 'all' ? 'Tüm Haftalar' : `Hafta ${selectedGameweek}`}</span>
+                    {String(selectedGameweek) === String(currentGameweek) && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Mevcut Hafta" />
+                    )}
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isGameweekMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isGameweekMenuOpen && (
+                    <div className="absolute left-0 top-full z-50 mt-1.5 max-h-64 w-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl scrollbar-thin">
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedGameweek('all'); setIsGameweekMenuOpen(false); }}
+                        className={`w-full rounded-lg px-2.5 py-1.5 text-left text-xs font-bold transition-all ${
+                          selectedGameweek === 'all' ? 'bg-[#38003c] text-white' : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        Tüm Haftalar
+                      </button>
+                      {allGwNumbers.map(gw => {
+                        const isSelected = String(selectedGameweek) === String(gw);
+                        const isCurrent = Number(gw) === Number(currentGameweek);
+                        return (
+                          <button
+                            key={gw}
+                            type="button"
+                            onClick={() => { setSelectedGameweek(String(gw)); setIsGameweekMenuOpen(false); }}
+                            className={`mt-0.5 flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-bold transition-all ${
+                              isSelected ? 'bg-[#38003c] text-white' : 'text-slate-700 hover:bg-slate-100'
+                            }`}
+                          >
+                            <span>Hafta {gw}</span>
+                            {isCurrent && (
+                              <span className={`rounded px-1.5 py-0.2 text-[9px] uppercase font-sans font-black ${
+                                isSelected ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800'
+                              }`}>
+                                Mevcut
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentNum = selectedGameweek === 'all' ? currentGameweek : Number(selectedGameweek);
+                    const maxGw = allGwNumbers.length ? Math.max(...allGwNumbers) : 38;
+                    const next = Math.min(maxGw, currentNum + 1);
+                    setSelectedGameweek(String(next));
+                  }}
+                  disabled={selectedGameweek !== 'all' && Number(selectedGameweek) >= (allGwNumbers.length ? Math.max(...allGwNumbers) : 38)}
+                  className="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  title="Sonraki Hafta"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Quick jump to current week if viewing another week */}
+            {activeView === 'fixtures' && String(selectedGameweek) !== String(currentGameweek) && (
+              <button
+                type="button"
+                onClick={() => setSelectedGameweek(String(currentGameweek))}
+                className="px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-all flex items-center gap-1 shrink-0"
+                title="Şu anki haftaya dön"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>H{currentGameweek}'e Dön</span>
+              </button>
+            )}
+
+            {activeView === 'table' && (
+              <div className="flex items-center gap-2.5 text-[11px] font-medium text-slate-500 ml-1">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-xs bg-blue-500" />
+                  <span>UCL (1-4)</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-xs bg-orange-500" />
+                  <span>UEL (5)</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-xs bg-rose-500" />
+                  <span>Düşme (18-20)</span>
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Season Quick Toggle */}
-          <div className="flex flex-col items-stretch gap-2 self-stretch md:items-end md:self-auto">
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 justify-center">
-            <button
-              onClick={() => setSelectedSeason('2026_27')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                selectedSeason === '2026_27'
-                  ? 'bg-[#38003c] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              2026-27 (Güncel)
-            </button>
-            <button
-              onClick={() => setSelectedSeason('2025_26')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                selectedSeason === '2025_26'
-                  ? 'bg-[#38003c] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              2025-26
-            </button>
-            <button
-              onClick={() => setSelectedSeason('2024_25')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                selectedSeason === '2024_25'
-                  ? 'bg-[#38003c] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              2024-25
-            </button>
-            <button
-              onClick={() => setSelectedSeason('2023_24')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                selectedSeason === '2023_24'
-                  ? 'bg-[#38003c] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              2023-24
-            </button>
-            <button
-              onClick={() => setSelectedSeason('2022_23')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                selectedSeason === '2022_23'
-                  ? 'bg-[#38003c] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              2022-23
-            </button>
-          </div>
-          <div className="flex flex-col items-end gap-1.5">
+          {/* Right: Search + View Mode (List/Card) + Season Select + Sync Button */}
+          <div className="flex flex-wrap items-center gap-2">
+            
+            {/* Search Input (Only for fixtures view) */}
+            {activeView === 'fixtures' && (
+              <div className="relative min-w-[170px] sm:min-w-[210px] flex-1 sm:flex-initial">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Takım / stadyum ara..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-7 py-1.5 text-xs font-medium text-slate-900 placeholder-slate-400 outline-none focus:border-[#38003c] focus:bg-white transition-all"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold px-1"
+                    title="Aramayı temizle"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* View Mode Toggle: List ↔ Cards */}
+            {activeView === 'fixtures' && (
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleDisplayModeChange('list')}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    displayMode === 'list'
+                      ? 'bg-[#38003c] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Kompakt Liste"
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Liste</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDisplayModeChange('cards')}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    displayMode === 'cards'
+                      ? 'bg-[#38003c] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Detaylı Kartlar"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Kart</span>
+                </button>
+              </div>
+            )}
+
+            {/* Season Selector Dropdown */}
+            <div className="relative shrink-0">
+              <label htmlFor="fixtures-season-select" className="sr-only">Sezon seç</label>
+              <select
+                id="fixtures-season-select"
+                value={selectedSeason}
+                onChange={(event) => setSelectedSeason(event.target.value)}
+                className="appearance-none rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-2.5 pr-7 text-xs font-bold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#38003c]/30 cursor-pointer"
+              >
+                {['2026_27', '2025_26', '2024_25', '2023_24', '2022_23'].map(season => (
+                  <option key={season} value={season}>
+                    {season === '2026_27' ? '2026-27' : season.replace('_', '-')}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+            </div>
+
+            {/* Sync Season Button */}
             <button
               type="button"
               onClick={triggerSeasonSync}
               disabled={syncStatus === 'starting' || syncStatus === 'running'}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2 text-xs font-bold text-violet-900 transition hover:border-violet-300 hover:bg-violet-100 disabled:cursor-wait disabled:opacity-70"
+              title={syncStatus === 'starting' || syncStatus === 'running' ? 'Veriler eşitleniyor' : 'Sezon verisini eşitle'}
+              className="p-1.5 rounded-xl border border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 transition-all shrink-0 disabled:opacity-50"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${syncStatus === 'starting' || syncStatus === 'running' ? 'animate-spin' : ''}`} />
-              {syncStatus === 'starting' || syncStatus === 'running' ? 'Veriler eşitleniyor…' : 'Sezon verisini eşitle'}
-            </button>
-            {syncMessage && <p className={`flex items-center gap-1 text-[10px] ${syncStatus === 'failed' ? 'text-rose-700' : syncStatus === 'completed' ? 'text-emerald-700' : 'text-slate-500'}`}>
-              {syncStatus === 'completed' && <CheckCircle2 className="h-3 w-3" />}
-              {syncStatus === 'failed' && <AlertCircle className="h-3 w-3" />}
-              <span>{syncMessage}</span>
-            </p>}
-          </div>
-          </div>
-        </div>
-
-        {/* View Mode Switcher: Fikstür vs Puan Tablosu */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
-            <button
-              onClick={() => setActiveView('fixtures')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeView === 'fixtures'
-                  ? 'bg-[#38003c] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Maç Fikstürü</span>
-            </button>
-            <button
-              onClick={() => setActiveView('table')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeView === 'table'
-                  ? 'bg-[#38003c] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Trophy className="w-3.5 h-3.5 text-amber-500" />
-              <span>Puan Tablosu</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === 'starting' || syncStatus === 'running' ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          {activeView === 'table' && (
-            <div className="flex items-center gap-2.5 text-[11px] font-medium text-slate-500">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-xs bg-blue-500" />
-                <span>UCL (1-4)</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-xs bg-orange-500" />
-                <span>UEL (5)</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-xs bg-rose-500" />
-                <span>Düşme (18-20)</span>
-              </span>
-            </div>
-          )}
         </div>
+
+        {/* Sync message if active */}
+        {syncMessage && (
+          <p className={`flex items-center gap-1 text-[10px] font-semibold ${syncStatus === 'failed' ? 'text-rose-700' : syncStatus === 'completed' ? 'text-emerald-700' : 'text-slate-500'}`}>
+            {syncStatus === 'completed' && <CheckCircle2 className="h-3 w-3" />}
+            {syncStatus === 'failed' && <AlertCircle className="h-3 w-3" />}
+            <span>{syncMessage}</span>
+          </p>
+        )}
       </div>
 
       {/* Conditional View: Puan Tablosu vs Fikstür */}
@@ -466,9 +639,14 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                               className="w-5 h-5 object-contain shrink-0"
                               onError={(e) => { e.target.src = '/badges/1.svg'; }}
                             />
-                            <span className="font-bold text-slate-900 truncate">
+                            <button
+                              type="button"
+                              onClick={() => onSelectTeam?.(t.id)}
+                              className="font-bold text-slate-900 truncate text-left hover:text-[#38003c] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#38003c]"
+                              aria-label={`${t.name} takım profiline git`}
+                            >
                               {t.name}
-                            </span>
+                            </button>
                             {t.abbr && (
                               <span className="text-[10px] font-mono font-bold text-slate-400 hidden lg:inline">
                                 {t.abbr}
@@ -549,112 +727,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
         </div>
       ) : (
         <>
-          {/* Filter and Search Bar */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-4">
-        
-        {/* Search Input */}
-        <div className="relative w-full">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Takım veya stadyum ara (örn: Arsenal, Anfield, Chelsea)..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs font-medium text-slate-900 placeholder-slate-400 outline-none focus:border-[#38003c] focus:bg-white transition-all"
-          />
-        </div>
-
-        {/* Navigation Controls & Gameweek Selector */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-2 border-t border-slate-100">
-          
-          {/* Quick Prev / Next Step Buttons */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={() => {
-                const currentNum = selectedGameweek === 'all' ? currentGameweek : Number(selectedGameweek);
-                const prev = Math.max(1, currentNum - 1);
-                setSelectedGameweek(String(prev));
-              }}
-              disabled={selectedGameweek !== 'all' && Number(selectedGameweek) <= 1}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span>Önceki Hafta</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedGameweek(String(currentGameweek))}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                String(selectedGameweek) === String(currentGameweek)
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-              }`}
-              title="Mevcut oynanan / yaklaşan haftaya git"
-            >
-              <span className={`w-2 h-2 rounded-full ${String(selectedGameweek) === String(currentGameweek) ? 'bg-white' : 'bg-emerald-500 animate-pulse'}`} />
-              <span>Mevcut Hafta ({currentGameweek})</span>
-            </button>
-
-            <button
-              onClick={() => {
-                const currentNum = selectedGameweek === 'all' ? currentGameweek : Number(selectedGameweek);
-                const maxGw = allGwNumbers.length ? Math.max(...allGwNumbers) : 38;
-                const next = Math.min(maxGw, currentNum + 1);
-                setSelectedGameweek(String(next));
-              }}
-              disabled={selectedGameweek !== 'all' && Number(selectedGameweek) >= (allGwNumbers.length ? Math.max(...allGwNumbers) : 38)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              <span>Sonraki Hafta</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Gameweek Horizontal Selector */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 scrollbar-thin">
-            <button
-              onClick={() => setSelectedGameweek('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                selectedGameweek === 'all'
-                  ? 'bg-[#38003c] text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Tüm Haftalar
-            </button>
-            {allGwNumbers.map(gw => {
-              const isSelected = String(selectedGameweek) === String(gw);
-              const isCurrent = Number(gw) === Number(currentGameweek);
-              return (
-                <button
-                  key={gw}
-                  onClick={() => setSelectedGameweek(String(gw))}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-[#38003c] text-white shadow-sm'
-                      : isCurrent
-                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                  }`}
-                >
-                  <span>Hafta {gw}</span>
-                  {isCurrent && (
-                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-sans font-bold uppercase tracking-wider ${
-                      isSelected ? 'bg-emerald-500 text-white' : 'bg-emerald-200 text-emerald-900'
-                    }`}>
-                      Mevcut
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* Gameweeks & Days Grouped View */}
+          {/* Gameweeks & Days Grouped View */}
       {loading ? (
         <div className="py-20 text-center bg-white border border-slate-200 rounded-2xl shadow-sm">
           <div className="w-8 h-8 border-3 border-[#38003c] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -670,21 +743,8 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
           {filteredGameweeks.map(gwObj => (
             <div key={gwObj.gameweek} className="space-y-4">
               
-              {/* Gameweek Badge Header */}
-              <div className="flex items-center justify-between bg-slate-200/70 border border-slate-300/80 px-4 py-2.5 rounded-xl">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#38003c]" />
-                  <h3 className="text-sm font-black text-slate-900 tracking-tight">
-                    Hafta {gwObj.gameweek}
-                  </h3>
-                </div>
-                <span className="text-[11px] font-mono font-bold text-slate-600">
-                  {gwObj.days.reduce((acc, d) => acc + d.matches.length, 0)} Karşılaşma
-                </span>
-              </div>
-
               {/* Day Groups inside Gameweek */}
-              <div className="space-y-5 pl-1 md:pl-2">
+              <div className="space-y-5">
                 {gwObj.days.map((dayObj, dayIdx) => (
                   <div key={dayIdx} className="space-y-2.5">
                     
@@ -694,21 +754,144 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                       <span>{dayObj.day}</span>
                     </div>
 
-                    {/* Matches Grid for that Day */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-                      {dayObj.matches.map(m => {
-                        const home = getTeam(m.home_id, m.home_name);
-                        const away = getTeam(m.away_id, m.away_name);
-                        const homeManager = teamManagers[String(m.home_id)];
-                        const awayManager = teamManagers[String(m.away_id)];
-                        const isCompleted = m.status === 'COMPLETED' && m.home_score !== null;
+                    {/* Matches List or Grid for that Day */}
+                    {displayMode === 'list' ? (
+                      <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white shadow-2xs overflow-hidden">
+                        {dayObj.matches.map(m => {
+                          const home = getTeam(m.home_id, m.home_name);
+                          const away = getTeam(m.away_id, m.away_name);
+                          const homeManager = teamManagers[String(m.home_id)];
+                          const awayManager = teamManagers[String(m.away_id)];
+                          const isCompleted = m.status === 'COMPLETED' && m.home_score !== null;
 
-                        return (
-                          <div
-                            key={m.match_id}
-                            onClick={() => setActiveModalMatch(m)}
-                            className="bg-white border border-slate-200 hover:border-slate-400 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col justify-between gap-3"
-                          >
+                          return (
+                            <div
+                              key={m.match_id}
+                              onClick={() => {
+                                if (onSelectMatch) {
+                                  onSelectMatch({
+                                    ...m,
+                                    home_manager: homeManager || null,
+                                    away_manager: awayManager || null,
+                                  }, currentGameweek);
+                                } else {
+                                  setActiveModalMatch(m);
+                                }
+                              }}
+                              className="px-3.5 py-2.5 sm:px-4 sm:py-3 hover:bg-slate-50/90 transition-all cursor-pointer group flex items-center justify-between gap-2 sm:gap-4 text-xs"
+                            >
+                              {/* 1. Status / Kickoff Time */}
+                              <div className="w-14 sm:w-20 shrink-0 text-left">
+                                {isCompleted ? (
+                                  <span className="font-mono font-bold text-slate-500 text-[11px] block">
+                                    MS
+                                  </span>
+                                ) : (
+                                  <div className="flex items-center gap-1 text-slate-700 font-semibold text-[11px] sm:text-xs">
+                                    <Clock className="w-3 h-3 text-slate-400 shrink-0 hidden sm:inline" />
+                                    <span className="truncate">{m.time_label || 'vs'}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 2. Teams & Score (Center) */}
+                              <div className="flex items-center justify-center gap-2 sm:gap-4 flex-1 min-w-0">
+                                {/* Home Team */}
+                                <div className="flex items-center gap-2 justify-end flex-1 min-w-0 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={(event) => { event.stopPropagation(); onSelectTeam?.(home.id); }}
+                                    className="font-bold text-xs sm:text-sm text-slate-900 hover:text-[#38003c] hover:underline transition-colors truncate"
+                                    aria-label={`${home.name} takım profiline git`}
+                                  >
+                                    {home.short || home.name}
+                                  </button>
+                                  <img 
+                                    src={home.badge} 
+                                    alt={home.name} 
+                                    className="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0"
+                                    onError={(e) => { e.target.src = '/badges/1.svg'; }}
+                                  />
+                                </div>
+
+                                {/* Score / VS Badge */}
+                                <div className="shrink-0 flex items-center justify-center min-w-[55px] sm:min-w-[65px]">
+                                  {isCompleted ? (
+                                    <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-mono font-black text-xs sm:text-sm tracking-wider shadow-2xs">
+                                      {m.home_score} - {m.away_score}
+                                    </span>
+                                  ) : (
+                                    <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-mono text-xs font-bold border border-slate-200">
+                                      VS
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Away Team */}
+                                <div className="flex items-center gap-2 justify-start flex-1 min-w-0 text-left">
+                                  <img 
+                                    src={away.badge} 
+                                    alt={away.name} 
+                                    className="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0"
+                                    onError={(e) => { e.target.src = '/badges/1.svg'; }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={(event) => { event.stopPropagation(); onSelectTeam?.(away.id); }}
+                                    className="font-bold text-xs sm:text-sm text-slate-900 hover:text-[#38003c] hover:underline transition-colors truncate"
+                                    aria-label={`${away.name} takım profiline git`}
+                                  >
+                                    {away.short || away.name}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* 3. Prediction / Meta Badge & Chevron */}
+                              <div className="flex items-center gap-2 shrink-0 min-w-[70px] sm:min-w-[120px] justify-end">
+                                {m.prediction?.favorite_label ? (
+                                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-[#38003c] bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full truncate max-w-[110px]">
+                                    <Sparkles className="w-2.5 h-2.5 text-[#38003c] shrink-0" />
+                                    <span className="truncate">{m.prediction.favorite_label}</span>
+                                  </span>
+                                ) : isCompleted && (m.home_xg != null || m.away_xg != null) ? (
+                                  <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
+                                    xG {Number(m.home_xg).toFixed(1)}-{Number(m.away_xg).toFixed(1)}
+                                  </span>
+                                ) : null}
+                                <span className="text-[11px] font-bold text-[#38003c] group-hover:text-purple-700 group-hover:translate-x-0.5 transition-all flex items-center gap-0.5 bg-slate-50 group-hover:bg-purple-50 p-1.5 rounded-lg border border-slate-200/80">
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* Matches Grid for that Day (Detaylı Kartlar) */
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                        {dayObj.matches.map(m => {
+                          const home = getTeam(m.home_id, m.home_name);
+                          const away = getTeam(m.away_id, m.away_name);
+                          const homeManager = teamManagers[String(m.home_id)];
+                          const awayManager = teamManagers[String(m.away_id)];
+                          const isCompleted = m.status === 'COMPLETED' && m.home_score !== null;
+
+                          return (
+                            <div
+                              key={m.match_id}
+                              onClick={() => {
+                                if (onSelectMatch) {
+                                  onSelectMatch({
+                                    ...m,
+                                    home_manager: homeManager || null,
+                                    away_manager: awayManager || null,
+                                  }, currentGameweek);
+                                } else {
+                                  setActiveModalMatch(m);
+                                }
+                              }}
+                              className="bg-white border border-slate-200 hover:border-purple-300 rounded-2xl p-4 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group flex flex-col justify-between gap-3 relative overflow-hidden"
+                            >
                             
                             {/* Top Card Bar: Kickoff time & Ground */}
                             <div className="flex items-center justify-between text-[11px] text-slate-500 pb-2 border-b border-slate-100">
@@ -717,10 +900,10 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                                 <span className="truncate">{m.time_label || m.kickoff_label}</span>
                               </div>
 
-                              <span className="text-[11px] font-bold text-[#38003c] group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                              <span className="text-[11px] font-bold text-[#38003c] group-hover:text-purple-700 group-hover:translate-x-0.5 transition-all flex items-center gap-1 bg-purple-50 group-hover:bg-purple-100 px-2.5 py-0.5 rounded-lg border border-purple-200/60 shadow-2xs">
                                 {isCompleted 
-                                  ? 'Kadrolar & Detay' 
-                                  : (Number(m.gameweek) === Number(currentGameweek) ? 'Model Maç Tahmini' : 'Fikstür Bilgisi')} 
+                                  ? 'Maç Sayfası' 
+                                  : (Number(m.gameweek) === Number(currentGameweek) ? 'Model Analizi & Sayfa' : 'Maç Detayı')} 
                                 <ChevronRight className="w-3.5 h-3.5" />
                               </span>
                             </div>
@@ -736,9 +919,14 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                                   className="w-7 h-7 object-contain shrink-0"
                                   onError={(e) => { e.target.src = '/badges/1.svg'; }}
                                 />
-                                <span className="font-bold text-xs text-slate-900 group-hover:text-[#38003c] transition-colors truncate">
+                                <button
+                                  type="button"
+                                  onClick={(event) => { event.stopPropagation(); onSelectTeam?.(home.id); }}
+                                  className="font-bold text-xs text-slate-900 hover:text-[#38003c] hover:underline transition-colors truncate text-left"
+                                  aria-label={`${home.name} takım profiline git`}
+                                >
                                   {home.name}
-                                </span>
+                                </button>
                               </div>
 
                               {/* Center: Score or Kickoff Time */}
@@ -752,9 +940,14 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
 
                               {/* Away Team */}
                               <div className="flex items-center gap-2.5 flex-1 min-w-0 justify-end text-right">
-                                <span className="font-bold text-xs text-slate-900 group-hover:text-[#38003c] transition-colors truncate">
+                                <button
+                                  type="button"
+                                  onClick={(event) => { event.stopPropagation(); onSelectTeam?.(away.id); }}
+                                  className="font-bold text-xs text-slate-900 hover:text-[#38003c] hover:underline transition-colors truncate text-right"
+                                  aria-label={`${away.name} takım profiline git`}
+                                >
                                   {away.name}
-                                </span>
+                                </button>
                                 <img 
                                   src={away.badge} 
                                   alt={away.name} 
@@ -935,6 +1128,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason }) {
                         );
                       })}
                     </div>
+                  )}
 
                   </div>
                 ))}
