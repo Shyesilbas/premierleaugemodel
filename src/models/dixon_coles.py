@@ -110,7 +110,7 @@ class DixonColesModel:
         self,
         ridge: float = 1.0,
         max_goals: int = 12,
-        half_life_days: float | None = None,
+        half_life_days: float | None = 365.0,
     ):
         self.ridge = float(ridge)
         self.max_goals = int(max_goals)
@@ -168,6 +168,14 @@ class DixonColesModel:
             weights = 0.5 ** (age_days / float(self.half_life_days))
             weights /= weights.mean()
 
+        team_match_counts = np.zeros(n_teams, dtype=float)
+        for t_i in h_idx:
+            team_match_counts[t_i] += 1
+        for t_i in a_idx:
+            team_match_counts[t_i] += 1
+        # Adaptive shrinkage: Teams with fewer than 10 matches receive up to 4x higher Ridge penalty
+        ridge_mult = 1.0 + np.maximum(0.0, (10.0 - team_match_counts) / 2.5)
+
         initial = np.zeros(2 * n_free + 3, dtype=float)
         initial[2 * n_free] = float(np.log(max(data["home_score"].mean(), 0.2)))
         initial[2 * n_free + 1] = 0.15
@@ -200,7 +208,7 @@ class DixonColesModel:
             tau[one_one] = 1.0 - rho
             if np.any(tau <= 1e-8):
                 return 1e8 + float(np.square(np.minimum(tau - 1e-8, 0.0)).sum()) * 1e8
-            penalty = self.ridge * (float(np.square(attack).sum()) + float(np.square(defence).sum()))
+            penalty = self.ridge * (float((ridge_mult * np.square(attack)).sum()) + float((ridge_mult * np.square(defence)).sum()))
             penalty += 10.0 * rho * rho
             return float(-(weights * np.log(tau)).sum() - (weights * log_likelihood).sum() + penalty)
 

@@ -225,6 +225,11 @@ export default function PlayerProfilesTab({ selectedSeason, onSelectMatch }) {
               <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                 <h2 className="text-2xl font-black tracking-tight text-slate-950">{pData.name}</h2>
                 {posMeta && <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${posMeta.class}`}>{posMeta.label}</span>}
+                {pData.market_value && (
+                  <span className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-black text-amber-900 font-mono shadow-2xs">
+                    Piyasa Değeri: {pData.market_value.formatted}
+                  </span>
+                )}
               </div>
               <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-slate-600 sm:justify-start">
                 {teamMeta && <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800"><img src={teamMeta.badge} alt="" className="h-4 w-4 object-contain" onError={(e) => { e.target.src = '/badges/1.svg'; }} />{teamMeta.name}</span>}
@@ -248,11 +253,17 @@ export default function PlayerProfilesTab({ selectedSeason, onSelectMatch }) {
             </label>
           </div>
 
-          <div className="grid grid-cols-2 divide-x divide-y divide-slate-200 border-t border-slate-200 sm:grid-cols-4 sm:divide-y-0">
+          <div className="grid grid-cols-2 divide-x divide-y divide-slate-200 border-t border-slate-200 sm:grid-cols-5 sm:divide-y-0">
             <div className="px-4 py-3 text-center sm:text-left sm:px-6"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Maç</span><strong className="text-lg font-bold tabular-nums text-slate-900">{pStats.appearances || 0}</strong></div>
             <div className="px-4 py-3 text-center sm:text-left sm:px-6"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Dakika</span><strong className="text-lg font-bold tabular-nums text-slate-900">{pStats.minutes || 0}</strong></div>
             <div className="px-4 py-3 text-center sm:text-left sm:px-6"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Gol</span><strong className="text-lg font-bold tabular-nums text-slate-900">{pStats.goals || 0}</strong></div>
             <div className="px-4 py-3 text-center sm:text-left sm:px-6"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Asist</span><strong className="text-lg font-bold tabular-nums text-slate-900">{pStats.assists || 0}</strong></div>
+            <div className="px-4 py-3 text-center sm:text-left sm:px-6 bg-amber-50/40">
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-amber-800">Transfermarkt</span>
+              <strong className="text-lg font-black tabular-nums text-amber-950 font-mono">
+                {pData.market_value ? pData.market_value.formatted : '—'}
+              </strong>
+            </div>
           </div>
         </section>
       )}

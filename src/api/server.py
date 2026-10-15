@@ -7,6 +7,7 @@ Serves interactive prediction engine, fixtures, events, and static frontend dash
 import json
 import logging
 import re
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -40,6 +41,7 @@ from src.features.draw_features import build_draw_state
 from src.analytics.team_tactics import get_team_tactical_profile
 from src.analytics.team_scenarios import get_team_scenario_profile
 from src.analytics.team_attackers import get_team_attacking_leaders
+from src.analytics.model_audit import run_model_audit
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api_server")
@@ -346,6 +348,12 @@ def reload_runtime_datasets() -> None:
     """Reload data files refreshed by the season sync job into this API worker."""
     global df_matches, df_features, raw_fixtures_2627, teams_dict, match_stats_map
     global teams_list, _matches_prepared, _long_history, _played_matches, CURRENT_SEASON, _live_state_cache
+    global outcome_artifact, goals_artifact, offside_artifact, cards_artifact
+
+    outcome_artifact = joblib.load(MODELS_DIR / "outcome_models_v1.joblib") if (MODELS_DIR / "outcome_models_v1.joblib").exists() else None
+    goals_artifact = joblib.load(MODELS_DIR / "goals_models_v1.joblib") if (MODELS_DIR / "goals_models_v1.joblib").exists() else None
+    offside_artifact = joblib.load(MODELS_DIR / "offside_model_v1.joblib") if (MODELS_DIR / "offside_model_v1.joblib").exists() else None
+    cards_artifact = joblib.load(MODELS_DIR / "cards_model_v1.joblib") if (MODELS_DIR / "cards_model_v1.joblib").exists() else None
 
     df_matches = pd.read_parquet(matches_parquet) if matches_parquet.exists() else pd.DataFrame()
     if not df_matches.empty:
@@ -443,6 +451,13 @@ def start_season_sync(season: str = Query("2026_27")):
     thread = threading.Thread(target=_run_season_sync_job, args=(job_id, season), daemon=True)
     thread.start()
     return {**_sync_job, "already_running": False}
+
+
+@app.post("/api/admin/reload-models")
+def admin_reload_models():
+    """Reload all runtime datasets and ML model artifacts."""
+    reload_runtime_datasets()
+    return {"status": "success", "message": "All models and feature datasets reloaded successfully"}
 
 
 @app.get("/api/admin/sync-season")
@@ -1240,6 +1255,39 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
         all_team_pids = roster_pids.union(pids_season)
     else:
         all_team_pids = pids_season
+    # Fetch Transfermarkt market values
+    tm_team_data = None
+    player_values_map = {}
+    try:
+        conn = sqlite3.connect(DATA_DIR / "premier_league.db")
+        conn.row_factory = sqlite3.Row
+        t_row = conn.execute(
+            "SELECT market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ?",
+            (team_id,)
+        ).fetchone()
+        if t_row:
+            mv_eur = t_row["market_value_eur"]
+            tm_team_data = {
+                "market_value_eur": mv_eur,
+                "avg_market_value_eur": t_row["avg_market_value_eur"],
+                "squad_size": t_row["squad_size"],
+                "formatted": f"€{mv_eur/1000:.2f}B" if mv_eur >= 1000 else f"€{mv_eur:,.1f}M",
+                "avg_formatted": f"€{t_row['avg_market_value_eur']:.2f}M"
+            }
+        
+        p_rows = conn.execute(
+            "SELECT name, market_value_eur FROM player_market_values WHERE team_id = ?",
+            (team_id,)
+        ).fetchall()
+        for pr in p_rows:
+            norm_name = pr["name"].lower().strip()
+            player_values_map[norm_name] = pr["market_value_eur"]
+            parts = norm_name.split()
+            if len(parts) > 1:
+                player_values_map[parts[-1]] = pr["market_value_eur"]
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Could not load market values for team {team_id}: {e}")
 
     squad = []
     for pid in all_team_pids:
@@ -1282,6 +1330,12 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
 
         photo_url = resolve_player_photo(pid, p)
 
+        # Match player market value
+        p_name_lower = (p.get("name") or "").lower().strip()
+        last_name = p_name_lower.split()[-1] if p_name_lower else ""
+        p_mv = player_values_map.get(p_name_lower) or player_values_map.get(last_name)
+        p_mv_fmt = f"€{p_mv:.1f}M" if p_mv is not None and p_mv >= 1.0 else (f"€{int(p_mv*1000)}k" if p_mv is not None and p_mv > 0 else None)
+
         squad.append({
             "id": pid,
             "name": p.get("name"),
@@ -1296,12 +1350,15 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
             "red_cards": rc,
             "country": p.get("country"),
             "captain": p.get("captain", False),
+            "market_value_eur": p_mv,
+            "market_value_formatted": p_mv_fmt,
         })
 
-    # Sort squad: by position order, then by appearances desc, then goals desc
+    # Sort squad: by position order, then by market value desc, then by appearances desc
     pos_order = {"G": 0, "GK": 0, "D": 1, "DF": 1, "M": 2, "MF": 2, "F": 3, "FW": 3}
     squad.sort(key=lambda x: (
         pos_order.get(x.get("position", ""), 4),
+        -(x.get("market_value_eur") or 0),
         -(x.get("appearances") or 0),
         -(x.get("goals") or 0),
         x.get("shirt") if x.get("shirt") is not None else 999
@@ -1311,6 +1368,7 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
         "team": team_meta,
         "season": season,
         "record": {"wins": wins, "draws": draws, "losses": losses, "played": len(matches_list), "gf": gf, "ga": ga},
+        "market_value": tm_team_data,
         "matches": matches_list,
         "next_match": next_match,
         "squad": squad,
@@ -1382,7 +1440,28 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
         latest_match = sorted_active[-1]
         if latest_match.get("team_id"):
             player_data["teamId"] = latest_match["team_id"]
-            player_data["teamName"] = latest_match["team_name"]
+    # Fetch authentic Transfermarkt player market value
+    tm_mv = None
+    p_name = player_data.get("name") or f"{player_data.get('firstName', '')} {player_data.get('lastName', '')}".strip()
+    try:
+        conn = sqlite3.connect(DATA_DIR / "premier_league.db")
+        conn.row_factory = sqlite3.Row
+        last_name = p_name.split()[-1] if p_name else ""
+        row = conn.execute(
+            "SELECT market_value, market_value_eur, position, age, nationality FROM player_market_values WHERE LOWER(name) = LOWER(?) OR LOWER(name) LIKE LOWER(?) ORDER BY market_value DESC LIMIT 1",
+            (p_name, f"%{last_name}%")
+        ).fetchone()
+        if row:
+            mv_eur = row["market_value_eur"]
+            tm_mv = {
+                "market_value_eur": mv_eur,
+                "formatted": f"€{mv_eur:,.1f}M" if mv_eur >= 1.0 else f"€{int(mv_eur*1000)}k"
+            }
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Error fetching player market value: {e}")
+
+    player_data["market_value"] = tm_mv
 
     tot_mins = sum(m.get("minutes_played", 0) for m in logs)
     tot_goals = sum(m.get("goals", 0) for m in logs)
@@ -1971,10 +2050,65 @@ def get_match_full_details(match_id: int):
         "player_stats": player_stats,
         "events": events,
         "timeline": key_timeline,
+        "odds": get_match_odds_list(match_id),
     }
     if bool(team_stats or events):
         _completed_match_details_cache[match_id] = res
     return res
+
+
+def get_match_odds_list(match_id: int) -> List[Dict[str, Any]]:
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT bookmaker,
+                   home_last_seen, draw_last_seen, away_last_seen,
+                   home_open, draw_open, away_open,
+                   over_25_last_seen, under_25_last_seen,
+                   btts_yes_last_seen, btts_no_last_seen,
+                   corners_over_last_seen, corners_under_last_seen,
+                   cards_over_last_seen, cards_under_last_seen,
+                   fetched_at_utc
+            FROM external_match_odds
+            WHERE match_id = ?
+            ORDER BY CASE 
+                WHEN bookmaker = 'Bet365' THEN 1 
+                WHEN bookmaker = 'Pinnacle' THEN 2 
+                WHEN bookmaker = 'Betfair Exchange' THEN 3 
+                WHEN bookmaker = 'Paddy Power' THEN 4 
+                ELSE 5 
+            END
+        """, (match_id,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return rows
+    except Exception as e:
+        logger.warning(f"Error fetching odds for match {match_id}: {e}")
+        return []
+
+
+@app.get("/api/match/{match_id}/odds")
+def get_match_odds(match_id: int):
+    """Returns stored pre-match & closing betting odds across bookmakers for this match."""
+    return {"match_id": match_id, "odds": get_match_odds_list(match_id)}
+
+
+@app.get("/api/model-audit")
+def get_model_audit(
+    season: str = "2026_27",
+    gameweek: Optional[int] = None,
+    force_recalc: bool = False,
+):
+    """Returns prospective zero-leakage model performance metrics and
+
+    match verification cards vs actual outcomes and market odds.
+    """
+    data = run_model_audit(season=season, force_recalc=force_recalc)
+    if gameweek is not None and "matches" in data:
+        filtered = [m for m in data["matches"] if m.get("gameweek") == int(gameweek)]
+        return {**data, "matches": filtered, "selected_gameweek": gameweek}
+    return data
 
 
 @app.get("/api/predict")

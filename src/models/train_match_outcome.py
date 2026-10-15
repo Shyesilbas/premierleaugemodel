@@ -56,17 +56,44 @@ FORM_STATS = [
     "xg_for", "xg_against",
 ]
 FORM_SUFFIXES = ["roll_10", "ewma_02"]
+MARKET_VALUE_FEATURES = [
+    "log_mv_ratio",
+    "effective_log_mv_ratio",
+    "mv_diff",
+    "mv_prior_weight_home",
+    "mv_prior_weight_away",
+    "is_promoted_home",
+    "is_promoted_away",
+]
+STRENGTH_OF_SCHEDULE_FEATURES = [
+    "schedule_difficulty_diff",
+    "schedule_mv_diff",
+]
+VENUE_FORM_FEATURES = [
+    "home_venue_xg_for_ewma_02", "home_venue_xg_against_ewma_02",
+    "away_venue_xg_for_ewma_02", "away_venue_xg_against_ewma_02",
+    "home_venue_goals_for_roll_5", "home_venue_goals_against_roll_5",
+    "away_venue_goals_for_roll_5", "away_venue_goals_against_roll_5",
+    "home_venue_shots_ontarget_for_roll_5", "home_venue_shots_ontarget_against_roll_5",
+    "away_venue_shots_ontarget_for_roll_5", "away_venue_shots_ontarget_against_roll_5",
+    "venue_xg_diff", "venue_goals_diff", "venue_sot_diff",
+]
 STRENGTH_FEATURES = [
     "elo_home", "elo_away", "elo_diff",
     "elo_venue_home", "elo_venue_away", "elo_venue_diff",
     "ppg_home", "ppg_away", "ppg_diff",
     "gdpg_home", "gdpg_away", "gdpg_diff",
-]
+] + MARKET_VALUE_FEATURES + STRENGTH_OF_SCHEDULE_FEATURES + VENUE_FORM_FEATURES
 STRENGTH_FEATURES_O25 = [
     "elo_home", "elo_away",
     "elo_venue_home", "elo_venue_away",
     "ppg_home", "ppg_away",
     "gdpg_home", "gdpg_away",
+    "effective_log_mv_ratio",
+    "home_venue_xg_for_ewma_02",
+    "away_venue_xg_for_ewma_02",
+    "home_venue_goals_for_roll_5",
+    "away_venue_goals_for_roll_5",
 ]
 DIFF_FEATURES = [f"sdiff_{t}_{s}" for t in ("goals", "sot") for s in ("e02", "r10")]
 EXTRA_1X2 = ["exp_match_xg_10", "xg_diff_10"]
@@ -993,6 +1020,7 @@ def train_match_outcome_models(
     metrics: Dict[str, Any] = {}
     production_ensemble: Dict[str, Any] | None = None
     production_recency_calibrators: Dict[int, Dict[str, Any]] = {}
+    production_ensemble_recency_calibrators: Dict[int, Dict[str, Any]] = {}
 
     for kind in ("1x2", "o25"):
         tcol, labels = targets[kind]
@@ -1016,17 +1044,21 @@ def train_match_outcome_models(
             dc_oof_probs = dc_forward_for_blocks(
                 dev_fit, dev_fit, kickoff_times=fit_kickoffs
             )
-            blend_weight, blend_curve = choose_blend_weight(
+            # Benchmark optimal weight for diagnostic monitoring
+            optimal_weight, blend_curve = choose_blend_weight(
                 oof_probs, dc_oof_probs, oof_targets, labels
             )
-            ensemble_oof = blend_log(oof_probs, dc_oof_probs, blend_weight)
+            # Evaluate holdout on the exact production architecture (50/50 Golden Balance)
+            evaluation_blend_weight = 0.50
+            ensemble_oof = blend_log(oof_probs, dc_oof_probs, evaluation_blend_weight)
             ensemble_calibrator = fit_probability_calibrator(
                 ensemble_oof, pd.Series(oof_targets), labels
             )
             dc_dev = DixonColesModel().fit(dev_fit)
             holdout_ensemble = {
-                "weight_logreg": blend_weight,
+                "weight_logreg": evaluation_blend_weight,
                 "weight_curve": blend_curve,
+                "optimal_unconstrained_weight": optimal_weight,
                 "calibrator": ensemble_calibrator,
                 "dc_model": dc_dev,
             }
@@ -1175,6 +1207,12 @@ def train_match_outcome_models(
                     labels,
                     sample_weight=weights,
                 )
+                production_ensemble_recency_calibrators[half_life] = fit_probability_calibrator(
+                    production_ensemble_oof,
+                    pd.Series(production_oof_targets),
+                    labels,
+                    sample_weight=weights,
+                )
         calibrators[kind] = production_calibrator
         production_calibration_samples[kind] = int(len(production_oof_targets))
         res["production_calibrator"] = production_calibrator
@@ -1235,19 +1273,28 @@ def train_match_outcome_models(
     )
     selected_recency_half_life = metrics["1x2_calibration_drift_outer_eval"]["selected_half_life_rows"]
     if selected_recency_half_life is not None:
-        calibrators["1x2"] = production_recency_calibrators[int(selected_recency_half_life)]
+        hl = int(selected_recency_half_life)
+        calibrators["1x2"] = production_recency_calibrators[hl]
         metrics["model_1x2"]["production_calibrator"] = calibrators["1x2"]
         metrics["model_1x2"]["production_calibration_method"] = (
-            f"forward_oof_recency_weighted_half_life_{int(selected_recency_half_life)}_rows"
+            f"forward_oof_recency_weighted_half_life_{hl}_rows"
         )
+        if production_ensemble is not None and hl in production_ensemble_recency_calibrators:
+            production_ensemble["calibrator"] = production_ensemble_recency_calibrators[hl]
+            production_ensemble["calibration_method"] = (
+                f"forward_oof_recency_weighted_half_life_{hl}_rows"
+            )
         metrics["1x2_calibration_drift_production"] = {
             "enabled": True,
-            "half_life_rows": int(selected_recency_half_life),
+            "half_life_rows": hl,
             "oof_samples": production_calibration_samples["1x2"],
             "calibrator": calibrators["1x2"],
+            "ensemble_calibrator": production_ensemble["calibrator"] if production_ensemble else None,
         }
     else:
         metrics["model_1x2"]["production_calibration_method"] = "forward_oof_standard"
+        if production_ensemble is not None:
+            production_ensemble["calibration_method"] = "forward_oof_standard"
         metrics["1x2_calibration_drift_production"] = {
             "enabled": False,
             "reason": "outer-season calibration decision gate not passed",
@@ -1268,6 +1315,7 @@ def train_match_outcome_models(
             "enabled": True,
             "weight_logreg": production_ensemble["weight_logreg"],
             "weight_curve": production_ensemble["weight_curve"],
+            "calibration_method": production_ensemble.get("calibration_method", "forward_oof_standard"),
             "calibration_oof_samples": production_ensemble["oof_samples"],
             "dc_model_parameters": model_summary(final_models["dc"]),
         }

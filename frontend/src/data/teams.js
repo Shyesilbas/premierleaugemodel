@@ -31,13 +31,25 @@ export const TEAMS = [
 export const TEAM_MAP = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 
 export function getTeam(teamId, fallbackName = 'Takım') {
-  if (TEAM_MAP[teamId]) return TEAM_MAP[teamId];
+  if (teamId && TEAM_MAP[teamId]) return TEAM_MAP[teamId];
+  
+  if (fallbackName && typeof fallbackName === 'string') {
+    const clean = fallbackName.trim().toLowerCase();
+    const found = TEAMS.find(t => 
+      t.name.toLowerCase() === clean ||
+      t.short.toLowerCase() === clean ||
+      clean.includes(t.short.toLowerCase()) ||
+      clean.includes(t.name.toLowerCase())
+    );
+    if (found) return found;
+  }
+
   return {
     id: teamId,
     name: fallbackName,
     short: fallbackName,
     abbr: fallbackName ? fallbackName.substring(0, 3).toUpperCase() : 'PL',
-    badge: `/badges/${teamId}.svg`,
+    badge: teamId ? `/badges/${teamId}.svg` : '/badges/premier-league.svg',
     color: '#38003c',
     accent: '#059669',
     stadium: 'Premier League Ground',

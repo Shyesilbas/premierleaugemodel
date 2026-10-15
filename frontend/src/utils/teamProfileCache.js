@@ -3,7 +3,7 @@
  * Saves requests by keeping data cached in localStorage until the team's next scheduled match completes.
  */
 
-const CACHE_PREFIX = 'pl_team_cache_v3_';
+const CACHE_PREFIX = 'pl_team_cache_v4_';
 
 /**
  * Retrieve cached data for a given category, team and season.
@@ -17,6 +17,12 @@ export function getCachedTeamData(category, teamId, season) {
 
     const record = JSON.parse(raw);
     if (!record || !record.data) return null;
+
+    // Auto-invalidate team profile cache if market_value is missing
+    if (category === 'profile' && !record.data.market_value) {
+      localStorage.removeItem(key);
+      return null;
+    }
 
     // Check expiry: if expiresAt is a timestamp and has passed, invalidate
     if (record.expiresAt !== null && record.expiresAt !== undefined) {

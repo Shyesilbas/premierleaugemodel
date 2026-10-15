@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getTeam } from '../data/teams';
 
-import { Shield, Trophy, Users, Calendar, ChevronRight, Activity, Target, Flag, MapPin, Clock, X, RotateCw, CheckCircle2, Search, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Shield, Trophy, Users, Calendar, ChevronRight, Activity, Target, Flag, MapPin, Clock, X, RotateCw, CheckCircle2, Search, ChevronDown, ChevronsUpDown, Coins } from 'lucide-react';
 import MatchDetailModal from './MatchDetailModal';
 import PlayerAvatar from './PlayerAvatar';
 import { getCachedTeamData, setCachedTeamData, calculateTeamExpiry, clearTeamCache } from '../utils/teamProfileCache';
@@ -933,27 +933,10 @@ export default function TeamProfilesTab({ selectedSeason, onSelectMatch, selecte
                     </span>
                   )}
                 </div>
-
-                {/* League Standing Badge */}
-                {currentStanding && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 shadow-2xs">
-                    <Trophy className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span className="text-xs font-black">
-                      #{currentStanding.rank}. Sıra
-                    </span>
-                    <span className="text-amber-300">·</span>
-                    <span className="text-xs font-mono font-bold text-amber-950">
-                      {currentStanding.points} Puan
-                    </span>
-                    <span className="hidden sm:inline text-[11px] font-mono text-amber-800">
-                      ({currentStanding.played} Maç: {currentStanding.won}G {currentStanding.drawn}B {currentStanding.lost}M)
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 
-            {/* Right: Season Switcher & Record Pills */}
+            {/* Right: Season Switcher & Kadro Değeri Hero Card */}
             <div className="flex flex-col items-start lg:items-end gap-3 w-full lg:w-auto pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
               <div className="relative">
                 <label htmlFor="team-profile-season" className="sr-only">Sezon seç</label>
@@ -972,26 +955,31 @@ export default function TeamProfilesTab({ selectedSeason, onSelectMatch, selecte
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
               </div>
 
-              {/* Record Pills */}
-              {profile.record && (
-                <div className="flex items-center gap-2 font-mono text-xs flex-wrap">
-                  <div className="bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl text-center">
-                    <span className="text-[10px] text-emerald-700 font-sans block">GALİBİYET</span>
-                    <strong className="text-emerald-800 text-sm font-bold">{profile.record.wins}</strong>
+              {/* Prominent, Clean Kadro Değeri Card */}
+              {profile.market_value && (
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-50/80 border border-amber-200/90 shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-300 flex items-center justify-center shrink-0 text-amber-800">
+                    <Coins className="w-5 h-5 text-amber-700" />
                   </div>
-                  <div className="bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl text-center">
-                    <span className="text-[10px] text-slate-500 font-sans block">BERABERLİK</span>
-                    <strong className="text-slate-800 text-sm font-bold">{profile.record.draws}</strong>
-                  </div>
-                  <div className="bg-rose-50 border border-rose-200 px-3 py-1 rounded-xl text-center">
-                    <span className="text-[10px] text-rose-700 font-sans block">MAĞLUBİYET</span>
-                    <strong className="text-rose-800 text-sm font-bold">{profile.record.losses}</strong>
-                  </div>
-                  <div className="bg-purple-50 border border-purple-200 px-3 py-1 rounded-xl text-center">
-                    <span className="text-[10px] text-purple-700 font-sans block">GOL (AV)</span>
-                    <strong className="text-purple-900 text-sm font-bold">
-                      {profile.record.gf}:{profile.record.ga}
-                    </strong>
+                  <div className="text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800">
+                        Kadro Piyasa Değeri
+                      </span>
+                      <span className="text-[9px] font-bold text-amber-700 bg-amber-200/60 px-1.5 py-0.2 rounded font-sans">
+                        Transfermarkt
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-0.5">
+                      <strong className="text-xl sm:text-2xl font-black font-mono text-amber-950 tracking-tight">
+                        {profile.market_value.formatted}
+                      </strong>
+                      {profile.market_value.avg_formatted && (
+                        <span className="text-[11px] font-mono text-amber-800/80 font-semibold">
+                          (Ort. {profile.market_value.avg_formatted})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1610,6 +1598,18 @@ export default function TeamProfilesTab({ selectedSeason, onSelectMatch, selecte
 
                       <button
                         type="button"
+                        onClick={() => handleSquadSort('market_value_eur')}
+                        className="w-22 text-center shrink-0 hover:text-slate-900 transition-colors hidden sm:flex items-center justify-center gap-1 cursor-pointer font-bold text-amber-800"
+                        title="Transfermarkt piyasa değerine göre sırala"
+                      >
+                        <span>Piyasa Değeri</span>
+                        {squadSortField === 'market_value_eur' && (
+                          <span className="text-[9px]">{squadSortDirection === 'asc' ? '▲' : '▼'}</span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => handleSquadSort('appearances')}
                         className="w-14 text-center shrink-0 hover:text-slate-900 transition-colors flex items-center justify-center gap-1 cursor-pointer"
                         title="Oynadığı toplam maç sayısına göre sırala"
@@ -1728,6 +1728,17 @@ export default function TeamProfilesTab({ selectedSeason, onSelectMatch, selecte
                           </span>
                         </div>
 
+                        {/* 3.5. Piyasa Değeri */}
+                        <div className="w-22 text-center shrink-0 hidden sm:block">
+                          {player.market_value_formatted ? (
+                            <span className="inline-block px-2 py-0.5 rounded font-mono font-bold text-[11px] bg-amber-50 text-amber-950 border border-amber-200 shadow-2xs">
+                              {player.market_value_formatted}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 font-mono text-[11px]">—</span>
+                          )}
+                        </div>
+
                         {/* 4. Oynadığı Toplam Maç */}
                         <div className="w-14 text-center shrink-0 font-mono font-bold text-slate-800 text-xs">
                           {player.appearances ?? 0}
@@ -1802,19 +1813,20 @@ export default function TeamProfilesTab({ selectedSeason, onSelectMatch, selecte
       )}
 
       {selectedManager && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedManager(null); }}>
-          <section role="dialog" aria-modal="true" aria-label="Teknik direktör rakip performansı" className="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl bg-slate-50 shadow-2xl ring-1 ring-white/30">
-            <header className="relative overflow-hidden bg-gradient-to-br from-[#38003c] via-violet-950 to-slate-900 px-5 py-6 text-white sm:px-7">
-              <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full bg-violet-400/10 blur-2xl" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 p-3 backdrop-blur-sm sm:p-6" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedManager(null); }}>
+          <section role="dialog" aria-modal="true" aria-label="Teknik direktör rakip performansı" className="w-full max-w-4xl max-h-[92dvh] overflow-hidden rounded-[1.75rem] bg-slate-50 shadow-[0_30px_100px_-30px_rgba(15,23,42,.8)] ring-1 ring-white/20">
+            <header className="relative overflow-hidden bg-gradient-to-br from-[#38003c] via-[#26052e] to-slate-950 px-5 py-5 text-white sm:px-8 sm:py-7">
+              <div className="absolute -right-10 -top-20 h-64 w-64 rounded-full bg-fuchsia-400/15 blur-3xl" />
+              <div className="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-white/25 to-transparent" />
               <div className="relative flex items-start justify-between gap-4">
-                <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200">Teknik direktör · Rakip analizi</p><h2 className="mt-2 text-2xl font-black tracking-tight">{selectedManager.name?.display || [selectedManager.name?.first, selectedManager.name?.last].filter(Boolean).join(' ')}</h2><div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-violet-100"><span className="font-semibold">{currentMeta?.name || 'Takım'}</span><span className="text-violet-300">•</span><span>Tüm kayıtlı sezonlar</span></div></div>
-                <button type="button" onClick={() => setSelectedManager(null)} aria-label="Kapat" className="rounded-xl border border-white/15 bg-white/10 p-2.5 text-white transition hover:bg-white/20"><X className="h-4 w-4" /></button>
+                <div className="min-w-0"><div className="flex items-center gap-2"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10"><Activity className="h-4 w-4 text-fuchsia-200" /></span><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-fuchsia-200">Teknik direktör profili</p></div><h2 className="mt-3 truncate text-2xl font-black tracking-tight sm:text-3xl">{selectedManager.name?.display || [selectedManager.name?.first, selectedManager.name?.last].filter(Boolean).join(' ')}</h2><div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-violet-100"><span className="font-semibold">{currentMeta?.name || 'Takım'}</span><span className="text-violet-300">·</span><span>Tüm kayıtlı sezonlar</span></div></div>
+                <button type="button" onClick={() => setSelectedManager(null)} aria-label="Kapat" className="shrink-0 rounded-xl border border-white/15 bg-white/10 p-2.5 text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"><X className="h-4 w-4" /></button>
               </div>
             </header>
-            {managerPerformanceLoading ? <div className="space-y-4 p-5 sm:p-7"><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-200" />)}</div><div className="h-48 animate-pulse rounded-2xl bg-slate-200" /></div> : !managerPerformance?.total?.matches ? <div className="px-6 py-14 text-center"><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700"><Activity className="h-5 w-5" /></span><h3 className="mt-4 text-sm font-extrabold text-slate-900">Henüz maç kaydı yok</h3><p className="mx-auto mt-1 max-w-xs text-xs leading-5 text-slate-500">Bu teknik direktör için kayıtlı sezonlarda tamamlanmış maç bulunamadı.</p></div> : <div className="max-h-[calc(88vh-116px)] space-y-6 overflow-y-auto p-4 sm:p-7">
+            {managerPerformanceLoading ? <div className="max-h-[calc(92dvh-112px)] space-y-4 overflow-y-auto p-5 sm:p-8"><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-200" />)}</div><div className="h-48 animate-pulse rounded-2xl bg-slate-200" /></div> : !managerPerformance?.total?.matches ? <div className="max-h-[calc(92dvh-112px)] overflow-y-auto px-6 py-14 text-center"><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700"><Activity className="h-5 w-5" /></span><h3 className="mt-4 text-sm font-extrabold text-slate-900">Henüz maç kaydı yok</h3><p className="mx-auto mt-1 max-w-xs text-xs leading-5 text-slate-500">Bu teknik direktör için kayıtlı sezonlarda tamamlanmış maç bulunamadı.</p></div> : <div className="max-h-[calc(92dvh-112px)] space-y-6 overflow-y-auto p-4 sm:p-8">
               <section aria-label="Toplam teknik direktör istatistikleri">
                 <div className="mb-3 flex items-end justify-between gap-2"><div><h3 className="text-sm font-black text-slate-900">Kariyer özeti</h3><p className="mt-0.5 text-[11px] text-slate-500">Tüm kayıtlı lig maçları</p></div><span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500">{managerPerformance.total.matches} maç</span></div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{[['Maç', 'matches', 'text-slate-900'], ['Galibiyet', 'wins', 'text-emerald-700'], ['Beraberlik', 'draws', 'text-slate-700'], ['Mağlubiyet', 'losses', 'text-rose-700'], ['Attığı gol', 'gf', 'text-violet-800'], ['Yediği gol', 'ga', 'text-amber-700']].map(([label, key, color]) => <div key={key} className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm sm:p-4"><p className="text-[10px] font-bold text-slate-500">{label}</p><p className={`mt-1 text-2xl font-black tabular-nums ${color}`}>{managerPerformance.total[key]}</p></div>)}</div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{[['Maç', 'matches', 'text-slate-900', 'bg-slate-50'], ['Galibiyet', 'wins', 'text-emerald-700', 'bg-emerald-50'], ['Beraberlik', 'draws', 'text-slate-700', 'bg-slate-100'], ['Mağlubiyet', 'losses', 'text-rose-700', 'bg-rose-50'], ['Attığı gol', 'gf', 'text-violet-800', 'bg-violet-50'], ['Yediği gol', 'ga', 'text-amber-700', 'bg-amber-50']].map(([label, key, color, tint]) => <div key={key} className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-4"><p className="text-[10px] font-bold text-slate-500">{label}</p><p className={`mt-1.5 inline-flex rounded-lg ${tint} px-2 py-0.5 text-2xl font-black tabular-nums ${color}`}>{managerPerformance.total[key]}</p></div>)}</div>
               </section>
               <section aria-label="Rakiplere göre istatistikler">
                 <div className="mb-3 flex items-end justify-between"><div><h3 className="text-sm font-black text-slate-900">Rakiplere karşı</h3><p className="mt-0.5 text-[11px] text-slate-500">En çok karşılaşılan rakipler önce</p></div><span className="text-[10px] font-medium text-slate-400">{managerPerformance.opponents.length} takım</span></div>

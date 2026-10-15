@@ -8,7 +8,8 @@ import {
   ChevronDown,
   Database,
   Trophy,
-  Scale
+  Scale,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -24,6 +25,7 @@ export default function Sidebar({
     { id: 'teams', label: 'Takım Profilleri', icon: Shield },
     { id: 'players', label: 'Oyuncu Profilleri', icon: User },
     { id: 'referees', label: 'Hakem Profilleri', icon: Scale },
+    { id: 'audit', label: 'Model Doğrulama', icon: ShieldCheck },
   ];
 
   const seasons = [

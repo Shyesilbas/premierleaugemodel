@@ -5,6 +5,7 @@ import TeamProfilesTab from './components/TeamProfilesTab';
 import PlayerProfilesTab from './components/PlayerProfilesTab';
 import RefereesTab from './components/RefereesTab';
 import MatchDetailPage from './components/MatchDetailPage';
+import ModelAuditTab from './components/ModelAuditTab';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('fixtures'); // Default to fixtures per user request
@@ -108,6 +109,13 @@ export default function App() {
 
               {activeTab === 'referees' && (
                 <RefereesTab 
+                  selectedSeason={selectedSeason} 
+                  onSelectMatch={handleSelectMatch}
+                />
+              )}
+
+              {activeTab === 'audit' && (
+                <ModelAuditTab 
                   selectedSeason={selectedSeason} 
                   onSelectMatch={handleSelectMatch}
                 />
