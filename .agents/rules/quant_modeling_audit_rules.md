@@ -1,3 +1,7 @@
+---
+trigger: model_decision
+---
+
 # Quant Modeling & Empirical Audit Guidelines
 
 These mandatory guidelines govern all statistical modeling, calibration, and evaluation in this repository:
