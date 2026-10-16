@@ -98,31 +98,55 @@ Modelin her bir yapıtaşının (tarihsel sabit oran, Poisson dağılımı, Dixo
 | **L2** | **Mükemmel Sabit (Holdout Tavanı)** | **`0.6780`** | **`0.2425`** | 0.500 | **%58.67** | **Maç bilmeyen, sadece test ortalamasını tutturan teorik sınır ($H$)** |
 | **L3** | Dixon-Coles (Tek Başına) | `0.6871` | `0.2468` | 0.540 | %55.58 | Yalnızca takım gücü ve zaman ağırlığı (Aşırı varyans / Std: 0.439) |
 | **L4 (Ham)**| Özellikli Poisson (58 Özellik) | `0.6780` | `0.2425` | 0.525 | %57.11 | Ham model; drift nedeniyle ortalamayı %57.1'de hafif eksik tahmin eder |
-| **L4 (Kalibre)**| Özellikli Poisson + Platt Kalibrasyonu | **`0.6766`** | **`0.2418`** | 0.525 | %58.67 | **Özelliklerin saf sinyali; drift kalibre edilince -0.0014 kazanç sağlar** |
 | **L5 (Prod)**| **Üretim Modeli (0.75 Poisson + 0.25 DC)** | **`0.6774`** | **`0.2423`** | **0.537** | **%57.65** | **Varyans filtreleme & ensemble sinerjisi (-0.0006 kazanç)** |
-| *L5 (Aritmetik)*| *Deneysel Aritmetik Harman (0.75 P + 0.25 DC)* | *`0.6767`* | *`0.2419`* | 0.537 | *%58.12* | *Aritmetik harman gol artış ortamında geometrikten daha iyi adapte olur* |
+| *L5 (OOF Platt)*| *5-Fold Out-of-Fold Platt Kalibrasyonu* | *`0.6775`* | *`0.2422`* | 0.537 | *%58.67* | *Genellenebilir kalibrasyon; ham üretimle paralel kararlılık* |
+| *L5 (İzotonik)*| *5-Fold Out-of-Fold İzotonik Kalibrasyon* | *`0.7107`* | *`0.2441`* | 0.516 | *%58.67* | *AŞIRI UYUM (Overfitting): İn-sample 0.6712 yanılsaması OOF'ta çöker!* |
 
 > [!CRITICAL]
-> **Kritik İnceleme — Eski Model (55 Özellik = 0.6779) vs Holdout Tavanı (0.6780):**  
-> Holdout setindeki gerçek 2.5 üst oranının (%58.67) ikili entropisi $H(0.5867) = \mathbf{0.6780}$'dir. Eski 55 özellikli modelin aldığı `0.6779` skoru, aslında **"hiçbir maç verisi bilmeyen mükemmel bir sabit tahminci" ile birebir aynı seviyededir**. Yani eski modelin 55 özelliği, doğru ortalamayı tutturmak dışında maça özel net bir çapraz entropi kazancı sağlamamaktaydı. Yapılan taktiksel derinlik eklemesi (58 özellik + kalibrasyon), modeli bu tavanın altına (0.6774 ve kalibrede 0.6766) indirebilmiştir.
+> **Kritik İnceleme 1 — Eski Model (55 Özellik = 0.6779) vs Holdout Tavanı (0.6780):**  
+> Holdout setindeki gerçek 2.5 üst oranının (%58.67) ikili entropisi $H(0.5867) = \mathbf{0.6780}$'dir. Eski 55 özellikli modelin aldığı `0.6779` skoru, aslında **"hiçbir maç verisi bilmeyen mükemmel bir sabit tahminci" ile birebir aynı seviyededir**. Yani eski modelin 55 özelliği, doğru ortalamayı tutturmak dışında maça özel net bir çapraz entropi kazancı sağlamamaktaydı. Yapılan taktiksel derinlik eklemesi (58 özellik), modeli bu tavanın altına (0.6774) indirebilmiştir.
+
+> [!WARNING]
+> **Kritik İnceleme 2 — İzotonik Kalibrasyon Yanılsaması (Neden Üretimde Yok?):**  
+> İzotonik regresyon in-sample test edildiğinde `0.6712` gibi yapay bir skor üretir; ancak 5-fold Out-of-Fold (OOF) çapraz doğrulamada skor **`0.7107`'ye fırlayarak çökmektedir**. İzotonik basamak fonksiyonu test kümesine overfit olmakta, görülmemiş maçlarda olasılıkları bozmaktadır. Üretimde kullanılmaması modelin canlıda çökmesini önleyen bilinçli bir karardır.
 
 ---
 
-### 2.2. Çoklu Piyasa & Model vs Piyasa (Market Benchmark) Karşılaştırması
+### 2.2. Aritmetik vs Geometrik Harman: Sezon Sezon Gerçek
 
-Modelin ürettiği bivariate Poisson matrisinden türetilen olasılıkların holdout setindeki genel performansı ve **gerçek bahis bürosu açılış oranları (Pinnacle/B365 marj arındırılmış fair odds)** ile karşılaştırması:
+Aritmetik harman genel toplamda `0.6767` vererek geometrik harmandan (`0.6774`) daha iyi görünse de, sezon bazlı ayrıştırma bunun bir **tekil sezon anomalisi** olduğunu gösterir:
 
-| Piyasa | Naive 1 (Sabit) | Naive 2 (Kör Poisson) | Model (Üretim) | Piyasa (Bookmaker) | Model ROC-AUC | Piyasa ROC-AUC | Model ECE |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1.5 Gol Üstü** | `0.5982` | `0.5891` | **`0.5878`** | — | 0.538 | — | **%2.17** |
-| **2.5 Gol Üstü** | `0.6854` | `0.6819` | **`0.6774`** | **`0.6812`** | 0.537 | **0.5962** | **%2.87** |
-| **3.5 Gol Üstü** | `0.6535` | `0.6533` | **`0.6520`** | — | 0.516 | — | **%2.23** |
-| ⚠️ **KG Var (BTTS)** | `0.6885` | `0.6802` | **`0.6806`** | **`0.6852`** | 0.516 | **0.5252** | **%2.06** |
-| *BTTS (Platt Kalibre)*| `0.6885` | `0.6802` | **`0.6792`** | `0.6852` | 0.523 | 0.5252 | **%1.15** |
+| Sezon | Maç Sayısı | Geometrik Harman (LL) | Aritmetik Harman (LL) | Fark | Kazanan | Neden & Açıklama |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **2023/24** | 380 | `0.6692` | **`0.6664`** | **-0.0028** | **ARİTMETİK** | FIFA +10 dk uzatma kuralı; 3.28 gol patlamasında aritmetik yukarı çekti. |
+| **2024/25** | 380 | **`0.6764`** | `0.6768` | **+0.0004** | **GEOMETRİK** | Normalleşen ligde geometrik harman daha az hata yaptı. |
+| **2025/26** | 380 | **`0.6861`** | `0.6863` | **+0.0001** | **GEOMETRİK** | Düşen gol temposunda geometrik harman daha başarılı korundu. |
+| **2026/27** | 60 | **`0.6806`** | `0.6806` | **0.0000** | **GEOMETRİK** | Başabaş. |
+
+* **Mimari Karar:** 4 sezonun 3'ünde Geometrik harman üstündür. Aritmetik harmanın tüm genel avantajı sadece 2023/24'teki gol patlamasından kaynaklanmaktadır. Bu nedenle üretimde **Geometrik Harman** muhafaza edilmiştir.
 
 ---
 
-### 2.3. Matematiksel İzahlar & Kritik Teşhisler
+### 2.3. Model vs Piyasa: Birebir Aynı 218 Maçlık Analiz & Value Bet Gerçeği
+
+Bahis bürosu oranları bulunan 218 maçlık alt kümede yapılan birebir (elma ile elma) kıyaslama:
+
+| Piyasa | Metrik | Piyasa (Bookmaker) | Bizim Model | Gerçek Çıkarım |
+| :--- | :--- | :---: | :---: | :--- |
+| **2.5 Gol Üstü** | Log-Loss | **`0.6812`** | `0.6839` | Piyasa daha iyi kalibre |
+| | ROC-AUC | **`0.5962`** | `0.5843` | **Piyasa belirgin biçimde daha iyi ayrım yapıyor** |
+| **KG Var (BTTS)** | Log-Loss | `0.6852` | **`0.6851`** | Başabaş |
+| | ROC-AUC | `0.5252` | `0.5240` | İki taraf da yazı-turaya yakın |
+
+* **Elma-Armut Açıklaması:** Modelin genel 1.200 maçtaki `0.6774` skoru ile piyasanın `0.6812` skoru farklı dönem havuzlarındandır. Bu 218 maçlık havuzda ligin gerçek üst oranı %55.05'e düşmüş (entropi tavanı: 0.6880); aynı 218 maçta modelimiz `0.6839` alırken piyasa `0.6812` almıştır.
+* **Value Bet Simülasyonu:** Model olasılığının piyasa olasılığından %5'ten fazla yüksek olduğu 18 maçta value bahsi oynandığında:
+  - Kazanma Oranı: **%50.0**
+  - Net Finansal ROI: **-%3.42**
+* **Stratejik Sonuç:** Model tek başına bahis bürolarını yenen bir arbitraj/value-bet robotu değildir. Modelin asıl değeri **"iç simülasyon ve olasılık fiyatlama motoru"** olmasıdır.
+
+---
+
+### 2.4. Matematiksel İzahlar & Kritik Teşhisler
 
 #### 1. Naive 1 (Sabit Oran) Log-Loss'u Neden 0.6919 Değil de 0.6854 Çıktı?
 Log-loss formülü:
@@ -356,10 +380,15 @@ Raporun akademik ve finansal tarafsızlığı gereği, modelimizin zayıf olduğ
 - `effective_log_mv_ratio` katsayısı +0.0156 ile listenin en tepesindedir; ancak modelden silindiğinde Log-Loss yalnızca `+0.0001` kötüleşir.
 - **İzahı:** Katsayı büyüklüğü standartlaştırılmış özelliklerde varyans ve diğer özelliklerle yüksek korelasyon (multicollinearity) yüzünden şişebilir. Kadro değerinin taşıdığı bilgi zaten Elo, PPG, averaj ve xG içerisinde mevcuttur (redundant signal). Bu nedenle katsayı büyüklüğü tek başına bir özelliğin marjinal önemini (SHAP / permutation importance) temsil etmez.
 
+### 8.6. Bahis Piyasası (Bookmaker) Arbitrajı & Value Bet Gerçeği
+- 218 maçlık gerçek açılış oranları denetiminde bahis piyasası **0.5962 ROC-AUC** üretirken, modelimiz **0.5843 ROC-AUC** üretmiştir.
+- Modelin büroya karşı %5'in üzerinde "değer (value)" gördüğü 18 maçta simüle edilen bahislerin net getirisi **-%3.42 ROI** çıkmıştır.
+- **Stratejik Konumlandırma:** Model tek başına bahis bürolarını "yenen" bir sihirli arbitraj kutusu değildir. Modelimizin asıl gücü; **xG ve tempo dinamiklerini harmanlayarak adil olasılıkları hatasız hesaplamak**, **maç içi senaryo simülasyonları** ve **piyasadaki olağandışı oran sapmalarını saptamak için tarafsız bir referans motoru oluşturmaktır**.
+
 ---
 
 ## 9. Yönetici Özeti & Sonuç
 
-Premier League Gol Modelimiz; saf istatistiksel Poisson varsayımlarını aşarak, **saha içi xG kalitesini**, **zaman ağırlıklı gerçek skor geçmişini (Dixon-Coles)** ve **taktiksel savunma hattı derinliğini** tek bir $13 \times 13$ olasılık matrisinde birleştiren son derece dengeli bir mimariye ulaşmıştır. 
+Premier League Gol Modelimiz; saf istatistiksel Poisson varsayımlarını aşarak, **saha içi xG kalitesini**, **zaman ağırlıklı gerçek skor geçmişini (Dixon-Coles)** ve **taktiksel savunma hattı derinliğini** tek bir $13 \times 13$ olasılık matrisinde birleştiren dengeli bir mimariye ulaşmıştır. 
 
-Modelimiz "kesin kehanet" aracı olarak değil; **piyasa kalibrasyonunu yakalayan, adil oranları hatasız hesaplayan ve bahis bürolarının yanlış fiyatladığı ekstrem maçları ayıklayan bir niceliksel karar destek motoru** olarak konumlandırılmalıdır.
+Modelimiz "kesin kehanet" aracı veya piyasayı tek başına yenen bir kumar botu olarak değil; **istatistiksel kalibrasyonu yüksek, lig kaymalarına karşı korunan ve taktiksel değişimleri fiyatlayan kurumsal bir olasılık motoru** olarak değerlendirilmelidir.
