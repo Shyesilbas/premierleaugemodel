@@ -127,26 +127,57 @@ Aritmetik harman genel toplamda `0.6767` vererek geometrik harmandan (`0.6774`) 
 
 ---
 
-### 2.3. Model vs Piyasa: Birebir Aynı 218 Maçlık Analiz & Value Bet Gerçeği
+### 2.3. Model vs Piyasa: Birebir Aynı 218 Maçlık Analiz & Bootstrap Güven Aralığı
 
-Bahis bürosu oranları bulunan 218 maçlık alt kümede yapılan birebir (elma ile elma) kıyaslama:
+Bahis bürosu oranları bulunan 218 maçlık alt kümede yapılan 10.000 iterasyonlu Bootstrap yeniden örnekleme ve edge eşiği taraması:
 
-| Piyasa | Metrik | Piyasa (Bookmaker) | Bizim Model | Gerçek Çıkarım |
+| Ölçüm | Metrik / Kapsam | Piyasa (Bookmaker) | Bizim Model | Fark ($\Delta$) / Değerlendirme |
 | :--- | :--- | :---: | :---: | :--- |
-| **2.5 Gol Üstü** | Log-Loss | **`0.6812`** | `0.6839` | Piyasa daha iyi kalibre |
-| | ROC-AUC | **`0.5962`** | `0.5843` | **Piyasa belirgin biçimde daha iyi ayrım yapıyor** |
-| **KG Var (BTTS)** | Log-Loss | `0.6852` | **`0.6851`** | Başabaş |
-| | ROC-AUC | `0.5252` | `0.5240` | İki taraf da yazı-turaya yakın |
+| **2.5 Gol Üstü** | Log-Loss | `0.6812` | `0.6839` | +0.0027 (Piyasa kalibrasyonu daha yakın) |
+| | ROC-AUC | **`0.5962`** | **`0.5843`** | $\Delta \text{AUC} = \mathbf{+0.0118}$ |
+| | **%95 Bootstrap CI** | **[0.5185 - 0.6730]** | **[0.5051 - 0.6619]** | **[-0.0483 to +0.0723] ($P = 0.352$)** |
 
-* **Elma-Armut Açıklaması:** Modelin genel 1.200 maçtaki `0.6774` skoru ile piyasanın `0.6812` skoru farklı dönem havuzlarındandır. Bu 218 maçlık havuzda ligin gerçek üst oranı %55.05'e düşmüş (entropi tavanı: 0.6880); aynı 218 maçta modelimiz `0.6839` alırken piyasa `0.6812` almıştır.
-* **Value Bet Simülasyonu:** Model olasılığının piyasa olasılığından %5'ten fazla yüksek olduğu 18 maçta value bahsi oynandığında:
-  - Kazanma Oranı: **%50.0**
-  - Net Finansal ROI: **-%3.42**
-* **Stratejik Sonuç:** Model tek başına bahis bürolarını yenen bir arbitraj/value-bet robotu değildir. Modelin asıl değeri **"iç simülasyon ve olasılık fiyatlama motoru"** olmasıdır.
+> [!NOTE]
+> **İstatistiksel Güç Tespiti (Delta AUC):**  
+> Piyasa ile model arasındaki 0.0118'lik AUC farkının %95 Bootstrap Güven Aralığı sıfırı kapsamakta (`[-0.0483, +0.0723]`, $P = 0.352$). Bu durum, 218 maçlık örneklemde piyasanın ayırt edicilik üstünlüğünün istatistiksel olarak kesin olmadığını, örneklem genişledikçe test edilmesi gereken bir eğilim olduğunu gösterir.
+
+#### Edge Eşiği Taraması ve Binom Güven Aralıkları (218 Maç):
+
+| Edge Eşiği | Maç Sayısı | Kazanan | Kazanma Oranı | %95 Binom Güven Aralığı | Net Finansal ROI |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| **> %0** | 118 | 59 | %50.0 | [%41.0 - %59.0] | -6.99% |
+| **> %2** | 67 | 37 | %55.2 | [%43.3 - %67.1] | **+6.25%** |
+| **> %3** | 51 | 29 | %56.9 | [%43.3 - %70.5] | **+10.02%** |
+| **> %4** | 32 | 16 | %50.0 | [%32.7 - %67.3] | -1.62% |
+| **> %5** | 18 | 9 | %50.0 | [%26.9 - %73.1] | -3.42% |
+| **> %7** | 7 | 3 | %42.9 | [%6.2 - %79.5] | -15.50% |
+
+> [!WARNING]
+> **Örneklem Büyüklüğü & İstatistiksel Gürültü Uyarısı:**  
+> >%5 Edge'de elde edilen -%3.42 ROI (18 maç) veya >%3 Edge'deki +%10.02 ROI (51 maç), 218 maçlık havuzda geniş güven aralıklarına sahiptir (18 maçta CI: [%27, %73]). Güvenilir bir finansal getiri kanıtı için en az 500-1.000 maçlık kapanış oranları havuzu gereklidir.
 
 ---
 
-### 2.4. Matematiksel İzahlar & Kritik Teşhisler
+### 2.4. BTTS Alternatif Kalibrasyon Deneyleri & Non-Stationarity (Durağan Olmama)
+
+BTTS piyasasında Platt ve alternatif kalibrasyon modellerinin 1.200 maçlık holdout test sonuçları:
+
+| Kalibrasyon Mimarisi | OOF Log-Loss | OOF Brier | Ham Modele Göre Fark | Karar & Sonuç |
+| :--- | :---: | :---: | :---: | :--- |
+| **Kör Poisson Baseline** | `0.6802` | `0.2435` | -0.0004 | Referans |
+| **Ham Bivariate Matris (Üretim)**| **`0.6806`** | **`0.2438`** | **REFERANS** | **ÜRETİMDE KORUNDU** |
+| 5-Fold OOF Platt Kalibrasyonu | `0.6830` | `0.2449` | +0.0024 (Kayıp) | Reddedildi |
+| 5-Fold OOF Beta Kalibrasyonu (Kull et al., 2017) | `0.6832` | `0.2450` | +0.0027 (Kayıp) | Reddedildi |
+| Expanding Walk-Forward Platt | `0.6831` | `0.2450` | +0.0025 (Kayıp) | Reddedildi |
+| Expanding Walk-Forward Beta | `0.6863` | `0.2465` | +0.0057 (Kayıp) | Reddedildi |
+
+#### Kök Neden Analizi — BTTS Hedefinin Sezonlar Arası Kayması:
+- **2023/24:** Gerçek BTTS = **%61.6** (Uzatma kuralı patlaması)
+- **2024/25:** Gerçek BTTS = **%57.4**
+- **2025/26:** Gerçek BTTS = **%56.1**
+- **2026/27:** Gerçek BTTS = **%55.0**
+
+Hedef oran her sezon 1.5 - 4.0 puan aşağı doğru yapısal olarak sürüklendiği için (Non-Stationary Drift), geçmiş sezonlarla eğitilen hiçbir parametrik post-kalibratör (Platt veya Beta) geleceğin düşen oranına uyum sağlayamamakta; sabit terimi aşırı yüksek tahmin ederek OOF log-loss'u kötüleştirmektedir. Bivariate Poisson matrisi dinamik xG ve form takibi yaptığı için post-kalibratörlerden daha dayanıklıdır.
 
 #### 1. Naive 1 (Sabit Oran) Log-Loss'u Neden 0.6919 Değil de 0.6854 Çıktı?
 Log-loss formülü:
