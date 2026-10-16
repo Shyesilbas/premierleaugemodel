@@ -108,6 +108,9 @@ EXTRA_O25 = [
     "away_xi_att_vs_home_def",
     "home_big_chances_against_roll_10",
     "away_big_chances_against_roll_10",
+    "home_high_line",
+    "away_high_line",
+    "mutual_high_line_risk",
 ]
 DRAW_BALANCE_FEATURES = [
     "abs_elo_diff", "abs_elo_venue_diff", "abs_ppg_diff", "abs_gdpg_diff", "abs_xg_diff_10",

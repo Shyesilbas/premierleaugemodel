@@ -1075,6 +1075,19 @@ def add_interaction_features(merged: pd.DataFrame) -> pd.DataFrame:
                 merged[f"sdiff_{tag}_{short}"] = (
                     (merged[cols[0]] - merged[cols[1]]) - (merged[cols[2]] - merged[cols[3]])
                 )
+
+    # Defensive line depth & mutual high defensive line risk (offside trap / high-line vulnerability)
+    if "home_offsides_against_roll_10" in merged.columns and "away_offsides_against_roll_10" in merged.columns:
+        h_line = merged["home_offsides_against_roll_10"].fillna(1.63)
+        a_line = merged["away_offsides_against_roll_10"].fillna(1.63)
+        merged["home_high_line"] = h_line
+        merged["away_high_line"] = a_line
+        merged["mutual_high_line_risk"] = h_line * a_line
+    elif "home_high_line" not in merged.columns:
+        merged["home_high_line"] = 1.63
+        merged["away_high_line"] = 1.63
+        merged["mutual_high_line_risk"] = 2.66
+
     return merged
 
 
