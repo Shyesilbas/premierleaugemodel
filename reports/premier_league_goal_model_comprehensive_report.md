@@ -139,7 +139,7 @@ Bahis bürosu oranları bulunan 218 maçlık alt kümede yapılan 10.000 iterasy
 
 > [!NOTE]
 > **İstatistiksel Güç Tespiti (Delta AUC):**  
-> Piyasa ile model arasındaki 0.0118'lik AUC farkının %95 Bootstrap Güven Aralığı sıfırı kapsamakta (`[-0.0483, +0.0723]`, $P = 0.352$). Bu durum, 218 maçlık örneklemde piyasanın ayırt edicilik üstünlüğünün istatistiksel olarak kesin olmadığını, örneklem genişledikçe test edilmesi gereken bir eğilim olduğunu gösterir.
+> Piyasa ile model arasındaki 0.0118'lik AUC farkının %95 Bootstrap Güven Aralığı sıfırı kapsamakta (`[-0.0483, +0.0723]`, $P = 0.352$). Bu durum, 218 maçlık havuzda *"piyasanın modelden kesinlikle üstün olduğunu"* istatistiksel olarak kanıtlayamaz; ancak bu durum *"piyasa ile model eşittir"* anlamına da gelmez. Nokta tahmini (point estimate) hâlâ piyasa lehinedir (+0.0118) ve CI üst sınırı +0.072'ye (piyasanın 7 AUC puanı daha iyi olabileceğine) kadar uzanmaktadır. Farkın kesinleşmesi için 500-1.000 maçlık daha geniş bir veri seti şarttır.
 
 #### Edge Eşiği Taraması ve Binom Güven Aralıkları (218 Maç):
 
@@ -153,8 +153,9 @@ Bahis bürosu oranları bulunan 218 maçlık alt kümede yapılan 10.000 iterasy
 | **> %7** | 7 | 3 | %42.9 | [%6.2 - %79.5] | -15.50% |
 
 > [!WARNING]
-> **Örneklem Büyüklüğü & İstatistiksel Gürültü Uyarısı:**  
-> >%5 Edge'de elde edilen -%3.42 ROI (18 maç) veya >%3 Edge'deki +%10.02 ROI (51 maç), 218 maçlık havuzda geniş güven aralıklarına sahiptir (18 maçta CI: [%27, %73]). Güvenilir bir finansal getiri kanıtı için en az 500-1.000 maçlık kapanış oranları havuzu gereklidir.
+> **Örneklem Büyüklüğü & İstatistiksel Sinyal Ayrımı:**  
+> - **Edge > %5:** Elde edilen -%3.42 ROI (18 maç), geniş güven aralığı sebebiyle ([%26.9, %73.1]) istatistiksel gürültüdür; tek başına modelin başarısız olduğunu kanıtlamaz.
+> - **Edge > %3:** 51 maçta elde edilen **+%10.02 ROI** ve **%56.9 kazanma oranı**, umut verici bir **potansiyel sinyaldir**; ancak alt sınır %43.3 olduğu için kesin kanıt sayılamaz. Bu strateji **P1 fazında $N \ge 500$ maç toplandığında öncelikli olarak test edilecek ana hipotez** olarak kaydedilmiştir.
 
 ---
 
