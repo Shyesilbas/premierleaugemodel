@@ -1,0 +1,532 @@
+[
+  {
+    "match_id": 128986,
+    "date": "2026-10-17 11:30",
+    "home": "Everton",
+    "away": "Chelsea",
+    "prob_1x2": {
+      "1": 35.5,
+      "X": 29.5,
+      "2": 35.0
+    },
+    "pred_winner": "home",
+    "conf_tier": "balanced",
+    "fav_label": "Dengeli / Yak\u0131n (Gri B\u00f6lge)",
+    "exp_goals": {
+      "home": 1.52,
+      "away": 1.34,
+      "total": 2.86
+    },
+    "prob_o15": 78.6,
+    "prob_o25": 54.5,
+    "prob_o35": 32.1,
+    "prob_btts": 58.4,
+    "exp_corners": 10.5,
+    "exp_cards": 4.1,
+    "odds_1x2": {
+      "1": 3.1,
+      "X": 3.8,
+      "2": 2.15
+    },
+    "odds_ou25": {
+      "over": 1.667,
+      "under": 2.2
+    },
+    "odds_btts": {
+      "yes": 1.571,
+      "no": 2.25
+    },
+    "edges": {
+      "home": 3.2,
+      "draw": 3.2,
+      "away": -11.5,
+      "over_25": -5.5,
+      "under_25": 0.0,
+      "btts_yes": -5.3,
+      "btts_no": -2.8
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": 0.27,
+      "a_xi_att_vs_h_def": 0.06,
+      "h_bc_against": 2.19,
+      "a_bc_against": 2.27
+    }
+  },
+  {
+    "match_id": 128984,
+    "date": "2026-10-17 14:00",
+    "home": "Brentford",
+    "away": "Liverpool",
+    "prob_1x2": {
+      "1": 33.3,
+      "X": 36.7,
+      "2": 29.9
+    },
+    "pred_winner": "draw",
+    "conf_tier": "balanced",
+    "fav_label": "Dengeli / Yak\u0131n (Gri B\u00f6lge)",
+    "exp_goals": {
+      "home": 1.56,
+      "away": 1.39,
+      "total": 2.94
+    },
+    "prob_o15": 79.9,
+    "prob_o25": 56.4,
+    "prob_o35": 34.0,
+    "prob_btts": 59.9,
+    "exp_corners": 10.0,
+    "exp_cards": 4.3,
+    "odds_1x2": {
+      "1": 2.4,
+      "X": 3.75,
+      "2": 2.7
+    },
+    "odds_ou25": {
+      "over": 1.571,
+      "under": 2.375
+    },
+    "odds_btts": {
+      "yes": 1.5,
+      "no": 2.5
+    },
+    "edges": {
+      "home": -8.4,
+      "draw": 10.0,
+      "away": -7.1,
+      "over_25": -7.3,
+      "under_25": 1.5,
+      "btts_yes": -6.8,
+      "btts_no": 0.1
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": -0.12,
+      "a_xi_att_vs_h_def": -0.26,
+      "h_bc_against": 1.85,
+      "a_bc_against": 1.94
+    }
+  },
+  {
+    "match_id": 128987,
+    "date": "2026-10-17 14:00",
+    "home": "Fulham",
+    "away": "Hull City",
+    "prob_1x2": {
+      "1": 46.3,
+      "X": 21.9,
+      "2": 31.8
+    },
+    "pred_winner": "home",
+    "conf_tier": "medium",
+    "fav_label": "Fulham Favori",
+    "exp_goals": {
+      "home": 1.46,
+      "away": 1.26,
+      "total": 2.73
+    },
+    "prob_o15": 76.3,
+    "prob_o25": 51.3,
+    "prob_o35": 29.2,
+    "prob_btts": 55.9,
+    "exp_corners": 10.6,
+    "exp_cards": 3.8,
+    "odds_1x2": {
+      "1": 1.727,
+      "X": 3.9,
+      "2": 4.5
+    },
+    "odds_ou25": {
+      "over": 1.727,
+      "under": 2.1
+    },
+    "odds_btts": {
+      "yes": 1.7,
+      "no": 2.05
+    },
+    "edges": {
+      "home": -11.6,
+      "draw": -3.7,
+      "away": 9.6,
+      "over_25": -6.6,
+      "under_25": 1.1,
+      "btts_yes": -2.9,
+      "btts_no": -4.7
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": -0.26,
+      "a_xi_att_vs_h_def": -0.15,
+      "h_bc_against": 3.02,
+      "a_bc_against": 2.51
+    }
+  },
+  {
+    "match_id": 128989,
+    "date": "2026-10-17 14:00",
+    "home": "Manchester City",
+    "away": "Ipswich Town",
+    "prob_1x2": {
+      "1": 71.6,
+      "X": 22.3,
+      "2": 6.2
+    },
+    "pred_winner": "home",
+    "conf_tier": "high",
+    "fav_label": "Manchester City (Net Favori)",
+    "exp_goals": {
+      "home": 2.55,
+      "away": 0.93,
+      "total": 3.48
+    },
+    "prob_o15": 86.7,
+    "prob_o25": 67.6,
+    "prob_o35": 46.0,
+    "prob_btts": 56.4,
+    "exp_corners": 10.7,
+    "exp_cards": 3.7,
+    "odds_1x2": {
+      "1": 1.25,
+      "X": 6.5,
+      "2": 9.5
+    },
+    "odds_ou25": {
+      "over": 1.4,
+      "under": 3.0
+    },
+    "odds_btts": {
+      "yes": 1.8,
+      "no": 1.95
+    },
+    "edges": {
+      "home": -8.4,
+      "draw": 6.9,
+      "away": -4.3,
+      "over_25": -3.8,
+      "under_25": -0.9,
+      "btts_yes": 0.8,
+      "btts_no": -7.7
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": 0.76,
+      "a_xi_att_vs_h_def": -0.1,
+      "h_bc_against": 2.4,
+      "a_bc_against": 2.8
+    }
+  },
+  {
+    "match_id": 128990,
+    "date": "2026-10-17 16:30",
+    "home": "Newcastle United",
+    "away": "Aston Villa",
+    "prob_1x2": {
+      "1": 46.1,
+      "X": 24.9,
+      "2": 29.1
+    },
+    "pred_winner": "home",
+    "conf_tier": "medium",
+    "fav_label": "Newcastle United Favori",
+    "exp_goals": {
+      "home": 1.65,
+      "away": 1.35,
+      "total": 3.0
+    },
+    "prob_o15": 80.7,
+    "prob_o25": 57.6,
+    "prob_o35": 35.2,
+    "prob_btts": 60.5,
+    "exp_corners": 10.0,
+    "exp_cards": 4.2,
+    "odds_1x2": {
+      "1": 2.25,
+      "X": 3.6,
+      "2": 3.0
+    },
+    "odds_ou25": {
+      "over": 1.615,
+      "under": 2.3
+    },
+    "odds_btts": {
+      "yes": 1.5,
+      "no": 2.5
+    },
+    "edges": {
+      "home": 1.7,
+      "draw": -2.9,
+      "away": -4.2,
+      "over_25": -4.3,
+      "under_25": -1.1,
+      "btts_yes": -6.2,
+      "btts_no": -0.5
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": 0.12,
+      "a_xi_att_vs_h_def": 0.44,
+      "h_bc_against": 1.75,
+      "a_bc_against": 2.43
+    }
+  },
+  {
+    "match_id": 128983,
+    "date": "2026-10-18 13:00",
+    "home": "Bournemouth",
+    "away": "Sunderland",
+    "prob_1x2": {
+      "1": 44.9,
+      "X": 27.7,
+      "2": 27.3
+    },
+    "pred_winner": "home",
+    "conf_tier": "medium",
+    "fav_label": "Bournemouth Favori",
+    "exp_goals": {
+      "home": 1.52,
+      "away": 1.26,
+      "total": 2.78
+    },
+    "prob_o15": 77.3,
+    "prob_o25": 52.6,
+    "prob_o35": 30.4,
+    "prob_btts": 56.7,
+    "exp_corners": 10.2,
+    "exp_cards": 4.4,
+    "odds_1x2": {
+      "1": 2.1,
+      "X": 3.4,
+      "2": 3.6
+    },
+    "odds_ou25": {
+      "over": 1.909,
+      "under": 1.909
+    },
+    "odds_btts": {
+      "yes": 1.7,
+      "no": 2.05
+    },
+    "edges": {
+      "home": -2.7,
+      "draw": -1.7,
+      "away": -0.5,
+      "over_25": 0.2,
+      "under_25": -5.0,
+      "btts_yes": -2.1,
+      "btts_no": -5.5
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": 0.24,
+      "a_xi_att_vs_h_def": 0.08,
+      "h_bc_against": 1.47,
+      "a_bc_against": 2.2
+    }
+  },
+  {
+    "match_id": 128985,
+    "date": "2026-10-18 13:00",
+    "home": "Brighton & Hove Albion",
+    "away": "Crystal Palace",
+    "prob_1x2": {
+      "1": 51.7,
+      "X": 32.5,
+      "2": 15.8
+    },
+    "pred_winner": "home",
+    "conf_tier": "high",
+    "fav_label": "Brighton & Hove Albion (Net Favori)",
+    "exp_goals": {
+      "home": 2.02,
+      "away": 1.1,
+      "total": 3.13
+    },
+    "prob_o15": 82.5,
+    "prob_o25": 60.4,
+    "prob_o35": 38.1,
+    "prob_btts": 58.6,
+    "exp_corners": 10.7,
+    "exp_cards": 3.8,
+    "odds_1x2": {
+      "1": 1.5,
+      "X": 4.5,
+      "2": 5.75
+    },
+    "odds_ou25": {
+      "over": 1.533,
+      "under": 2.5
+    },
+    "odds_btts": {
+      "yes": 1.667,
+      "no": 2.1
+    },
+    "edges": {
+      "home": -15.0,
+      "draw": 10.3,
+      "away": -1.6,
+      "over_25": -4.8,
+      "under_25": -0.4,
+      "btts_yes": -1.4,
+      "btts_no": -6.2
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": 0.49,
+      "a_xi_att_vs_h_def": -0.16,
+      "h_bc_against": 2.46,
+      "a_bc_against": 2.34
+    }
+  },
+  {
+    "match_id": 128988,
+    "date": "2026-10-18 13:00",
+    "home": "Leeds United",
+    "away": "Manchester United",
+    "prob_1x2": {
+      "1": 31.0,
+      "X": 34.2,
+      "2": 34.8
+    },
+    "pred_winner": "away",
+    "conf_tier": "balanced",
+    "fav_label": "Dengeli / Yak\u0131n (Gri B\u00f6lge)",
+    "exp_goals": {
+      "home": 1.43,
+      "away": 1.41,
+      "total": 2.84
+    },
+    "prob_o15": 78.3,
+    "prob_o25": 54.0,
+    "prob_o35": 31.7,
+    "prob_btts": 58.2,
+    "exp_corners": 10.2,
+    "exp_cards": 4.4,
+    "odds_1x2": {
+      "1": 2.3,
+      "X": 3.6,
+      "2": 2.9
+    },
+    "odds_ou25": {
+      "over": 1.667,
+      "under": 2.2
+    },
+    "odds_btts": {
+      "yes": 1.571,
+      "no": 2.25
+    },
+    "edges": {
+      "home": -12.5,
+      "draw": 6.4,
+      "away": 0.3,
+      "over_25": -6.0,
+      "under_25": 0.5,
+      "btts_yes": -5.5,
+      "btts_no": -2.6
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": 0.14,
+      "a_xi_att_vs_h_def": -0.1,
+      "h_bc_against": 1.99,
+      "a_bc_against": 2.0
+    }
+  },
+  {
+    "match_id": 128991,
+    "date": "2026-10-18 15:30",
+    "home": "Nottingham Forest",
+    "away": "Arsenal",
+    "prob_1x2": {
+      "1": 12.3,
+      "X": 27.9,
+      "2": 59.9
+    },
+    "pred_winner": "away",
+    "conf_tier": "high",
+    "fav_label": "Arsenal (Net Favori)",
+    "exp_goals": {
+      "home": 1.13,
+      "away": 1.58,
+      "total": 2.71
+    },
+    "prob_o15": 76.0,
+    "prob_o25": 50.8,
+    "prob_o35": 28.8,
+    "prob_btts": 54.4,
+    "exp_corners": 9.7,
+    "exp_cards": 4.4,
+    "odds_1x2": {
+      "1": 5.75,
+      "X": 3.9,
+      "2": 1.615
+    },
+    "odds_ou25": {
+      "over": 1.909,
+      "under": 1.909
+    },
+    "odds_btts": {
+      "yes": 1.95,
+      "no": 1.8
+    },
+    "edges": {
+      "home": -5.1,
+      "draw": 2.3,
+      "away": -2.0,
+      "over_25": -1.6,
+      "under_25": -3.2,
+      "btts_yes": 3.1,
+      "btts_no": -10.0
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": -0.2,
+      "a_xi_att_vs_h_def": 0.08,
+      "h_bc_against": 1.82,
+      "a_bc_against": 1.94
+    }
+  },
+  {
+    "match_id": 128992,
+    "date": "2026-10-19 19:00",
+    "home": "Tottenham Hotspur",
+    "away": "Coventry City",
+    "prob_1x2": {
+      "1": 55.2,
+      "X": 21.5,
+      "2": 23.4
+    },
+    "pred_winner": "home",
+    "conf_tier": "high",
+    "fav_label": "Tottenham Hotspur (Net Favori)",
+    "exp_goals": {
+      "home": 1.69,
+      "away": 1.13,
+      "total": 2.82
+    },
+    "prob_o15": 77.9,
+    "prob_o25": 53.6,
+    "prob_o35": 31.3,
+    "prob_btts": 56.0,
+    "exp_corners": 10.8,
+    "exp_cards": 4.2,
+    "odds_1x2": {
+      "1": 1.45,
+      "X": 4.5,
+      "2": 7.0
+    },
+    "odds_ou25": {
+      "over": 1.571,
+      "under": 2.375
+    },
+    "odds_btts": {
+      "yes": 1.7,
+      "no": 2.05
+    },
+    "edges": {
+      "home": -13.8,
+      "draw": -0.7,
+      "away": 9.1,
+      "over_25": -10.1,
+      "under_25": 4.3,
+      "btts_yes": -2.8,
+      "btts_no": -4.8
+    },
+    "tactical": {
+      "h_xi_att_vs_a_def": 0.15,
+      "a_xi_att_vs_h_def": -0.2,
+      "h_bc_against": 1.22,
+      "a_bc_against": 1.69
+    }
+  }
+]

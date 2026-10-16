@@ -103,6 +103,23 @@ def btts_prob(matrices: np.ndarray) -> np.ndarray:
     )
 
 
+def team_over_prob(matrices: np.ndarray, side: str, line: float) -> np.ndarray:
+    """Return the probability that a specific team's goals exceed a half-goal line."""
+    if side not in ("home", "away"):
+        raise ValueError(f"side must be 'home' or 'away', got {side!r}")
+    if not np.isfinite(line):
+        raise ValueError("Goal line must be finite")
+    values = _validate_score_matrices(matrices)
+    goal_count = values.shape[1]
+    home_goals, away_goals = np.indices((goal_count, goal_count))
+    goals = home_goals if side == "home" else away_goals
+    return np.clip(
+        (values * (goals > line)).sum(axis=(1, 2)),
+        0.0,
+        1.0,
+    )
+
+
 class DixonColesModel:
     """Team attack/defence Poisson model with the Dixon–Coles low-score term."""
 

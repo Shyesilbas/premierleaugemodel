@@ -84,9 +84,9 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
 
                     {/* TAB 2: GOLLER & PİYASALAR */}
                     {predSubTab === 'goals' && (
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 animate-fadeIn space-y-3">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 animate-fadeIn space-y-4">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-xs">
-                          <span className="font-bold text-slate-800">Gol Beklentisi & İhtimaller</span>
+                          <span className="font-bold text-slate-800">Toplam Gol Beklentisi & İhtimaller</span>
                           <span className="font-mono text-slate-600">
                             Toplam Beklenen Gol: <strong className="text-slate-900 text-sm">{prediction.goals?.expected_total_goals || (Number(prediction.goals?.expected_home_goals || 1.4) + Number(prediction.goals?.expected_away_goals || 1.2)).toFixed(2)}</strong>
                           </span>
@@ -115,6 +115,76 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                             <strong className="text-lg font-black font-mono text-slate-900">%{prediction.goals?.btts_pct || '55.0'}</strong>
                           </div>
                         </div>
+
+                        {/* TAKIM BAZLI GOL BAREMLERİ (TEAM TOTALS) */}
+                        {prediction.goals?.team_totals && (
+                          <div className="pt-2 border-t border-slate-200 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-800">
+                                Tek Taraflı Takım Gol Baremleri
+                              </span>
+                              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                Dinamik Barem Çıkarımı
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {['home', 'away'].map((side) => {
+                                const teamData = prediction.goals.team_totals[side];
+                                const teamObj = side === 'home' ? homeTeam : awayTeam;
+                                if (!teamData) return null;
+
+                                return (
+                                  <div key={side} className="bg-white rounded-xl border border-slate-200 p-3 space-y-2 shadow-2xs">
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                      <div className="min-w-0 pr-1">
+                                        <span className="text-xs font-bold text-slate-900 block truncate">{teamObj.name}</span>
+                                        <span className="text-[10px] text-slate-500">λ = {teamData.expected_goals} beklenen gol</span>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 block">Ana Çizgi</span>
+                                        <span className="text-[11px] font-mono font-black text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                          {teamData.primary_line} Üst
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-1.5 text-xs">
+                                      {Object.entries(teamData.lines).map(([lineStr, lineData]) => {
+                                        const isPrimary = Number(lineStr) === teamData.primary_line;
+                                        return (
+                                          <div 
+                                            key={lineStr} 
+                                            className={`flex items-center justify-between px-2 py-1.5 rounded-lg transition-colors ${
+                                              isPrimary 
+                                                ? 'bg-amber-50/80 border border-amber-200 font-semibold text-slate-900' 
+                                                : 'bg-slate-50 border border-slate-100 text-slate-700'
+                                            }`}
+                                          >
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="font-mono font-bold text-slate-900">{lineStr} Üst</span>
+                                              {isPrimary && (
+                                                <span className="text-[9px] bg-amber-500 text-white px-1 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                  Piyasa
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                                              <span className="text-emerald-700 font-bold">%{lineData.over_pct}</span>
+                                              <span className="text-slate-500 font-medium">({lineData.fair_odds_over})</span>
+                                              <span className="text-slate-300">|</span>
+                                              <span className="text-slate-400 text-[10px]">Alt: %{lineData.under_pct}</span>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

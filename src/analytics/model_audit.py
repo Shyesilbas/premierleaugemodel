@@ -64,7 +64,9 @@ def init_audit_table(conn: sqlite3.Connection, season: Optional[str] = None) -> 
             market_draw_odds REAL,
             market_away_odds REAL,
             market_over_25_odds REAL,
+            market_under_25_odds REAL,
             market_btts_odds REAL,
+            market_btts_no_odds REAL,
             primary_bookmaker TEXT,
             highest_edge_side TEXT,
             edge_pct REAL,
@@ -73,6 +75,14 @@ def init_audit_table(conn: sqlite3.Connection, season: Optional[str] = None) -> 
     """)
     if season:
         conn.execute("DELETE FROM model_match_audit WHERE season = ?", (season,))
+    try:
+        conn.execute("ALTER TABLE model_match_audit ADD COLUMN market_under_25_odds REAL")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE model_match_audit ADD COLUMN market_btts_no_odds REAL")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
 
 
@@ -121,7 +131,7 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
 
     odds_cursor = conn.execute("""
         SELECT match_id, bookmaker, home_last_seen, draw_last_seen, away_last_seen,
-               over_25_last_seen, btts_yes_last_seen
+               over_25_last_seen, under_25_last_seen, btts_yes_last_seen, btts_no_last_seen
         FROM external_match_odds
     """)
     odds_by_match: Dict[int, Dict[str, Any]] = {}
@@ -223,15 +233,17 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
         act_cards = float(row["total_cards"]) if pd.notnull(row.get("total_cards")) else None
         card_err = round(abs(act_cards - exp_cards), 1) if act_cards is not None else None
 
-        # Market Odds (Bet365 / Pinnacle)
+        # Market Odds (Bet365 / Pinnacle / Fallback)
         m_odds = odds_by_match.get(mid, {})
         bm_data = m_odds.get("Bet365") or m_odds.get("Pinnacle") or (next(iter(m_odds.values())) if m_odds else {})
 
-        h_odds = bm_data.get("home_last_seen")
-        d_odds = bm_data.get("draw_last_seen")
-        a_odds = bm_data.get("away_last_seen")
-        o25_odds = bm_data.get("over_25_last_seen")
-        btts_odds = bm_data.get("btts_yes_last_seen")
+        h_odds = bm_data.get("home_last_seen") or next((b.get("home_last_seen") for b in m_odds.values() if b.get("home_last_seen")), None)
+        d_odds = bm_data.get("draw_last_seen") or next((b.get("draw_last_seen") for b in m_odds.values() if b.get("draw_last_seen")), None)
+        a_odds = bm_data.get("away_last_seen") or next((b.get("away_last_seen") for b in m_odds.values() if b.get("away_last_seen")), None)
+        o25_odds = bm_data.get("over_25_last_seen") or next((b.get("over_25_last_seen") for b in m_odds.values() if b.get("over_25_last_seen")), None)
+        u25_odds = bm_data.get("under_25_last_seen") or next((b.get("under_25_last_seen") for b in m_odds.values() if b.get("under_25_last_seen")), None)
+        btts_odds = bm_data.get("btts_yes_last_seen") or next((b.get("btts_yes_last_seen") for b in m_odds.values() if b.get("btts_yes_last_seen")), None)
+        btts_no_odds = bm_data.get("btts_no_last_seen") or next((b.get("btts_no_last_seen") for b in m_odds.values() if b.get("btts_no_last_seen")), None)
         bm_name = bm_data.get("bookmaker", "Piyasa")
 
         # Edge calculation
@@ -300,7 +312,9 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
             "market_draw_odds": d_odds,
             "market_away_odds": a_odds,
             "market_over_25_odds": o25_odds,
+            "market_under_25_odds": u25_odds,
             "market_btts_odds": btts_odds,
+            "market_btts_no_odds": btts_no_odds,
             "bookmaker": bm_name,
             "highest_edge_side": edge_side if best_edge >= 3.0 else None,
             "edge_pct": round(best_edge, 1) if best_edge >= 3.0 else 0.0,
@@ -316,8 +330,8 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
                 prob_home, prob_draw, prob_away, favorite_label, confidence_tier, is_balanced,
                 predicted_winner, hit_1x2, expected_goals, prob_over_25, hit_over_25,
                 prob_btts, hit_btts, expected_corners, corner_error, expected_cards, card_error,
-                market_home_odds, market_draw_odds, market_away_odds, market_over_25_odds, market_btts_odds,
-                primary_bookmaker, highest_edge_side, edge_pct, audited_at_utc
+                market_home_odds, market_draw_odds, market_away_odds, market_over_25_odds, market_under_25_odds,
+                market_btts_odds, market_btts_no_odds, primary_bookmaker, highest_edge_side, edge_pct, audited_at_utc
             ) VALUES (
                 ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
@@ -325,7 +339,7 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
-                ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?
             )
         """, (
             mid, season, gw, m_date, h_name, a_name,
@@ -333,8 +347,8 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
             p_home, p_draw, p_away, fav_label, confidence_tier, int(is_balanced),
             pred_winner, int(hit_1x2), exp_tot_goals, p_over25, int(hit_over25),
             p_btts, int(hit_btts), exp_corners, corner_err, exp_cards, card_err,
-            h_odds, d_odds, a_odds, o25_odds, btts_odds,
-            bm_name, edge_side if best_edge >= 3.0 else None, round(best_edge, 1) if best_edge >= 3.0 else 0.0,
+            h_odds, d_odds, a_odds, o25_odds, u25_odds,
+            btts_odds, btts_no_odds, bm_name, edge_side if best_edge >= 3.0 else None, round(best_edge, 1) if best_edge >= 3.0 else 0.0,
             audit_now_utc
         ))
 

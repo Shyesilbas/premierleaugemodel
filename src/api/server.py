@@ -33,7 +33,7 @@ from src.models.model_utils import (
     count_tail_probability,
     safe_feature_frame as _safe_features,
 )
-from src.models.dixon_coles import btts_prob, over_prob
+from src.models.dixon_coles import btts_prob, over_prob, team_over_prob
 from src.db.database import get_referees_list, get_referee_detail, get_all_grouped_fixtures, get_referee_summary, get_db, attach_statsapi_xg
 from src.features.build_features import (
     calculate_rest_days,
@@ -3135,6 +3135,39 @@ def predict_match(
         p_35 = min(p_25, goals_extra["over_3.5"]["pct"])
         goals_extra["over_2.5"]["pct"] = p_25
         goals_extra["over_3.5"]["pct"] = p_35
+
+        # Individual Team Totals (Tek taraflı gol baremleri: 0.5, 1.5, 2.5)
+        def _calc_team_totals(side_name: str, lam: float) -> Dict[str, Any]:
+            p_05 = round(float(team_over_prob(score_matrix, side_name, 0.5)[0] * 100.0), 1)
+            p_15 = round(float(team_over_prob(score_matrix, side_name, 1.5)[0] * 100.0), 1)
+            p_25 = round(float(team_over_prob(score_matrix, side_name, 2.5)[0] * 100.0), 1)
+            p_15 = min(p_05, p_15)
+            p_25 = min(p_15, p_25)
+
+            lines = [
+                {"line": 0.5, "over_pct": p_05, "under_pct": round(100.0 - p_05, 1), "fair_odds_over": round(100.0 / max(p_05, 1.0), 2), "fair_odds_under": round(100.0 / max(100.0 - p_05, 1.0), 2), "dist": abs(p_05 - 50.0)},
+                {"line": 1.5, "over_pct": p_15, "under_pct": round(100.0 - p_15, 1), "fair_odds_over": round(100.0 / max(p_15, 1.0), 2), "fair_odds_under": round(100.0 / max(100.0 - p_15, 1.0), 2), "dist": abs(p_15 - 50.0)},
+                {"line": 2.5, "over_pct": p_25, "under_pct": round(100.0 - p_25, 1), "fair_odds_over": round(100.0 / max(p_25, 1.0), 2), "fair_odds_under": round(100.0 / max(100.0 - p_25, 1.0), 2), "dist": abs(p_25 - 50.0)},
+            ]
+            primary = min(lines, key=lambda x: x["dist"])
+            return {
+                "expected_goals": round(float(lam), 2),
+                "primary_line": primary["line"],
+                "primary_over_pct": primary["over_pct"],
+                "primary_under_pct": primary["under_pct"],
+                "primary_fair_odds_over": primary["fair_odds_over"],
+                "primary_fair_odds_under": primary["fair_odds_under"],
+                "lines": {
+                    "0.5": {"over_pct": p_05, "under_pct": round(100.0 - p_05, 1), "fair_odds_over": lines[0]["fair_odds_over"], "fair_odds_under": lines[0]["fair_odds_under"]},
+                    "1.5": {"over_pct": p_15, "under_pct": round(100.0 - p_15, 1), "fair_odds_over": lines[1]["fair_odds_over"], "fair_odds_under": lines[1]["fair_odds_under"]},
+                    "2.5": {"over_pct": p_25, "under_pct": round(100.0 - p_25, 1), "fair_odds_over": lines[2]["fair_odds_over"], "fair_odds_under": lines[2]["fair_odds_under"]},
+                }
+            }
+
+        goals_extra["team_totals"] = {
+            "home": _calc_team_totals("home", lam_h[0]),
+            "away": _calc_team_totals("away", lam_a[0]),
+        }
 
         over_source = goals_extra["over_2.5"]["source"]
         prob_o25 = float(p_25)

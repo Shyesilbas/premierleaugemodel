@@ -391,6 +391,27 @@ export default function PredictorMetricCards({ prediction, homeTeam, awayTeam })
                     </div>
                   </div>
 
+                  {prediction.goals?.team_totals && (
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between font-medium text-slate-500 text-[11px]">
+                        <span>Dinamik Takım Baremleri</span>
+                        <span className="text-[10px] text-indigo-700 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">Ana Çizgi</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-700">
+                        <span className="font-medium truncate">{homeTeam.abbr || homeTeam.short}:</span>
+                        <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                          {prediction.goals.team_totals.home.primary_line} Üst (%{prediction.goals.team_totals.home.primary_over_pct} · {prediction.goals.team_totals.home.primary_fair_odds_over})
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-700">
+                        <span className="font-medium truncate">{awayTeam.abbr || awayTeam.short}:</span>
+                        <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                          {prediction.goals.team_totals.away.primary_line} Üst (%{prediction.goals.team_totals.away.primary_over_pct} · {prediction.goals.team_totals.away.primary_fair_odds_over})
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-100 gap-2">
                     <span className="text-slate-500 font-medium shrink-0">Şut Beklentisi</span>
                     <span className="font-mono font-bold text-slate-800 truncate text-right">
