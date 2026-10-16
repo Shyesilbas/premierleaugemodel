@@ -35,21 +35,20 @@ logging.basicConfig(
 logger = logging.getLogger("train_throws")
 
 CURATED_FEATURES = [
-    "home_throws_roll_3",
     "home_throws_roll_5",
     "home_throws_roll_10",
-    "away_throws_roll_3",
-    "away_throws_roll_5",
     "away_throws_roll_10",
-    "home_opponent_throws_roll_5",
-    "away_opponent_throws_roll_5",
     "home_opponent_throws_roll_10",
+    "away_opponent_throws_roll_5",
     "away_opponent_throws_roll_10",
-    "exp_match_throws_5",
     "exp_home_throws_5",
     "exp_away_throws_5",
     "home_possession_roll_5",
     "away_possession_roll_5",
+    "home_pass_pct_roll_10",
+    "away_pass_pct_roll_10",
+    "home_inacc_fwd_pass_roll_10",
+    "away_inacc_fwd_pass_roll_10",
 ]
 
 

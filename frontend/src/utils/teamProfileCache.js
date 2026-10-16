@@ -3,7 +3,7 @@
  * Saves requests by keeping data cached in localStorage until the team's next scheduled match completes.
  */
 
-const CACHE_PREFIX = 'pl_team_cache_v4_';
+const CACHE_PREFIX = 'pl_team_cache_v5_';
 
 /**
  * Retrieve cached data for a given category, team and season.

@@ -1,3 +1,9 @@
+import MatchModalStatsTab from './match-detail/MatchModalStatsTab';
+import MatchOddsTab from './match-detail/MatchOddsTab';
+import MatchModalLineupsTab from './match-detail/MatchModalLineupsTab';
+import MatchTimelineTab from './match-detail/MatchTimelineTab';
+import MatchPredictionTab from './match-detail/MatchPredictionTab';
+import { handleTeamBadgeError } from '../utils/imageFallbacks';
 import React, { useEffect, useState } from 'react';
 import { 
   X, 
@@ -6,26 +12,18 @@ import {
   BarChart3, 
   Activity, 
   Shield, 
-  Calendar, 
-  MapPin, 
-  ChevronRight, 
-  Award,
   Target,
   Flag,
   AlertCircle,
   Sparkles,
   RefreshCw,
   Zap,
-  Eye,
-  CreditCard,
-  Scale,
-  Flame,
   TrendingUp,
   RotateCw
 } from 'lucide-react';
-import PlayerAvatar from './PlayerAvatar';
 import { getTeam } from '../data/teams';
 import { getCachedTeamData, setCachedTeamData } from '../utils/teamProfileCache';
+import { getMatchDetails, getMatchOdds, getMatchPrediction } from '../services/matchService';
 
 export default function MatchDetailModal({ match, onClose, currentGameweek }) {
   const isCompleted = Boolean(
@@ -72,8 +70,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
     }
 
     setLoading(true);
-    fetch(`/api/match/${match.match_id}/details`)
-      .then(res => res.json())
+    getMatchDetails(match.match_id)
       .then(data => {
         setDetails(data);
         if (isCompleted || data?.team_stats?.length > 0 || (data?.events && data.events.length > 0)) {
@@ -92,8 +89,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
     if (isCompleted || !isPredictable) return;
     if (!match.home_id || !match.away_id) return;
     setLoadingPrediction(true);
-    fetch(`/api/predict?home_id=${match.home_id}&away_id=${match.away_id}`)
-      .then(res => res.json())
+    getMatchPrediction(match.home_id, match.away_id, match?.match_id)
       .then(data => {
         setPrediction(data);
         setLoadingPrediction(false);
@@ -107,8 +103,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
   useEffect(() => {
     if (!match.match_id) return;
     setLoadingOdds(true);
-    fetch(`/api/match/${match.match_id}/odds`)
-      .then(res => res.json())
+    getMatchOdds(match.match_id)
       .then(data => {
         const list = data.odds || [];
         setOddsData(list);
@@ -227,7 +222,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
                 src={homeTeam.badge} 
                 alt={homeTeam.name} 
                 className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0"
-                onError={(e) => { e.target.src = '/badges/1.svg'; }}
+                onError={handleTeamBadgeError}
               />
               <div className="min-w-0">
                 <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-tight truncate">
@@ -275,7 +270,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
                 src={awayTeam.badge} 
                 alt={awayTeam.name} 
                 className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0"
-                onError={(e) => { e.target.src = '/badges/1.svg'; }}
+                onError={handleTeamBadgeError}
               />
             </div>
           </div>
@@ -396,999 +391,48 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
               <p className="text-xs font-bold text-slate-700">İstatistikler ve maç verileri yükleniyor...</p>
             </div>
           ) : activeTab === 'stats' ? (
-
-            /* STATS TAB: Team & Player Match Performance */
-            <div className="space-y-8">
-              
-              {/* 1. SECTION: Detailed Team Match Statistics (Sofascore Style) */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-[#38003c]" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                      Takım Karşılaştırmalı İstatistikleri & Mikro-Metrikler
-                    </h4>
-                  </div>
-                  <span className="text-[11px] font-mono font-bold text-slate-500">
-                    Premier League Maç Verisi
-                  </span>
-                </div>
-
-                {teamStats.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-slate-500">
-                    Bu karşılaşma henüz oynanmadığı için takım istatistikleri bulunmamaktadır.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {teamStats.map((cat, catIdx) => (
-                      <div 
-                        key={catIdx} 
-                        className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3"
-                      >
-                        <h5 className="text-[11px] font-black uppercase tracking-wider text-slate-800 pb-1.5 border-b border-slate-200 flex items-center justify-between">
-                          <span>{cat.category}</span>
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
-                            {cat.items.length} Metrik
-                          </span>
-                        </h5>
-
-                        <div className="space-y-2.5">
-                          {cat.items.map((item, itemIdx) => {
-                            const { homePct, awayPct } = calcBarWidths(item);
-                            const hVal = item.home !== undefined ? item.home : '-';
-                            const aVal = item.away !== undefined ? item.away : '-';
-                            const suffix = item.suffix || '';
-                            const isNotFound = (hVal === 'Not Found' && aVal === 'Not Found') || Boolean(item.notFound);
-                            const isXg = Boolean(item.isXg || item.label?.includes('xG'));
-
-                            return (
-                              <div key={itemIdx} className={`space-y-1 text-xs ${isXg ? 'bg-rose-50/40 p-2 rounded-xl border border-rose-100/60' : ''}`}>
-                                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
-                                  <span className={`font-mono min-w-[36px] ${isXg ? 'text-rose-700 font-black' : 'font-bold text-slate-900'}`}>
-                                    {hVal === 'Not Found' ? (
-                                      <span className="text-slate-400 font-normal italic text-[10px]">Not Found</span>
-                                    ) : (
-                                      `${hVal}${suffix}`
-                                    )}
-                                  </span>
-                                  <span className={`font-medium text-center truncate px-2 ${isXg ? 'text-rose-900 font-bold' : 'text-slate-600'}`}>
-                                    {item.label}
-                                  </span>
-                                  <span className={`font-mono min-w-[36px] text-right ${isXg ? 'text-rose-700 font-black' : 'font-bold text-slate-900'}`}>
-                                    {aVal === 'Not Found' ? (
-                                      <span className="text-slate-400 font-normal italic text-[10px]">Not Found</span>
-                                    ) : (
-                                      `${aVal}${suffix}`
-                                    )}
-                                  </span>
-                                </div>
-
-                                {/* Comparison Dual Bar */}
-                                {isNotFound ? (
-                                  <div className="h-1.5 rounded-full overflow-hidden bg-slate-100 border border-dashed border-slate-200" title="Veri Bulunamadı" />
-                                ) : (
-                                  <div className="h-1.5 rounded-full overflow-hidden flex bg-slate-200 gap-0.5">
-                                    <div 
-                                      style={{ width: `${homePct}%` }}
-                                      className={`h-full transition-all duration-500 rounded-l-full ${isXg ? 'bg-rose-600' : 'bg-[#38003c]'}`}
-                                    />
-                                    <div 
-                                      style={{ width: `${awayPct}%` }}
-                                      className={`h-full transition-all duration-500 rounded-r-full ${isXg ? 'bg-pink-600' : 'bg-emerald-600'}`}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* 2. SECTION: Player Match Scorecard Table */}
-              <div className="space-y-4 pt-4 border-t border-slate-200">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[#38003c]" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                      Oyuncu Maç Performans Karnesi (Dakika, Şut, Faul, Ofsayt)
-                    </h4>
-                  </div>
-
-                  {/* Home vs Away Player Selector */}
-                  <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
-                    <button
-                      onClick={() => setPlayerTabSide('home')}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                        playerTabSide === 'home'
-                          ? 'bg-[#38003c] text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <img src={homeTeam.badge} alt="" className="w-3.5 h-3.5 object-contain" />
-                      <span>{homeTeam.short || homeTeam.name}</span>
-                    </button>
-                    <button
-                      onClick={() => setPlayerTabSide('away')}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                        playerTabSide === 'away'
-                          ? 'bg-[#38003c] text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <img src={awayTeam.badge} alt="" className="w-3.5 h-3.5 object-contain" />
-                      <span>{awayTeam.short || awayTeam.name}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Player Table */}
-                {(!playerStats[playerTabSide] || playerStats[playerTabSide].length === 0) ? (
-                  <div className="py-8 text-center text-xs text-slate-500">
-                    Bu takım için oyuncu maç istatistiği bulunamadı.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
-                    <table className="w-full text-left text-xs font-medium border-collapse min-w-[700px]">
-                      <thead>
-                        <tr className="bg-slate-100 text-slate-700 text-[11px] font-bold border-b border-slate-200">
-                          <th className="py-2.5 px-3 text-center">#</th>
-                          <th className="py-2.5 px-3">Oyuncu</th>
-                          <th className="py-2.5 px-2 text-center">Mevki</th>
-                          <th className="py-2.5 px-2 text-center">Süre</th>
-                          <th className="py-2.5 px-2 text-center">Gol</th>
-                          <th className="py-2.5 px-2 text-center">Asist</th>
-                          <th className="py-2.5 px-2 text-center">Şut (İsb)</th>
-                          <th className="py-2.5 px-2 text-center">Faul Yaptı</th>
-                          <th className="py-2.5 px-2 text-center">Faul Aldı</th>
-                          <th className="py-2.5 px-2 text-center">Ofsayt</th>
-                          <th className="py-2.5 px-2 text-center">Kart</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        {playerStats[playerTabSide].map((p, idx) => (
-                          <tr key={p.id || idx} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-500">
-                              {p.shirt || '-'}
-                            </td>
-                            <td className="py-2.5 px-3 font-bold text-slate-900">
-                              <div className="flex items-center gap-2.5">
-                                <PlayerAvatar 
-                                  photoUrl={p.photo_url} 
-                                  name={p.name} 
-                                  shirt={p.shirt} 
-                                  fallback="initials" 
-                                  size="w-7 h-7 text-[10px]" 
-                                  className="shrink-0" 
-                                />
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1">
-                                    <span className="truncate">{p.name}</span>
-                                    {p.captain && (
-                                      <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900 shrink-0">
-                                        C
-                                      </span>
-                                    )}
-                                  </div>
-                                  {!p.is_starter && (
-                                    <span className="text-[9px] text-purple-700 font-mono block">
-                                      Yedek (Sonradan Girdi)
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-2 text-center">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getPositionBadgeClass(p.position)}`}>
-                                {formatPosition(p.position)}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-800">
-                              {p.minutes}'
-                            </td>
-                            <td className="py-2.5 px-2 text-center font-mono font-bold">
-                              {p.goals > 0 ? (
-                                <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                  {p.goals}
-                                </span>
-                              ) : (
-                                <span className="text-slate-300">0</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2 text-center font-mono font-bold">
-                              {p.assists > 0 ? (
-                                <span className="text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
-                                  {p.assists}
-                                </span>
-                              ) : (
-                                <span className="text-slate-300">0</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-700">
-                              {p.shots > 0 ? `${p.shots} (${p.shots_ontarget})` : <span className="text-slate-300">0</span>}
-                            </td>
-                            <td className="py-2.5 px-2 text-center font-mono font-bold">
-                              {p.fouls_committed > 0 ? (
-                                <span className="text-rose-700">{p.fouls_committed}</span>
-                              ) : (
-                                <span className="text-slate-300">0</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2 text-center font-mono font-bold">
-                              {p.fouls_won > 0 ? (
-                                <span className="text-emerald-700">{p.fouls_won}</span>
-                              ) : (
-                                <span className="text-slate-300">0</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2 text-center font-mono font-bold">
-                              {p.offsides > 0 ? (
-                                <span className="text-amber-700 font-black">{p.offsides}</span>
-                              ) : (
-                                <span className="text-slate-300">0</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2 text-center">
-                              {p.yellow_cards > 0 && (
-                                <span className="inline-block w-2.5 h-3.5 bg-amber-400 rounded-[2px] shadow-xs mr-1 align-middle" title="Sarı Kart" />
-                              )}
-                              {p.red_cards > 0 && (
-                                <span className="inline-block w-2.5 h-3.5 bg-rose-600 rounded-[2px] shadow-xs mr-1 align-middle" title="Kırmızı Kart" />
-                              )}
-                              {p.yellow_cards === 0 && p.red_cards === 0 && <span className="text-slate-300">—</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-            </div>
-
+            <MatchModalStatsTab
+              teamStats={teamStats}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              calcBarWidths={calcBarWidths}
+              playerStats={playerStats}
+              playerTabSide={playerTabSide}
+              setPlayerTabSide={setPlayerTabSide}
+              formatPosition={formatPosition}
+              getPositionBadgeClass={getPositionBadgeClass}
+            />
           ) : (activeTab === 'prediction' && !isCompleted && isPredictable) ? (
-
-            /* PREDICTION TAB: Tabbed, Clean & Basic */
-            <div className="space-y-4 max-w-2xl mx-auto py-1">
-
-              {loadingPrediction || !prediction ? (
-                <div className="py-12 text-center">
-                  <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-slate-700">Tahminler hesaplanıyor...</p>
-                </div>
-              ) : (
-                <>
-                  {/* Category Tabs */}
-                  <div className="flex items-center justify-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
-                    <button
-                      onClick={() => setPredSubTab('outcome')}
-                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                        predSubTab === 'outcome'
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Maç Sonucu (1X2)
-                    </button>
-                    <button
-                      onClick={() => setPredSubTab('goals')}
-                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                        predSubTab === 'goals'
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Goller & Piyasalar
-                    </button>
-                    <button
-                      onClick={() => setPredSubTab('stats')}
-                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                        predSubTab === 'stats'
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Diğer İstatistikler
-                    </button>
-                  </div>
-
-                  {/* TAB 1: MAÇ SONUCU (1X2) */}
-                  {predSubTab === 'outcome' && (
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 animate-fadeIn space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-xs">
-                        <span className="font-bold text-slate-800">1X2 Olasılık Dağılımı</span>
-                        <span className="font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                          Favori: {prediction.favorite_label}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-3 pt-1 text-center">
-                        <div className="bg-white p-3 rounded-lg border border-slate-200">
-                          <span className="text-xs font-semibold text-slate-600 truncate block">{homeTeam.name}</span>
-                          <div className="text-2xl font-black font-mono text-slate-900 my-1">%{prediction.outcome.home_win_pct}</div>
-                          <span className="text-[11px] text-slate-400">1 (Ev Sahibi)</span>
-                        </div>
-
-                        <div className="bg-white p-3 rounded-lg border border-slate-200">
-                          <span className="text-xs font-semibold text-slate-600 block">Beraberlik</span>
-                          <div className="text-2xl font-black font-mono text-slate-900 my-1">%{prediction.outcome.draw_pct}</div>
-                          <span className="text-[11px] text-slate-400">X (Eşitlik)</span>
-                        </div>
-
-                        <div className="bg-white p-3 rounded-lg border border-slate-200">
-                          <span className="text-xs font-semibold text-slate-600 truncate block">{awayTeam.name}</span>
-                          <div className="text-2xl font-black font-mono text-slate-900 my-1">%{prediction.outcome.away_win_pct}</div>
-                          <span className="text-[11px] text-slate-400">2 (Deplasman)</span>
-                        </div>
-                      </div>
-
-                      <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden flex mt-2">
-                        <div style={{ width: `${prediction.outcome.home_win_pct}%` }} className="h-full bg-slate-900" />
-                        <div style={{ width: `${prediction.outcome.draw_pct}%` }} className="h-full bg-slate-400" />
-                        <div style={{ width: `${prediction.outcome.away_win_pct}%` }} className="h-full bg-emerald-600" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* TAB 2: GOLLER & PİYASALAR */}
-                  {predSubTab === 'goals' && (
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 animate-fadeIn space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-xs">
-                        <span className="font-bold text-slate-800">Gol Beklentisi & İhtimaller</span>
-                        <span className="font-mono text-slate-600">
-                          Toplam Beklenen Gol: <strong className="text-slate-900 text-sm">{prediction.goals?.expected_total_goals || (Number(prediction.goals?.expected_home_goals || 1.4) + Number(prediction.goals?.expected_away_goals || 1.2)).toFixed(2)}</strong>
-                        </span>
-                      </div>
-
-                      <div className="text-xs text-slate-600 flex justify-between px-1">
-                        <span>{homeTeam.name}: <strong className="text-slate-900">{prediction.goals?.expected_home_goals || '1.4'}</strong> gol</span>
-                        <span>{awayTeam.name}: <strong className="text-slate-900">{prediction.goals?.expected_away_goals || '1.2'}</strong> gol</span>
-                      </div>
-
-                      <div className="grid grid-cols-4 gap-2 pt-1 text-center">
-                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                          <span className="text-[11px] text-slate-500 block">1.5 Üst</span>
-                          <strong className="text-lg font-black font-mono text-slate-900">%{prediction.goals?.['over_1.5']?.pct || '75.0'}</strong>
-                        </div>
-                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                          <span className="text-[11px] text-slate-500 block">2.5 Üst</span>
-                          <strong className="text-lg font-black font-mono text-slate-900">%{prediction.outcome?.over_2_5_goals_pct}</strong>
-                        </div>
-                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                          <span className="text-[11px] text-slate-500 block">3.5 Üst</span>
-                          <strong className="text-lg font-black font-mono text-slate-900">%{prediction.goals?.['over_3.5']?.pct || '32.0'}</strong>
-                        </div>
-                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                          <span className="text-[11px] text-slate-500 block">KG Var</span>
-                          <strong className="text-lg font-black font-mono text-slate-900">%{prediction.goals?.btts_pct || '55.0'}</strong>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* TAB 3: DİĞER İSTATİSTİKLER */}
-                  {predSubTab === 'stats' && (
-                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 text-xs animate-fadeIn">
-                      
-                      {/* Korner */}
-                      <div className="p-3 flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-slate-900 block">Korner</span>
-                          <span className="text-slate-500 text-[11px]">{homeTeam.short}: {prediction.corners.expected_home} • {awayTeam.short}: {prediction.corners.expected_away}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-mono font-black text-slate-900 text-base">{prediction.corners.expected_total} korner</span>
-                          <span className="text-slate-500 text-[11px] block">9.5 Üst: %{prediction.corners.prob_over_9_5_pct}</span>
-                        </div>
-                      </div>
-
-                      {/* Kart & Hakem */}
-                      <div className="p-3 flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-slate-900 block">Kart & Disiplin</span>
-                          <span className="text-slate-500 text-[11px]">Hakem: {prediction.referee?.name || 'Belirtilmedi'} ({prediction.referee?.avg_cards || '4.0'} kart/m)</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-mono font-black text-slate-900 text-base">{prediction.cards?.expected_total || '4.2'} kart</span>
-                          <span className="text-slate-500 text-[11px] block">3.5 Üst: %{prediction.cards?.prob_over_3_5_pct || '62.0'}</span>
-                        </div>
-                      </div>
-
-                      {/* Şut & Kaleci */}
-                      <div className="p-3 flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-slate-900 block">Şut & Kurtarış</span>
-                          <span className="text-slate-500 text-[11px]">Kurtarış: {homeTeam.short} ({prediction.saves.expected_home}) • {awayTeam.short} ({prediction.saves.expected_away})</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-mono font-black text-slate-900 text-base">{prediction.shots?.expected_total || '26.0'} şut</span>
-                          <span className="text-slate-500 text-[11px] block">{prediction.saves.expected_total} kaleci kurtarışı</span>
-                        </div>
-                      </div>
-
-                      {/* Taç & Ofsayt */}
-                      <div className="p-3 flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-slate-900 block">Taç & Ofsayt</span>
-                          <span className="text-slate-500 text-[11px]">Taktik: {(prediction.offsides?.expected_total || 3.3) >= 3.6 ? 'Yüksek Savunma Hattı' : 'Derin Blok Savunma'}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-mono font-black text-slate-900 text-base">{prediction.throws.expected_total} taç</span>
-                          <span className="text-slate-500 text-[11px] block">{prediction.offsides?.expected_total || '3.3'} ofsayt</span>
-                        </div>
-                      </div>
-
-                    </div>
-                  )}
-                </>
-              )}
-
-            </div>
-
+            <MatchPredictionTab
+              prediction={prediction}
+              loadingPrediction={loadingPrediction}
+              predSubTab={predSubTab}
+              setPredSubTab={setPredSubTab}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              variant="modal"
+            />
           ) : activeTab === 'lineups' ? (
-            
-            /* LINEUPS TAB */
-            <div className="space-y-6">
-              {!homeLineup && !awayLineup ? (
-                <div className="py-12 text-center text-xs text-slate-500 font-medium">
-                  Bu maç için henüz resmi kadro verisi yayınlanmamış.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Home Team Lineup */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <div className="flex items-center gap-2">
-                        <img src={homeTeam.badge} alt="" className="w-5 h-5 object-contain" />
-                        <h4 className="font-bold text-xs text-slate-900">{homeTeam.name}</h4>
-                      </div>
-                      {homeLineup?.formation && (
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-100 text-[#38003c]">
-                          Diziliş: {homeLineup.formation}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                        Başlangıç 11'i ({homeLineup?.starters?.length || 0}) • Pozisyon Sıralı
-                      </span>
-                      {homeLineup?.starters?.map((p, idx) => (
-                        <div 
-                          key={p.id || idx}
-                          className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/80 hover:border-purple-200 transition-colors text-xs"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <PlayerAvatar 
-                              photoUrl={p.photo_url} 
-                              name={p.name} 
-                              shirt={p.shirt || idx + 1} 
-                              fallback="initials" 
-                              size="w-7 h-7 text-[10px]" 
-                              className="shrink-0" 
-                            />
-                            <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-mono font-bold text-[10px] text-slate-800 shrink-0">
-                              {p.shirt || idx + 1}
-                            </span>
-                            <span className="font-bold text-slate-900 truncate">{p.name}</span>
-                            {p.captain && (
-                              <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900 shrink-0">
-                                C
-                              </span>
-                            )}
-                          </div>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${getPositionBadgeClass(p.position)}`}>
-                            {formatPosition(p.position)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {homeLineup?.substitutes?.length > 0 && (
-                      <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                          Yedekler ({homeLineup.substitutes.length})
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                          {homeLineup.substitutes.map((sub, idx) => (
-                            <div 
-                              key={sub.id || idx}
-                              className="flex items-center justify-between p-1.5 rounded-xl bg-white border border-slate-200 text-xs"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <PlayerAvatar 
-                                  photoUrl={sub.photo_url} 
-                                  name={sub.name} 
-                                  shirt={sub.shirt} 
-                                  fallback="initials" 
-                                  size="w-6 h-6 text-[9px]" 
-                                  className="shrink-0" 
-                                />
-                                <span className="font-mono text-[10px] font-bold text-slate-500">#{sub.shirt}</span>
-                                <span className="font-medium text-slate-800 truncate">{sub.name}</span>
-                              </div>
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${getPositionBadgeClass(sub.position)}`}>
-                                {formatPosition(sub.position)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Away Team Lineup */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <div className="flex items-center gap-2">
-                        <img src={awayTeam.badge} alt="" className="w-5 h-5 object-contain" />
-                        <h4 className="font-bold text-xs text-slate-900">{awayTeam.name}</h4>
-                      </div>
-                      {awayLineup?.formation && (
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-100 text-[#38003c]">
-                          Diziliş: {awayLineup.formation}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                        Başlangıç 11'i ({awayLineup?.starters?.length || 0}) • Pozisyon Sıralı
-                      </span>
-                      {awayLineup?.starters?.map((p, idx) => (
-                        <div 
-                          key={p.id || idx}
-                          className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/80 hover:border-purple-200 transition-colors text-xs"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <PlayerAvatar 
-                              photoUrl={p.photo_url} 
-                              name={p.name} 
-                              shirt={p.shirt || idx + 1} 
-                              fallback="initials" 
-                              size="w-7 h-7 text-[10px]" 
-                              className="shrink-0" 
-                            />
-                            <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-mono font-bold text-[10px] text-slate-800 shrink-0">
-                              {p.shirt || idx + 1}
-                            </span>
-                            <span className="font-bold text-slate-900 truncate">{p.name}</span>
-                            {p.captain && (
-                              <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900 shrink-0">
-                                C
-                              </span>
-                            )}
-                          </div>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${getPositionBadgeClass(p.position)}`}>
-                            {formatPosition(p.position)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {awayLineup?.substitutes?.length > 0 && (
-                      <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                          Yedekler ({awayLineup.substitutes.length})
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                          {awayLineup.substitutes.map((sub, idx) => (
-                            <div 
-                              key={sub.id || idx}
-                              className="flex items-center justify-between p-1.5 rounded-xl bg-white border border-slate-200 text-xs"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <PlayerAvatar 
-                                  photoUrl={sub.photo_url} 
-                                  name={sub.name} 
-                                  shirt={sub.shirt} 
-                                  fallback="initials" 
-                                  size="w-6 h-6 text-[9px]" 
-                                  className="shrink-0" 
-                                />
-                                <span className="font-mono text-[10px] font-bold text-slate-500">#{sub.shirt}</span>
-                                <span className="font-medium text-slate-800 truncate">{sub.name}</span>
-                              </div>
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${getPositionBadgeClass(sub.position)}`}>
-                                {formatPosition(sub.position)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              )}
-            </div>
-
+            <MatchModalLineupsTab
+              homeLineup={homeLineup}
+              awayLineup={awayLineup}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              formatPosition={formatPosition}
+              getPositionBadgeClass={getPositionBadgeClass}
+            />
           ) : activeTab === 'timeline' ? (
-
-            /* TIMELINE TAB: Key Match Moments */
-            <div className="space-y-4 max-w-2xl mx-auto py-2">
-              <div className="text-center pb-2 border-b border-slate-100">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                  Karşılaşma Zaman Akışı & Önemli Anlar
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  Maç başlangıcı, goller, kartlar, oyuncu değişiklikleri ve devre sonları
-                </p>
-              </div>
-
-              {timeline.length === 0 ? (
-                <div className="py-12 text-center text-xs text-slate-500">
-                  Bu karşılaşma için önemli anlar zaman akışı bulunamadı.
-                </div>
-              ) : (
-                <div className="relative pl-6 sm:pl-8 space-y-4 before:content-[''] before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
-                  {timeline.map((item, idx) => {
-                    const isGoal = item.type === 'goal';
-                    const isCard = item.type === 'yellow_card' || item.type === 'red_card';
-                    const isSub = item.type === 'substitution';
-                    const isPeriod = item.type === 'period_start' || item.type === 'period_end';
-
-                    return (
-                      <div key={idx} className="relative flex items-start gap-3 group">
-                        
-                        {/* Timeline Node Icon */}
-                        <div className={`absolute -left-6 sm:-left-8 w-6 h-6 rounded-full flex items-center justify-center border-2 bg-white z-10 shadow-xs ${
-                          isGoal ? 'border-emerald-500 text-emerald-600' :
-                          item.type === 'red_card' ? 'border-rose-500 text-rose-600' :
-                          item.type === 'yellow_card' ? 'border-amber-400 text-amber-500' :
-                          isSub ? 'border-sky-500 text-sky-600' :
-                          'border-purple-600 text-purple-700'
-                        }`}>
-                          {isGoal && <span className="text-xs">⚽</span>}
-                          {item.type === 'yellow_card' && <span className="text-xs">🟨</span>}
-                          {item.type === 'red_card' && <span className="text-xs">🟥</span>}
-                          {isSub && <RefreshCw className="w-3 h-3 text-sky-600" />}
-                          {isPeriod && <Clock className="w-3 h-3 text-purple-700" />}
-                        </div>
-
-                        {/* Content Card */}
-                        <div className={`flex-1 p-3 rounded-2xl border transition-all text-xs ${
-                          isGoal ? 'bg-emerald-50/70 border-emerald-200 shadow-xs' :
-                          item.type === 'red_card' ? 'bg-rose-50/70 border-rose-200' :
-                          item.type === 'yellow_card' ? 'bg-amber-50/60 border-amber-200' :
-                          isSub ? 'bg-sky-50/50 border-sky-200' :
-                          'bg-slate-50 border-slate-200'
-                        }`}>
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="font-mono font-black text-slate-800 bg-white/80 border border-slate-200 px-2 py-0.5 rounded-md text-[11px]">
-                              {item.minute}
-                            </span>
-                            {item.score && (
-                              <span className="font-mono font-extrabold text-[#38003c] bg-white border border-slate-200 px-2 py-0.5 rounded-md text-xs shadow-2xs">
-                                {item.score}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Goal Details */}
-                          {isGoal && (
-                            <div className="flex items-center gap-2.5 mt-2">
-                              <PlayerAvatar 
-                                photoUrl={item.photo_url} 
-                                name={item.player_name} 
-                                fallback="initials" 
-                                size="w-9 h-9 text-xs" 
-                                className="shrink-0" 
-                              />
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5 font-bold text-slate-900 text-sm">
-                                  <span>⚽ {item.player_name}</span>
-                                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded font-sans">
-                                    {item.goal_type || 'Gol'}
-                                  </span>
-                                </div>
-                                <div className="text-[11px] text-slate-500">
-                                  <span>{item.team_name}</span>
-                                  {item.assist_name && (
-                                    <span className="text-slate-600 font-medium"> • Asist: <strong>{item.assist_name}</strong></span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Card Details */}
-                          {isCard && (
-                            <div className="flex items-center gap-2.5 mt-1.5">
-                              <PlayerAvatar 
-                                photoUrl={item.photo_url} 
-                                name={item.player_name} 
-                                fallback="initials" 
-                                size="w-8 h-8 text-xs" 
-                                className="shrink-0" 
-                              />
-                              <div>
-                                <span className="font-bold text-slate-900 block text-xs">
-                                  {item.type === 'yellow_card' ? '🟨 Sarı Kart:' : '🟥 Kırmızı Kart:'} {item.player_name}
-                                </span>
-                                <span className="text-[11px] text-slate-500">{item.team_name}</span>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Substitution Details */}
-                          {isSub && (
-                            <div className="space-y-1 mt-1">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-800 block">
-                                {item.team_name} Oyuncu Değişikliği
-                              </span>
-                              <div className="grid grid-cols-2 gap-2 pt-0.5">
-                                <div className="flex items-center gap-2 bg-white/80 border border-emerald-100 p-1.5 rounded-xl">
-                                  <PlayerAvatar 
-                                    photoUrl={item.player_in_photo} 
-                                    name={item.player_in_name} 
-                                    fallback="initials" 
-                                    size="w-7 h-7 text-[10px]" 
-                                    className="shrink-0" 
-                                  />
-                                  <div className="min-w-0">
-                                    <span className="text-[10px] font-bold text-emerald-700 block">GİREN</span>
-                                    <strong className="text-slate-900 truncate block text-[11px]">{item.player_in_name}</strong>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 bg-white/80 border border-rose-100 p-1.5 rounded-xl">
-                                  <PlayerAvatar 
-                                    photoUrl={item.player_out_photo} 
-                                    name={item.player_out_name} 
-                                    fallback="initials" 
-                                    size="w-7 h-7 text-[10px]" 
-                                    className="shrink-0" 
-                                  />
-                                  <div className="min-w-0">
-                                    <span className="text-[10px] font-bold text-rose-700 block">ÇIKAN</span>
-                                    <strong className="text-slate-900 truncate block text-[11px]">{item.player_out_name}</strong>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Period Start / End */}
-                          {isPeriod && (
-                            <div className="flex items-center justify-between text-xs py-0.5">
-                              <span className="font-bold text-slate-800">{item.label}</span>
-                              <span className="text-[11px] text-slate-500">{item.description}</span>
-                            </div>
-                          )}
-
-                        </div>
-
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-          ) : activeTab === 'odds' ? (
-            
-            /* ODDS TAB (BAHİS / PİYASA ORANLARI) */
-            <div className="space-y-4 max-w-2xl mx-auto py-2">
-              {loadingOdds ? (
-                <div className="py-12 text-center">
-                  <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-slate-700">Piyasa oranları yükleniyor...</p>
-                </div>
-              ) : oddsData.length === 0 ? (
-                <div className="py-12 text-center bg-slate-50 border border-slate-200 rounded-xl p-6">
-                  <TrendingUp className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-slate-700">Bu karşılaşma için kaydedilmiş bahis piyasası oranı bulunmuyor.</p>
-                  <p className="text-[11px] text-slate-500 mt-1">Oranlar şu anda 2026/27 sezonunda tamamlanan maçlar için aktiftir.</p>
-                </div>
-              ) : (
-                <>
-                  {/* Bookmaker Selector Tabs */}
-                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 overflow-x-auto">
-                    {oddsData.map((bm) => (
-                      <button
-                        key={bm.bookmaker}
-                        onClick={() => setSelectedBookmaker(bm.bookmaker)}
-                        className={`flex-1 min-w-[100px] py-1.5 px-3 text-xs font-bold rounded-lg transition-all text-center ${
-                          selectedBookmaker === bm.bookmaker
-                            ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        {bm.bookmaker}
-                      </button>
-                    ))}
-                  </div>
-
-                  {(() => {
-                    const currentBm = oddsData.find(b => b.bookmaker === selectedBookmaker) || oddsData[0];
-                    if (!currentBm) return null;
-
-                    return (
-                      <div className="space-y-3">
-                        {/* 1X2 Kapanış Oranları */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                          <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-xs">
-                            <span className="font-bold text-slate-800">1X2 Maç Sonucu (Kapanış Oranları)</span>
-                            <span className="font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                              {currentBm.bookmaker}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-3 pt-1 text-center">
-                            <div className="bg-white p-3 rounded-lg border border-slate-200">
-                              <span className="text-xs font-semibold text-slate-600 truncate block">{homeTeam.name}</span>
-                              <div className="text-2xl font-black font-mono text-slate-900 my-1">
-                                {currentBm.home_last_seen ? currentBm.home_last_seen.toFixed(2) : '-'}
-                              </div>
-                              <span className="text-[11px] text-slate-400">1 (Ev Sahibi)</span>
-                              {currentBm.home_open && (
-                                <span className="text-[10px] text-slate-400 block mt-0.5">Açılış: {currentBm.home_open.toFixed(2)}</span>
-                              )}
-                            </div>
-
-                            <div className="bg-white p-3 rounded-lg border border-slate-200">
-                              <span className="text-xs font-semibold text-slate-600 block">Beraberlik</span>
-                              <div className="text-2xl font-black font-mono text-slate-900 my-1">
-                                {currentBm.draw_last_seen ? currentBm.draw_last_seen.toFixed(2) : '-'}
-                              </div>
-                              <span className="text-[11px] text-slate-400">X (Eşitlik)</span>
-                              {currentBm.draw_open && (
-                                <span className="text-[10px] text-slate-400 block mt-0.5">Açılış: {currentBm.draw_open.toFixed(2)}</span>
-                              )}
-                            </div>
-
-                            <div className="bg-white p-3 rounded-lg border border-slate-200">
-                              <span className="text-xs font-semibold text-slate-600 truncate block">{awayTeam.name}</span>
-                              <div className="text-2xl font-black font-mono text-slate-900 my-1">
-                                {currentBm.away_last_seen ? currentBm.away_last_seen.toFixed(2) : '-'}
-                              </div>
-                              <span className="text-[11px] text-slate-400">2 (Deplasman)</span>
-                              {currentBm.away_open && (
-                                <span className="text-[10px] text-slate-400 block mt-0.5">Açılış: {currentBm.away_open.toFixed(2)}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Gol & KG Piyasaları */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                          <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-xs">
-                            <span className="font-bold text-slate-800">Gol & Karşılıklı Skor Oranları</span>
-                            <span className="text-[11px] text-slate-500">Piyasa Kapanışı</span>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
-                            <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                              <span className="text-[11px] text-slate-500 block">2.5 Gol Üst</span>
-                              <strong className="text-lg font-black font-mono text-slate-900">
-                                {currentBm.over_25_last_seen ? currentBm.over_25_last_seen.toFixed(2) : '-'}
-                              </strong>
-                              {currentBm.over_25_open && (
-                                <span className="text-[10px] text-slate-400 block">Açılış: {currentBm.over_25_open.toFixed(2)}</span>
-                              )}
-                            </div>
-
-                            <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                              <span className="text-[11px] text-slate-500 block">2.5 Gol Alt</span>
-                              <strong className="text-lg font-black font-mono text-slate-900">
-                                {currentBm.under_25_last_seen ? currentBm.under_25_last_seen.toFixed(2) : '-'}
-                              </strong>
-                              {currentBm.under_25_open && (
-                                <span className="text-[10px] text-slate-400 block">Açılış: {currentBm.under_25_open.toFixed(2)}</span>
-                              )}
-                            </div>
-
-                            <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                              <span className="text-[11px] text-slate-500 block">KG Var (Evet)</span>
-                              <strong className="text-lg font-black font-mono text-slate-900">
-                                {currentBm.btts_yes_last_seen ? currentBm.btts_yes_last_seen.toFixed(2) : '-'}
-                              </strong>
-                              {currentBm.btts_yes_open && (
-                                <span className="text-[10px] text-slate-400 block">Açılış: {currentBm.btts_yes_open.toFixed(2)}</span>
-                              )}
-                            </div>
-
-                            <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                              <span className="text-[11px] text-slate-500 block">KG Yok (Hayır)</span>
-                              <strong className="text-lg font-black font-mono text-slate-900">
-                                {currentBm.btts_no_last_seen ? currentBm.btts_no_last_seen.toFixed(2) : '-'}
-                              </strong>
-                              {currentBm.btts_no_open && (
-                                <span className="text-[10px] text-slate-400 block">Açılış: {currentBm.btts_no_open.toFixed(2)}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Korner & Kart Piyasaları (Varsa) */}
-                        {(currentBm.corners_over_last_seen || currentBm.cards_over_last_seen) && (
-                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                            <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-xs">
-                              <span className="font-bold text-slate-800">Özel Bahis Pazarları (Korner & Kart)</span>
-                              <span className="text-[11px] text-slate-500">Piyasa Çizgileri</span>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3 pt-1">
-                              {currentBm.corners_over_last_seen && (
-                                <div className="bg-white p-3 rounded-lg border border-slate-200 flex items-center justify-between">
-                                  <div>
-                                    <span className="text-xs font-bold text-slate-800 block">9.5 Korner</span>
-                                    <span className="text-[11px] text-slate-500">Kapanış Çizgisi</span>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-xs font-mono font-bold text-slate-900 block">Üst: {currentBm.corners_over_last_seen.toFixed(2)}</span>
-                                    {currentBm.corners_under_last_seen && (
-                                      <span className="text-[11px] font-mono text-slate-600 block">Alt: {currentBm.corners_under_last_seen.toFixed(2)}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                              {currentBm.cards_over_last_seen && (
-                                <div className="bg-white p-3 rounded-lg border border-slate-200 flex items-center justify-between">
-                                  <div>
-                                    <span className="text-xs font-bold text-slate-800 block">4.5 Kart</span>
-                                    <span className="text-[11px] text-slate-500">Disiplin Pazarı</span>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-xs font-mono font-bold text-slate-900 block">Üst: {currentBm.cards_over_last_seen.toFixed(2)}</span>
-                                    {currentBm.cards_under_last_seen && (
-                                      <span className="text-[11px] font-mono text-slate-600 block">Alt: {currentBm.cards_under_last_seen.toFixed(2)}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Tüm Bahis Şirketleri Karşılaştırma Tablosu */}
-                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mt-3">
-                          <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-800 flex items-center justify-between">
-                            <span>Tüm Sağlayıcıların Kapanış Oranları</span>
-                            <span className="text-[11px] font-normal text-slate-500">{oddsData.length} Sağlayıcı</span>
-                          </div>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-xs text-left">
-                              <thead className="bg-slate-50/50 text-[11px] text-slate-500 border-b border-slate-100">
-                                <tr>
-                                  <th className="py-2 px-3 font-semibold">Bahis Şirketi</th>
-                                  <th className="py-2 px-3 font-semibold text-center">1 (Ev)</th>
-                                  <th className="py-2 px-3 font-semibold text-center">X (Eşitlik)</th>
-                                  <th className="py-2 px-3 font-semibold text-center">2 (Deplasman)</th>
-                                  <th className="py-2 px-3 font-semibold text-center">2.5 Üst</th>
-                                  <th className="py-2 px-3 font-semibold text-center">KG Var</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 font-mono">
-                                {oddsData.map(b => (
-                                  <tr key={b.bookmaker} className={b.bookmaker === selectedBookmaker ? 'bg-purple-50/40 font-bold' : 'hover:bg-slate-50/50'}>
-                                    <td className="py-2 px-3 font-sans font-medium text-slate-800">{b.bookmaker}</td>
-                                    <td className="py-2 px-3 text-center text-slate-900">{b.home_last_seen ? b.home_last_seen.toFixed(2) : '-'}</td>
-                                    <td className="py-2 px-3 text-center text-slate-700">{b.draw_last_seen ? b.draw_last_seen.toFixed(2) : '-'}</td>
-                                    <td className="py-2 px-3 text-center text-slate-900">{b.away_last_seen ? b.away_last_seen.toFixed(2) : '-'}</td>
-                                    <td className="py-2 px-3 text-center text-slate-700">{b.over_25_last_seen ? b.over_25_last_seen.toFixed(2) : '-'}</td>
-                                    <td className="py-2 px-3 text-center text-slate-700">{b.btts_yes_last_seen ? b.btts_yes_last_seen.toFixed(2) : '-'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-
-                      </div>
-                    );
-                  })()}
-                </>
-              )}
-            </div>
-
-          ) : (
+            <MatchTimelineTab timeline={timeline} homeTeam={homeTeam} awayTeam={awayTeam} homeTeamId={match.home_id} />
+           ) : activeTab === 'odds' ? (
+            <MatchOddsTab
+              loadingOdds={loadingOdds}
+              oddsData={oddsData}
+              selectedBookmaker={selectedBookmaker}
+              setSelectedBookmaker={setSelectedBookmaker}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+            />
+                    ) : (
 
             /* EVENTS TAB */
             <div className="space-y-2.5">

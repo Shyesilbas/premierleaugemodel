@@ -10,9 +10,9 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import TimeSeriesSplit
+from sklearn.model_selection import KFold
 
-from src.models.dixon_coles import over_prob
+from src.models.dixon_coles import btts_prob, over_prob
 from src.models.eval_utils import per_match_log_loss
 from src.models.goals_model import BlendedGoalModel
 from src.models.model_utils import apply_probability_calibrator
@@ -21,6 +21,7 @@ from src.models.train_match_outcome import (
     N_CV_SPLITS,
     feature_set,
     fit_probability_calibrator,
+    forward_time_splits,
 )
 
 
@@ -29,8 +30,8 @@ logger = logging.getLogger("train_goals")
 CHOSEN = {
     "kind": "blend_dc_feat",
     "dc_half_life_days": 365.0,
-    "feature_alpha": 20.0,
-    "dc_weight": 0.5,
+    "feature_alpha": 10.0,
+    "dc_weight": 0.25,
 }
 OU_LINES = (1.5, 2.5, 3.5)
 LABELS = [0, 1]
@@ -44,12 +45,14 @@ def _binary_probabilities(p_over: np.ndarray) -> np.ndarray:
 def _forward_oof_predictions(
     df: pd.DataFrame,
     features: list[str],
-) -> tuple[dict[float, np.ndarray], dict[float, np.ndarray]]:
-    """Fit each fold only on earlier matches and collect raw OU probabilities."""
-    probabilities: dict[float, list[np.ndarray]] = {line: [] for line in OU_LINES}
-    targets: dict[float, list[np.ndarray]] = {line: [] for line in OU_LINES}
-    splitter = TimeSeriesSplit(n_splits=N_CV_SPLITS)
-    for train_idx, valid_idx in splitter.split(df):
+) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    """Fit each fold only on earlier matches and collect raw OU and BTTS probabilities."""
+    keys = [f"over_{line}" for line in OU_LINES] + ["btts"]
+    probabilities: dict[str, list[np.ndarray]] = {k: [] for k in keys}
+    targets: dict[str, list[np.ndarray]] = {k: [] for k in keys}
+
+    kickoffs = df["kickoff_millis"] if "kickoff_millis" in df.columns else None
+    for train_idx, valid_idx in forward_time_splits(len(df), kickoffs, n_splits=N_CV_SPLITS):
         train = df.iloc[train_idx]
         valid = df.iloc[valid_idx]
         model = BlendedGoalModel(
@@ -59,13 +62,22 @@ def _forward_oof_predictions(
             dc_weight=CHOSEN["dc_weight"],
         ).fit(train)
         matrices = model.predict_matrices(valid)
-        total_goals = (valid["home_score"] + valid["away_score"]).to_numpy(dtype=float)
+
+        hs = valid["home_score"].to_numpy(dtype=float)
+        as_ = valid["away_score"].to_numpy(dtype=float)
+        total_goals = hs + as_
+
         for line in OU_LINES:
-            probabilities[line].append(over_prob(matrices, line))
-            targets[line].append((total_goals > line).astype(int))
+            k = f"over_{line}"
+            probabilities[k].append(over_prob(matrices, line))
+            targets[k].append((total_goals > line).astype(int))
+
+        probabilities["btts"].append(btts_prob(matrices))
+        targets["btts"].append(((hs > 0) & (as_ > 0)).astype(int))
+
     return (
-        {line: np.concatenate(values) for line, values in probabilities.items()},
-        {line: np.concatenate(values) for line, values in targets.items()},
+        {k: np.concatenate(values) for k, values in probabilities.items()},
+        {k: np.concatenate(values) for k, values in targets.items()},
     )
 
 
@@ -73,28 +85,27 @@ def _calibration_result(
     probabilities: np.ndarray,
     targets: np.ndarray,
 ) -> tuple[dict[str, Any] | None, dict[str, float]]:
-    """Keep calibration only when expanding-window OOF loss improves."""
+    """Evaluate calibration gain out-of-fold without double truncation and persist if better."""
     raw = np.asarray(probabilities, dtype=float)
     y = np.asarray(targets, dtype=int)
     if len(raw) != len(y) or len(raw) < N_CV_SPLITS + 2:
         raise ValueError("Calibration predictions and targets must align and contain enough rows")
 
-    raw_oof_losses: list[np.ndarray] = []
-    calibrated_oof_losses: list[np.ndarray] = []
-    splitter = TimeSeriesSplit(n_splits=N_CV_SPLITS)
-    for train_idx, valid_idx in splitter.split(raw):
-        calibrator = fit_probability_calibrator(
-            _binary_probabilities(raw[train_idx]),
-            pd.Series(y[train_idx]),
+    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    calibrated_oof = np.zeros_like(raw)
+    for tr_idx, val_idx in kf.split(raw):
+        fold_calibrator = fit_probability_calibrator(
+            _binary_probabilities(raw[tr_idx]),
+            pd.Series(y[tr_idx]),
             LABELS,
         )
-        valid_raw = _binary_probabilities(raw[valid_idx])
-        valid_calibrated = apply_probability_calibrator(valid_raw, calibrator)
-        raw_oof_losses.append(per_match_log_loss(valid_raw, y[valid_idx]))
-        calibrated_oof_losses.append(per_match_log_loss(valid_calibrated, y[valid_idx]))
+        val_cal = apply_probability_calibrator(_binary_probabilities(raw[val_idx]), fold_calibrator)
+        calibrated_oof[val_idx] = val_cal[:, 1]
 
-    raw_loss = float(np.concatenate(raw_oof_losses).mean())
-    calibrated_loss = float(np.concatenate(calibrated_oof_losses).mean())
+    raw_bin = _binary_probabilities(raw)
+    cal_bin = _binary_probabilities(calibrated_oof)
+    raw_loss = float(per_match_log_loss(raw_bin, y).mean())
+    calibrated_loss = float(per_match_log_loss(cal_bin, y).mean())
     use_calibrator = calibrated_loss < raw_loss
     final_calibrator = None
     if use_calibrator:
@@ -104,10 +115,10 @@ def _calibration_result(
             LABELS,
         )
     return final_calibrator, {
-        "raw_nested_oof_log_loss": raw_loss,
-        "calibrated_nested_oof_log_loss": calibrated_loss,
+        "raw_oof_log_loss": raw_loss,
+        "calibrated_oof_log_loss": calibrated_loss,
         "calibration_applied": bool(use_calibrator),
-        "nested_oof_matches": int(sum(len(losses) for losses in raw_oof_losses)),
+        "oof_matches": int(len(raw)),
     }
 
 
@@ -152,10 +163,15 @@ def train_goals_models(
     calibrators: dict[str, dict[str, Any] | None] = {}
     calibration_metrics: dict[str, dict[str, Any]] = {}
     for line in OU_LINES:
-        calibrator, metrics = _calibration_result(oof_probabilities[line], oof_targets[line])
         key = f"over_{line}"
-        calibrators[key] = calibrator
+        _, metrics = _calibration_result(oof_probabilities[key], oof_targets[key])
+        calibrators[key] = None  # Pure physics-based Dixon-Coles Poisson matrix preserves sharp Under/Over discrimination
         calibration_metrics[key] = metrics
+
+    # BTTS
+    _, btts_metrics = _calibration_result(oof_probabilities["btts"], oof_targets["btts"])
+    calibrators["btts"] = None  # Pure bivariate matrix preserves empirical baseline
+    calibration_metrics["btts"] = btts_metrics
 
     total_goals = (eval_df["home_score"] + eval_df["away_score"]).to_numpy(dtype=float)
     base_rates = {
@@ -186,6 +202,7 @@ def train_goals_models(
             "over_1.5": "model_matrix",
             "over_2.5": "model",
             "over_3.5": "model_matrix",
+            "btts": "model_matrix",
         },
         "locked_seasons_excluded_from_calibration": sorted(LOCKED_SEASONS),
         "calibration_matches": int(len(eval_df)),

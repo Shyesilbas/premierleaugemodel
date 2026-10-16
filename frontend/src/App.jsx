@@ -94,6 +94,7 @@ export default function App() {
               {activeTab === 'teams' && (
                 <TeamProfilesTab 
                   selectedSeason={selectedSeason} 
+                  setSelectedSeason={setSelectedSeason}
                   onSelectMatch={handleSelectMatch}
                   selectedTeamId={selectedTeamId}
                   onSelectTeam={setSelectedTeamId}
@@ -103,6 +104,7 @@ export default function App() {
               {activeTab === 'players' && (
                 <PlayerProfilesTab 
                   selectedSeason={selectedSeason} 
+                  setSelectedSeason={setSelectedSeason}
                   onSelectMatch={handleSelectMatch}
                 />
               )}

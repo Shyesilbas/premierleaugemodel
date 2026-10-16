@@ -29,10 +29,9 @@ DB_PATH = DATA_DIR / "premier_league.db"
 SUMMARY_JSON = DATA_DIR / "processed" / "model_audit_summary.json"
 
 
-def init_audit_table(conn: sqlite3.Connection) -> None:
-    conn.execute("DROP TABLE IF EXISTS model_match_audit")
+def init_audit_table(conn: sqlite3.Connection, season: Optional[str] = None) -> None:
     conn.execute("""
-        CREATE TABLE model_match_audit (
+        CREATE TABLE IF NOT EXISTS model_match_audit (
             match_id INTEGER PRIMARY KEY,
             season TEXT NOT NULL,
             gameweek INTEGER NOT NULL,
@@ -72,16 +71,25 @@ def init_audit_table(conn: sqlite3.Connection) -> None:
             audited_at_utc TEXT NOT NULL
         )
     """)
+    if season:
+        conn.execute("DELETE FROM model_match_audit WHERE season = ?", (season,))
     conn.commit()
+
+
+def get_summary_json_path(season: str) -> Path:
+    if season == "2026_27":
+        return DATA_DIR / "processed" / "model_audit_summary.json"
+    return DATA_DIR / "processed" / f"model_audit_summary_{season}.json"
 
 
 def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict[str, Any]:
     """Generates zero-leakage predictions for completed matches in the specified season
     and evaluates performance against final match results and market odds.
     """
-    if not force_recalc and SUMMARY_JSON.exists():
+    summary_path = get_summary_json_path(season)
+    if not force_recalc and summary_path.exists():
         try:
-            with open(SUMMARY_JSON, "r", encoding="utf-8") as f:
+            with open(summary_path, "r", encoding="utf-8") as f:
                 cached = json.load(f)
                 if cached.get("season") == season and len(cached.get("matches", [])) > 0:
                     return cached
@@ -109,7 +117,7 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
     # Fetch stored odds
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    init_audit_table(conn)
+    init_audit_table(conn, season=season)
 
     odds_cursor = conn.execute("""
         SELECT match_id, bookmaker, home_last_seen, draw_last_seen, away_last_seen,
@@ -200,7 +208,8 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
 
         actual_tot_goals = h_score + a_score
         hit_over25 = bool((p_over25 >= 50.0) == (actual_tot_goals > 2.5))
-        hit_btts = bool((p_btts >= 50.0) == (h_score > 0 and a_score > 0))
+        btts_threshold = round(float(goals_art.get("base_rates", {}).get("btts", 0.566)) * 100, 1) if goals_art else 56.6
+        hit_btts = bool((p_btts >= btts_threshold) == (h_score > 0 and a_score > 0))
 
         # Corners
         Xc = pd.DataFrame([row]).reindex(columns=c_feats, fill_value=np.nan)
@@ -281,6 +290,7 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
             "prob_over_25": p_over25,
             "hit_over_25": hit_over25,
             "prob_btts": p_btts,
+            "btts_threshold": btts_threshold,
             "hit_btts": hit_btts,
             "expected_corners": exp_corners,
             "corner_error": corner_err,
@@ -406,7 +416,7 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
 
     # Save to JSON cache
     DATA_DIR.joinpath("processed").mkdir(parents=True, exist_ok=True)
-    with open(SUMMARY_JSON, "w", encoding="utf-8") as f:
+    with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(result_payload, f, ensure_ascii=False, indent=2)
 
     logger.info(f"Audit completed: {total_m} matches processed and saved to SQLite & JSON.")
@@ -415,6 +425,7 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
 
 if __name__ == "__main__":
     import sys
-    res = run_model_audit(force_recalc=True)
+    season_arg = sys.argv[1] if len(sys.argv) > 1 else "2026_27"
+    res = run_model_audit(season=season_arg, force_recalc=True)
     print("Zero-leakage audit updated successfully!")
-    print("Overall metrics:", res["overall"])
+    print(f"Overall metrics for {season_arg}:", res["overall"])

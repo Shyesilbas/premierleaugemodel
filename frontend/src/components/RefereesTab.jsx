@@ -1,3 +1,5 @@
+import { handleTeamBadgeError } from '../utils/imageFallbacks';
+import { formatSeasonLabel } from '../utils/dateFormatters';
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Search, 
@@ -10,6 +12,7 @@ import {
 } from 'lucide-react';
 import { getTeam } from '../data/teams';
 import MatchDetailModal from './MatchDetailModal';
+import { getRefereeDetails, getReferees } from '../services/refereeService';
 
 export default function RefereesTab({ selectedSeason, onSelectMatch }) {
   const [referees, setReferees] = useState([]);
@@ -32,8 +35,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
   // Fetch Referees list
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/referees?season=${activeSeason}`)
-      .then(res => res.json())
+    getReferees(activeSeason)
       .then(data => {
         setReferees(data?.referees || []);
         setLoading(false);
@@ -49,8 +51,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
     setSelectedReferee(refName);
     setRefereeDetail(null);
     setLoadingDetail(true);
-    fetch(`/api/referees/${encodeURIComponent(refName)}?season=${activeSeason}`)
-      .then(res => res.json())
+    getRefereeDetails(refName, activeSeason)
       .then(data => {
         setRefereeDetail(data);
         setLoadingDetail(false);
@@ -186,7 +187,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
           <div>
             <h3 className="text-base font-black text-slate-900">Hakem listesi</h3>
             <p className="mt-0.5 text-xs text-slate-500">
-              {loading ? 'Hakem verileri yükleniyor...' : `${sortedReferees.length} hakem · ${activeSeason === 'all' ? 'Kariyer istatistikleri' : `${activeSeason.replace('_', '-')} sezonu`}`}
+              {loading ? 'Hakem verileri yükleniyor...' : `${sortedReferees.length} hakem · ${activeSeason === 'all' ? 'Kariyer istatistikleri' : `${formatSeasonLabel(activeSeason)} sezonu`}`}
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -324,7 +325,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                 </div>
                 <div>
                   <h3 className="text-lg sm:text-xl font-black text-slate-900">{selectedReferee}</h3>
-                  <span className="text-xs text-slate-500">Premier League • {activeSeason === 'all' ? 'Kariyer' : `${activeSeason.replace('_', '-')} sezonu`}</span>
+                  <span className="text-xs text-slate-500">Premier League • {activeSeason === 'all' ? 'Kariyer' : `${formatSeasonLabel(activeSeason)} sezonu`}</span>
                 </div>
               </div>
 
@@ -444,19 +445,19 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                           >
                             <div className="flex items-center justify-between text-[11px] text-slate-500 sm:w-16 sm:shrink-0 sm:flex-col sm:items-start sm:gap-1">
                               <span className="font-mono font-semibold">H{m.gameweek ?? '-'}</span>
-                              {activeSeason === 'all' && <span>{String(m.season || '').replace('_', '-')}</span>}
+                              {activeSeason === 'all' && <span>{formatSeasonLabel(m.season || '')}</span>}
                             </div>
 
                             <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 sm:gap-3">
                               <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
                                 <span className="truncate text-xs font-semibold text-slate-800">{homeTeam.short || m.home_name}</span>
-                                <img src={homeTeam.badge} alt={m.home_name} className="h-6 w-6 shrink-0 object-contain" onError={(e) => { e.currentTarget.src = '/badges/1.svg'; }} />
+                                <img src={homeTeam.badge} alt={m.home_name} className="h-6 w-6 shrink-0 object-contain" onError={handleTeamBadgeError} />
                               </div>
                               <span className="min-w-[64px] shrink-0 text-center font-mono text-xs font-black text-slate-900">
                                 {m.home_score ?? '-'} - {m.away_score ?? '-'}
                               </span>
                               <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                                <img src={awayTeam.badge} alt={m.away_name} className="h-6 w-6 shrink-0 object-contain" onError={(e) => { e.currentTarget.src = '/badges/1.svg'; }} />
+                                <img src={awayTeam.badge} alt={m.away_name} className="h-6 w-6 shrink-0 object-contain" onError={handleTeamBadgeError} />
                                 <span className="truncate text-xs font-semibold text-slate-800">{awayTeam.short || m.away_name}</span>
                               </div>
                             </div>

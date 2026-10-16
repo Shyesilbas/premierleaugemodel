@@ -120,13 +120,13 @@ def _goal_matrices(
         feature_models[alpha] = model
         matrices[f"feat_alpha{alpha:g}"] = model.predict_matrices(test)
 
-    # Blend recency-weighted DC and the alpha=100 feature model geometrically.
+    # Blend recency-weighted DC and the alpha=10.0 feature model geometrically.
     dc_home, dc_away = dc_models["dc_hl365"].lambdas(test)
-    feat_home, feat_away = feature_models[100.0].lambdas(test)
-    blend_rho = 0.5 * (dc_models["dc_hl365"].rho_ + feature_models[100.0].rho_)
+    feat_home, feat_away = feature_models[10.0].lambdas(test)
+    blend_rho = 0.5 * (dc_models["dc_hl365"].rho_ + feature_models[10.0].rho_)
     matrices["blend_dc_feat"] = matrix_from_lambdas(
-        blend_lambdas(dc_home, feat_home, 0.5),
-        blend_lambdas(dc_away, feat_away, 0.5),
+        blend_lambdas(dc_home, feat_home, 0.25),
+        blend_lambdas(dc_away, feat_away, 0.25),
         blend_rho,
     )
     return matrices

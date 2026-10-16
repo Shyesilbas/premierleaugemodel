@@ -52,6 +52,13 @@ TM_CLUB_MAPPING = {
     677: {"pulse_id": 8, "name": "Ipswich Town", "abbr": "IPS"},
     990: {"pulse_id": 5, "name": "Coventry City", "abbr": "COV"},
     3008: {"pulse_id": 41, "name": "Hull City", "abbr": "HUL"},
+    1031: {"pulse_id": 163, "name": "Luton Town", "abbr": "LUT"},
+    350: {"pulse_id": 18, "name": "Sheffield United", "abbr": "SHU"},
+    180: {"pulse_id": 20, "name": "Southampton", "abbr": "SOU"},
+    1003: {"pulse_id": 26, "name": "Leicester City", "abbr": "LEI"},
+    1132: {"pulse_id": 43, "name": "Burnley", "abbr": "BUR"},
+    543: {"pulse_id": 38, "name": "Wolverhampton Wanderers", "abbr": "WOL"},
+    379: {"pulse_id": 25, "name": "West Ham United", "abbr": "WHU"},
 }
 
 
@@ -89,7 +96,7 @@ def init_market_value_tables(conn: sqlite3.Connection) -> None:
     """Create team and player market value tables if they don't exist."""
     conn.execute("""
         CREATE TABLE IF NOT EXISTS team_market_values (
-            team_id INTEGER PRIMARY KEY,
+            team_id INTEGER NOT NULL,
             tm_club_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             season TEXT NOT NULL,
@@ -97,7 +104,8 @@ def init_market_value_tables(conn: sqlite3.Connection) -> None:
             market_value_eur REAL NOT NULL,
             squad_size INTEGER,
             avg_market_value_eur REAL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (team_id, season)
         )
     """)
     conn.execute("""
@@ -110,11 +118,96 @@ def init_market_value_tables(conn: sqlite3.Connection) -> None:
             market_value_eur REAL NOT NULL,
             age INTEGER,
             nationality TEXT,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY (team_id) REFERENCES team_market_values(team_id)
+            updated_at TEXT NOT NULL
         )
     """)
     conn.commit()
+
+
+def fetch_historical_seasons_market_values(conn: sqlite3.Connection) -> int:
+    """Fetches authentic historical Transfermarkt squad market values for 2022-2026."""
+    import subprocess
+    import re
+    
+    seasons = [
+        (2022, "2022_23"),
+        (2023, "2023_24"),
+        (2024, "2024_25"),
+        (2025, "2025_26")
+    ]
+    now_utc = datetime.now(timezone.utc).isoformat()
+    total_inserted = 0
+
+    for s_year, s_str in seasons:
+        logger.info(f"Fetching historical market values for season {s_str} ({s_year})...")
+        try:
+            cmd = [
+                "curl", "-s", "-L",
+                "-A", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                f"https://www.transfermarkt.com/premier-league/startseite/wettbewerb/GB1/plus/?saison_id={s_year}"
+            ]
+            html = subprocess.check_output(cmd).decode("utf-8")
+            pattern = (
+                r'/kader/verein/(\d+)/saison_id/' + str(s_year) +
+                r'\"[^>]*>(\d+)</a>.*?<td class=\"rechts\">€([0-9\.,]+)(bn|m|k|Th\.)</td><td class=\"rechts\"><a title=\"([^\"]+)\"[^>]*>€([0-9\.,]+)(bn|m|k|Th\.)</a>'
+            )
+            matches = re.findall(pattern, html, re.DOTALL)
+            logger.info(f"   -> Parsed {len(matches)} clubs for {s_str}")
+
+            for tm_id_str, sq_size, avg_val, avg_unit, club_title, tot_val, tot_unit in matches:
+                tm_id = int(tm_id_str)
+                meta = TM_CLUB_MAPPING.get(tm_id)
+                if not meta:
+                    logger.warning(f"Unmapped club {tm_id}: {club_title}")
+                    continue
+
+                tot_flt = float(tot_val.replace(",", "."))
+                if tot_unit == "bn":
+                    mv_eur_m = tot_flt * 1000.0
+                elif tot_unit in ("k", "Th."):
+                    mv_eur_m = tot_flt / 1000.0
+                else:
+                    mv_eur_m = tot_flt
+
+                avg_flt = float(avg_val.replace(",", "."))
+                if avg_unit == "bn":
+                    avg_eur_m = avg_flt * 1000.0
+                elif avg_unit in ("k", "Th."):
+                    avg_eur_m = avg_flt / 1000.0
+                else:
+                    avg_eur_m = avg_flt
+
+                entry = {
+                    "team_id": meta["pulse_id"],
+                    "tm_club_id": tm_id,
+                    "name": meta["name"],
+                    "season": s_str,
+                    "market_value": int(mv_eur_m * 1_000_000),
+                    "market_value_eur": round(mv_eur_m, 2),
+                    "squad_size": int(sq_size),
+                    "avg_market_value_eur": round(avg_eur_m, 2),
+                    "updated_at": now_utc,
+                }
+                conn.execute("""
+                    INSERT INTO team_market_values (
+                        team_id, tm_club_id, name, season, market_value,
+                        market_value_eur, squad_size, avg_market_value_eur, updated_at
+                    ) VALUES (
+                        :team_id, :tm_club_id, :name, :season, :market_value,
+                        :market_value_eur, :squad_size, :avg_market_value_eur, :updated_at
+                    ) ON CONFLICT(team_id, season) DO UPDATE SET
+                        market_value = excluded.market_value,
+                        market_value_eur = excluded.market_value_eur,
+                        squad_size = excluded.squad_size,
+                        avg_market_value_eur = excluded.avg_market_value_eur,
+                        updated_at = excluded.updated_at
+                """, entry)
+                total_inserted += 1
+            conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to fetch historical market values for {s_str}: {e}")
+
+    return total_inserted
 
 
 def run_pipeline() -> None:
@@ -122,14 +215,23 @@ def run_pipeline() -> None:
     conn = sqlite3.connect(DB_PATH)
     init_market_value_tables(conn)
 
+    # 1. Fetch Historical Seasons (2022-2026)
+    hist_inserted = fetch_historical_seasons_market_values(conn)
+    logger.info(f"Historical market values ingestion done: {hist_inserted} records saved.")
+
     teams_data: List[Dict[str, Any]] = []
     players_data: List[Dict[str, Any]] = []
     now_utc = datetime.now(timezone.utc).isoformat()
 
-    total_clubs = len(TM_CLUB_MAPPING)
+    current_2026_27_ids = [
+        281, 11, 631, 31, 985, 148, 762, 1237, 1148, 405,
+        989, 873, 703, 289, 399, 29, 931, 677, 990, 3008
+    ]
+    total_clubs = len(current_2026_27_ids)
     idx = 0
 
-    for tm_club_id, meta in TM_CLUB_MAPPING.items():
+    for tm_club_id in current_2026_27_ids:
+        meta = TM_CLUB_MAPPING[tm_club_id]
         idx += 1
         pulse_id = meta["pulse_id"]
         club_name = meta["name"]
@@ -165,7 +267,7 @@ def run_pipeline() -> None:
         conn.execute("""
             INSERT INTO team_market_values (team_id, tm_club_id, name, season, market_value, market_value_eur, squad_size, avg_market_value_eur, updated_at)
             VALUES (:team_id, :tm_club_id, :name, :season, :market_value, :market_value_eur, :squad_size, :avg_market_value_eur, :updated_at)
-            ON CONFLICT(team_id) DO UPDATE SET
+            ON CONFLICT(team_id, season) DO UPDATE SET
                 market_value = excluded.market_value,
                 market_value_eur = excluded.market_value_eur,
                 squad_size = excluded.squad_size,

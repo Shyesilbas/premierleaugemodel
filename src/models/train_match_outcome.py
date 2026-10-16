@@ -59,11 +59,16 @@ FORM_SUFFIXES = ["roll_10", "ewma_02"]
 MARKET_VALUE_FEATURES = [
     "log_mv_ratio",
     "effective_log_mv_ratio",
-    "mv_diff",
-    "mv_prior_weight_home",
-    "mv_prior_weight_away",
     "is_promoted_home",
     "is_promoted_away",
+]
+XI_RATING_FEATURES = [
+    "xi_rating_diff",
+    "xi_att_vs_def_diff",
+]
+TACTICAL_1X2_FEATURES = [
+    "home_pass_pct_roll_10",
+    "away_pass_pct_roll_10",
 ]
 STRENGTH_OF_SCHEDULE_FEATURES = [
     "schedule_difficulty_diff",
@@ -73,7 +78,7 @@ VENUE_FORM_FEATURES = [
     "home_venue_xg_for_ewma_02", "home_venue_xg_against_ewma_02",
     "away_venue_xg_for_ewma_02", "away_venue_xg_against_ewma_02",
     "home_venue_goals_for_roll_5", "home_venue_goals_against_roll_5",
-    "away_venue_goals_for_roll_5", "away_venue_goals_against_roll_5",
+    "away_venue_goals_against_roll_5",
     "home_venue_shots_ontarget_for_roll_5", "home_venue_shots_ontarget_against_roll_5",
     "away_venue_shots_ontarget_for_roll_5", "away_venue_shots_ontarget_against_roll_5",
     "venue_xg_diff", "venue_goals_diff", "venue_sot_diff",
@@ -82,25 +87,41 @@ STRENGTH_FEATURES = [
     "elo_home", "elo_away", "elo_diff",
     "elo_venue_home", "elo_venue_away", "elo_venue_diff",
     "ppg_home", "ppg_away", "ppg_diff",
-    "gdpg_home", "gdpg_away", "gdpg_diff",
-] + MARKET_VALUE_FEATURES + STRENGTH_OF_SCHEDULE_FEATURES + VENUE_FORM_FEATURES
+    "gdpg_away", "gdpg_diff",
+] + MARKET_VALUE_FEATURES + XI_RATING_FEATURES + STRENGTH_OF_SCHEDULE_FEATURES + VENUE_FORM_FEATURES
 STRENGTH_FEATURES_O25 = [
     "elo_home", "elo_away",
     "elo_venue_home", "elo_venue_away",
     "ppg_home", "ppg_away",
     "gdpg_home", "gdpg_away",
     "effective_log_mv_ratio",
-    "home_venue_xg_for_ewma_02",
-    "away_venue_xg_for_ewma_02",
-    "home_venue_goals_for_roll_5",
+    "home_venue_xg_for_ewma_02", "home_venue_xg_against_ewma_02",
+    "away_venue_xg_for_ewma_02", "away_venue_xg_against_ewma_02",
+    "home_venue_goals_for_roll_5", "home_venue_goals_against_roll_5",
     "away_venue_goals_for_roll_5",
 ]
 DIFF_FEATURES = [f"sdiff_{t}_{s}" for t in ("goals", "sot") for s in ("e02", "r10")]
-EXTRA_1X2 = ["exp_match_xg_10", "xg_diff_10"]
-EXTRA_O25 = ["exp_match_shots_5", "exp_match_xg_10"]
+EXTRA_1X2 = ["xg_diff_10"] + TACTICAL_1X2_FEATURES
+EXTRA_O25 = [
+    "exp_match_shots_5",
+    "home_xi_att_vs_away_def",
+    "away_xi_att_vs_home_def",
+    "home_big_chances_against_roll_10",
+    "away_big_chances_against_roll_10",
+]
 DRAW_BALANCE_FEATURES = [
     "abs_elo_diff", "abs_elo_venue_diff", "abs_ppg_diff", "abs_gdpg_diff", "abs_xg_diff_10",
 ]
+NOISY_1X2_FORM_EXCLUSIONS = {
+    "home_shots_ontarget_against_ewma_02",
+    "home_xg_for_ewma_02",
+    "away_possession_ewma_02",
+    "away_xg_for_roll_10",
+}
+NOISY_O25_FORM_EXCLUSIONS = {
+    "home_possession_ewma_02",
+    "away_possession_ewma_02",
+}
 
 N_CV_SPLITS = 4
 # Pre-existing policy from earlier paired chronological experiments. This run
@@ -112,8 +133,13 @@ EXCLUDED_1X2_TRAINING_SEASONS = {"2022_23"}
 LOCKED_SEASONS = {"2026_27"}
 
 
-def _form_features() -> List[str]:
-    return [f"{side}_{stat}_{suf}" for side in ("home", "away") for stat in FORM_STATS for suf in FORM_SUFFIXES]
+def _form_features(kind: str = "o25") -> List[str]:
+    cols = [f"{side}_{stat}_{suf}" for side in ("home", "away") for stat in FORM_STATS for suf in FORM_SUFFIXES]
+    if kind == "1x2":
+        cols = [c for c in cols if c not in NOISY_1X2_FORM_EXCLUSIONS]
+    elif kind == "o25":
+        cols = [c for c in cols if c not in NOISY_O25_FORM_EXCLUSIONS]
+    return cols
 
 
 def feature_set(kind: str, columns: List[str], include_draw_propensity: bool = False) -> List[str]:
@@ -127,7 +153,7 @@ def feature_set(kind: str, columns: List[str], include_draw_propensity: bool = F
         draw_balance = []
         diffs = []
         strength = STRENGTH_FEATURES_O25
-    wanted = strength + diffs + _form_features() + extra + draw_balance
+    wanted = strength + diffs + _form_features(kind) + extra + draw_balance
     if kind == "1x2" and include_draw_propensity:
         wanted = wanted + list(DRAW_PROPENSITY_FEATURES)
     missing = [c for c in wanted if c not in columns]
@@ -1048,8 +1074,8 @@ def train_match_outcome_models(
             optimal_weight, blend_curve = choose_blend_weight(
                 oof_probs, dc_oof_probs, oof_targets, labels
             )
-            # Evaluate holdout on the exact production architecture (50/50 Golden Balance)
-            evaluation_blend_weight = 0.50
+            # Evaluate holdout on the 80/20 ensemble balance (80% Logistic Regression / 20% Dixon-Coles)
+            evaluation_blend_weight = 0.80
             ensemble_oof = blend_log(oof_probs, dc_oof_probs, evaluation_blend_weight)
             ensemble_calibrator = fit_probability_calibrator(
                 ensemble_oof, pd.Series(oof_targets), labels
@@ -1184,9 +1210,9 @@ def train_match_outcome_models(
                 calibration_fit, calibration_fit,
                 kickoff_times=calibration_fit["kickoff_millis"] if "kickoff_millis" in calibration_fit else None,
             )
-            # 50/50 Golden Balance (50% Dixon-Coles / 50% Logistic Regression)
-            production_blend_weight = 0.50
-            production_blend_curve = [0.50]
+            # 80/20 Balance (80% Logistic Regression / 20% Dixon-Coles)
+            production_blend_weight = 0.80
+            production_blend_curve = [0.80]
             production_ensemble_oof = blend_log(
                 production_oof_probs, production_dc_oof, production_blend_weight
             )

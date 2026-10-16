@@ -15,6 +15,11 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
+import urllib.request
+try:
+    from bs4 import BeautifulSoup  # type: ignore
+except ImportError:
+    BeautifulSoup = None  # type: ignore
 
 import numpy as np
 import pandas as pd
@@ -42,6 +47,13 @@ from src.analytics.team_tactics import get_team_tactical_profile
 from src.analytics.team_scenarios import get_team_scenario_profile
 from src.analytics.team_attackers import get_team_attacking_leaders
 from src.analytics.model_audit import run_model_audit
+from src.analytics.player_ratings import (
+    analyze_match_starting_xis,
+    get_player_dynamic_rating,
+    calculate_detailed_match_score,
+    calculate_single_match_score,
+    get_match_bookings_map,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api_server")
@@ -1261,30 +1273,69 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
     try:
         conn = sqlite3.connect(DATA_DIR / "premier_league.db")
         conn.row_factory = sqlite3.Row
+        
+        # 1. Team market value for requested season (fallback to latest available)
         t_row = conn.execute(
-            "SELECT market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ?",
-            (team_id,)
+            "SELECT season, market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ? AND season = ?",
+            (team_id, season)
         ).fetchone()
+        if not t_row:
+            t_row = conn.execute(
+                "SELECT season, market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ? ORDER BY season DESC LIMIT 1",
+                (team_id,)
+            ).fetchone()
+
+        # 2. Complete 5-year historical market value evolution for this team
+        hist_rows = conn.execute(
+            "SELECT season, market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ? ORDER BY season ASC",
+            (team_id,)
+        ).fetchall()
+        
+        history_list = []
+        for hr in hist_rows:
+            s_val = hr["season"]
+            mv_val = hr["market_value_eur"]
+            avg_val = hr["avg_market_value_eur"]
+            history_list.append({
+                "season": s_val,
+                "season_label": s_val.replace("_", "/"),
+                "market_value_eur": mv_val,
+                "avg_market_value_eur": avg_val,
+                "squad_size": hr["squad_size"],
+                "formatted": f"€{mv_val/1000:.2f}B" if mv_val >= 1000 else f"€{mv_val:,.1f}M",
+                "avg_formatted": f"€{avg_val:.2f}M" if avg_val else "-",
+            })
+
         if t_row:
             mv_eur = t_row["market_value_eur"]
             tm_team_data = {
+                "season": t_row["season"],
                 "market_value_eur": mv_eur,
                 "avg_market_value_eur": t_row["avg_market_value_eur"],
                 "squad_size": t_row["squad_size"],
                 "formatted": f"€{mv_eur/1000:.2f}B" if mv_eur >= 1000 else f"€{mv_eur:,.1f}M",
-                "avg_formatted": f"€{t_row['avg_market_value_eur']:.2f}M"
+                "avg_formatted": f"€{t_row['avg_market_value_eur']:.2f}M",
+                "history": history_list,
             }
         
+        # 3. Player market values for requested season (fallback to latest season)
         p_rows = conn.execute(
-            "SELECT name, market_value_eur FROM player_market_values WHERE team_id = ?",
-            (team_id,)
+            "SELECT player_id, name, market_value_eur FROM player_market_values WHERE team_id = ? AND season = ?",
+            (team_id, season)
         ).fetchall()
+        if not p_rows:
+            p_rows = conn.execute(
+                "SELECT player_id, name, market_value_eur FROM player_market_values WHERE team_id = ? ORDER BY season DESC",
+                (team_id,)
+            ).fetchall()
+
         for pr in p_rows:
             norm_name = pr["name"].lower().strip()
-            player_values_map[norm_name] = pr["market_value_eur"]
+            val_obj = {"eur": pr["market_value_eur"], "tm_id": pr["player_id"]}
+            player_values_map[norm_name] = val_obj
             parts = norm_name.split()
             if len(parts) > 1:
-                player_values_map[parts[-1]] = pr["market_value_eur"]
+                player_values_map[parts[-1]] = val_obj
         conn.close()
     except Exception as e:
         logger.warning(f"Could not load market values for team {team_id}: {e}")
@@ -1333,11 +1384,18 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
         # Match player market value
         p_name_lower = (p.get("name") or "").lower().strip()
         last_name = p_name_lower.split()[-1] if p_name_lower else ""
-        p_mv = player_values_map.get(p_name_lower) or player_values_map.get(last_name)
+        p_val_entry = player_values_map.get(p_name_lower) or player_values_map.get(last_name)
+        if isinstance(p_val_entry, dict):
+            p_mv = p_val_entry.get("eur")
+            p_tm_id = p_val_entry.get("tm_id")
+        else:
+            p_mv = p_val_entry
+            p_tm_id = None
         p_mv_fmt = f"€{p_mv:.1f}M" if p_mv is not None and p_mv >= 1.0 else (f"€{int(p_mv*1000)}k" if p_mv is not None and p_mv > 0 else None)
 
         squad.append({
             "id": pid,
+            "tm_id": p_tm_id,
             "name": p.get("name"),
             "shirt": p.get("shirt"),
             "position": p.get("position"),
@@ -1364,8 +1422,11 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
         x.get("shirt") if x.get("shirt") is not None else 999
     ))
 
+    team_resp = dict(team_meta)
+    team_resp["market_value"] = tm_team_data
+
     return {
-        "team": team_meta,
+        "team": team_resp,
         "season": season,
         "record": {"wins": wins, "draws": draws, "losses": losses, "played": len(matches_list), "gf": gf, "ga": ga},
         "market_value": tm_team_data,
@@ -1373,6 +1434,299 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
         "next_match": next_match,
         "squad": squad,
     }
+
+
+TEAM_ID_TO_TM_CLUB_ID = {
+    1: 11,    # Arsenal
+    2: 405,   # Aston Villa
+    4: 631,   # Chelsea
+    5: 990,   # Coventry City
+    6: 873,   # Crystal Palace
+    7: 29,    # Everton
+    8: 677,   # Ipswich Town
+    9: 399,   # Leeds United
+    10: 31,   # Liverpool
+    11: 281,  # Manchester City
+    12: 985,  # Manchester United
+    13: 1003, # Leicester City
+    15: 703,  # Nottingham Forest
+    18: 350,  # Sheffield United
+    20: 180,  # Southampton
+    21: 148,  # Tottenham Hotspur
+    23: 762,  # Newcastle United
+    25: 379,  # West Ham United
+    26: 1003, # Leicester City
+    29: 289,  # Sunderland
+    34: 931,  # Fulham
+    38: 543,  # Wolverhampton Wanderers
+    41: 3008, # Hull City
+    43: 1132, # Burnley
+    90: 1132, # Burnley
+    127: 989, # Bournemouth
+    130: 1148,# Brentford
+    131: 1237,# Brighton & Hove Albion
+    163: 1031,# Luton Town
+}
+
+
+def _parse_tm_fee(fee_str: str) -> Tuple[float, str, str]:
+    if not fee_str:
+        return 0.0, "-", "Bilinmiyor"
+    s = fee_str.strip().lower()
+    if "free" in s or "ablösefrei" in s:
+        return 0.0, "Bedelsiz", "Serbest"
+    if "end of loan" in s or "leih-ende" in s:
+        return 0.0, "Kira Sonu", "Kiradan Geri Dönüş"
+    if s.startswith("loan") or "leihe" in s:
+        m = re.search(r"€([\d\.]+)\s*(m|k|th)", s)
+        if m:
+            val = float(m.group(1))
+            unit = m.group(2)
+            eur = round(val if unit == "m" else val / 1000.0, 2)
+            return eur, f"Kiralık (€{eur:.1f}M)", "Kiralık"
+        return 0.0, "Kiralık", "Kiralık"
+
+    m = re.search(r"€([\d\.]+)\s*(m|k|th)", s)
+    if m:
+        val = float(m.group(1))
+        unit = m.group(2)
+        eur = round(val if unit == "m" else val / 1000.0, 2)
+        fmt = f"€{eur:.1f}M" if eur >= 1.0 else f"€{int(eur*1000)}k"
+        return eur, fmt, "Bonservis"
+
+    return 0.0, fee_str.strip(), "Diğer"
+
+
+def fetch_club_transfers_from_tm(tm_club_id: int, season_year: int, team_id: int, team_name: str) -> Dict[str, Any]:
+    url = f"https://www.transfermarkt.com/club/transfers/verein/{tm_club_id}/saison_id/{season_year}"
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    })
+    try:
+        html = urllib.request.urlopen(req, timeout=12).read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        logger.error(f"Error downloading Transfermarkt transfers HTML for tm_club_id={tm_club_id}, season={season_year}: {e}")
+        return {
+            "team_id": team_id,
+            "tm_club_id": tm_club_id,
+            "team_name": team_name,
+            "season": f"{season_year}_{str(season_year+1)[2:]}",
+            "summary": {
+                "total_spent_eur": 0, "total_spent_formatted": "€0",
+                "total_income_eur": 0, "total_income_formatted": "€0",
+                "net_balance_eur": 0, "net_balance_formatted": "€0",
+                "arrivals_count": 0, "departures_count": 0
+            },
+            "arrivals": [],
+            "departures": []
+        }
+
+    soup = BeautifulSoup(html, "html.parser") if BeautifulSoup else None
+    arrivals, departures = [], []
+    season_str = f"{str(season_year)[2:]}/{str(season_year+1)[2:]}"
+
+    conn = sqlite3.connect(DATA_DIR / "premier_league.db")
+    conn.row_factory = sqlite3.Row
+
+    if soup:
+        for b in soup.select(".box"):
+            h2 = b.select_one("h2")
+            if not h2:
+                continue
+            title = h2.get_text(strip=True)
+            is_arr = "Arrivals" in title
+            is_dep = "Departures" in title
+            if not (is_arr or is_dep):
+                continue
+
+            target_list = arrivals if is_arr else departures
+            direction = "in" if is_arr else "out"
+
+            for r in b.select("table.items > tbody > tr"):
+                name_el = r.select_one(".hauptlink a")
+                if not name_el:
+                    continue
+                player_name = name_el.get_text(strip=True)
+                p_href = name_el.get("href", "")
+                pid_m = re.search(r"/spieler/(\d+)", p_href)
+                player_id = pid_m.group(1) if pid_m else None
+
+                # Position
+                tables = r.select("table.inline-table")
+                pos = "-"
+                if tables:
+                    tds = tables[0].select("tr td")
+                    if len(tds) >= 2:
+                        pos = tds[-1].get_text(strip=True)
+
+                # Age
+                age_el = r.select_one("td.zentriert")
+                age_val = None
+                if age_el and age_el.get_text(strip=True).isdigit():
+                    age_val = int(age_el.get_text(strip=True))
+
+                # Counterpart
+                counterpart = "Bilinmiyor"
+                counterpart_cid = None
+                counterpart_badge = None
+                if len(tables) > 1:
+                    cp_a = tables[1].select_one(".hauptlink a")
+                    if cp_a:
+                        counterpart = cp_a.get_text(strip=True)
+                        cid_m = re.search(r"/verein/(\d+)", cp_a.get("href", ""))
+                        if cid_m:
+                            counterpart_cid = int(cid_m.group(1))
+                    cp_img = tables[1].select_one("img.tiny_wappen")
+                    if cp_img:
+                        counterpart_badge = cp_img.get("src")
+
+                fee_el = r.select_one(".rechts a, .rechts")
+                fee_str = fee_el.get_text(strip=True) if fee_el else "-"
+                fee_eur, fee_fmt, t_type = _parse_tm_fee(fee_str)
+
+                # Look up market value if exists in db
+                mv_eur = 0.0
+                mv_fmt = "—"
+                if player_id:
+                    try:
+                        row = conn.execute("SELECT market_value_eur FROM player_market_values WHERE player_id = ? ORDER BY season DESC LIMIT 1", (player_id,)).fetchone()
+                        if row and row["market_value_eur"]:
+                            mv_eur = round(row["market_value_eur"] / 1000.0, 2)
+                            mv_fmt = f"€{mv_eur:.1f}M" if mv_eur >= 1.0 else f"€{int(mv_eur*1000)}k"
+                    except Exception:
+                        pass
+
+                transfer_id = None
+                if fee_el and fee_el.name == "a":
+                    t_href = fee_el.get("href", "")
+                    t_m = re.search(r"/transfer_id/(\d+)", t_href)
+                    if t_m:
+                        transfer_id = t_m.group(1)
+
+                target_list.append({
+                    "id": transfer_id or f"{player_id or 0}_{direction}_{season_year}",
+                    "player_id": player_id,
+                    "player_name": player_name,
+                    "position": pos,
+                    "age": age_val,
+                    "counterpart_club_name": counterpart,
+                    "counterpart_club_id": counterpart_cid,
+                    "counterpart_club_badge": counterpart_badge,
+                    "direction": direction,
+                    "transfer_type": t_type,
+                    "fee_eur": fee_eur,
+                    "fee_formatted": fee_fmt,
+                    "market_value_eur": mv_eur,
+                    "market_value_formatted": mv_fmt,
+                    "date": f"{season_year}-07-01",
+                    "date_formatted": f"1 Tem {season_year}",
+                    "season": season_str
+                })
+
+    conn.close()
+
+    spent = round(sum(x["fee_eur"] for x in arrivals), 2)
+    income = round(sum(x["fee_eur"] for x in departures), 2)
+    net = round(income - spent, 2)
+
+    team_info = teams_dict.get(team_id, {})
+    return {
+        "team_id": team_id,
+        "tm_club_id": tm_club_id,
+        "team_name": team_name or team_info.get("name"),
+        "team_badge": team_info.get("badge") or f"/badges/{team_id}.svg",
+        "season": f"{season_year}_{str(season_year+1)[2:]}",
+        "summary": {
+            "total_spent_eur": spent,
+            "total_spent_formatted": f"€{spent:.1f}M" if spent >= 1.0 else f"€{int(spent*1000)}k",
+            "total_income_eur": income,
+            "total_income_formatted": f"€{income:.1f}M" if income >= 1.0 else f"€{int(income*1000)}k",
+            "net_balance_eur": net,
+            "net_balance_formatted": f"+€{net:.1f}M" if net > 0 else (f"-€{abs(net):.1f}M" if net < 0 else "€0"),
+            "arrivals_count": len(arrivals),
+            "departures_count": len(departures)
+        },
+        "arrivals": arrivals,
+        "departures": departures
+    }
+
+
+@app.get("/api/teams/{team_id}/transfers")
+async def get_team_transfers(team_id: int, season: Optional[str] = None):
+    """
+    Returns verified Transfermarkt transfer history (arrivals and departures)
+    with fees, loan types, and counterparty clubs for the requested season.
+    """
+    conn = sqlite3.connect(DATA_DIR / "premier_league.db")
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS team_season_transfers_cache (
+                team_id INTEGER,
+                season TEXT,
+                tm_club_id INTEGER,
+                data_json TEXT,
+                updated_at TEXT,
+                PRIMARY KEY (team_id, season)
+            )
+        """)
+        conn.commit()
+
+        season_key = (season or "2026_27").strip()
+        if season_key == "all":
+            season_key = "2026_27"
+
+        # Check season cache
+        cache_row = conn.execute(
+            "SELECT data_json FROM team_season_transfers_cache WHERE team_id = ? AND season = ?",
+            (team_id, season_key)
+        ).fetchone()
+        if cache_row and cache_row["data_json"]:
+            try:
+                return json.loads(cache_row["data_json"])
+            except Exception:
+                pass
+
+        # Resolve tm_club_id
+        tm_row = conn.execute(
+            "SELECT tm_club_id FROM team_market_values WHERE team_id = ? LIMIT 1",
+            (team_id,)
+        ).fetchone()
+        tm_club_id = tm_row["tm_club_id"] if tm_row else TEAM_ID_TO_TM_CLUB_ID.get(team_id)
+        if not tm_club_id:
+            raise HTTPException(status_code=404, detail="Transfermarkt club ID not found for team")
+
+        team_info = teams_dict.get(team_id, {})
+        team_name = team_info.get("name", "")
+
+        # If 2026_27 and already in team_transfers_cache, use it!
+        if season_key == "2026_27":
+            old_row = conn.execute("SELECT data_json FROM team_transfers_cache WHERE team_id = ?", (team_id,)).fetchone()
+            if old_row and old_row["data_json"]:
+                data = json.loads(old_row["data_json"])
+                conn.execute(
+                    "INSERT OR REPLACE INTO team_season_transfers_cache (team_id, season, tm_club_id, data_json, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+                    (team_id, season_key, tm_club_id, old_row["data_json"])
+                )
+                conn.commit()
+                return data
+
+        # Scrape and cache for requested season
+        try:
+            season_year = int(season_key.split("_")[0])
+        except Exception:
+            season_year = 2026
+
+        result = fetch_club_transfers_from_tm(tm_club_id, season_year, team_id, team_name)
+        conn.execute(
+            "INSERT OR REPLACE INTO team_season_transfers_cache (team_id, season, tm_club_id, data_json, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+            (team_id, season_key, tm_club_id, json.dumps(result))
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
 
 
 @app.get("/api/teams/tactics")
@@ -1399,10 +1753,73 @@ def get_team_scenarios(team_id: int, season: Optional[str] = "all"):
     return get_team_scenario_profile(team_id, season or "all")
 
 
+_season_players_cache: Dict[str, Dict[int, Dict[str, Any]]] = {}
+
+def get_season_players_map(season: str) -> Dict[int, Dict[str, Any]]:
+    global _season_players_cache, _player_logs_dict
+    if season in _season_players_cache:
+        return _season_players_cache[season]
+
+    if _player_logs_dict is None and players_logs_file.exists():
+        get_player_match_logs(0)
+    logs_map = _player_logs_dict or {}
+
+    s_map: Dict[int, Dict[str, Any]] = {}
+    for pid_str, plist in logs_map.items():
+        for l in plist:
+            if l.get("season") == season:
+                try:
+                    pid_int = int(pid_str)
+                    if pid_int not in s_map or l.get("team_id"):
+                        s_map[pid_int] = {
+                            "teamId": l.get("team_id"),
+                            "teamName": l.get("team_name"),
+                        }
+                except (ValueError, TypeError):
+                    pass
+
+    if season == "2026_27":
+        staff_path = DATA_DIR / "processed" / "team_staff.json"
+        if staff_path.exists():
+            try:
+                with staff_path.open("r", encoding="utf-8") as sf:
+                    staff_data = json.load(sf)
+                    for tid_str, tdata in staff_data.get("2026_27", {}).items():
+                        t_name = tdata.get("name")
+                        for p in tdata.get("players", []):
+                            if "id" in p:
+                                try:
+                                    pid_int = int(p["id"])
+                                    s_map[pid_int] = {
+                                        "teamId": int(tid_str),
+                                        "teamName": t_name,
+                                    }
+                                except (ValueError, TypeError):
+                                    pass
+            except Exception:
+                pass
+
+    _season_players_cache[season] = s_map
+    return s_map
+
+
 @app.get("/api/players")
-def get_players(team_id: Optional[int] = None, search: Optional[str] = None, limit: int = 100):
-    """Returns player directory with optional filters."""
+def get_players(team_id: Optional[int] = None, search: Optional[str] = None, season: Optional[str] = None, limit: int = 100):
+    """Returns player directory with optional filters including season-accurate club rosters."""
     result = all_players
+    if season and season != "all":
+        s_map = get_season_players_map(season)
+        updated_result = []
+        for p in result:
+            pid = p.get("id")
+            if pid in s_map:
+                p_copy = dict(p)
+                p_copy["teamId"] = s_map[pid]["teamId"]
+                if s_map[pid]["teamName"]:
+                    p_copy["teamName"] = s_map[pid]["teamName"]
+                updated_result.append(p_copy)
+        result = updated_result
+
     if team_id:
         result = [p for p in result if p.get("teamId") == team_id]
     if search:
@@ -1448,12 +1865,13 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
         conn.row_factory = sqlite3.Row
         last_name = p_name.split()[-1] if p_name else ""
         row = conn.execute(
-            "SELECT market_value, market_value_eur, position, age, nationality FROM player_market_values WHERE LOWER(name) = LOWER(?) OR LOWER(name) LIKE LOWER(?) ORDER BY market_value DESC LIMIT 1",
+            "SELECT player_id, market_value, market_value_eur, position, age, nationality FROM player_market_values WHERE LOWER(name) = LOWER(?) OR LOWER(name) LIKE LOWER(?) ORDER BY market_value DESC LIMIT 1",
             (p_name, f"%{last_name}%")
         ).fetchone()
         if row:
             mv_eur = row["market_value_eur"]
             tm_mv = {
+                "tm_id": row["player_id"],
                 "market_value_eur": mv_eur,
                 "formatted": f"€{mv_eur:,.1f}M" if mv_eur >= 1.0 else f"€{int(mv_eur*1000)}k"
             }
@@ -1467,6 +1885,23 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
     tot_goals = sum(m.get("goals", 0) for m in logs)
     tot_assists = sum(m.get("assists", 0) for m in logs)
 
+    bookings_map = get_match_bookings_map()
+    pos = player.get("position") or "M"
+
+    enriched_matches = []
+    valid_ratings = []
+    for m in logs:
+        m_copy = dict(m)
+        m_score = calculate_single_match_score(m_copy, pos, bookings_map, player_id)
+        if m_score is not None and m_score.get("overall") is not None:
+            m_copy["rating"] = m_score["overall"]
+            valid_ratings.append(m_score["overall"])
+        else:
+            m_copy["rating"] = None
+        enriched_matches.append(m_copy)
+
+    avg_rating = round(sum(valid_ratings) / len(valid_ratings), 1) if valid_ratings else None
+
     return {
         "player": player_data,
         "season": season,
@@ -1475,9 +1910,194 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
             "minutes": tot_mins,
             "goals": tot_goals,
             "assists": tot_assists,
+            "average_rating": avg_rating,
+            "rated_matches_count": len(valid_ratings),
         },
-        "matches": logs,
+        "matches": enriched_matches,
     }
+
+
+TR_MONTHS = {
+    '01': 'Oca', '02': 'Şub', '03': 'Mar', '04': 'Nis', '05': 'May', '06': 'Haz',
+    '07': 'Tem', '08': 'Ağu', '09': 'Eyl', '10': 'Eki', '11': 'Kas', '12': 'Ara'
+}
+
+def _format_date_tr(iso_date: str) -> str:
+    try:
+        parts = iso_date.split('-')
+        return f"{int(parts[2])} {TR_MONTHS.get(parts[1], parts[1])} {parts[0]}"
+    except Exception:
+        return iso_date
+
+def _format_player_mv(mv_eur: Optional[float]) -> str:
+    if mv_eur is None:
+        return "—"
+    if mv_eur >= 1000.0:
+        return f"€{mv_eur/1000:.2f}B"
+    if mv_eur >= 1.0:
+        return f"€{mv_eur:,.1f}M"
+    return f"€{int(mv_eur * 1000)}k"
+
+
+@app.get("/api/players/{player_id}/market-value-history")
+def get_player_market_value_history(player_id: str, name: Optional[str] = None):
+    """
+    Returns authentic career market value progression curve & chronological history
+    for a player, sourced from Transfermarkt career evaluations with SQLite fallback.
+    """
+    conn = sqlite3.connect(DATA_DIR / "premier_league.db")
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS player_market_value_history_cache (
+                tm_id TEXT PRIMARY KEY,
+                player_name TEXT,
+                data_json TEXT,
+                updated_at TEXT
+            )
+        """)
+        conn.commit()
+
+        # 1. Resolve Transfermarkt player record
+        tm_row = conn.execute(
+            "SELECT * FROM player_market_values WHERE player_id = ? ORDER BY season DESC LIMIT 1",
+            (str(player_id),)
+        ).fetchone()
+
+        if not tm_row and name:
+            last = name.split()[-1] if name else ""
+            tm_row = conn.execute(
+                "SELECT * FROM player_market_values WHERE LOWER(name) = LOWER(?) OR LOWER(name) LIKE LOWER(?) ORDER BY market_value DESC LIMIT 1",
+                (name, f"%{last}%")
+            ).fetchone()
+
+        if not tm_row:
+            # Check all_players registry by ID
+            pl_match = next((p for p in all_players if str(p.get("id")) == str(player_id)), None)
+            if pl_match:
+                pname = pl_match.get("name") or f"{pl_match.get('firstName', '')} {pl_match.get('lastName', '')}".strip()
+                last = pname.split()[-1] if pname else ""
+                tm_row = conn.execute(
+                    "SELECT * FROM player_market_values WHERE LOWER(name) = LOWER(?) OR LOWER(name) LIKE LOWER(?) ORDER BY market_value DESC LIMIT 1",
+                    (pname, f"%{last}%")
+                ).fetchone()
+
+        tm_id = str(tm_row["player_id"]) if tm_row else (str(player_id) if str(player_id).isdigit() and len(str(player_id)) >= 5 else None)
+        resolved_name = tm_row["name"] if tm_row else (name or f"Oyuncu {player_id}")
+        resolved_pos = tm_row["position"] if tm_row else None
+        resolved_team_id = tm_row["team_id"] if tm_row else None
+
+        # 2. Check SQLite cache
+        cached_data = None
+        if tm_id:
+            c_row = conn.execute(
+                "SELECT data_json FROM player_market_value_history_cache WHERE tm_id = ?",
+                (tm_id,)
+            ).fetchone()
+            if c_row and c_row["data_json"]:
+                try:
+                    cached_data = json.loads(c_row["data_json"])
+                except Exception:
+                    cached_data = None
+
+        # 3. If not cached, fetch from Transfermarkt API
+        if not cached_data and tm_id:
+            try:
+                import urllib.request
+                url = f"https://transfermarkt-api.fly.dev/players/{tm_id}/market_value"
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    cached_data = json.loads(resp.read().decode())
+                    conn.execute(
+                        "INSERT OR REPLACE INTO player_market_value_history_cache (tm_id, player_name, data_json, updated_at) VALUES (?, ?, ?, datetime('now'))",
+                        (tm_id, resolved_name, json.dumps(cached_data))
+                    )
+                    conn.commit()
+            except Exception as e:
+                logger.warning(f"Could not fetch TM market value for player {tm_id}: {e}")
+
+        # 4. Parse history points
+        raw_history = (cached_data or {}).get("marketValueHistory", [])
+        history_points = []
+        prev_val = None
+
+        if raw_history:
+            for item in raw_history:
+                mv_raw = item.get("marketValue", 0)
+                mv_eur = round(mv_raw / 1_000_000, 2)
+                chg_pct = round(((mv_eur - prev_val) / prev_val) * 100, 1) if prev_val and prev_val > 0 else None
+                chg_diff = round(mv_eur - prev_val, 2) if prev_val is not None else None
+                prev_val = mv_eur
+                dt = item.get("date", "")
+
+                history_points.append({
+                    "date": dt,
+                    "year": dt.split("-")[0] if "-" in dt else "",
+                    "date_formatted": _format_date_tr(dt),
+                    "age": item.get("age"),
+                    "club_name": item.get("clubName") or "Kulüp",
+                    "market_value": mv_raw,
+                    "market_value_eur": mv_eur,
+                    "formatted": _format_player_mv(mv_eur),
+                    "change_pct": chg_pct,
+                    "change_diff": chg_diff,
+                })
+        else:
+            # Fallback to SQLite seasonal records
+            seasonal_rows = conn.execute(
+                "SELECT season, market_value, market_value_eur, age FROM player_market_values WHERE player_id = ? OR LOWER(name) = LOWER(?) ORDER BY season ASC",
+                (tm_id or "", resolved_name)
+            ).fetchall()
+            for s_row in seasonal_rows:
+                mv_eur = s_row["market_value_eur"]
+                chg_pct = round(((mv_eur - prev_val) / prev_val) * 100, 1) if prev_val and prev_val > 0 else None
+                chg_diff = round(mv_eur - prev_val, 2) if prev_val is not None else None
+                prev_val = mv_eur
+                s_label = s_row["season"].replace("_", "/")
+                history_points.append({
+                    "date": s_row["season"],
+                    "year": s_row["season"].split("_")[0],
+                    "date_formatted": f"{s_label} Sezonu",
+                    "age": s_row["age"],
+                    "club_name": "Premier League",
+                    "market_value": s_row["market_value"],
+                    "market_value_eur": mv_eur,
+                    "formatted": _format_player_mv(mv_eur),
+                    "change_pct": chg_pct,
+                    "change_diff": chg_diff,
+                })
+
+        first_point = history_points[0] if history_points else None
+        current_point = history_points[-1] if history_points else None
+        peak_point = max(history_points, key=lambda x: x["market_value_eur"]) if history_points else None
+
+        total_growth_pct = None
+        total_growth_diff = None
+        if first_point and current_point and first_point["market_value_eur"] > 0:
+            total_growth_pct = round(((current_point["market_value_eur"] - first_point["market_value_eur"]) / first_point["market_value_eur"]) * 100, 1)
+            total_growth_diff = round(current_point["market_value_eur"] - first_point["market_value_eur"], 2)
+
+        team_meta = teams_dict.get(resolved_team_id, {}) if resolved_team_id else {}
+        team_badge = team_meta.get("badge") or (f"/badges/{resolved_team_id}.svg" if resolved_team_id else None)
+
+        return {
+            "player_id": player_id,
+            "tm_id": tm_id,
+            "name": resolved_name,
+            "position": resolved_pos,
+            "team_id": resolved_team_id,
+            "team_name": team_meta.get("name"),
+            "team_badge": team_badge,
+            "current_value": current_point,
+            "peak_value": peak_point,
+            "first_value": first_point,
+            "total_growth_pct": total_growth_pct,
+            "total_growth_diff": total_growth_diff,
+            "evaluations_count": len(history_points),
+            "history": history_points,
+        }
+    finally:
+        conn.close()
 
 
 @app.get("/api/match/{match_id}/details")
@@ -1541,19 +2161,185 @@ def get_match_full_details(match_id: int):
             "xg_quality": xg_quality,
         }
 
+        # Parse match events (goals, assists, cards, subs) from details
+        det_events = d.get("events", [])
+        sub_on = {}
+        sub_off = {}
+        goals = {}
+        assists = {}
+        yc = {}
+        rc = {}
+        for ev in det_events:
+            etype = ev.get("type")
+            pid = ev.get("personId")
+            clk = ev.get("clock", {}).get("label", "")
+            min_v = 0
+            if clk:
+                try:
+                    min_v = int(clk.split("'")[0].split("+")[0])
+                except Exception:
+                    pass
+            if etype == "G" and pid:
+                goals[pid] = goals.get(pid, 0) + 1
+            elif etype == "AS" and pid:
+                assists[pid] = assists.get(pid, 0) + 1
+            elif etype == "S" and pid:
+                if ev.get("description") == "ON":
+                    sub_on[pid] = min_v
+                elif ev.get("description") == "OFF":
+                    sub_off[pid] = min_v
+            elif etype == "B" and pid:
+                if ev.get("description") == "Y":
+                    yc[pid] = yc.get(pid, 0) + 1
+                elif ev.get("description") == "R":
+                    rc[pid] = rc.get(pid, 0) + 1
+
+        # Parse detailed stream events (shots, fouls, penalties, offsides, saves)
+        fouls_lost = {}
+        fouls_won = {}
+        shots = {}
+        shots_ot = {}
+        offsides = {}
+        pens_won = {}
+        pens_conceded = {}
+        pens_missed = {}
+        saves = {}
+
+        stream_events = []
+        if raw_stream.exists():
+            try:
+                with open(raw_stream, "r", encoding="utf-8") as f:
+                    st = json.load(f)
+                    stream_events = st.get("events", {}).get("content", [])
+            except Exception:
+                stream_events = []
+        events = stream_events
+
+        # Find team starting goalkeepers and player team mapping
+        player_team_map = {}
+        team_gk_map = {}
+        for idx, tl in enumerate(d.get("teamLists", [])):
+            if not tl or not isinstance(tl, dict):
+                continue
+            tid = tl.get("teamId")
+            for p in tl.get("lineup", []):
+                pid = p.get("id")
+                if pid:
+                    player_team_map[pid] = tid
+                    pos = p.get("matchPosition") or p.get("info", {}).get("position") or "M"
+                    if pos in ("G", "GK") and tid not in team_gk_map:
+                        team_gk_map[tid] = pid
+            for p in tl.get("substitutes", []):
+                pid = p.get("id")
+                if pid:
+                    player_team_map[pid] = tid
+
+        team_ids_list = list(team_gk_map.keys())
+
+        for se in stream_events:
+            stype = se.get("type", "")
+            stext = se.get("text", "")
+            pids = se.get("playerIds", [])
+            if not pids:
+                continue
+            p0 = pids[0]
+            if stype == "free kick lost":
+                fouls_lost[p0] = fouls_lost.get(p0, 0) + 1
+            elif stype == "free kick won":
+                fouls_won[p0] = fouls_won.get(p0, 0) + 1
+            elif stype in ["goal", "attempt saved", "miss", "attempt blocked"]:
+                shots[p0] = shots.get(p0, 0) + 1
+                if stype in ["goal", "attempt saved"]:
+                    shots_ot[p0] = shots_ot.get(p0, 0) + 1
+                if stype == "attempt saved":
+                    # The defending opponent goalkeeper gets a save
+                    shooter_tid = player_team_map.get(p0)
+                    opp_tid = next((t for t in team_ids_list if t != shooter_tid), None)
+                    if opp_tid and opp_tid in team_gk_map:
+                        opp_gk_id = team_gk_map[opp_tid]
+                        saves[opp_gk_id] = saves.get(opp_gk_id, 0) + 1
+            elif stype == "offside":
+                offsides[p0] = offsides.get(p0, 0) + 1
+            elif stype == "penalty lost":
+                pens_conceded[p0] = pens_conceded.get(p0, 0) + 1
+            elif stype == "penalty won":
+                pens_won[p0] = pens_won.get(p0, 0) + 1
+            elif stype in ["penalty miss", "penalty saved"] or "penalty missed" in stext.lower():
+                pens_missed[p0] = pens_missed.get(p0, 0) + 1
+
         teams_info = d.get("teams", [])
+        h_score_val = teams_info[0].get("score") if len(teams_info) > 0 else None
+        a_score_val = teams_info[1].get("score") if len(teams_info) > 1 else None
+        is_match_completed = (h_score_val is not None and a_score_val is not None)
+
         for idx, tl in enumerate(d.get("teamLists", [])):
             if not tl or not isinstance(tl, dict):
                 continue
             t_obj = teams_info[idx].get("team", {}) if idx < len(teams_info) else {}
             score_val = teams_info[idx].get("score") if idx < len(teams_info) else None
+            opp_score_val = teams_info[1 - idx].get("score") if len(teams_info) > 1 and (1 - idx) < len(teams_info) else 0
 
             starters = []
+            team_overall_sum = 0.0
+            team_attack_sum = 0.0
+            team_defense_sum = 0.0
+            team_cards_risk_sum = 0.0
+            starter_count = 0
+
             for p in tl.get("lineup", []):
                 pid = p.get("id")
                 reg_p = player_registry_map.get(int(pid), {}) if pid else {}
                 photo = resolve_player_photo(pid, reg_p)
                 pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
+                
+                # Dynamic player rating calculation
+                p_rat = {}
+                if pid:
+                    try:
+                        p_rat = get_player_dynamic_rating(pid, as_of_match_id=match_id)
+                    except Exception:
+                        p_rat = {}
+
+                p_mins = sub_off.get(pid, 90)
+                p_stats = {
+                    "minutes": p_mins,
+                    "goals": goals.get(pid, 0),
+                    "assists": assists.get(pid, 0),
+                    "shots": shots.get(pid, 0),
+                    "shots_ontarget": shots_ot.get(pid, 0),
+                    "fouls_committed": fouls_lost.get(pid, 0),
+                    "fouls_won": fouls_won.get(pid, 0),
+                    "offsides": offsides.get(pid, 0),
+                    "yellow_cards": yc.get(pid, 0),
+                    "red_cards": rc.get(pid, 0),
+                    "penalties_won": pens_won.get(pid, 0),
+                    "penalties_conceded": pens_conceded.get(pid, 0),
+                    "penalties_missed": pens_missed.get(pid, 0),
+                    "saves": saves.get(pid, 0),
+                }
+
+                if is_match_completed:
+                    perf = calculate_detailed_match_score(
+                        p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0
+                    )
+                    overall_r = perf["overall"]
+                    att_r = perf["attack"]
+                    def_r = perf["defense"]
+                    match_r = perf["overall"]
+                else:
+                    overall_r = p_rat.get("overall_rating", 6.0)
+                    att_r = p_rat.get("attack_rating", 6.0)
+                    def_r = p_rat.get("defense_rating", 6.0)
+                    match_r = None
+
+                cards_r = p_rat.get("cards_risk", 3.0)
+
+                team_overall_sum += overall_r
+                team_attack_sum += att_r
+                team_defense_sum += def_r
+                team_cards_risk_sum += cards_r
+                starter_count += 1
+
                 starters.append({
                     "id": pid,
                     "name": p.get("name", {}).get("display"),
@@ -1562,6 +2348,18 @@ def get_match_full_details(match_id: int):
                     "captain": p.get("captain", False),
                     "country": p.get("nationalTeam", {}).get("country"),
                     "photo_url": photo,
+                    "rating": overall_r,
+                    "match_rating": match_r,
+                    "form_rating": p_rat.get("overall_rating", 6.0),
+                    "is_match_rating": is_match_completed,
+                    "attack_rating": att_r,
+                    "defense_rating": def_r,
+                    "cards_risk": cards_r,
+                    "form_label": p_rat.get("form_label", "Normal"),
+                    "trend": p_rat.get("trend", "stable"),
+                    "penalties_conceded": pens_conceded.get(pid, 0),
+                    "penalties_won": pens_won.get(pid, 0),
+                    "penalties_missed": pens_missed.get(pid, 0),
                 })
 
             subs = []
@@ -1570,12 +2368,58 @@ def get_match_full_details(match_id: int):
                 reg_p = player_registry_map.get(int(pid), {}) if pid else {}
                 photo = resolve_player_photo(pid, reg_p)
                 pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
+                
+                p_rat = {}
+                if pid:
+                    try:
+                        p_rat = get_player_dynamic_rating(pid, as_of_match_id=match_id)
+                    except Exception:
+                        p_rat = {}
+
+                p_mins = (90 - sub_on.get(pid, 75)) if pid in sub_on else 0
+                p_stats = {
+                    "minutes": p_mins,
+                    "goals": goals.get(pid, 0),
+                    "assists": assists.get(pid, 0),
+                    "shots": shots.get(pid, 0),
+                    "shots_ontarget": shots_ot.get(pid, 0),
+                    "fouls_committed": fouls_lost.get(pid, 0),
+                    "fouls_won": fouls_won.get(pid, 0),
+                    "offsides": offsides.get(pid, 0),
+                    "yellow_cards": yc.get(pid, 0),
+                    "red_cards": rc.get(pid, 0),
+                    "penalties_won": pens_won.get(pid, 0),
+                    "penalties_conceded": pens_conceded.get(pid, 0),
+                    "penalties_missed": pens_missed.get(pid, 0),
+                    "saves": saves.get(pid, 0),
+                }
+
+                if is_match_completed and p_mins > 0:
+                    perf = calculate_detailed_match_score(
+                        p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0
+                    )
+                    sub_r = perf["overall"]
+                    match_r = perf["overall"]
+                else:
+                    sub_r = p_rat.get("overall_rating", 6.0)
+                    match_r = None
+
                 subs.append({
                     "id": pid,
                     "name": p.get("name", {}).get("display"),
                     "shirt": p.get("matchShirtNumber"),
                     "position": pos,
                     "photo_url": photo,
+                    "rating": sub_r,
+                    "match_rating": match_r,
+                    "form_rating": p_rat.get("overall_rating", 6.0),
+                    "is_match_rating": is_match_completed,
+                    "cards_risk": p_rat.get("cards_risk", 3.0),
+                    "form_label": p_rat.get("form_label", "Normal"),
+                    "trend": p_rat.get("trend", "stable"),
+                    "penalties_conceded": pens_conceded.get(pid, 0),
+                    "penalties_won": pens_won.get(pid, 0),
+                    "penalties_missed": pens_missed.get(pid, 0),
                 })
 
             # Sort starters & substitutes by position: Kaleci (GK) -> Savunma (DEF) -> Orta Saha (MID) -> Forvet (FWD)
@@ -1590,12 +2434,19 @@ def get_match_full_details(match_id: int):
                 form_label = str(formation_obj) if formation_obj else "4-3-3"
                 form_matrix = []
 
+            divisor = starter_count if starter_count > 0 else 1
             lineups.append({
                 "team_id": tl.get("teamId"),
                 "team_name": t_obj.get("name"),
                 "score": score_val,
                 "formation": form_label,
                 "formation_matrix": form_matrix,
+                "team_ratings": {
+                    "overall": round(team_overall_sum / divisor, 2),
+                    "attack": round(team_attack_sum / divisor, 2),
+                    "defense": round(team_defense_sum / divisor, 2),
+                    "cards_risk": round(team_cards_risk_sum / divisor, 2),
+                },
                 "starters": starters,
                 "substitutes": subs,
             })
@@ -1712,70 +2563,6 @@ def get_match_full_details(match_id: int):
             }
         ]
 
-    # Player Match Performance Table (from details & stream)
-    events = []
-    if raw_stream.exists():
-        with open(raw_stream, "r", encoding="utf-8") as f:
-            st = json.load(f)
-            events = st.get("events", {}).get("content", [])
-
-    # Compute player metrics from details and stream
-    det_events = d.get("events", [])
-    sub_on = {}
-    sub_off = {}
-    goals = {}
-    assists = {}
-    yc = {}
-    rc = {}
-
-    for ev in det_events:
-        etype = ev.get("type")
-        pid = ev.get("personId")
-        clk = ev.get("clock", {}).get("label", "")
-        min_v = 0
-        if clk:
-            try:
-                min_v = int(clk.split("'")[0].split("+")[0])
-            except:
-                pass
-        if etype == "G" and pid:
-            goals[pid] = goals.get(pid, 0) + 1
-        elif etype == "AS" and pid:
-            assists[pid] = assists.get(pid, 0) + 1
-        elif etype == "S" and pid:
-            if ev.get("description") == "ON":
-                sub_on[pid] = min_v
-            elif ev.get("description") == "OFF":
-                sub_off[pid] = min_v
-        elif etype == "B" and pid:
-            if ev.get("description") == "Y":
-                yc[pid] = yc.get(pid, 0) + 1
-            elif ev.get("description") == "R":
-                rc[pid] = rc.get(pid, 0) + 1
-
-    fouls_lost = {}
-    fouls_won = {}
-    shots = {}
-    shots_ot = {}
-    offsides = {}
-
-    for se in events:
-        stype = se.get("type")
-        pids = se.get("playerIds", [])
-        if not pids:
-            continue
-        p0 = pids[0]
-        if stype == "free kick lost":
-            fouls_lost[p0] = fouls_lost.get(p0, 0) + 1
-        elif stype == "free kick won":
-            fouls_won[p0] = fouls_won.get(p0, 0) + 1
-        elif stype in ["goal", "attempt saved", "miss", "attempt blocked"]:
-            shots[p0] = shots.get(p0, 0) + 1
-            if stype in ["goal", "attempt saved"]:
-                shots_ot[p0] = shots_ot.get(p0, 0) + 1
-        elif stype == "offside":
-            offsides[p0] = offsides.get(p0, 0) + 1
-
     # Populate home & away player cards
     for idx, tl in enumerate(d.get("teamLists", [])):
         if not tl or not isinstance(tl, dict):
@@ -1783,6 +2570,8 @@ def get_match_full_details(match_id: int):
         side = "home" if idx == 0 else "away"
         lineup_p = tl.get("lineup", [])
         subs_p = tl.get("substitutes", [])
+        score_val = teams_info[idx].get("score") if idx < len(teams_info) else None
+        opp_score_val = teams_info[1 - idx].get("score") if len(teams_info) > 1 and (1 - idx) < len(teams_info) else 0
 
         # Process starters
         for p in lineup_p:
@@ -1793,6 +2582,33 @@ def get_match_full_details(match_id: int):
             reg_p = player_registry_map.get(int(pid), {}) if pid else {}
             photo = resolve_player_photo(pid, reg_p)
             pos = p.get("matchPosition") or p.get("info", {}).get("position", "M")
+
+            p_stats = {
+                "minutes": mins,
+                "goals": goals.get(pid, 0),
+                "assists": assists.get(pid, 0),
+                "shots": shots.get(pid, 0),
+                "shots_ontarget": shots_ot.get(pid, 0),
+                "fouls_committed": fouls_lost.get(pid, 0),
+                "fouls_won": fouls_won.get(pid, 0),
+                "offsides": offsides.get(pid, 0),
+                "yellow_cards": yc.get(pid, 0),
+                "red_cards": rc.get(pid, 0),
+                "penalties_won": pens_won.get(pid, 0),
+                "penalties_conceded": pens_conceded.get(pid, 0),
+                "penalties_missed": pens_missed.get(pid, 0),
+                "saves": saves.get(pid, 0),
+            }
+
+            p_rating = 6.0
+            p_attack = 6.0
+            p_defense = 6.0
+            if is_match_completed:
+                perf = calculate_detailed_match_score(p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0)
+                p_rating = perf["overall"]
+                p_attack = perf.get("attack")
+                p_defense = perf.get("defense")
+
             player_stats[side].append({
                 "id": pid,
                 "name": p.get("name", {}).get("display", "Unknown"),
@@ -1811,6 +2627,17 @@ def get_match_full_details(match_id: int):
                 "offsides": offsides.get(pid, 0),
                 "yellow_cards": yc.get(pid, 0),
                 "red_cards": rc.get(pid, 0),
+                "penalties_won": pens_won.get(pid, 0),
+                "penalties_conceded": pens_conceded.get(pid, 0),
+                "penalties_missed": pens_missed.get(pid, 0),
+                "saves": saves.get(pid, 0),
+                "rating": p_rating,
+                "attack_rating": p_attack,
+                "defense_rating": p_defense,
+                "team_score": score_val or 0,
+                "opp_score": opp_score_val or 0,
+                "match_rating": p_rating if is_match_completed else None,
+                "is_match_rating": is_match_completed,
             })
 
         # Process substitutes who actually played
@@ -1822,6 +2649,33 @@ def get_match_full_details(match_id: int):
             reg_p = player_registry_map.get(int(pid), {}) if pid else {}
             photo = resolve_player_photo(pid, reg_p)
             pos = p.get("matchPosition") or p.get("info", {}).get("position", "M")
+
+            p_stats = {
+                "minutes": mins,
+                "goals": goals.get(pid, 0),
+                "assists": assists.get(pid, 0),
+                "shots": shots.get(pid, 0),
+                "shots_ontarget": shots_ot.get(pid, 0),
+                "fouls_committed": fouls_lost.get(pid, 0),
+                "fouls_won": fouls_won.get(pid, 0),
+                "offsides": offsides.get(pid, 0),
+                "yellow_cards": yc.get(pid, 0),
+                "red_cards": rc.get(pid, 0),
+                "penalties_won": pens_won.get(pid, 0),
+                "penalties_conceded": pens_conceded.get(pid, 0),
+                "penalties_missed": pens_missed.get(pid, 0),
+                "saves": saves.get(pid, 0),
+            }
+
+            p_rating = 6.0
+            p_attack = 6.0
+            p_defense = 6.0
+            if is_match_completed:
+                perf = calculate_detailed_match_score(p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0)
+                p_rating = perf["overall"]
+                p_attack = perf.get("attack")
+                p_defense = perf.get("defense")
+
             player_stats[side].append({
                 "id": pid,
                 "name": p.get("name", {}).get("display", "Unknown"),
@@ -1840,6 +2694,17 @@ def get_match_full_details(match_id: int):
                 "offsides": offsides.get(pid, 0),
                 "yellow_cards": yc.get(pid, 0),
                 "red_cards": rc.get(pid, 0),
+                "penalties_won": pens_won.get(pid, 0),
+                "penalties_conceded": pens_conceded.get(pid, 0),
+                "penalties_missed": pens_missed.get(pid, 0),
+                "saves": saves.get(pid, 0),
+                "rating": p_rating,
+                "attack_rating": p_attack,
+                "defense_rating": p_defense,
+                "team_score": score_val or 0,
+                "opp_score": opp_score_val or 0,
+                "match_rating": p_rating if is_match_completed else None,
+                "is_match_rating": is_match_completed,
             })
 
         # Sort player_stats by position: Kaleci -> Savunma -> Orta Saha -> Forvet
@@ -2112,7 +2977,12 @@ def get_model_audit(
 
 
 @app.get("/api/predict")
-def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: Optional[str] = None):
+def predict_match(
+    home_id: int = Query(...),
+    away_id: int = Query(...),
+    season: Optional[str] = None,
+    match_id: Optional[int] = None,
+):
     """
     Computes real-time micro-metrics and match predictions between two teams
     using trained models and the latest available team rolling statistics.
@@ -2129,6 +2999,7 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     team_states, strength_state, until, draw_state = get_live_state(season)
     target_season = str(season) if season and season != "all" else CURRENT_SEASON
     gameweek: Optional[float] = None
+    target_match_id: Optional[int] = None
 
     # Reference date & referee: use the scheduled (unplayed) fixture of this pairing if it exists
     referee_info: Optional[Dict[str, Any]] = None
@@ -2141,6 +3012,11 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             if not upcoming.empty:
                 fx = upcoming.iloc[0]
                 match_date = pd.Timestamp(fx["match_date"])
+                if pd.notnull(fx.get("match_id")):
+                    try:
+                        target_match_id = int(fx["match_id"])
+                    except Exception:
+                        pass
                 if pd.notnull(fx.get("season")):
                     target_season = str(fx["season"])
                 if pd.notnull(fx.get("gameweek")):
@@ -2183,6 +3059,7 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     exp_throws = max(20.0, min(50.0, exp_throws))
     throws_alpha = throws_artifact.get("count_dispersion_alpha", 0.0)
     prob_t335 = count_tail_probability(exp_throws, throws_alpha, 33) * 100
+    prob_t345 = count_tail_probability(exp_throws, throws_alpha, 34) * 100
     prob_t365 = count_tail_probability(exp_throws, throws_alpha, 36) * 100
 
     # 3. Saves Prediction
@@ -2241,21 +3118,26 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
                 source = "model" if gate == "model" else "model_matrix"
             goals_extra[key] = {"pct": round(p_line * 100.0, 1), "source": source}
 
-        goals_extra["btts_pct"] = round(float(btts_prob(score_matrix)[0]) * 100.0, 1)
+        # BTTS from bivariate score matrix with dynamic Bayesian prior threshold
+        raw_btts = float(btts_prob(score_matrix)[0])
+        btts_prior = float(goals_artifact.get("base_rates", {}).get("btts", 0.566))
+        goals_extra["btts_pct"] = round(raw_btts * 100.0, 1)
         goals_extra["btts_source"] = "model_matrix"
+        goals_extra["btts_prior_pct"] = round(btts_prior * 100.0, 1)
+        goals_extra["btts_prediction"] = "KG Var" if raw_btts >= btts_prior else "KG Yok"
         goals_extra["expected_home_goals"] = round(float(lam_h[0]), 2)
         goals_extra["expected_away_goals"] = round(float(lam_a[0]), 2)
         goals_extra["expected_total_goals"] = round(float(lam_h[0] + lam_a[0]), 2)
 
         # Enforce mathematical monotonicity: P(Over 1.5) >= P(Over 2.5) >= P(Over 3.5)
         p_15 = goals_extra["over_1.5"]["pct"]
-        p_25 = min(goals_extra["over_2.5"]["pct"], p_15)
-        p_35 = min(goals_extra["over_3.5"]["pct"], p_25)
+        p_25 = min(p_15, goals_extra["over_2.5"]["pct"])
+        p_35 = min(p_25, goals_extra["over_3.5"]["pct"])
         goals_extra["over_2.5"]["pct"] = p_25
         goals_extra["over_3.5"]["pct"] = p_35
 
         over_source = goals_extra["over_2.5"]["source"]
-        prob_o25 = float(goals_extra["over_2.5"]["pct"])
+        prob_o25 = float(p_25)
     else:
         probs_o25 = outcome_artifact["model_o25"].predict_proba(_safe_features(simulated_df, o25_features))
         calibrator_o25 = outcome_artifact.get("calibrators", {}).get("o25")
@@ -2355,12 +3237,16 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     total_exp_crn = home_exp_crn + away_exp_crn
     home_c_share = max(0.20, min(0.80, home_exp_crn / total_exp_crn)) if total_exp_crn > 0 else 0.55
 
-    h_th_for = float(simulated_df.get("home_throws_roll_5", pd.Series([18.0])).iloc[0] or 18.0)
-    a_th_for = float(simulated_df.get("away_throws_roll_5", pd.Series([17.0])).iloc[0] or 17.0)
-    h_th_opp = float(simulated_df.get("home_opponent_throws_roll_5", pd.Series([17.0])).iloc[0] or 17.0)
-    a_th_opp = float(simulated_df.get("away_opponent_throws_roll_5", pd.Series([18.0])).iloc[0] or 18.0)
-    home_exp_th = 0.5 * (h_th_for + a_th_opp)
-    away_exp_th = 0.5 * (a_th_for + h_th_opp)
+    h_th_for_5 = float(simulated_df.get("home_throws_roll_5", pd.Series([18.0])).iloc[0] or 18.0)
+    a_th_for_5 = float(simulated_df.get("away_throws_roll_5", pd.Series([17.0])).iloc[0] or 17.0)
+    h_th_opp_5 = float(simulated_df.get("home_opponent_throws_roll_5", pd.Series([17.0])).iloc[0] or 17.0)
+    a_th_opp_5 = float(simulated_df.get("away_opponent_throws_roll_5", pd.Series([18.0])).iloc[0] or 18.0)
+    h_th_for_10 = float(simulated_df.get("home_throws_roll_10", pd.Series([h_th_for_5])).iloc[0] or h_th_for_5)
+    a_th_for_10 = float(simulated_df.get("away_throws_roll_10", pd.Series([a_th_for_5])).iloc[0] or a_th_for_5)
+    h_th_opp_10 = float(simulated_df.get("home_opponent_throws_roll_10", pd.Series([h_th_opp_5])).iloc[0] or h_th_opp_5)
+    a_th_opp_10 = float(simulated_df.get("away_opponent_throws_roll_10", pd.Series([a_th_opp_5])).iloc[0] or a_th_opp_5)
+    home_exp_th = 0.25 * (h_th_for_5 + a_th_opp_5) + 0.25 * (h_th_for_10 + a_th_opp_10)
+    away_exp_th = 0.25 * (a_th_for_5 + h_th_opp_5) + 0.25 * (a_th_for_10 + h_th_opp_10)
     total_exp_th = home_exp_th + away_exp_th
     home_t_share = max(0.25, min(0.75, home_exp_th / total_exp_th)) if total_exp_th > 0 else 0.51
 
@@ -2372,6 +3258,19 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
     away_exp_sv = 0.5 * (a_sv + h_sot_for * 0.70)
     total_exp_sv = home_exp_sv + away_exp_sv
     home_s_share = max(0.20, min(0.80, home_exp_sv / total_exp_sv)) if total_exp_sv > 0 else 0.48
+
+    # 7. Dynamic Starting XI & Form Modulators
+    target_mid = match_id or target_match_id
+    lineup_analysis = None
+    try:
+        lineup_analysis = analyze_match_starting_xis(
+            home_id=home_id,
+            away_id=away_id,
+            match_id=target_mid,
+            referee_avg_cards=ref_avg_c,
+        )
+    except Exception as e:
+        logger.warning(f"Error computing lineup analysis in predict_match: {e}")
 
     return {
         "home_team": home_meta,
@@ -2419,6 +3318,7 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             "expected_home": round(exp_throws * home_t_share, 1),
             "expected_away": round(exp_throws * (1 - home_t_share), 1),
             "prob_over_33_5_pct": round(prob_t335, 1),
+            "prob_over_34_5_pct": round(prob_t345, 1),
             "prob_over_36_5_pct": round(prob_t365, 1),
         },
         "saves": {
@@ -2438,8 +3338,25 @@ def predict_match(home_id: int = Query(...), away_id: int = Query(...), season: 
             "prob_over_2_5_pct": round(prob_off25, 1),
             "prob_over_3_5_pct": round(prob_off35, 1),
             "prob_over_4_5_pct": round(prob_off45, 1),
-        }
+        },
+        "lineup_analysis": lineup_analysis,
     }
+
+
+@app.get("/api/players/{player_id}/rating")
+def get_player_rating_endpoint(player_id: int, as_of_match_id: Optional[int] = None):
+    """
+    Returns player's dynamic 0-10 rating, 5-match EWMA form, season baseline,
+    and cards risk index.
+    """
+    try:
+        data = get_player_dynamic_rating(player_id, as_of_match_id=as_of_match_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Player rating data not found.")
+        return data
+    except Exception as e:
+        logger.warning(f"Error fetching player rating for {player_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/benchmarks")

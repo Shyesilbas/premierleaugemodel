@@ -40,11 +40,13 @@ STAT_COLS = [
     "shots_ontarget_for", "shots_ontarget_against",
     "saves", "possession",
     "offsides_for", "offsides_against",
-    "big_chances_for", "touches_in_opp_box",
+    "big_chances_for", "big_chances_against",
+    "touches_in_opp_box", "touches_in_opp_box_against",
     "fouls_committed", "fouls_drawn",
     "cards_for", "cards_against",
     "xg_for", "xg_against",
     "opponent_elo", "opponent_mv",
+    "pass_pct", "inacc_fwd_pass", "tackle_int",
 ]
 
 # Strictly historical league priors used to fill cold-start NaNs (NO FUTURE LEAKAGE)
@@ -56,11 +58,13 @@ LEAGUE_PRIORS = {
     "saves": 3.1, "possession": 50.0,
     "goals_for": 1.45, "goals_against": 1.45,
     "offsides_for": 1.63, "offsides_against": 1.63,
-    "big_chances_for": 1.8, "touches_in_opp_box": 24.5,
+    "big_chances_for": 1.8, "big_chances_against": 1.8,
+    "touches_in_opp_box": 24.5, "touches_in_opp_box_against": 24.5,
     "fouls_committed": 10.5, "fouls_drawn": 10.5,
     "cards_for": 2.1, "cards_against": 2.1,
     "xg_for": 1.35, "xg_against": 1.35,
     "opponent_elo": 1500.0, "opponent_mv": 600.0,
+    "pass_pct": 81.5, "inacc_fwd_pass": 72.0, "tackle_int": 25.25,
     "xg_diff_10": 0.0, "abs_xg_diff_10": 0.5,
 }
 # Priors for interaction features: per-team side (exp_home_* / exp_away_*) and match totals (exp_match_*)
@@ -188,7 +192,9 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
         h_sot_for = _safe_float(row.get("home_ontarget_scoring_att"), 0.0) * mult_away
         h_sot_against = _safe_float(row.get("away_ontarget_scoring_att"), 0.0) / mult_away
         h_bc_for = _safe_float(row.get("home_big_chance_created"), 1.8) * mult_away
+        h_bc_against = _safe_float(row.get("away_big_chance_created"), 1.8) / mult_away
         h_touch_for = _safe_float(row.get("home_touches_in_opp_box"), 24.0) * mult_away
+        h_touch_against = _safe_float(row.get("away_touches_in_opp_box"), 24.0) / mult_away
         h_xg_for = (
             float(row["statsapi_home_xg"]) * mult_away
             if played and pd.notnull(row.get("statsapi_home_xg"))
@@ -199,6 +205,14 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             if played and pd.notnull(row.get("statsapi_away_xg"))
             else np.nan
         )
+
+        h_tot_p = _safe_float(row.get("home_total_pass"), 0.0)
+        h_acc_p = _safe_float(row.get("home_accurate_pass"), 0.0)
+        h_pass_pct = (h_acc_p / h_tot_p * 100.0) if h_tot_p > 0 else 81.5
+        h_fwd_p = _safe_float(row.get("home_total_fwd_zone_pass"), 0.0)
+        h_acc_fwd_p = _safe_float(row.get("home_accurate_fwd_zone_pass"), 0.0)
+        h_inacc_fwd_p = max(0.0, h_fwd_p - h_acc_fwd_p) if h_fwd_p > 0 else 72.0
+        h_tkl_int = _safe_float(row.get("home_total_tackle"), 16.0) + _safe_float(row.get("home_interception"), 9.25)
 
         records.append({
             "match_id": m_id,
@@ -223,19 +237,24 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "shots_ontarget_against": h_sot_against,
             "saves": _safe_float(row.get("home_saves"), 0.0),
             "possession": _safe_float(row.get("home_possession_percentage"), 50.0),
-            "passes": _safe_float(row.get("home_total_pass"), 0.0),
+            "passes": h_tot_p,
+            "pass_pct": h_pass_pct,
+            "inacc_fwd_pass": h_inacc_fwd_p,
+            "tackle_int": h_tkl_int,
             "fouls_committed": _safe_float(row.get("home_fk_foul_lost"), 10.0),
             "fouls_drawn": _safe_float(row.get("home_fk_foul_won"), 10.0),
             "offsides_for": _safe_float(row.get("home_total_offside"), 1.6),
             "offsides_against": _safe_float(row.get("away_total_offside"), 1.6),
             "big_chances_for": h_bc_for,
+            "big_chances_against": h_bc_against,
             "touches_in_opp_box": h_touch_for,
+            "touches_in_opp_box_against": h_touch_against,
             "cards_for": _safe_float(row.get("home_total_yel_card"), 0.0) + _safe_float(row.get("home_total_red_card"), 0.0),
             "cards_against": _safe_float(row.get("away_total_yel_card"), 0.0) + _safe_float(row.get("away_total_red_card"), 0.0),
             "xg_for": h_xg_for,
             "xg_against": h_xg_against,
             "opponent_elo": a_elo,
-            "opponent_mv": float(mv_map.get(int(row["away_id"]), 600.0)),
+            "opponent_mv": float(mv_map.get((int(row["away_id"]), str(season)), mv_map.get(int(row["away_id"]), 600.0))),
         })
 
         # Away perspective: team is away, opponent is home (strength mult_home)
@@ -244,7 +263,9 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
         a_sot_for = _safe_float(row.get("away_ontarget_scoring_att"), 0.0) * mult_home
         a_sot_against = _safe_float(row.get("home_ontarget_scoring_att"), 0.0) / mult_home
         a_bc_for = _safe_float(row.get("away_big_chance_created"), 1.8) * mult_home
+        a_bc_against = _safe_float(row.get("home_big_chance_created"), 1.8) / mult_home
         a_touch_for = _safe_float(row.get("away_touches_in_opp_box"), 24.0) * mult_home
+        a_touch_against = _safe_float(row.get("home_touches_in_opp_box"), 24.0) / mult_home
         a_xg_for = (
             float(row["statsapi_away_xg"]) * mult_home
             if played and pd.notnull(row.get("statsapi_away_xg"))
@@ -255,6 +276,14 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             if played and pd.notnull(row.get("statsapi_home_xg"))
             else np.nan
         )
+
+        a_tot_p = _safe_float(row.get("away_total_pass"), 0.0)
+        a_acc_p = _safe_float(row.get("away_accurate_pass"), 0.0)
+        a_pass_pct = (a_acc_p / a_tot_p * 100.0) if a_tot_p > 0 else 81.5
+        a_fwd_p = _safe_float(row.get("away_total_fwd_zone_pass"), 0.0)
+        a_acc_fwd_p = _safe_float(row.get("away_accurate_fwd_zone_pass"), 0.0)
+        a_inacc_fwd_p = max(0.0, a_fwd_p - a_acc_fwd_p) if a_fwd_p > 0 else 72.0
+        a_tkl_int = _safe_float(row.get("away_total_tackle"), 16.0) + _safe_float(row.get("away_interception"), 9.25)
 
         records.append({
             "match_id": m_id,
@@ -279,19 +308,24 @@ def build_team_match_history(df: pd.DataFrame) -> pd.DataFrame:
             "shots_ontarget_against": a_sot_against,
             "saves": _safe_float(row.get("away_saves"), 0.0),
             "possession": _safe_float(row.get("away_possession_percentage"), 50.0),
-            "passes": _safe_float(row.get("away_total_pass"), 0.0),
+            "passes": a_tot_p,
+            "pass_pct": a_pass_pct,
+            "inacc_fwd_pass": a_inacc_fwd_p,
+            "tackle_int": a_tkl_int,
             "fouls_committed": _safe_float(row.get("away_fk_foul_lost"), 10.0),
             "fouls_drawn": _safe_float(row.get("away_fk_foul_won"), 10.0),
             "offsides_for": _safe_float(row.get("away_total_offside"), 1.6),
             "offsides_against": _safe_float(row.get("home_total_offside"), 1.6),
             "big_chances_for": a_bc_for,
+            "big_chances_against": a_bc_against,
             "touches_in_opp_box": a_touch_for,
+            "touches_in_opp_box_against": a_touch_against,
             "cards_for": _safe_float(row.get("away_total_yel_card"), 0.0) + _safe_float(row.get("away_total_red_card"), 0.0),
             "cards_against": _safe_float(row.get("home_total_yel_card"), 0.0) + _safe_float(row.get("home_total_red_card"), 0.0),
             "xg_for": a_xg_for,
             "xg_against": a_xg_against,
             "opponent_elo": h_elo,
-            "opponent_mv": float(mv_map.get(int(row["home_id"]), 600.0)),
+            "opponent_mv": float(mv_map.get((int(row["home_id"]), str(season)), mv_map.get(int(row["home_id"]), 600.0))),
         })
 
     long_df = pd.DataFrame(records)
@@ -501,14 +535,85 @@ def compute_team_states(long_df: pd.DataFrame, until: Optional[pd.Timestamp] = N
     return pd.DataFrame.from_dict(rows, orient="index")
 
 
+_XI_MATCH_CACHE: Optional[Tuple[Dict[int, Dict[int, List[Tuple[int, str]]]], Dict[int, Dict[int, List[Tuple[int, str, float, float, float]]]]]] = None
+
+
+def _get_xi_match_lookup():
+    """Pre-indexes match starters and single-match player scores once for fast O(1) chronological replay."""
+    global _XI_MATCH_CACHE
+    if _XI_MATCH_CACHE is not None:
+        return _XI_MATCH_CACHE
+    from collections import defaultdict
+    from src.analytics.player_ratings import (
+        get_all_player_logs,
+        get_all_players_registry,
+        get_match_bookings_map,
+        calculate_single_match_score,
+    )
+    logs_by_player = get_all_player_logs()
+    reg = get_all_players_registry()
+    bmap = get_match_bookings_map()
+
+    match_starters: Dict[int, Dict[int, List[Tuple[int, str]]]] = defaultdict(lambda: defaultdict(list))
+    match_scores: Dict[int, Dict[int, List[Tuple[int, str, float, float, float]]]] = defaultdict(lambda: defaultdict(list))
+
+    for pid_str, plogs in logs_by_player.items():
+        try:
+            pid = int(pid_str)
+        except (ValueError, TypeError):
+            continue
+        pos = str(reg.get(pid, {}).get("position", "M"))
+        for l in plogs:
+            mid = int(l.get("match_id") or 0)
+            tid = int(l.get("team_id") or 0)
+            if not mid or not tid:
+                continue
+            if l.get("started"):
+                match_starters[mid][tid].append((pid, pos))
+            sc = calculate_single_match_score(l, pos, bmap, pid)
+            if sc is not None:
+                match_scores[mid][tid].append((pid, pos, float(sc["overall"]), float(sc["attack"]), float(sc["defense"])))
+
+    _XI_MATCH_CACHE = (match_starters, match_scores)
+    return _XI_MATCH_CACHE
+
+
 def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    Sequential Elo + season-to-date table. Returns strictly pre-match strength features per match
-    and the final state (after the last played match) for live predictions.
+    Sequential Elo + season-to-date table + point-in-time Starting XI dynamic player ratings.
+    Returns strictly pre-match strength features per match and the final state for live predictions.
     """
     df = df if "is_played" in df.columns else prepare_matches(df)
     has_season = "season" in df.columns
     first_season = df["season"].iloc[0] if has_season and len(df) else None
+
+    match_starters, match_scores = _get_xi_match_lookup()
+    player_history: Dict[int, List[Tuple[str, float, float, float]]] = {}
+    team_last_xi: Dict[int, Tuple[float, float, float]] = {}
+    weights_5 = (0.10, 0.15, 0.20, 0.25, 0.30)
+
+    def get_pre_match_player_rating(pid: int, s_str: str) -> Tuple[float, float, float]:
+        hist = player_history.get(pid)
+        if not hist:
+            return (6.0, 6.0, 6.0)
+        s_hist = [h for h in hist if h[0] == s_str]
+        if len(s_hist) < 3:
+            s_hist = hist
+        n_s = len(s_hist)
+        s_ov = sum(h[1] for h in s_hist) / n_s
+        s_at = sum(h[2] for h in s_hist) / n_s
+        s_df = sum(h[3] for h in s_hist) / n_s
+        rec = hist[-5:]
+        n_r = len(rec)
+        if n_r == 5:
+            w = weights_5
+        else:
+            denom = n_r * (n_r + 1) / 2.0
+            w = tuple((i + 1) / denom for i in range(n_r))
+        r_ov = sum(wi * h[1] for wi, h in zip(w, rec))
+        r_at = sum(wi * h[2] for wi, h in zip(w, rec))
+        r_df = sum(wi * h[3] for wi, h in zip(w, rec))
+        return (0.70 * r_ov + 0.30 * s_ov, 0.70 * r_at + 0.30 * s_at, 0.70 * r_df + 0.30 * s_df)
 
     elo: Dict[int, float] = {}
     elo_home_venue: Dict[int, float] = {}
@@ -525,6 +630,7 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     teams_in_prev_season: set[int] = set()
     for _, row in df.iterrows():
         season = row["season"] if has_season else None
+        s_str = str(season or "all")
         if season != current_season:
             teams_in_prev_season = set(table.keys())
             for t in elo:
@@ -537,12 +643,32 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
             current_season = season
 
         h, a = int(row["home_id"]), int(row["away_id"])
+        mid = int(row["match_id"]) if "match_id" in row and pd.notnull(row["match_id"]) else 0
         for t in (h, a):
             is_new_entrant = (t not in elo) or (current_season != first_season and t not in teams_in_prev_season and t not in table)
             if is_new_entrant:
                 elo[t] = ELO_INIT if season == first_season else ELO_NEWCOMER
                 elo_home_venue[t] = ELO_INIT if season == first_season else ELO_NEWCOMER
                 elo_away_venue[t] = ELO_INIT if season == first_season else ELO_NEWCOMER
+
+        # Compute pre-match Starting XI ratings for home and away
+        xi_vals: Dict[int, Tuple[float, float, float]] = {}
+        for tid in (h, a):
+            starters = match_starters.get(mid, {}).get(tid, []) if mid else []
+            if len(starters) >= 7:
+                p_rats = [(pos, *get_pre_match_player_rating(pid, s_str)) for pid, pos in starters]
+                ov = float(np.mean([x[1] for x in p_rats]))
+                att_p = [x[2] for x in p_rats if x[0].upper() in ("F", "M", "FW", "MID", "AM", "RW", "LW", "ST", "CF")]
+                def_p = [x[3] for x in p_rats if x[0].upper() in ("D", "G", "GK", "DEF", "CB", "LB", "RB")]
+                att = float(np.mean(att_p)) if att_p else ov
+                df_r = float(np.mean(def_p)) if def_p else ov
+                team_last_xi[tid] = (ov, att, df_r)
+                xi_vals[tid] = (ov, att, df_r)
+            else:
+                xi_vals[tid] = team_last_xi.get(tid, (6.15, 6.15, 6.15))
+
+        h_xi_ov, h_xi_att, h_xi_def = xi_vals[h]
+        a_xi_ov, a_xi_att, a_xi_def = xi_vals[a]
 
         h_ppg, h_gd = season_form(h)
         a_ppg, a_gd = season_form(a)
@@ -552,10 +678,23 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
             "elo_venue_diff": elo_home_venue[h] - elo_away_venue[a],
             "ppg_home": h_ppg, "ppg_away": a_ppg, "ppg_diff": h_ppg - a_ppg,
             "gdpg_home": h_gd, "gdpg_away": a_gd, "gdpg_diff": h_gd - a_gd,
+            "home_xi_rating": h_xi_ov,
+            "away_xi_rating": a_xi_ov,
+            "xi_rating_diff": h_xi_ov - a_xi_ov,
+            "home_xi_att_vs_away_def": h_xi_att - a_xi_def,
+            "away_xi_att_vs_home_def": a_xi_att - h_xi_def,
+            "xi_att_vs_def_diff": (h_xi_att - a_xi_def) - (a_xi_att - h_xi_def),
         })
 
         if not row["is_played"]:
             continue
+
+        # Update player rating histories AFTER pre-match features are recorded
+        if mid:
+            for tid in (h, a):
+                for pid, _pos, sc_ov, sc_at, sc_df in match_scores.get(mid, {}).get(tid, []):
+                    player_history.setdefault(pid, []).append((s_str, sc_ov, sc_at, sc_df))
+
         hs, as_ = float(row["home_score"]), float(row["away_score"])
         # Overall Elo update
         exp_h = 1.0 / (1.0 + 10 ** ((elo[a] - (elo[h] + ELO_HOME_ADV)) / 400.0))
@@ -588,6 +727,7 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         "elo_away_venue": dict(elo_away_venue),
         "table": {k: list(v) for k, v in table.items()},
         "all_time_played": dict(all_time_played),
+        "xi_ratings": dict(team_last_xi),
         "season": current_season,
     }
     return pd.DataFrame(pre, index=df.index), state
@@ -632,6 +772,7 @@ def advance_strength_state_to_season(
         "elo_home_venue": dict(state.get("elo_home_venue", {})),
         "elo_away_venue": dict(state.get("elo_away_venue", {})),
         "all_time_played": dict(state.get("all_time_played", {})),
+        "xi_ratings": dict(state.get("xi_ratings", {})),
         "table": {},
     }
     for _ in range(target_year - current_year):
@@ -656,25 +797,33 @@ def _team_strength(state: Dict[str, Any], team_id: int, is_home: bool = True) ->
     venue_dict = state.get("elo_home_venue" if is_home else "elo_away_venue", {})
     elo_venue = venue_dict.get(int(team_id), ELO_NEWCOMER)
     pts, gd, n = state.get("table", {}).get(int(team_id), [0.0, 0.0, 0.0])
+    xi_ov, xi_att, xi_def = state.get("xi_ratings", {}).get(int(team_id), (6.15, 6.15, 6.15))
     return {
         "elo": float(elo),
         "elo_venue": float(elo_venue),
         "ppg": (pts + PPG_PRIOR * PRIOR_GAMES) / (n + PRIOR_GAMES),
         "gdpg": gd / (n + PRIOR_GAMES),
+        "xi_rating": float(xi_ov),
+        "xi_attack": float(xi_att),
+        "xi_defense": float(xi_def),
     }
 
 
-def get_team_market_values_map() -> Dict[int, float]:
-    """Returns team_id -> market_value_eur in Millions from SQLite database."""
+def get_team_market_values_map() -> Dict[Any, float]:
+    """Returns (team_id, season) -> market_value_eur in Millions, plus fallback team_id -> market_value_eur."""
     mv_map = {}
     try:
         db_file = Path("data/premier_league.db")
         if db_file.exists():
             con = sqlite3.connect(db_file)
             cur = con.cursor()
-            cur.execute("SELECT team_id, market_value_eur FROM team_market_values")
+            cur.execute("SELECT team_id, season, market_value_eur FROM team_market_values ORDER BY season ASC")
             for r in cur.fetchall():
-                mv_map[int(r[0])] = float(r[1])
+                t_id = int(r[0])
+                s = str(r[1])
+                val = float(r[2])
+                mv_map[(t_id, s)] = val
+                mv_map[t_id] = val
             con.close()
     except Exception as e:
         logger.warning(f"Could not load team market values: {e}")
@@ -718,8 +867,8 @@ def compute_market_value_features(df: pd.DataFrame) -> pd.DataFrame:
         n_h = season_played_counts[s].get(h_id, 0)
         n_a = season_played_counts[s].get(a_id, 0)
 
-        mv_h = mv_map.get(h_id, default_median_mv)
-        mv_a = mv_map.get(a_id, default_median_mv)
+        mv_h = mv_map.get((h_id, s), mv_map.get(h_id, default_median_mv))
+        mv_a = mv_map.get((a_id, s), mv_map.get(a_id, default_median_mv))
 
         # Bayesian prior weight: w = K / (K + N), where K = 8 matches half-life
         w_h = 8.0 / (8.0 + n_h)
@@ -808,17 +957,21 @@ def fill_feature_priors(df: pd.DataFrame) -> pd.DataFrame:
         if df[c].isna().any():
             base_prior = _prior_for(c)
             if c.startswith("home_"):
-                if any(k in c for k in ("xg_for", "goals_for", "shots_for", "shots_ontarget_for")):
+                if any(k in c for k in ("xg_for", "goals_for", "shots_for", "shots_ontarget_for", "big_chances_for")):
                     fill_val = base_prior * h_scale
-                elif any(k in c for k in ("xg_against", "goals_against", "shots_against", "shots_ontarget_against")):
+                elif any(k in c for k in ("xg_against", "goals_against", "shots_against", "shots_ontarget_against", "big_chances_against", "touches_in_opp_box_against")):
                     fill_val = base_prior / h_scale
+                elif "touches_in_opp_box" in c:
+                    fill_val = base_prior * h_scale
                 else:
                     fill_val = base_prior
             elif c.startswith("away_"):
-                if any(k in c for k in ("xg_for", "goals_for", "shots_for", "shots_ontarget_for")):
+                if any(k in c for k in ("xg_for", "goals_for", "shots_for", "shots_ontarget_for", "big_chances_for")):
                     fill_val = base_prior * a_scale
-                elif any(k in c for k in ("xg_against", "goals_against", "shots_against", "shots_ontarget_against")):
+                elif any(k in c for k in ("xg_against", "goals_against", "shots_against", "shots_ontarget_against", "big_chances_against", "touches_in_opp_box_against")):
                     fill_val = base_prior / a_scale
+                elif "touches_in_opp_box" in c:
+                    fill_val = base_prior * a_scale
                 else:
                     fill_val = base_prior
             else:
@@ -900,6 +1053,17 @@ def add_interaction_features(merged: pd.DataFrame) -> pd.DataFrame:
             (merged["home_venue_shots_ontarget_for_roll_5"] - merged["home_venue_shots_ontarget_against_roll_5"]) -
             (merged["away_venue_shots_ontarget_for_roll_5"] - merged["away_venue_shots_ontarget_against_roll_5"])
         )
+
+    # Venue-specific match pace & total expected xG (vital signal for Over/Under goals)
+    if (
+        "home_venue_xg_for_ewma_02" in merged.columns
+        and "away_venue_xg_against_ewma_02" in merged.columns
+        and "away_venue_xg_for_ewma_02" in merged.columns
+        and "home_venue_xg_against_ewma_02" in merged.columns
+    ):
+        exp_v_h_xg = (merged["home_venue_xg_for_ewma_02"] + merged["away_venue_xg_against_ewma_02"]) / 2.0
+        exp_v_a_xg = (merged["away_venue_xg_for_ewma_02"] + merged["home_venue_xg_against_ewma_02"]) / 2.0
+        merged["exp_venue_match_xg"] = exp_v_h_xg + exp_v_a_xg
 
     # Home-minus-away net strength differentials (used by the outcome models).
     # Names intentionally avoid "_roll_"/"_ewma_" so other models' feature filters are unaffected.
@@ -1035,6 +1199,9 @@ def build_prediction_row(
         row[f"elo_venue_{side}"] = strength["elo_venue"]
         row[f"ppg_{side}"] = strength["ppg"]
         row[f"gdpg_{side}"] = strength["gdpg"]
+        row[f"{side}_xi_rating"] = strength["xi_rating"]
+        row[f"_{side}_xi_att"] = strength["xi_attack"]
+        row[f"_{side}_xi_def"] = strength["xi_defense"]
 
     # Assign venue-specific form to matching side
     st_h = team_states.loc[home_id] if home_id in team_states.index else None
@@ -1052,12 +1219,19 @@ def build_prediction_row(
     row["elo_venue_diff"] = row["elo_venue_home"] - row["elo_venue_away"]
     row["ppg_diff"] = row["ppg_home"] - row["ppg_away"]
     row["gdpg_diff"] = row["gdpg_home"] - row["gdpg_away"]
+    row["xi_rating_diff"] = row["home_xi_rating"] - row["away_xi_rating"]
+    h_att_vs_a_def = row.pop("_home_xi_att") - row.pop("_away_xi_def")
+    a_att_vs_h_def = row.pop("_away_xi_att") - row.pop("_home_xi_def")
+    row["home_xi_att_vs_away_def"] = h_att_vs_a_def
+    row["away_xi_att_vs_home_def"] = a_att_vs_h_def
+    row["xi_att_vs_def_diff"] = h_att_vs_a_def - a_att_vs_h_def
 
     # Squad market values and dynamic Bayesian sample-size prior decay weights
     mv_map = get_team_market_values_map()
     default_median_mv = 600.0
-    mv_h = mv_map.get(home_id, default_median_mv)
-    mv_a = mv_map.get(away_id, default_median_mv)
+    s_val = str(season or "2026_27")
+    mv_h = mv_map.get((home_id, s_val), mv_map.get(home_id, default_median_mv))
+    mv_a = mv_map.get((away_id, s_val), mv_map.get(away_id, default_median_mv))
     row["mv_home"] = mv_h
     row["mv_away"] = mv_a
     row["log_mv_ratio"] = float(np.log(max(mv_h, 10.0) / max(mv_a, 10.0)))

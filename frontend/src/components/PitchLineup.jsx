@@ -93,6 +93,7 @@ export default function PitchLineup({
   const renderPlayerNode = (player, side) => {
     const stats = getPlayerMatchStats(player.id, side);
     const goals = stats.goals || 0;
+    const assists = stats.assists || 0;
     const yellowCards = stats.yellow_cards || 0;
     const redCards = stats.red_cards || 0;
 
@@ -132,11 +133,20 @@ export default function PitchLineup({
             <span className="absolute -top-1 -left-1 w-3 h-4 rounded-xs bg-amber-400 border border-white shadow-xs" title="Sarı Kart" />
           ) : null}
 
-          {/* Goal Badge */}
-          {goals > 0 && (
-            <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[10px] font-black rounded-full px-1 border border-white shadow-xs flex items-center gap-0.5 leading-tight">
-              ⚽{goals > 1 ? goals : ''}
-            </span>
+          {/* Goal & Assist Badges */}
+          {(goals > 0 || assists > 0) && (
+            <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 z-20">
+              {goals > 0 && (
+                <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full px-1 py-0.2 border border-white shadow-xs flex items-center leading-tight" title={`${goals} Gol`}>
+                  ⚽{goals > 1 ? goals : ''}
+                </span>
+              )}
+              {assists > 0 && (
+                <span className="bg-purple-600 text-white text-[9px] font-black rounded-full px-1 py-0.2 border border-white shadow-xs flex items-center leading-tight" title={`${assists} Asist`}>
+                  🎯{assists > 1 ? assists : ''}
+                </span>
+              )}
+            </div>
           )}
 
           {/* Shirt Number Badge (subtle) */}
@@ -149,6 +159,42 @@ export default function PitchLineup({
         <div className="mt-1 px-2 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-xs border border-white/20 text-white font-bold text-[10px] sm:text-[11px] shadow-sm truncate max-w-[75px] sm:max-w-[95px] text-center group-hover:bg-slate-900 group-hover:border-[#00ff87]/80 group-hover:text-[#00ff87] transition-all">
           {shortName}
         </div>
+
+        {/* Dynamic Player Rating & Cards Risk Pill */}
+        {(stats.rating != null || player.rating != null) && (
+          <div className="mt-0.5 flex items-center justify-center gap-1">
+            {(() => {
+              const displayRating = stats.rating != null ? stats.rating : player.rating;
+              const isMatch = stats.rating != null || player.is_match_rating;
+              return (
+                <span
+                  className={`px-1.5 py-0.2 rounded-full font-mono font-bold text-[9px] shadow-xs border ${
+                    displayRating >= 7.5
+                      ? 'bg-emerald-500 text-slate-950 border-emerald-300'
+                      : displayRating >= 6.5
+                      ? 'bg-sky-500 text-white border-sky-300'
+                      : displayRating >= 5.5
+                      ? 'bg-slate-700 text-slate-200 border-slate-600'
+                      : 'bg-rose-500 text-white border-rose-300'
+                  }`}
+                  title={
+                    isMatch
+                      ? `Maç Performans Notu: ${Number(displayRating).toFixed(1)}/10`
+                      : `5 Maçlık Form Puanı: ${Number(displayRating).toFixed(1)}/10 · Durum: ${player.form_label || 'Normal'} · Kart Riski: ${player.cards_risk || 3.0}/10`
+                  }
+                >
+                  {Number(displayRating).toFixed(1)}
+                </span>
+              );
+            })()}
+            {player.cards_risk >= 7.0 && (
+              <span
+                className="w-2.5 h-3.5 bg-amber-400 rounded-2xs border border-amber-600 shadow-2xs shrink-0"
+                title={`Yüksek Kart Riski: ${player.cards_risk}/10`}
+              />
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -222,11 +268,21 @@ export default function PitchLineup({
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Deplasman</span>
               </div>
             </div>
-            {awayLineup?.formation && (
-              <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-lg bg-white/10 text-[#00ff87] border border-[#00ff87]/30">
-                {awayLineup.formation}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {awayLineup?.team_ratings?.overall != null && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/10 border border-white/15 text-[11px] font-bold" title={awayLineup.starters?.[0]?.is_match_rating ? '11 Oyuncu Maç Performansı Ortalaması' : '11 Ortalama Form Puanı'}>
+                  <span className="text-slate-300 font-medium">
+                    {awayLineup.starters?.[0]?.is_match_rating ? 'Maç Notu:' : '11 Form:'}
+                  </span>
+                  <span className="text-[#00ff87] font-mono font-black">{Number(awayLineup.team_ratings.overall).toFixed(1)}</span>
+                </div>
+              )}
+              {awayLineup?.formation && (
+                <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-lg bg-white/10 text-[#00ff87] border border-[#00ff87]/30">
+                  {awayLineup.formation}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* AWAY TEAM HALF (Top Half: GK at top, down to Attackers) */}
@@ -264,11 +320,21 @@ export default function PitchLineup({
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ev Sahibi</span>
               </div>
             </div>
-            {homeLineup?.formation && (
-              <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-lg bg-white/10 text-[#00ff87] border border-[#00ff87]/30">
-                {homeLineup.formation}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {homeLineup?.team_ratings?.overall != null && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/10 border border-white/15 text-[11px] font-bold" title={homeLineup.starters?.[0]?.is_match_rating ? '11 Oyuncu Maç Performansı Ortalaması' : '11 Ortalama Form Puanı'}>
+                  <span className="text-slate-300 font-medium">
+                    {homeLineup.starters?.[0]?.is_match_rating ? 'Maç Notu:' : '11 Form:'}
+                  </span>
+                  <span className="text-[#00ff87] font-mono font-black">{Number(homeLineup.team_ratings.overall).toFixed(1)}</span>
+                </div>
+              )}
+              {homeLineup?.formation && (
+                <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-lg bg-white/10 text-[#00ff87] border border-[#00ff87]/30">
+                  {homeLineup.formation}
+                </span>
+              )}
+            </div>
           </div>
 
         </div>
@@ -314,7 +380,21 @@ export default function PitchLineup({
                       <span className="font-mono text-xs font-bold text-slate-500">#{sub.shirt || '-'}</span>
                       <span className="font-bold text-slate-800 truncate group-hover:text-[#38003c] transition-colors">{sub.name}</span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {sub.rating != null && (
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded font-mono ${
+                            sub.rating >= 7.5
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : sub.rating >= 6.5
+                              ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                              : 'bg-slate-100 text-slate-700 border border-slate-300'
+                          }`}
+                          title={`Form Puanı: ${sub.rating}/10`}
+                        >
+                          {Number(sub.rating).toFixed(1)}
+                        </span>
+                      )}
                       {stats.goals > 0 && <span className="text-[10px]">⚽{stats.goals > 1 ? stats.goals : ''}</span>}
                       {stats.yellow_cards > 0 && <span className="w-2.5 h-3.5 bg-amber-400 rounded-2xs inline-block" />}
                       {stats.red_cards > 0 && <span className="w-2.5 h-3.5 bg-rose-600 rounded-2xs inline-block" />}
@@ -366,7 +446,21 @@ export default function PitchLineup({
                       <span className="font-mono text-xs font-bold text-slate-500">#{sub.shirt || '-'}</span>
                       <span className="font-bold text-slate-800 truncate group-hover:text-[#38003c] transition-colors">{sub.name}</span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {sub.rating != null && (
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded font-mono ${
+                            sub.rating >= 7.5
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : sub.rating >= 6.5
+                              ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                              : 'bg-slate-100 text-slate-700 border border-slate-300'
+                          }`}
+                          title={`Form Puanı: ${sub.rating}/10`}
+                        >
+                          {Number(sub.rating).toFixed(1)}
+                        </span>
+                      )}
                       {stats.goals > 0 && <span className="text-[10px]">⚽{stats.goals > 1 ? stats.goals : ''}</span>}
                       {stats.yellow_cards > 0 && <span className="w-2.5 h-3.5 bg-amber-400 rounded-2xs inline-block" />}
                       {stats.red_cards > 0 && <span className="w-2.5 h-3.5 bg-rose-600 rounded-2xs inline-block" />}
