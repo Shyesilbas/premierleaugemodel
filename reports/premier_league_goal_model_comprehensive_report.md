@@ -21,6 +21,8 @@
 5. [Özellik Katsayıları & Etki Analizi (Feature Weights)](#5-özellik-katsayıları--etki-analizi-feature-weights)
 6. [Veri Kalitesi, Bütünlük ve Güvenlik Önlemleri](#6-veri-kalitesi-bütünlük-ve-güvenlik-önlemleri)
 7. [A/B Benchmark & Hipotez Testleri Geçmişi](#7-ab-benchmark--hipotez-testleri-geçmişi)
+8. [Dürüst Model Denetimi & Zayıf Noktalar (Kritik Röntgen)](#8-dürüst-model-denetimi--zayıf-noktalar-kritik-röntgen)
+9. [Yönetici Özeti & Sonuç](#9-yönetici-özeti--sonuç)
 
 ---
 
@@ -61,18 +63,21 @@ graph TD
 
 Sistemimiz geçmiş **1.200 holdout maçında** (tamamı yalnızca geçmişe bakılarak yapılan ileri tahminlerle) değerlendirilmiştir.
 
-### 2.1. Bahis Piyasaları Başarı Tablosu
+### 2.1. Bahis Piyasaları Başarı Tablosu (Model vs Naive Baseline)
 
-| Piyasa / Hedef | Brier Skoru *(Düşük = İyi)* | Log-Loss *(Düşük = İyi)* | Doğruluk (Accuracy %) | ROC-AUC *(Yüksek = İyi)* | ECE Kalibrasyon Hatası | F1-Skoru |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1.5 Gol Üstü** | **0.1495** | **0.4756** | **%81.8** | **0.538** | **%2.85** | **0.900** |
-| **2.5 Gol Üstü** | **0.2423** | **0.6774** | **%57.2** | **0.537** | **%2.17** | **0.712** |
-| **3.5 Gol Üstü** | **0.2295** | **0.6520** | **%65.0** | **0.516** | **%2.23** | **0.045** |
-| **KG Var (BTTS)** | **0.2438** | **0.6806** | **%57.2** | **0.516** | **%2.06** | **0.725** |
+Bir gol modelinin gerçek "tahmin gücünü" anlamak için, hiçbir maç bilgisine bakmaksızın *"her maça ligin tarihsel ortalamasını veren"* **Naive Baseline** ile kıyaslamak zorunludur.
 
-> **Metriklerin Anlamı:**
-> - **Brier Skoru:** Olasılık tahminlerinin gerçekleşen sonuçtan karesel sapmasıdır. 0 mükemmel tahmin, 0.25 ise yazı-tura seviyesidir. Modellerimizin tamamı 0.242 seviyesinin altındadır.
-> - **ECE (Expected Calibration Error):** Model %60 ihtimal verdiğinde o olayın gerçekten %60 gerçekleşip gerçekleşmediğini ölçer. Tüm piyasalarda %2.1 - %2.8 arasında kalarak **mükemmel kalibrasyon** göstermektedir.
+| Bahis Piyasası | Lig Ortalaması (Base Rate) | Model Log-Loss *(Düşük = İyi)* | Naive Baseline Log-Loss | Model Brier *(Düşük = İyi)* | Naive Brier | ROC-AUC *(Sıralama)* | ECE Kalibrasyon Hatası |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1.5 Gol Üstü** | %81.8 | **0.4756** | 0.4739 | **0.1495** | 0.1487 | **0.538** | **%2.85** |
+| **2.5 Gol Üstü** | %58.7 | **0.6774** | 0.6780 | **0.2423** | 0.2425 | **0.537** | **%2.17** |
+| **3.5 Gol Üstü** | %35.5 | **0.6520** | 0.6505 | **0.2295** | 0.2290 | **0.516** | **%2.23** |
+| **KG Var (BTTS)** | %58.2 | **0.6806** | 0.6797 | **0.2438** | 0.2433 | **0.516** | **%2.06** |
+
+> **Metriklerin Dürüst Yorumu & Önemli Uyarılar:**
+> 1. **Log-Loss & Edge Gerçeği:** 2.5 Üst piyasasında model Log-Loss'u (`0.6774`), lig ortalaması veren Naive Baseline'dan (`0.6780`) sadece marjinal olarak ($-0.0006$) daha iyidir. Futbolda toplam gol sayısının yüksek rastlantısallığı (Poisson varyansı) nedeniyle hiçbir model lig ortalamasından çok büyük farklar açamaz; gerçek katma değer sadece oran hatalarının (value) tespitinde ortaya çıkar.
+> 2. **ROC-AUC (Ayırt Edicilik / Discrimination):** ROC-AUC değerleri **0.516 – 0.538** aralığındadır (0.50 yazı-turadır). Bu durum, modelin maçları *"kesin üst / kesin alt"* diye ikiye bölme (sıralama) gücünün zayıf olduğunu, başarının esasen **olasılık kalibrasyonundan (ECE: %2.1)** geldiğini gösterir.
+> 3. **3.5 Üst Piyasasında Sınıf Dengesizliği (Neden F1 Düşük?):** 3.5 Üst maçların sadece %35'inde gerçekleşir. Model hiçbir zaman %50'nin üzerinde bir 3.5 Üst olasılığı vermediği için varsayılan 0.50 eşiğinde neredeyse hiç "Pozitif" demez (Precision: %71.4, Recall: %2.3, F1: 0.045). Modelin bu piyasadaki Accuracy'sinin %65 görünmesinin sebebi maçların %65'inin gerçekten 3.5 Alt bitmesidir. Bahis operasyonlarında 0.50 eşiği değil, piyasa oranına göre beklenen değer (EV > 0) eşiği kullanılır.
 
 ---
 
@@ -246,8 +251,43 @@ Model geliştirme sürecinde yapılan tüm A/B testlerinin sonuçları ve alına
 
 ---
 
-## 8. Yönetici Özeti & Sonuç
+## 8. Dürüst Model Denetimi & Zayıf Noktalar (Kritik Röntgen)
+
+Raporun akademik ve finansal tarafsızlığı gereği, modelimizin zayıf olduğu ve aşırı iyimser çerçevelenmemesi gereken **5 kritik gerçeği** açıkça kayda geçiriyoruz:
+
+### 8.1. ROC-AUC ve Ayırt Edicilik (Discrimination) vs Kalibrasyon (Calibration)
+- **Problem:** Modellerimizin ROC-AUC skorları **0.516 – 0.538** bandındadır. Teorik olarak 0.50 rastgele yazı-turadır.
+- **Teknik Neden:** Futbol gol dağılımında doğal stokastik gürültü (Poisson varyansı $\approx$ ortalama gol) inanılmaz derecede yüksektir. 15. dakikada gelen bir kırmızı kart veya direkten dönen bir top 3 golü bir anda silebilir. Akademik spor modellemesi literatüründe dahi gol toplamları için AUC tavanı genellikle **0.55 – 0.58** civarındadır (kredi skorlama veya churn modellerindeki gibi 0.80+ AUC futbolda matematiksel olarak imkansızdır).
+- **Sonuç:** Modelimiz **Kalibrasyon (ECE: %2.17)** açısından harikadır; yani *"bu maç %58 üst biter"* dediğinde bu maç havuzunun gerçekten %58'i üst biter. Ancak model tek tek hangi maçın üst, hangi maçın alt olacağını sıralamada (discrimination) zayıftır. Dolayısıyla model "geleceği gören bir kahin" değil, "piyasadaki oran hatalarını yakalayan bir olasılık düzelticisidir".
+
+### 8.2. Log-Loss Seviyeleri ve Naive Baseline Gerçeği
+- 2.5 Üst modelimizin Log-Loss skoru `0.6774`'tür.
+- Hiçbir maç verisine bakmayan, her maça körlemesine sabit lig ortalaması (%58.7) veren Naive Baseline'ın Log-Loss'u ise `0.6780`'dir.
+- **Gerçek Bilgi Kazancı (Edge):** Modelin tüm bu 58 özellik ve Dixon-Coles harmanıyla sağladığı saf bilgi kazancı **-0.0006 log-loss puanıdır**.
+- Bu marjinal kazanç, gol bahislerinde körü körüne her maça oynayarak para kazanılamayacağını; avantajın sadece model olasılığı ile büro olasılığı arasında en az %5-8'lik makas (Value) oluşan özel maç tiplerinde aranabileceğini kanıtlar.
+
+### 8.3. 3.5 Üst Piyasasında Sınıf Dengesizliği & Yapay F1 Skoru
+- Tablodaki `3.5 Üst -> F1 = 0.045` skoru bir model hatası değil, **0.50 sınıflandırma eşiğinin dengesiz sınıflarda işlevsiz olmasının** sonucudur.
+- Premier League'de maçların sadece %35.5'i 3.5 Üst biter. Model hiçbir maça %50'den büyük 3.5 Üst olasılığı atamadığı için varsayılan 0.50 eşiğinde neredeyse hiç pozitif tahmin üretmez (Recall: %2.3).
+- Modelin accuracy'sinin %65 görünmesi ise "neredeyse her maça 3.5 Alt" demesinden kaynaklanır (Accuracy Paradox). Bahis operasyonlarında 0.50 eşiği anlamsızdır; piyasa oranıyla model olasılığı kıyaslanmalıdır.
+
+### 8.4. Sezon Bazlı Performans Aşınması (Concept Drift)
+- Sezonluk holdout sonuçlarında dikkat çeken bir aşınma mevcuttur:
+  - 2023/24: `0.6692` Log-Loss
+  - 2024/25: `0.6764` Log-Loss
+  - 2025/26: `0.6861` Log-Loss
+- **Nedeni (Kural Değişiklikleri & Taktiksel Adaptasyon):**
+  2023/24 sezonunda Premier League hakemleri katı bir kararla maçlara +10-12 dakika uzatma eklemiş, lig tarihinin en gollü sezonu (maç başı 3.28 gol) yaşanmıştır. Sonraki sezonlarda takımlar taktiksel fauller ve tempoyu düşürmeyle bu duruma adapte olmuş; gol trendleri dalgalanmıştır.
+- **Çözüm Stratejisi:** Dixon-Coles modelinin yarı ömrünü (`half_life`) 365 günden 180 güne indirmek ve sezon içi kural değişikliklerine daha hızlı uyum sağlayan dinamik bir ağırlıklandırma geliştirmek.
+
+### 8.5. Kadro Değeri Katsayı Çelişkisi (Multicollinearity / Çoklu Doğrusal Bağlantı)
+- `effective_log_mv_ratio` katsayısı +0.0156 ile listenin en tepesindedir; ancak modelden silindiğinde Log-Loss yalnızca `+0.0001` kötüleşir.
+- **İzahı:** Katsayı büyüklüğü standartlaştırılmış özelliklerde varyans ve diğer özelliklerle yüksek korelasyon (multicollinearity) yüzünden şişebilir. Kadro değerinin taşıdığı bilgi zaten Elo, PPG, averaj ve xG içerisinde mevcuttur (redundant signal). Bu nedenle katsayı büyüklüğü tek başına bir özelliğin marjinal önemini (SHAP / permutation importance) temsil etmez.
+
+---
+
+## 9. Yönetici Özeti & Sonuç
 
 Premier League Gol Modelimiz; saf istatistiksel Poisson varsayımlarını aşarak, **saha içi xG kalitesini**, **zaman ağırlıklı gerçek skor geçmişini (Dixon-Coles)** ve **taktiksel savunma hattı derinliğini** tek bir $13 \times 13$ olasılık matrisinde birleştiren son derece dengeli bir mimariye ulaşmıştır. 
 
-Yapılan son geliştirmeyle birlikte hem 2.5 Üst, hem Tek Taraflı Takım Baremleri, hem de Skor tahminlerinde sektör standartlarının üzerinde bir kestirim gücü elde edilmiştir.
+Modelimiz "kesin kehanet" aracı olarak değil; **piyasa kalibrasyonunu yakalayan, adil oranları hatasız hesaplayan ve bahis bürolarının yanlış fiyatladığı ekstrem maçları ayıklayan bir niceliksel karar destek motoru** olarak konumlandırılmalıdır.
