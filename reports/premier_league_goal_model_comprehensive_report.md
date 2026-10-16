@@ -386,14 +386,24 @@ Model geliştirme sürecinde yapılan tüm A/B testlerinin sonuçları ve alına
   4. *Bağımsız XGBoost (Sadece 58 Özellik):* Log-Loss = `0.6904`, ROC-AUC = `0.5218` (Segment 10 LL: `0.7143`, AUC: `0.4801`)
 - **Sonuç ve Kök Neden:** 
   XGBoost modellerinin tamamı hem genel holdout'ta hem de Segment 10'da **üretim modelinden belirgin şekilde daha kötü sonuç verdi** (Log-Loss `0.6774`'ten `0.6890`'a geriledi; Segment 10'da ise `0.7171`'e fırlayarak çöktü).  
-  **Nedeni:** Sorun modelin non-linear olmaması değil; **58 özelliğin kendisinin o maçlarda kör olmasıdır**. İki savunmacı takım karşılaştığında goller organize hücum ve xG ile değil, bireysel savunma hataları ve duran top karambolleriyle gelmektedir. XGBoost da aynı özellikleri gördüğü için aynı körlüğe düşmüş, Poisson'un L2 regülarizasyon yumuşaklığına sahip olmadığı için olasılıkları daha da bozmuştur.
-- **Karar:** **Kesin Olarak Reddedildi.** Üretimde Poisson + Dixon-Coles harmanı muhafaza edildi. Sorunun çözümü algoritma değiştirmekte değil, kaos ve hata dinamiklerini ölçen yeni özelliklerdedir.
+  **Nedeni:** Sorun modelin non-linear olmaması değil; 58 özelliğin kendisinin o maçlarda kör olması ve $k=12$ alt segment analizinde çoklu test düzeltmesi yapılmadığı için Segment 10 varyans dalgalanmasının aşırı öğrenilmeye (overfitting) çalışılmasıdır.
+- **Karar:** **Kesin Olarak Reddedildi.** Üretimde Poisson + Dixon-Coles harmanı muhafaza edildi.
+
+### Deney 4: Kadro Değeri (effective_log_mv_ratio) Modelden Silinmeli mi? (58 vs 57 Özellik)
+- **Hipotez:** `effective_log_mv_ratio` ham regresyon katsayısında #1 sırada yer almasına rağmen, permütasyon öneminde 12. sıraya gerilemektedir. Elo ve PPG ile yüksek çoklu doğrusal bağlantı (multicollinearity) taşıdığı için modelden çıkarılması performansı bozmadan mimariyi sadeleştirebilir.
+- **Ampirik Karşılaştırma (1.200 Holdout Maçı, Walk-Forward):**
+  - *58 Özellik (Mevcut Üretim):* Log-Loss = `0.677428`, Brier = `0.242277`, ROC-AUC = `0.536623`
+  - *57 Özellik (MV Ratio Silindi):* Log-Loss = `0.677517`, Brier = `0.242321`, ROC-AUC = `0.536136`
+  - *Fark (57 - 58):* $\Delta LL = +0.000089$, $\Delta \text{AUC} = -0.000487$
+  - *10.000 Bootstrap %95 CI (ΔLL):* `[-0.000158, +0.000341]`, $p = 0.4900$
+  - *10.000 Bootstrap %95 CI (ΔAUC):* `[-0.001808, +0.000816]`, $p = 0.4814$
+- **Karar:** Güven aralığı sıfırı tam ortadan kesmekte ($p \approx 0.49$), kadro değerinin çıkarılmasının istatistiksel olarak sıfır etki yarattığı doğrulanmaktadır. Üretim kararlılığı adına 58 özellik muhafaza edilebilir veya Occam's Razor gereği 57 özelliğe indirilebilir; ikisi matematiksel olarak eşdeğerdir.
 
 ---
 
 ## 8. Dürüst Model Denetimi & Zayıf Noktalar (Kritik Röntgen)
 
-Raporun akademik ve finansal tarafsızlığı gereği, modelimizin zayıf olduğu ve aşırı iyimser çerçevelenmemesi gereken **5 kritik gerçeği** açıkça kayda geçiriyoruz:
+Raporun akademik ve finansal tarafsızlığı gereği, modelimizin zayıf olduğu ve aşırı iyimser çerçevelenmemesi gereken **7 kritik gerçeği** açıkça kayda geçiriyoruz:
 
 ### 8.1. ROC-AUC ve Ayırt Edicilik (Discrimination) vs Kalibrasyon (Calibration)
 - **Problem:** Modellerimizin ROC-AUC skorları **0.516 – 0.538** bandındadır. Teorik olarak 0.50 rastgele yazı-turadır.
@@ -404,7 +414,7 @@ Raporun akademik ve finansal tarafsızlığı gereği, modelimizin zayıf olduğ
 - 2.5 Üst modelimizin Log-Loss skoru `0.6774`'tür.
 - Hiçbir maç verisine bakmayan, her maça körlemesine sabit lig ortalaması (%58.7) veren Naive Baseline'ın Log-Loss'u ise `0.6780`'dir.
 - **Gerçek Bilgi Kazancı (Edge):** Modelin tüm bu 58 özellik ve Dixon-Coles harmanıyla sağladığı saf bilgi kazancı **-0.0006 log-loss puanıdır**.
-- Bu marjinal kazanç, gol bahislerinde körü körüne her maça oynayarak para kazanılamayacağını; avantajın sadece model olasılığı ile büro olasılığı arasında en az %5-8'lik makas (Value) oluşan özel maç tiplerinde aranabileceğini kanıtlar.
+- Bu marjinal kazanç, gol bahislerinde körü körüne her maça oynayarak para kazanılamayacağını; avantajın sadece model olasılığı ile büro olasılığı arasında makas oluşan özel maç tiplerinde aranabileceğini kanıtlar.
 
 ### 8.3. 3.5 Üst Piyasasında Sınıf Dengesizliği & Yapay F1 Skoru
 - Tablodaki `3.5 Üst -> F1 = 0.045` skoru bir model hatası değil, **0.50 sınıflandırma eşiğinin dengesiz sınıflarda işlevsiz olmasının** sonucudur.
@@ -418,16 +428,36 @@ Raporun akademik ve finansal tarafsızlığı gereği, modelimizin zayıf olduğ
   - 2025/26: `0.6861` Log-Loss
 - **Nedeni (Kural Değişiklikleri & Taktiksel Adaptasyon):**
   2023/24 sezonunda Premier League hakemleri katı bir kararla maçlara +10-12 dakika uzatma eklemiş, lig tarihinin en gollü sezonu (maç başı 3.28 gol) yaşanmıştır. Sonraki sezonlarda takımlar taktiksel fauller ve tempoyu düşürmeyle bu duruma adapte olmuş; gol trendleri dalgalanmıştır.
-- **Çözüm Stratejisi:** Dixon-Coles modelinin yarı ömrünü (`half_life`) 365 günden 180 güne indirmek ve sezon içi kural değişikliklerine daha hızlı uyum sağlayan dinamik bir ağırlıklandırma geliştirmek.
 
-### 8.5. Kadro Değeri Katsayı Çelişkisi (Multicollinearity / Çoklu Doğrusal Bağlantı)
-- `effective_log_mv_ratio` katsayısı +0.0156 ile listenin en tepesindedir; ancak modelden silindiğinde Log-Loss yalnızca `+0.0001` kötüleşir.
-- **İzahı:** Katsayı büyüklüğü standartlaştırılmış özelliklerde varyans ve diğer özelliklerle yüksek korelasyon (multicollinearity) yüzünden şişebilir. Kadro değerinin taşıdığı bilgi zaten Elo, PPG, averaj ve xG içerisinde mevcuttur (redundant signal). Bu nedenle katsayı büyüklüğü tek başına bir özelliğin marjinal önemini (SHAP / permutation importance) temsil etmez.
+### 8.5. Kadro Değeri & Katsayı Çelişkisi (Permutation Importance vs Coefficients)
+- `effective_log_mv_ratio` katsayısı +0.0156 ile listenin en tepesindedir; ancak 5 tekrarlı permütasyon testinde 12. sıraya geriler ($\Delta LL = +0.000087 \pm 0.000157$).
+- **İzahı:** Katsayı büyüklüğü standartlaştırılmış özelliklerde çoklu doğrusal bağlantı (multicollinearity) yüzünden şişebilir. Kadro değerinin taşıdığı bilgi zaten Elo, PPG, averaj ve xG içerisinde mevcuttur.
+- Regresyon katsayıları ile permütasyon önem sıralaması arasındaki Spearman rank korelasyonu yalnızca $r = 0.1379$ ($p = 0.3019$)'dur. Yani katsayı büyüklüğü ile gerçek tahmin gücü arasında **sıfır ilişki** vardır.
 
-### 8.6. Bahis Piyasası (Bookmaker) Arbitrajı & Value Bet Gerçeği
-- 218 maçlık gerçek açılış oranları denetiminde bahis piyasası **0.5962 ROC-AUC** üretirken, modelimiz **0.5843 ROC-AUC** üretmiştir.
-- Modelin büroya karşı %5'in üzerinde "değer (value)" gördüğü 18 maçta simüle edilen bahislerin net getirisi **-%3.42 ROI** çıkmıştır.
-- **Stratejik Konumlandırma:** Model tek başına bahis bürolarını "yenen" bir sihirli arbitraj kutusu değildir. Modelimizin asıl gücü; **xG ve tempo dinamiklerini harmanlayarak adil olasılıkları hatasız hesaplamak**, **maç içi senaryo simülasyonları** ve **piyasadaki olağandışı oran sapmalarını saptamak için tarafsız bir referans motoru oluşturmaktır**.
+### 8.6. P1a Segmentasyon Yanılsaması & Çoklu Hipotez Düzeltmesi Dersi
+- **Geçmiş Hata:** P1a aşamasında 1.200 maç 12 farklı segmente bölünmüş ve Segment 10'da (Düşük Gol Beklentisi, $N=396$) AUC `0.4598` çıktığı için *"model bu maçlarda ters çalışıyor, kritik kör nokta"* teşhisi konulmuştu.
+- **Düzeltme & Gerçek:** $k=12$ alt segment test edildiğinde, çoklu karşılaştırma düzeltmesi (Multiple Testing Correction) yapılmadığı için Yan Tip I Hata (False Discovery) tuzağına düşüldüğü kanıtlanmıştır:
+  - Ham Mann-Whitney $U$ p-değeri: $p = 0.1687$ (Zaten ham haliyle bile $p > 0.05$).
+  - Bonferroni Düzeltmesi ($p \times 12$): $p = \mathbf{1.0000}$ (Tamamen gürültü).
+  - Benjamini-Hochberg FDR: $q = \mathbf{0.4049}$.
+  - $r(\lambda, \text{gol})$ Pearson korelasyonu: $r = -0.0823, p = 0.1018$.
+- **Sonuç:** Segment 10 krizi deterministik bir kör nokta değil; 12 dilimden birine denk gelen tesadüfi bir varyans dalgalanmasıdır. P1b (XGBoost) ve P1c (Shrinkage) denemelerinin çökmesinin temel nedeni, ortada öğrenilecek yapısal bir örüntü olmamasıdır.
+
+### 8.7. Bahis Piyasası (Bookmaker) Arbitrajı & 7 Eşikli Edge Sweep Gerçeği
+- 218 maçlık gerçek açılış oranları denetiminde $k = 7$ farklı Edge eşiği test edilmiş, Bonferroni ve Benjamini-Hochberg FDR düzeltmeleri uygulanmıştır:
+
+| Eşik | Bahis Sayısı ($N$) | Kazanma % | Piyasa Beklentisi % | Simüle ROI % | Binom $p$ (ham) | Binom $p$ (Bonferroni) | Binom $q$ (BH FDR) | ROI $t$-test $p$ | Nihai Değerlendirme |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **>0%** | 118 | %50.0 | %51.3 | %-6.99 | 0.6491 | 1.0000 | 0.8714 | 0.7901 | Gürültü |
+| **>2%** | 67 | %55.2 | %50.1 | %+6.25 | 0.2368 | 1.0000 | 0.8289 | 0.2992 | Gürültü |
+| **>3%** | 51 | %56.9 | %50.0 | %+10.02 | 0.1995 | 1.0000 | 0.8289 | 0.2323 | Gürültü |
+| **>4%** | 32 | %50.0 | %49.4 | %-1.62 | 0.5432 | 1.0000 | 0.8714 | 0.5361 | Gürültü |
+| **>5%** | 18 | %50.0 | %50.0 | %-3.42 | 0.5916 | 1.0000 | 0.8714 | 0.5570 | Gürültü |
+| **>7%** | 7 | %42.9 | %48.4 | %-15.50 | 0.7469 | 1.0000 | 0.8714 | 0.6447 | Gürültü |
+| **>10%** | 0 | %0.0 | - | %+0.00 | 1.0000 | 1.0000 | 1.0000 | - | Yetersiz |
+
+- **Kritik Çıkarım:** Edge $>\%3$ seviyesinde 51 maçta elde edilen $+10.02\%$ ROI, ham $p=0.1995$ ve Bonferroni $p=1.0000$ ile **istatistiksel olarak tamamen gürültü sınırları içindedir**.
+- Bu nedenle Paper Trading süreci bir "alfa tescili" değil, en az **$N \ge 200 - 300$ maçlık** bağımsız bir ileri test (forward-testing) gerektiren bir hipotez doğrulama sürecidir.
 
 ---
 
