@@ -377,6 +377,18 @@ Model geliştirme sürecinde yapılan tüm A/B testlerinin sonuçları ve alına
 - **Neden:** `home_high_line` ve `mutual_high_line_risk` takımların taktiksel açık oyun eğilimini başarıyla yakaladı.
 - **Karar:** **Onaylandı ve Canlıya Alındı.** Model 55'ten 58 özelliğe yükseltildi.
 
+### Deney 3: XGBoost Residual Learner / Stacking ile Non-Linearite Çözülebilir mi? (P1b Deneyi)
+- **Hipotez:** Düşük gol beklenen maçlardaki ters korelasyon (Segment 10) non-linear etkileşimlerden kaynaklanıyor olabilir; Poisson tabanı üzerine XGBoost ile residual öğrenmek veya stacking yapmak AUC'yi artırabilir.
+- **Test Edilen Mimariler (5-Fold OOF):**
+  1. *Üretim Modeli (Poisson + Dixon-Coles):* Log-Loss = **`0.6774`**, ROC-AUC = **`0.5366`** (Segment 10 LL: `0.6956`, AUC: `0.4673`)
+  2. *Stacking (58 Özellik + logit(Poisson)):* Log-Loss = `0.6901`, ROC-AUC = `0.5246` (Segment 10 LL: `0.7183`, AUC: `0.4720`)
+  3. *Residual Learning (base_margin logit):* Log-Loss = `0.6890`, ROC-AUC = `0.5308` (Segment 10 LL: `0.7171`, AUC: `0.4714`)
+  4. *Bağımsız XGBoost (Sadece 58 Özellik):* Log-Loss = `0.6904`, ROC-AUC = `0.5218` (Segment 10 LL: `0.7143`, AUC: `0.4801`)
+- **Sonuç ve Kök Neden:** 
+  XGBoost modellerinin tamamı hem genel holdout'ta hem de Segment 10'da **üretim modelinden belirgin şekilde daha kötü sonuç verdi** (Log-Loss `0.6774`'ten `0.6890`'a geriledi; Segment 10'da ise `0.7171`'e fırlayarak çöktü).  
+  **Nedeni:** Sorun modelin non-linear olmaması değil; **58 özelliğin kendisinin o maçlarda kör olmasıdır**. İki savunmacı takım karşılaştığında goller organize hücum ve xG ile değil, bireysel savunma hataları ve duran top karambolleriyle gelmektedir. XGBoost da aynı özellikleri gördüğü için aynı körlüğe düşmüş, Poisson'un L2 regülarizasyon yumuşaklığına sahip olmadığı için olasılıkları daha da bozmuştur.
+- **Karar:** **Kesin Olarak Reddedildi.** Üretimde Poisson + Dixon-Coles harmanı muhafaza edildi. Sorunun çözümü algoritma değiştirmekte değil, kaos ve hata dinamiklerini ölçen yeni özelliklerdedir.
+
 ---
 
 ## 8. Dürüst Model Denetimi & Zayıf Noktalar (Kritik Röntgen)
