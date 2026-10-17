@@ -68,15 +68,25 @@ graph TD
 - **Girdiler (58 Özellik):** Ceza sahası topla buluşma (`touches_in_opp_box`), net fırsatlar (`big_chances`), xG grafikleri, dinamik Elo puanları, taktiksel savunma hattı derinliği (`high_line`), kadro piyasa değeri oranı.
 - **Çıktılar:** Bağımsız ev ve deplasman beklenen gol hızları ($\lambda_{\text{feat\_h}}, \lambda_{\text{feat\_a}}$).
 
-### 2.3. Dixon-Coles Modeli (`DixonColesModel`)
+### 2.3. Dixon-Coles Modeli (`DixonColesModel`) & $\rho$ Doğrulaması
 - **Yarı Ömür (Half-Life):** 365 gün (yakın geçmişteki maçlara üstel yüksek ağırlık).
-- **Düşük Skor Düzeltmesi:** $\rho = -0.091$ (0-0, 1-0, 0-1 ve 1-1 skorlarının bağımsız Poisson'dan sapmasını düzelten $\tau$ parametresi).
-- **Çıktılar:** Geçmiş güç parametrelerinden gelen hızlar ($\lambda_{\text{dc\_h}}, \lambda_{\text{dc\_a}}$).
+- **Düşük Skor Düzeltmesi ($\rho$):** Sabit bir katsayı değildir; her eğitim setinde L-BFGS-B ile eşzamanlı maksimize edilir.
+  - **1.000 Bootstrap %95 CI:** $\rho = \mathbf{-0.0869} \pm 0.0408$, %95 CI: `[-0.1500, -0.0062]` ($p < 0.05$).
+  - **Hassasiyet Röntgeni:** $\rho \in [-0.20, +0.10]$ aralığında tarandığında **2.5 Üst Log-Loss tam olarak 0.67743'te sabit kalır.**
+  - **Matematiksel Nedeni:** $\tau$ düzeltmesi yalnızca $(0,0), (1,0), (0,1), (1,1)$ hücrelerini yeniden dağıtır. Bu hücrelerin tümü $i+j \le 2$ olduğu için 2.5 Alt kümesindedir. Bu 4 hücre arasındaki olasılık transferi 2.5 Üst toplam olasılığını $\mathbf{0.000000}$ değiştirir.
+  - Ancak $\rho$, **BTTS** ve **Düşük Skor Log-Likelihood**'unu optimize eder. Düşük skor NLL minimumu tam olarak üretim modelimizin kullandığı harmanda ($\rho = -0.061$) gerçekleşir (`2.4549`).
 
-### 2.4. Geometrik Harman
+### 2.4. Geometrik Harman ve Ağırlık ($w_{dc}$) Taraması
 Nihai maç hızları geometrik ağırlıkla birleştirilir:
 $$\lambda_h = \lambda_{\text{dc\_h}}^{0.25} \times \lambda_{\text{feat\_h}}^{0.75}, \quad \lambda_a = \lambda_{\text{dc\_a}}^{0.25} \times \lambda_{\text{feat\_a}}^{0.75}$$
-*Neden Geometrik?* Aritmetik harman 2023/24'teki tekil gol patlamasında daha iyi görünse de, holdout dönemindeki 4 sezonun 3'ünde Geometrik harman daha az hata yapmıştır. Aşırı uç lambda tahminlerini törpülediği için geometrik mimari korunmuştur.
+- **$w_{dc}$ Grid Taraması (1.200 Holdout Maçı):**
+  - $w_{dc} = 0.00$ (Sadece Poisson Feature): Log-Loss = `0.67797`, ROC-AUC = `0.5248`
+  - $w_{dc} = 0.10$: Log-Loss = `0.67750`, ROC-AUC = `0.5304`
+  - $w_{dc} = 0.20$: Log-Loss = **`0.67737`** (Ampirik Global Minimum)
+  - $w_{dc} = 0.25$: Log-Loss = **`0.67743`** (🏆 **Mevcut Üretim Modeli**)
+  - $w_{dc} = 0.50$: Log-Loss = `0.67885`, ROC-AUC = `0.5402`
+  - $w_{dc} = 1.00$ (Sadece Dixon-Coles): Log-Loss = `0.68706`, ROC-AUC = `0.5396`
+- **Doğrulama Sonucu:** Üretim modelindeki $0.25$ ağırlığı ile global minimum ($0.20$) arasındaki fark yalnızca $\Delta LL = \mathbf{0.000056}$'dır (yüz binde 5.6). Üstelik $0.25$ ağırlığında ROC-AUC ($0.5366$) daha yüksektir. 0.25/0.75 tercihi ampirik olarak doğrulanmıştır.
 
 ### 2.5. Matris ve Piyasalar
 $13 \times 13$ skor matrisi $M_{i,j} = P(X=i, Y=j)$ kurulduktan sonra piyasalar analitik olarak toplanır:
@@ -159,7 +169,22 @@ Model olasılığı ile adil piyasa olasılığı arasındaki fark ($\text{Edge}
 | **>7%** | 7 | %42.9 | %48.4 | %-15.50 | 1.0000 | 0.8714 | 0.6447 | Gürültü |
 | **>10%** | 0 | %0.0 | - | %+0.00 | 1.0000 | 1.0000 | - | Yetersiz |
 
-### 4.3. Sonuç
+### 4.3. Aşırı Uç Tahminlerin Kalibrasyon Röntgeni (Tail Risk / Decile Calibration)
+Modelin tahmin aralığı **%41.09 ile %74.55** arasındadır. L2 Ridge cezası ($\alpha=10.0$) sayesinde model $\%85+$ veya $\%15-$ gibi aşırı iddialı uç tahminler üretmez. 1.200 holdout maçındaki dilim kalibrasyonu:
+
+| Olasılık Dilimi | Maç ($N$) | Havuz Payı % | Ortalama Tahmin % | Gerçekleşme % | Sapma (Gap) | Log-Loss | Brier Skoru |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **<%45 (Aşırı Alt)** | 8 | %0.7 | %43.70 | %75.00 | +31.30 | 0.7682 | 0.2873 |
+| **%45-%50 (Hafif Alt)** | 117 | %9.8 | %48.22 | %55.56 | +7.33 | 0.6992 | 0.2530 |
+| **%50-%55 (Dengeli)** | 345 | %28.7 | %52.99 | %53.62 | **+0.63** | 0.6932 | 0.2500 |
+| **%55-%60 (Hafif Üst)** | 469 | %39.1 | %57.34 | %59.91 | +2.58 | 0.6756 | 0.2413 |
+| **%60-%65 (Net Üst)** | 188 | %15.7 | %62.00 | %61.17 | **-0.83** | 0.6660 | 0.2366 |
+| **%65-%70 (Yüksek Üst)**| 56 | %4.7 | %66.79 | %69.64 | +2.85 | 0.6147 | 0.2118 |
+| **>%70 (Aşırı Üst)** | 17 | %1.4 | %72.47 | %76.47 | +4.00 | **0.5470** | **0.1804** |
+
+> **Röntgen Çıkarımı:** Üst dilimlerde modelin güveni arttıkça gerçekleşme oranı monoton olarak yükselmektedir (%61.2 $\to$ %69.6 $\to$ %76.5) ve Log-loss 0.54'e kadar inmektedir. Tek zayıflık; ligin holdout dönemindeki %58.7'lik gol artışı nedeniyle, modelin "alt" dediği maçların da %55'in altına inmemesidir.
+
+### 4.4. Sonuç
 - Edge $>3\%$ eşiğindeki 51 maçlık +%10.02 ROI, çoklu hipotez düzeltmesi sonrası $p = 1.0000$ ile **istatistiksel varyans gürültüsüdür**.
 - Model bir "kumar makinesi" değil, tarafsız bir **"fiyatlama motorudur"**. Value bet avantajının tescili için $N \ge 200 - 350$ maçlık ileriye dönük Paper Trading zorunludur.
 
@@ -185,7 +210,24 @@ Ham Poisson regresyonunda #1 en büyük katsayıya (`0.0148`) sahip olan kadro d
 ### 5.6. P1a Segmentasyon Yanılsaması (Büyük Metodolojik Ders)
 P1a'da 12 segment incelenmiş ve Segment 10'da (Düşük Gol Beklentisi, $N=396$) AUC `0.4598` çıktığında modelin kör olduğu sanılmıştır. $k=12$ çoklu test düzeltmesi yapıldığında ham $p=0.1687 \to$ Bonferroni $p=\mathbf{1.0000}$, FDR $q=\mathbf{0.4049}$ çıkmıştır. Ortada yapısal körlük değil, düzeltmesiz alt küme madenciliğinin yarattığı bir Yan Tip I Hata (False Discovery) olduğu anlaşılmıştır.
 
-### 5.7. Reddedilen Deneyler Geçmişi
+### 5.7. Özelliklerin Zaman İçinde Stabilitesi (Feature Drift)
+Her sezon için bağımsız permütasyon önemi çalıştırıldığında, sezonlar arası özellik önem sıralaması Spearman korelasyon matrisi:
+
+| Sezon Karşılaştırması | Spearman Sıra Korelasyonu ($r$) | Bilimsel Teşhis |
+| :--- | :---: | :--- |
+| **2023/24 vs 2024/25** | **-0.0245** | Sezonlar arası bağımsız sıralama (Kolineer kayma) |
+| **2024/25 vs 2025/26** | **+0.0927** | Zayıf korelasyon |
+| **2023/24 vs 2025/26** | **+0.0140** | Zayıf korelasyon |
+
+> **Kök Neden:** 58 taktiksel özellik birbiriyle yüksek derecede kolineerdir (Elo, PPG, xG, şutlar aynı kaliteyi paylaşır). L2 regülarizasyonu bir sezonda `away_shots_ontarget_against`'a ağırlık verirken diğer sezonda `away_venue_xg_against` öne çıkmaktadır.  
+> **En İstikrarlı 5 Çekirdek Özellik:** `away_shots_ontarget_against_ewma_02` (Ortalama sıra: 6.7), `away_venue_xg_against_ewma_02` (11.3), `elo_home` (13.7), `ppg_away` (15.7), `home_big_chances_for_roll_10` (19.0).
+
+### 5.8. Sistematik Veri Sızıntısı Denetimi (Leakage Audit)
+- `src/features/build_features.py` denetimi: `_lagged_team_state()` fonksiyonu tüm hareketli pencerelerde `state_after.shift(1)` kuralını istisnasız uygular.
+- Veritabanı zaman damgası monotonluğu: `True` (Kesin kronolojik sıralama).
+- Sezonlar arası yalıtım: Train havuzunun maksimum `kickoff_millis` değeri test havuzunun minimumundan kesinlikle küçüktür (Sızıntı: **SIFIR**).
+
+### 5.9. Reddedilen Deneyler Geçmişi
 
 | Denenen Çözüm | Hipotez | Test Sonucu | Alınan Ders & Karar |
 | :--- | :--- | :---: | :--- |

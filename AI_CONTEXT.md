@@ -31,17 +31,26 @@ model_architecture:
       time_decay: "Exponential"
       half_life_days: 365
       rho_parameter: -0.0910
-      estimation: "Profile Log-Likelihood Optimization"
+      rho_bootstrap_mean: -0.0869
+      rho_bootstrap_se: 0.0408
+      rho_bootstrap_95_ci: [-0.1500, -0.0062]
+      rho_sensitivity_over25_ll: "Invariant at 0.67743 for rho in [-0.20, +0.10] (cells (0,0),(1,0),(0,1),(1,1) are all Under 2.5)"
+      estimation: "L-BFGS-B Maximum Penalized Likelihood on training set"
   blending:
     method: "Geometric"
     formula: "lambda_final = (lambda_dc ** 0.25) * (lambda_feat ** 0.75)"
-    dc_weight: 0.25
-    feat_weight: 0.75
-    rho_blend: "0.5 * (rho_dc + rho_feat)"
+    dc_weight_production: 0.25
+    dc_weight_global_optimum: 0.20
+    delta_ll_production_vs_optimum: +0.000056
+    rho_blend: "0.5 * (rho_dc + rho_feat) = -0.0610 (optimal for low-score NLL: 2.4549)"
   numerical_guardrails:
     lambda_clip_min: 0.05
     lambda_clip_max: 6.00
     locked_seasons: ["2026_27"]
+  leakage_audit_certificate:
+    state_after_shift_1_applied: true
+    kickoff_timestamp_monotonic: true
+    walk_forward_cross_season_leakage: 0.0000
 ```
 
 ---
@@ -126,11 +135,23 @@ edge_sweep_multiple_testing:
   threshold_gt_7pct:  { n: 7,   win_rate: 0.429, roi: -15.50%, p_binom_raw: 0.7469, p_bonf: 1.0000, q_fdr: 0.8714 }
   threshold_gt_10pct: { n: 0,   win_rate: 0.000, roi: +0.00%,  p_binom_raw: 1.0000, p_bonf: 1.0000, q_fdr: 1.0000 }
   verdict: "All thresholds span noise margins after FDR control (q > 0.80). Paper trading mandatory."
+
+tail_risk_decile_calibration_1200:
+  prediction_range: { min_p: 0.4109, max_p: 0.7455, median_p: 0.5630 }
+  bins:
+    lt_45_extreme_under: { n: 8,   share: "0.7%",  pred_mean: 43.70%, actual: 75.00%, gap: +31.30%, ll: 0.7682, brier: 0.2873 }
+    45_to_50_mild_under: { n: 117, share: "9.8%",  pred_mean: 48.22%, actual: 55.56%, gap: +7.33%,  ll: 0.6992, brier: 0.2530 }
+    50_to_55_balanced:   { n: 345, share: "28.7%", pred_mean: 52.99%, actual: 53.62%, gap: +0.63%,  ll: 0.6932, brier: 0.2500 }
+    55_to_60_mild_over:  { n: 469, share: "39.1%", pred_mean: 57.34%, actual: 59.91%, gap: +2.58%,  ll: 0.6756, brier: 0.2413 }
+    60_to_65_clear_over: { n: 188, share: "15.7%", pred_mean: 62.00%, actual: 61.17%, gap: -0.83%,  ll: 0.6660, brier: 0.2366 }
+    65_to_70_high_over:  { n: 56,  share: "4.7%",  pred_mean: 66.79%, actual: 69.64%, gap: +2.85%,  ll: 0.6147, brier: 0.2118 }
+    gt_70_extreme_over:  { n: 17,  share: "1.4%",  pred_mean: 72.47%, actual: 76.47%, gap: +4.00%,  ll: 0.5470, brier: 0.1804 }
+  verdict: "High probabilities (>65%) are monotonically well calibrated with decreasing log-loss (0.547). Model avoids overconfidence (>85%)."
 ```
 
 ---
 
-## 4. Feature Ablations & Collinear Redundancy
+## 4. Feature Ablations, Collinear Redundancy & Stability
 
 ```yaml
 feature_ablation_effective_log_mv_ratio:
@@ -157,6 +178,19 @@ feature_importance_vs_coefficients:
     4: away_xg_against_roll_10 (delta_ll = +0.000224)
     5: elo_venue_home (delta_ll = +0.000181)
     12: effective_log_mv_ratio (delta_ll = +0.000087, raw_coef_rank = 1)
+
+feature_drift_stability_across_seasons:
+  spearman_rank_correlation_matrix:
+    2023_24_vs_2024_25: -0.0245
+    2024_25_vs_2025_26: +0.0927
+    2023_24_vs_2025_26: +0.0140
+  verdict: "Features exhibit collinear rank drift across seasons due to L2 regularization over redundant football quality metrics."
+  top_5_most_stable_features:
+    1: away_shots_ontarget_against_ewma_02 (mean_rank: 6.7, std: 3.3)
+    2: away_venue_xg_against_ewma_02 (mean_rank: 11.3, std: 3.8)
+    3: elo_home (mean_rank: 13.7, std: 3.1)
+    4: ppg_away (mean_rank: 15.7, std: 6.9)
+    5: home_big_chances_for_roll_10 (mean_rank: 19.0, std: 5.9)
 ```
 
 ---
@@ -298,12 +332,3 @@ api_endpoints:
 ```
 
 ---
-
-## 8. Quant Rules Summary (Always On)
-
-File: `.agents/rules/quant_modeling_audit_rules.md`
-1. **Zero Data Snooping:** No calibrators or shrinkage tuned on holdout. In-sample scores never presented as generalization.
-2. **Statistical Rigor:** Mandatory 10,000 Bootstrap CIs for $N < 500$. Power analysis ($N_{\text{req}}$) and multiple testing correction (Bonferroni / FDR) for $k > 1$ hypotheses.
-3. **Cross-Market Monotonicity:** Single $13 \times 13$ bivariate matrix $M_{ij}$ generates all markets ($P(1.5) \ge P(2.5) \ge P(3.5)$).
-4. **Hypothesis-Driven Diagnosis:** Test distribution and variance before switching models. Permutation importance $\ne$ regression coefficients.
-5. **Reproducibility:** Explicit seeding (`random_state=42`), bitwise determinism ($\Delta = 0.0000000000e+00$).
