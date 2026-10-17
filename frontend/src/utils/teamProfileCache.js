@@ -3,7 +3,7 @@
  * Saves requests by keeping data cached in localStorage until the team's next scheduled match completes.
  */
 
-const CACHE_PREFIX = 'pl_team_cache_v5_';
+const CACHE_PREFIX = 'pl_team_cache_v6_'; // v6: drops match_detail entries frozen without stats
 
 /**
  * Retrieve cached data for a given category, team and season.
@@ -117,5 +117,18 @@ export function clearTeamCache(teamId, season) {
     localStorage.removeItem(`${CACHE_PREFIX}staff_all_${season}`);
   } catch (err) {
     console.warn('Failed to clear team cache:', err);
+  }
+}
+
+/**
+ * Drop every cached entry (teams, fixtures, standings, match details); used after a data sync.
+ */
+export function clearAllCaches() {
+  try {
+    Object.keys(localStorage)
+      .filter(key => key.startsWith(CACHE_PREFIX))
+      .forEach(key => localStorage.removeItem(key));
+  } catch (err) {
+    console.warn('Failed to clear caches:', err);
   }
 }

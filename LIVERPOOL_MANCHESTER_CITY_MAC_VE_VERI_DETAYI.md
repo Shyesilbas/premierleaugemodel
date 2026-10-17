@@ -300,6 +300,8 @@ Opta raw stream akışında (`128980_stream.json`) yer alan 129 olayın ve **ma�
 
 Karşılaşma oynanmadan önce `model_match_audit` ve `/api/predict` tarafından üretilen sıfır-sızıntılı (zero-leakage) model tahmin karnesi:
 
+> ⚠️ **Not (17 Ekim 2026):** Bu tablo, 17 Ekim 2026 değişikliklerinden önceki model sürümlerinin anlık görüntüsüdür ve tek bir maçın sonucudur; genel isabet göstergesi değildir. Güncel modeller ve dürüst holdout performansı için bkz. [model raporları](docs/reports/models/). Kart tahmini artık sabit lig ortalamasından gelir ([Kart Model Raporu](docs/reports/models/cards_model.md)).
+
 ```mermaid
 pie title 1X2 Model Olasılık Dağılımı
     "Manchester City Galibiyeti (42.6%)" : 42.6

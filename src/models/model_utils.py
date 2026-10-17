@@ -170,6 +170,36 @@ def apply_skill_gate(
     }
 
 
+def apply_outer_season_gate(
+    season_holdouts: list[Dict[str, Any]],
+    selected: str,
+    gate: Dict[str, Any],
+) -> Tuple[str, Dict[str, Any]]:
+    """Keep a feature model only if it beats the mean in most complete nested outer seasons.
+
+    Partial (locked) seasons are excluded, so the live season never drives deployment.
+    """
+    complete = [r for r in season_holdouts if not r["partial_season"]]
+    wins = sum(bool(r["beats_baseline_rmse"]) for r in complete)
+    # No complete outer season means no evidence either way: keep the CV decision.
+    passed = selected == "training_mean" or not complete or wins * 2 > len(complete)
+    gate = {
+        **gate,
+        "outer_season_wins": wins,
+        "outer_season_count": len(complete),
+        "outer_season_gate_passed": passed,
+    }
+    if passed:
+        return selected, gate
+    return "training_mean", {
+        **gate,
+        "selected_model": "training_mean",
+        "skill_gate_applied": True,
+        "skill_gate_passed": False,
+        "reason": "model_failed_outer_season_gate",
+    }
+
+
 def select_regression_candidate(
     X: pd.DataFrame,
     y: pd.Series,
@@ -305,6 +335,12 @@ def chronological_regression_evaluation(
     X_test, y_test = X.iloc[split_idx:], y.iloc[split_idx:]
     selected_name, cv_scores, skill_gate = select_regression_candidate(X_dev, y_dev, candidates)
     raw_selected_name = skill_gate["raw_selected_model"]
+    season_holdouts = None
+    if seasons is not None:
+        season_holdouts = evaluate_season_holdouts(
+            X, y, seasons.reset_index(drop=True), candidates, partial_seasons
+        )
+        selected_name, skill_gate = apply_outer_season_gate(season_holdouts, selected_name, skill_gate)
     holdout_model = clone(candidates[selected_name])
     holdout_model.fit(X_dev, y_dev)
     test_pred = np.asarray(holdout_model.predict(X_test), dtype=float)
@@ -325,7 +361,10 @@ def chronological_regression_evaluation(
         "skill_gate_applied": skill_gate["skill_gate_applied"],
         "skill_gate_passed": skill_gate["skill_gate_passed"],
         "skill_gate": skill_gate,
-        "selection_metric": "mean RMSE across 4 expanding-window folds; feature model must beat training_mean by >=0.5% and win >=3 folds",
+        "selection_metric": (
+            "mean RMSE across 4 expanding-window folds; feature model must beat training_mean by >=0.5% "
+            "and win >=3 folds, then beat it in a majority of complete nested outer seasons"
+        ),
         "cv_rmse": cv_scores,
         "train_samples": int(len(X_dev)),
         "test_samples": int(len(X_test)),
@@ -340,8 +379,6 @@ def chronological_regression_evaluation(
         "n_features": int(X.shape[1]),
         "count_dispersion_alpha_dev": round(estimate_count_dispersion(y_dev), 6),
     }
-    if seasons is not None:
-        metrics["season_holdouts"] = evaluate_season_holdouts(
-            X, y, seasons.reset_index(drop=True), candidates, partial_seasons
-        )
+    if season_holdouts is not None:
+        metrics["season_holdouts"] = season_holdouts
     return selected_name, holdout_model, production_model, metrics, test_pred, y_test

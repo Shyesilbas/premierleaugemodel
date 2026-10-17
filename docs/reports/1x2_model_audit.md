@@ -6,7 +6,7 @@
 
 **Son benchmark yenilemesi:** 14 Ekim 2026'da tam pipeline yeniden çalıştırıldı. Güncel ana sınıflandırma holdout'u kilitli sezon hariç 304 maçtır; aşağıdaki kısa sonuç ve beraberlik özeti bu yeni ölçüme göre güncellendi.
 
-**TheStatsAPI xG (14 Ekim 2026):** Sağlayıcı xG'si ayrı kaynak tablosunda ve maç detayı/API'sinde duruyor. Gerçekleşmiş maç xG'si maç sonrasında bilindiği için lag'li xG feature'ları ön-tahmin modelinden çıkarıldı. Güncel 1X2 artefaktı xG içermiyor; sağlayıcı xG'si yalnız maç verisi/gösterimi ve maç-sonrası analiz için kullanılıyor. Kapsama [harici veri pilotunda](1x2_external_data_pilot.md).
+**TheStatsAPI xG (14 Ekim 2026):** Sağlayıcı xG'si ayrı kaynak tablosunda ve maç detayı/API'sinde duruyor. Gerçekleşmiş maç xG'si maç sonrasında bilindiği için lag'li xG feature'ları ön-tahmin modelinden çıkarıldı. Güncel 1X2 artefaktı xG içermiyor; sağlayıcı xG'si yalnız maç verisi/gösterimi ve maç-sonrası analiz için kullanılıyor. Kapsama harici veri pilotunda (rapor kaldırıldı; git geçmişinde: `reports/1x2_external_data_pilot.md`).
 
 ## Kısa sonuç
 

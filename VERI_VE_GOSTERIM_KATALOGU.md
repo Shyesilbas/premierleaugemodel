@@ -1,5 +1,7 @@
 # Premier League Model App — Kapsamlı Veri ve Gösterim Kataloğu
 
+**Dokümantasyon Ağı:** [Ana Sayfa (README)](README.md) · [Ana Kapsamlı Rapor](docs/reports/premier_league_models_comprehensive_report.md) · [Paper Trading Protokolü](docs/reports/paper_trading_protocol_2026_27.md) · [Rapor Merkezi](docs/reports/README.md) · [AI Context](AI_CONTEXT.md) · [API Entegrasyonu](docs/model_api_integration.md)
+
 Bu belge, Premier League Model App platformunda **Maç (Match)**, **Takım (Team)**, **Oyuncu (Player)** ve **Hakem (Referee)** varlıklarına ilişkin erişilebilen, hesaplanan, veri tabanında saklanan ve kullanıcı arayüzünde (UI) gösterilen **tüm verileri, metrikleri, olayları ve modelleri** en ince ayrıntısına kadar eksiksiz olarak belgelemektedir.
 
 ---
@@ -254,6 +256,8 @@ Henüz oynanmamış maçlar için eğitilmiş üretim modelleri (LightGBM, Ridge
 * **Model Beceri Durumu (`model_skill`):** `model` veya `baseline` (Skill Gate).
 
 #### 4. Kart & Disiplin Modeli (Cards Prediction)
+> Güncel durum (17 Ekim 2026): özellikli kart modeli dış sezon kapısını geçemediği için toplam kart tahmini eğitim ortalamasından gelir (`model_skill: baseline`); ev/deplasman paylaşımı ve hakem k/m kutusu bilgi amaçlıdır. Bkz. [Kart Model Raporu](docs/reports/models/cards_model.md).
+
 * **Toplam Beklenen Kart (`expected_total`):** Örn: `4.3 kart`.
 * **Ev & Deplasman Kart Paylaşımı:** Takımların geçmiş kart görme ve rakibe kart aldırma oranlarına göre dağılım.
 * **3.5 Üst Kart Yüzdesi (`prob_over_3_5_pct`).**

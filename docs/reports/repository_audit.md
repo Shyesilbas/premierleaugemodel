@@ -80,7 +80,7 @@ Regresyon holdout'u 316 maç ve son sezonun 60 maçlık kısmi bölümünü içe
 
 ### Orta öncelik
 
-3. **Ön yüz Node sürümü kurulum talimatıyla uyumsuz.** [`package-lock.json`](../frontend/package-lock.json#L2307) içindeki Vite/Rolldown motor koşulu Node `^20.19.0 || >=22.12.0`. `frontend/` dizinindeki `npm run build` denetim ortamının Node 20.11 sürümünde başarısız oldu. Node 22.12 ile derleme geçti. README'ye sürüm koşulu eklendi; ayrıca `frontend/package.json` içine `engines`, depo içine `.nvmrc`/`.node-version` eklemek ve CI'da aynı sürümü kullanmak önerilir.
+3. **Ön yüz Node sürümü kurulum talimatıyla uyumsuz.** [`package-lock.json`](../../frontend/package-lock.json#L2307) içindeki Vite/Rolldown motor koşulu Node `^20.19.0 || >=22.12.0`. `frontend/` dizinindeki `npm run build` denetim ortamının Node 20.11 sürümünde başarısız oldu. Node 22.12 ile derleme geçti. README'ye sürüm koşulu eklendi; ayrıca `frontend/package.json` içine `engines`, depo içine `.nvmrc`/`.node-version` eklemek ve CI'da aynı sürümü kullanmak önerilir.
 
 4. **Bazı tahmin girdileri hâlâ varsayılan sıfırla dolduruluyor.** 1X2 tahminleri artık ortak `safe_feature_frame` helper'ında NaN'leri koruyarak `SimpleImputer`'a bırakıyor; helper testi eklendi. Diğer model aileleri varsayılan `0.0` politikasını sürdürüyor. Canlı/offline feature parity ve her model ailesinin eksik değer sözleşmesi için entegrasyon testi ekleyin.
 

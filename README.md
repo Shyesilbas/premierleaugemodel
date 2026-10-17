@@ -1,63 +1,98 @@
-# Premier League Match Analysis
+# Premier League Match Analysis & Predictive Modeling System
 
-This project stores Premier League fixtures and match statistics, builds pre-match team features, trains prediction models, and serves a React dashboard through FastAPI.
+Premier League maçları için uçtan uca bir tahmin platformu: ham maç verisinden maç öncesi özellikler (`shift(1)`, sızıntısız), bir gol skor matrisi modeli, bir 1X2 maç sonucu modeli, beş sayım modeli (korner, kart, kurtarış, ofsayt, taç), FastAPI backend ve React/Vite arayüzü.
 
-## Current data
+**Durum (17 Ekim 2026):** 5 sezon, 1.900 fikstür (1.580 oynanmış; 2026/27'de 60/380). Güncel durum ve bilinen sınırlar: [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
-The local cache contains five seasons: 2022/23 through the in-progress 2026/27 season. Counts change as fixtures finish; see [Data Quality](reports/data_quality.md) for the current snapshot, recovered event labels, and raw-provider field coverage.
+---
 
-## Run locally
-
-Start the API from the repository root:
+## 🚀 Hızlı Başlangıç
 
 ```bash
-uvicorn src.api.server:app --reload --host 127.0.0.1 --port 8000
+python3 start.py                 # Backend (:8000) + frontend (:5173) birlikte; bu portlardaki süreçleri kapatır
+python3 run_full_pipeline.py     # ETL → özellikler → değerlendirme → tüm modellerin eğitimi → otomatik raporlar
+pytest                           # Test paketi (22 test)
 ```
 
-Start the frontend in a second terminal:
+Ayrı ayrı çalıştırmak için:
 
 ```bash
-cd frontend
-npm ci
-npm run dev
+uvicorn src.api.server:app --reload --host 127.0.0.1 --port 8000   # API, dokümantasyon: http://127.0.0.1:8000/docs
+cd frontend && npm ci && npm run dev                                # Arayüz (Vite 8: Node ^20.19.0 veya >=22.12.0)
+sqlite3 data/premier_league.db "SELECT ..."                        # Canlı veri sorgusu
 ```
 
-Vite 8 requires Node.js `^20.19.0` or `>=22.12.0`. Use one of those versions for the frontend commands.
+- Pipeline yerel ham önbellekten çalışır; upstream veri indirmez ve SQLite'ı yeniden kurmaz. Yeni maç verisi arayüzdeki Fikstürler sayfasından artımlı senkronizasyonla gelir.
+- Pipeline'dan sonra API'yi yeniden başlatın; modeller açılışta yüklenir.
 
-## Refresh data and models
+---
 
-The Fixtures page can run the incremental season sync. It refreshes the provider fixture list and downloads data for changed or newly completed matches, then rebuilds the processed tables and SQLite database. That action does not retrain prediction models. Restart the API to load rebuilt data.
+## ⚽ Modeller
 
-To rebuild features, retrain every model, and refresh the reports from the local cache, run:
+| Model | Üretimdeki Hali | Durum | Rapor |
+| :--- | :--- | :--- | :--- |
+| **Gol (skor matrisi)** | 13×13 matris: bağımsız Poisson × Dixon-Coles τ, $\lambda = \lambda_{DC}^{0.5}\lambda_{Feat}^{0.5}$, 11 özellik, α=30; API'de 1X2'ye hizalanır | ⚠️ Prior'a karşı anlamlı beceri yok (O2.5 LL 0.6803, Δ −0.0044, CI sıfırı içeriyor) | [goals_model.md](docs/reports/models/goals_model.md) |
+| **1X2 maç sonucu** | 77 özellikli L2 çok terimli lojistik + sıcaklık kalibrasyonu | 🏆 Prior'u anlamlı geçiyor (LL 1.026 vs 1.092); beraberlik ayrımı zayıf | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
+| **Korner** | `elastic_0.05_0.8`, 10 özellik | 🏆 Küçük kazanç (RMSE 3.200 vs 3.241) | [corners_model.md](docs/reports/models/corners_model.md) |
+| **Taç** | `poisson_10`, 14 özellik | 🏆 Dış sezon 3/3 (RMSE 7.022 vs 7.388) | [throws_model.md](docs/reports/models/throws_model.md) |
+| **Ofsayt** | `ridge_250`, 10 özellik | 🏆 Dış sezon 3/3 (RMSE 1.910 vs 2.024) | [offsides_model.md](docs/reports/models/offsides_model.md) |
+| **Kart** | Sabit ortalama (`training_mean`) | 🛡️ Özellikli aday dış sezon kapısını geçemedi (1/3) | [cards_model.md](docs/reports/models/cards_model.md) |
+| **Kurtarış** | Sabit ortalama (`training_mean`) | 🛡️ CV kapısı geçilemedi (2/4 kat) | [saves_model.md](docs/reports/models/saves_model.md) |
+
+Sayım modellerinde özellikli model ancak hem CV kapısını hem de iç içe dış sezon kapısını geçerse üretime girer. Geçemezse sabit ortalama kullanılır ve API `model_skill: "baseline"` döner; arayüz bunu "Veri ortalaması tabanlı tahmin" rozetiyle gösterir.
+
+---
+
+## 🗺️ Dokümantasyon Haritası
+
+```
+README.md                      ← buradasınız: genel bakış ve hızlı başlangıç
+PROJECT_STATUS.md              ← güncel durum, bilinen sınırlar, sıradaki işler
+CLAUDE.md / AI_CONTEXT.md      ← ajanlar için talimatlar ve makine-okunur referans
+ARTIFACT_REGISTRY.md           ← veri ve model artefaktları: ne, nerede, kim üretiyor
+VERI_VE_GOSTERIM_KATALOGU.md   ← veri şeması, metrikler, arayüz gösterimleri
+docs/
+├── model_api_integration.md   ← model çıktıları → API alanları → React bileşenleri
+└── reports/
+    ├── README.md              ← rapor merkezi (tüm raporların dizini)
+    ├── premier_league_models_comprehensive_report.md  ← ana rapor: özet karne, veri/ETL, edge, anayasa
+    ├── models/                ← her modelin kendi raporu (yukarıdaki tablo)
+    ├── model_benchmarks.md, data_quality.md, team_*.md   ← pipeline'ın otomatik ürettiği raporlar
+    └── 1x2_model_audit.md, paper_trading_protocol_2026_27.md, repository_audit.md, ...  ← elle tutulan raporlar
+```
+
+| Ne arıyorsunuz? | Nereye bakın |
+| :--- | :--- |
+| Bir modelin nasıl çalıştığı, sonuçları, reddedilen deneyler | [docs/reports/models/](docs/reports/models/) |
+| Tüm modellerin tek tablo özeti, metodolojik anayasa | [Ana Rapor](docs/reports/premier_league_models_comprehensive_report.md) |
+| Güncel benchmark rakamları (pipeline üretir) | [Model Benchmarks](docs/reports/model_benchmarks.md) |
+| Veri kapsamı ve kalitesi | [Data Quality](docs/reports/data_quality.md) · [Veri Kataloğu](VERI_VE_GOSTERIM_KATALOGU.md) |
+| API alanlarının nereden geldiği | [Model API Entegrasyonu](docs/model_api_integration.md) |
+| Canlı sezon takibi ve bahis edge'i | [Paper Trading Protokolü](docs/reports/paper_trading_protocol_2026_27.md) |
+| Uçtan uca örnek maç | [Liverpool – Manchester City](LIVERPOOL_MANCHESTER_CITY_MAC_VE_VERI_DETAYI.md) |
+| Tüm raporların listesi | [Rapor Merkezi](docs/reports/README.md) |
+
+**Güncelleme kuralı:** Bir model değişince önce kendi raporu, sonra ana rapordaki özet karne, README'deki model tablosu, PROJECT_STATUS ve AI_CONTEXT güncellenir. Otomatik raporları (`model_benchmarks.md`, `data_quality.md`, `team_*.md`) elle düzenlemeyin; pipeline üzerine yazar.
+
+---
+
+## 📈 İleriye Dönük Ölçüm (Paper Trading)
 
 ```bash
-python3 run_full_pipeline.py
+python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14   # Gelecek maçların tahminlerini dondur
+python3 -m src.analytics.prospective_1x2_benchmark score                       # Biten maçları puanla
 ```
 
-The full pipeline does not fetch new upstream data. Run the incremental sync first when the cache needs updating.
+Tahminler `data/processed/1x2_forecast_log.jsonl` dosyasına (yalnızca ekleme) yazılır, puan kartı `docs/reports/prospective_1x2_scorecard.json`'dır. Kurallar: [Paper Trading Protokolü](docs/reports/paper_trading_protocol_2026_27.md).
 
-## Goal and 1X2 evaluation
+---
 
-The score-matrix model is implemented in `src/models/goals_model.py`, trained in `src/models/train_goals.py`, and evaluated against season holdouts by `src/models/evaluate_goal_models.py`. The 1X2 draw-propensity state is in `src/features/draw_features.py`; shared bootstrap and reliability metrics are in `src/models/eval_utils.py`.
+## 🧪 Değerlendirme İlkeleri
 
-To save the API's upcoming production forecasts and later score completed matches, run:
+Tam liste: [Metodolojik Anayasa (Ana Rapor, Bölüm 8)](docs/reports/premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage).
 
-```bash
-python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14
-python3 -m src.analytics.prospective_1x2_benchmark score
-```
-
-The append-only log keeps 1X2 and goal-market predictions with their model-artifact fingerprints. After logged matches finish, the score command creates `reports/prospective_1x2_scorecard.json` with 1X2, Over 1.5/2.5/3.5, and BTTS scores.
-
-## Reports and status
-
-- [Reports index](reports/README.md): all reports and machine-readable evaluation artifacts in one place.
-- [Comprehensive codebase audit](reports/repository_audit.md): current benchmark summary, engineering findings, test coverage, and improvement plan.
-- [Project Status](PROJECT_STATUS.md): current snapshot and known model limitations.
-- [Artifact Registry](ARTIFACT_REGISTRY.md): processed datasets and production model artifacts.
-
-## Evaluation and interpretation
-
-All model rows are ordered by kickoff. For 1X2 and Over 2.5, the main split uses the nearest boundary to 80% while keeping matches with equal kickoff times together; expanding-window CV folds also keep kickoff groups intact. Current 1X2 feature, ensemble, and recency-calibration gates use development data only. Season-by-season holdouts evaluate each test season using only earlier seasons. Probability calibration is fitted from chronological out-of-fold development predictions. Regression imputation and scaling are fitted within each training fold. Production models are refit on eligible rows after evaluation. The 1X2 report includes a Dixon–Coles baseline using the same main holdout and 1X2 training-season exclusion; it remains an evaluation comparator, not the API's production outcome model.
-
-The data covers only a few seasons, and the latest season is incomplete. Treat small improvements over a mean or class-prior baseline as preliminary. Count thresholds use a negative-binomial distribution with dispersion estimated on training targets; reports compare it with Poisson and training-rate baselines. Raw metric omissions are kept as nulls with per-team `_reported` flags; models exclude rows whose target metrics are incomplete. Provider-sourced TheStatsAPI xG is stored with its source and shown in match details for post-match use; it is excluded from pre-match 1X2 features because actual match xG is only available after kickoff. Legacy aggregate-stat xG proxies are also excluded from the model. There is no model trained to predict pre-match xG.
+1. **Sızıntı yok:** Tüm maç öncesi rolling metrikler `shift(1)` ile hesaplanır; aynı başlama saatindeki maçlar bölünmez.
+2. **Kilitli sezon:** 2026/27 model seçiminde kullanılmaz, yalnızca raporlanır.
+3. **İç içe değerlendirme:** Hiperparametreler ve dağıtım kararları yalnızca eğitim sezonları içindeki ileri katlarla verilir; test havuzunda optimizasyon yapılmaz.
+4. **Sadelik:** Daha karmaşık bir seçenek, basit olanı kronolojik dış testte geçmedikçe reddedilir; reddedilenler ilgili model raporuna yazılır.
+5. **Küçük örneklem:** N < 500 alt gruplarda bootstrap güven aralığı ve çoklu test düzeltmesi (Bonferroni / BH-FDR) zorunludur.

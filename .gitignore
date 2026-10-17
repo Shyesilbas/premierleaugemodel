@@ -49,3 +49,4 @@ lerna-debug.log*
 # Raw downloaded API json cache
 data/raw/matches/
 
+graphify-out/

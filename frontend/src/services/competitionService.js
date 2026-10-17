@@ -10,8 +10,8 @@ export async function getSeasonSyncStatus() {
   return data;
 }
 
-export async function startSeasonSync(season) {
-  const { response, data } = await requestJson(withQuery('/api/admin/sync-season', { season }), { method: 'POST' });
+export async function startSeasonSync(season, kind = 'matches') {
+  const { response, data } = await requestJson(withQuery('/api/admin/sync-season', { season, kind }), { method: 'POST' });
   if (!response.ok) throw new Error(data.detail || data.message || 'Güncelleme başlatılamadı.');
   return data;
 }

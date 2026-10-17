@@ -28,7 +28,7 @@ MATCHES_PATH = PROJECT_ROOT / "data" / "processed" / "matches_summary_all.parque
 MODEL_PATH = PROJECT_ROOT / "models" / "production" / "outcome_models_v1.joblib"
 GOALS_MODEL_PATH = PROJECT_ROOT / "models" / "production" / "goals_models_v1.joblib"
 FORECAST_LOG = PROJECT_ROOT / "data" / "processed" / "1x2_forecast_log.jsonl"
-SCORECARD_PATH = PROJECT_ROOT / "reports" / "prospective_1x2_scorecard.json"
+SCORECARD_PATH = PROJECT_ROOT / "docs" / "reports" / "prospective_1x2_scorecard.json"
 logger = logging.getLogger("prospective_1x2_benchmark")
 GOAL_MARKETS = ("over_1.5", "over_2.5", "over_3.5", "btts")
 

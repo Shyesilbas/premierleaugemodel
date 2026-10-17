@@ -16,7 +16,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import MatchDetailModal from './MatchDetailModal';
-import { getCachedTeamData, setCachedTeamData, clearTeamCache, calculateTeamExpiry } from '../utils/teamProfileCache';
+import { getCachedTeamData, setCachedTeamData, clearAllCaches, calculateTeamExpiry } from '../utils/teamProfileCache';
 import { getGroupedFixtures, getSeasonSyncStatus, getStandings, startSeasonSync } from '../services/competitionService';
 import { getTeamManagers } from '../services/teamService';
 
@@ -31,6 +31,9 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
   const [teamManagers, setTeamManagers] = useState({});
   const [syncStatus, setSyncStatus] = useState('idle');
   const [syncMessage, setSyncMessage] = useState('');
+  const [syncKind, setSyncKind] = useState('matches');
+  const [syncMatches, setSyncMatches] = useState([]);
+  const [isSyncMenuOpen, setIsSyncMenuOpen] = useState(false);
   const [dataRefreshVersion, setDataRefreshVersion] = useState(0);
 
   // Display Mode: 'list' (Kompakt Liste) | 'cards' (Detaylı Kartlar)
@@ -148,7 +151,8 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
         if (job.status === 'completed') {
           setSyncStatus('completed');
           setSyncMessage(job.message || 'Veriler güncellendi.');
-          clearTeamCache('all', selectedSeason || '2026_27');
+          setSyncMatches(job.matches || []);
+          clearAllCaches();
           setDataRefreshVersion(version => version + 1);
           return;
         }
@@ -168,14 +172,16 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
     return () => { cancelled = true; clearTimeout(timer); };
   }, [syncStatus]);
 
-  const triggerSeasonSync = async () => {
+  const triggerSeasonSync = async (kind = 'matches') => {
+    setSyncKind(kind);
+    setSyncMatches([]);
     setSyncStatus('starting');
-    setSyncMessage('Sezon fikstürü kontrol ediliyor...');
+    setSyncMessage('Başlandı...');
     try {
       const season = selectedSeason && selectedSeason !== 'all' ? selectedSeason : '2026_27';
-      const job = await startSeasonSync(season);
+      const job = await startSeasonSync(season, kind);
       setSyncStatus(job.status === 'completed' ? 'completed' : 'running');
-      setSyncMessage(job.message || (job.already_running ? 'Başka bir güncelleme devam ediyor...' : 'Sezon verileri kontrol ediliyor...'));
+      setSyncMessage(job.message || (job.already_running ? 'Başka bir güncelleme devam ediyor...' : 'Başlandı...'));
     } catch (error) {
       setSyncStatus('failed');
       setSyncMessage(error.message || 'Güncelleme başlatılamadı.');
@@ -474,16 +480,46 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
             </div>
 
-            {/* Sync Season Button */}
-            <button
-              type="button"
-              onClick={triggerSeasonSync}
-              disabled={syncStatus === 'starting' || syncStatus === 'running'}
-              title={syncStatus === 'starting' || syncStatus === 'running' ? 'Veriler eşitleniyor' : 'Sezon verisini eşitle'}
-              className="p-1.5 rounded-xl border border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 transition-all shrink-0 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === 'starting' || syncStatus === 'running' ? 'animate-spin' : ''}`} />
-            </button>
+            {/* Sync Dropdown */}
+            {(() => {
+              const busy = syncStatus === 'starting' || syncStatus === 'running';
+              return (
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsSyncMenuOpen(open => !open)}
+                    disabled={busy}
+                    title={busy ? 'Veriler eşitleniyor' : 'Veri güncelle'}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-violet-200 bg-violet-50 text-violet-800 text-xs font-bold hover:bg-violet-100 transition-all disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isSyncMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isSyncMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsSyncMenuOpen(false)} />
+                      <div className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                        {[
+                          { kind: 'referees', label: 'Hakemler', hint: 'Atanan hakemleri çek' },
+                          { kind: 'lineups', label: 'Kadrolar', hint: 'Önümüzdeki 2 saatteki maçların resmi kadroları' },
+                          { kind: 'matches', label: 'Maç verisi', hint: 'Biten maçların istatistikleri' },
+                        ].map(({ kind, label, hint }) => (
+                          <button
+                            key={kind}
+                            type="button"
+                            onClick={() => { setIsSyncMenuOpen(false); triggerSeasonSync(kind); }}
+                            className="block w-full rounded-lg px-2.5 py-1.5 text-left transition-all hover:bg-slate-100"
+                          >
+                            <span className="block text-xs font-bold text-slate-800">{label}</span>
+                            <span className="block text-[10px] text-slate-500">{hint}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
         </div>
@@ -495,6 +531,11 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
             {syncStatus === 'failed' && <AlertCircle className="h-3 w-3" />}
             <span>{syncMessage}</span>
           </p>
+        )}
+        {syncStatus === 'completed' && syncMatches.length > 0 && (
+          <ul className="text-[10px] font-semibold text-slate-600 space-y-0.5">
+            {syncMatches.map(name => <li key={name}>• {name}</li>)}
+          </ul>
         )}
       </div>
 

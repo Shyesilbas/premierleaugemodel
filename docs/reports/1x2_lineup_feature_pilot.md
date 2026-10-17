@@ -5,7 +5,7 @@
 **Test aralığı:** 2026/27 ilk altı maç haftası.  
 **Test fikstürü:** 60 maç.  
 **Eğitim:** 1139 maç; yalnız kilitli sezon öncesi, 2022/23 dışlama politikası sabit.  
-**İlk 11 kapsaması:** 1579/1580 oynanmış maç; eksik tarihli satırlar bu deneyin eğitiminden çıkarıldı.
+**İlk 11 kapsaması:** 1583/1584 oynanmış maç; eksik tarihli satırlar bu deneyin eğitiminden çıkarıldı.
 
 ## Deney
 
@@ -15,14 +15,14 @@ Bu, kadro değişimini ölçen bir proxy'dir. Oyuncunun sakat mı, cezalı mı, 
 
 | Ölçüm | Eğitim sınıf prior'ı | Mevcut özellikler | + İlk 11 devamlılığı |
 |---|---:|---:|---:|
-| Log loss | 1.1062 | 1.0224 | 1.0251 |
-| Çok sınıflı Brier | 0.6708 | 0.6099 | 0.6115 |
-| Doğruluk | 0.383 | 0.433 | 0.433 |
-| Beraberlik Brier | — | 0.2016 | 0.2031 |
-| Beraberlik AUC | — | 0.684 | 0.689 |
-| En olası sınıfı beraberlik olan maç | — | 4 | 4 |
+| Log loss | 1.1062 | 1.0257 | 1.0281 |
+| Çok sınıflı Brier | 0.6708 | 0.6126 | 0.6140 |
+| Doğruluk | 0.383 | 0.500 | 0.500 |
+| Beraberlik Brier | — | 0.2098 | 0.2112 |
+| Beraberlik AUC | — | 0.557 | 0.557 |
+| En olası sınıfı beraberlik olan maç | — | 5 | 5 |
 
-İlk 11 devamlılığı eklenince eşleştirilmiş test log-loss farkı **+0.0026** oldu (negatif değer daha iyi); maç bazlı bootstrap %95 aralığı **[-0.0047, +0.0099]**, yeni kolun daha iyi olma payı **0.247**. 60 maçlık örnek küçük olduğundan bu tek başına üretim kararına yetmez. Tahminlerde kullanılan ilk 11'lerin maç önü yayım zaman damgası bu yerel arşivde bulunmuyor; deney ilk 11'in başlama saatinden önce bilindiği varsayımına dayanıyor.
+İlk 11 devamlılığı eklenince eşleştirilmiş test log-loss farkı **+0.0024** oldu (negatif değer daha iyi); maç bazlı bootstrap %95 aralığı **[-0.0041, +0.0093]**, yeni kolun daha iyi olma payı **0.245**. 60 maçlık örnek küçük olduğundan bu tek başına üretim kararına yetmez. Tahminlerde kullanılan ilk 11'lerin maç önü yayım zaman damgası bu yerel arşivde bulunmuyor; deney ilk 11'in başlama saatinden önce bilindiği varsayımına dayanıyor.
 
 ## Yorum
 

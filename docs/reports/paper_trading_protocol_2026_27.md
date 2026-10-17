@@ -2,7 +2,8 @@
 
 **Tarih:** 17 Ekim 2026  
 **Durum:** Resmi Protokol (Yürürlükte)  
-**Metodolojik Dayanak:** [Quant Modeling & Empirical Audit Guidelines](file:///Users/serhat/PycharmProjects/premierLeaugeModelApp/.agents/rules/quant_modeling_audit_rules.md)
+**Metodolojik Dayanak:** [Premier League Modelleri Raporu — Bölüm 8: Metodolojik Anayasa](premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage)  
+**Dokümantasyon Ağı:** [README](../../README.md) · [Ana Kapsamlı Rapor](premier_league_models_comprehensive_report.md) · [Rapor Merkezi](README.md) · [AI Context](../../AI_CONTEXT.md) · [API Entegrasyonu](../model_api_integration.md)
 
 ---
 

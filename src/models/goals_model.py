@@ -43,9 +43,7 @@ class FeatureGoalModel:
     def _features(self, df: pd.DataFrame) -> pd.DataFrame:
         missing = [column for column in self.features if column not in df.columns]
         if missing:
-            df = df.copy()
-            for col in missing:
-                df[col] = 0.0
+            raise KeyError(f"Goal model features missing from data: {missing}")
         return df[self.features].replace([np.inf, -np.inf], np.nan)
 
     def fit(
@@ -158,6 +156,8 @@ class BlendedGoalModel:
             half_life_days=self.dc_half_life_days,
             max_goals=self.max_goals,
         ).fit(df)
+        if not self.dc_model_.fit_ok_:
+            raise RuntimeError("Dixon-Coles optimizer did not converge; refusing to blend")
         self.feature_model_ = FeatureGoalModel(
             self.features,
             alpha=self.feature_alpha,

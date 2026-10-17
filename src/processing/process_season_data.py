@@ -169,22 +169,23 @@ def parse_match(
     home_team = teams[0].get("team", {})
     away_team = teams[1].get("team", {})
 
+    is_completed = str(fixture.get("status") or "C").upper() == "C"
     home_id = int(home_team.get("id", 0))
     home_name = home_team.get("name", "")
     home_abbr = home_team.get("club", {}).get("abbr", "")
-    home_score = teams[0].get("score")
+    home_score = teams[0].get("score") if is_completed else None
 
     away_id = int(away_team.get("id", 0))
     away_name = away_team.get("name", "")
     away_abbr = away_team.get("club", {}).get("abbr", "")
-    away_score = teams[1].get("score")
+    away_score = teams[1].get("score") if is_completed else None
 
     # Match outcome
     home_win = 1 if home_score is not None and away_score is not None and home_score > away_score else 0
     away_win = 1 if home_score is not None and away_score is not None and away_score > home_score else 0
     draw = 1 if home_score is not None and away_score is not None and home_score == away_score else 0
     if home_score is None or away_score is None:
-        match_result = None  # Unplayed fixture: no outcome yet
+        match_result = None  # Unplayed or in-play fixture: no final outcome yet
     else:
         match_result = "H" if home_win else ("A" if away_win else "D")
 
@@ -214,19 +215,19 @@ def parse_match(
     # Keep omitted provider values missing and retain a separate raw-presence flag.
     # Red cards are the one sparse count treated as zero when omitted; its source flag
     # remains available so downstream analysis can distinguish observed from inferred.
-    stats_by_team = (stats_data or {}).get("data") or {}
+    stats_by_team = ((stats_data or {}).get("data") or {}) if is_completed else {}
     home_metrics = extract_team_metrics(stats_by_team.get(str(home_id), {}))
     away_metrics = extract_team_metrics(stats_by_team.get(str(away_id), {}))
     for fld in METRIC_FIELDS:
         for side, metrics in (("home", home_metrics), ("away", away_metrics)):
             present = fld in metrics
-            fallback = 0.0 if fld in SPARSE_ZERO_METRICS else np.nan
+            fallback = 0.0 if (is_completed and fld in SPARSE_ZERO_METRICS) else np.nan
             record[f"{side}_{fld}"] = metrics.get(fld, fallback)
             record[f"{side}_{fld}_reported"] = bool(present)
 
     # Preserve raw provider values and fill only omissions from the same provider's
     # event stream. Source flags continue to describe the stats endpoint itself.
-    event_counts = _event_counts_by_team(fixture, stream_data)
+    event_counts = _event_counts_by_team(fixture, stream_data) if is_completed else None
     event_fields = {
         "home_saves": ("saves", "home"),
         "away_saves": ("saves", "away"),

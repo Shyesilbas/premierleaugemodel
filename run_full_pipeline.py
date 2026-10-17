@@ -153,7 +153,9 @@ def generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offs
         baseline_mae = metrics["baseline_test_mae"]
         selected_cv = metrics["cv_rmse"][metrics["selected_model"]]
         raw_selected = metrics.get("raw_selected_model", metrics["selected_model"])
-        if metrics["selected_model"] == "training_mean":
+        if metrics.get("skill_gate", {}).get("reason") == "model_failed_outer_season_gate":
+            skill_decision = "outer-season gate → mean"
+        elif metrics["selected_model"] == "training_mean":
             skill_decision = "gate fallback to mean" if metrics.get("skill_gate_applied") else "mean won CV"
         elif metrics.get("skill_gate_applied"):
             skill_decision = "failed → mean"
@@ -407,7 +409,8 @@ def main():
     train_goals_models()
 
     # Step 4: Benchmark Report
-    bench_report = Path("reports/model_benchmarks.md")
+    bench_report = Path("docs/reports/model_benchmarks.md")
+    bench_report.parent.mkdir(parents=True, exist_ok=True)
     generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offsides_res, outcome_res, bench_report)
 
     logger.info("=== Master Pipeline Complete! ===")

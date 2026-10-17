@@ -41,10 +41,15 @@ def load_fixture_file(path: Path) -> List[Dict[str, Any]]:
     return data if isinstance(data, list) else data.get("content", [])
 
 
-def fixture_is_completed(fixture: Dict[str, Any]) -> bool:
+def fixture_is_completed(fixture: Optional[Dict[str, Any]]) -> bool:
+    if not fixture:
+        return False
+    status = str(fixture.get("status") or "").upper()
+    if status:
+        return status == "C"
     teams = fixture.get("teams") or []
     has_scores = len(teams) >= 2 and all(team.get("score") is not None for team in teams[:2])
-    return fixture.get("status") == "C" or fixture.get("outcome") is not None or has_scores
+    return fixture.get("outcome") is not None or has_scores
 
 
 def scores(fixture: Optional[Dict[str, Any]]) -> Tuple[Any, Any]:
@@ -91,6 +96,13 @@ def fixture_pair(fixture: Dict[str, Any]) -> Tuple[str, str]:
     return normalize_team_name(home), normalize_team_name(away)
 
 
+def match_label(fixture: Dict[str, Any]) -> str:
+    teams = fixture.get("teams") or []
+    if len(teams) < 2:
+        return str(fixture.get("id"))
+    return f"{(teams[0].get('team') or {}).get('name')} - {(teams[1].get('team') or {}).get('name')}"
+
+
 def main_referee_name(officials: Any) -> Optional[str]:
     for entry in officials or []:
         official = entry.get("official") or entry.get("matchOfficial") or entry
@@ -110,6 +122,7 @@ def sync_upcoming_referees(
     season_name: str,
     fresh_fixtures: List[Dict[str, Any]],
     old_by_id: Dict[int, Dict[str, Any]],
+    changed: Optional[List[str]] = None,
 ) -> int:
     """Refresh appointments for upcoming fixtures in the next two weeks.
 
@@ -191,6 +204,8 @@ def sync_upcoming_referees(
                 "name": {"display": referee},
             }]
             updates += 1
+            if changed is not None:
+                changed.append(f"{match_label(fixture)} ({referee})")
             logger.info("Referee assigned for %s GW%s %s: %s", season_name, gameweek, pair, referee)
     return updates
 
@@ -223,8 +238,9 @@ def fetch_one(session, match_id: int, kind: str) -> bool:
 
 def rebuild_derived_data() -> None:
     commands = [
-        [sys.executable, "src/processing/process_season_data.py", "--season-name", "all"],
-        [sys.executable, "src/features/build_features.py"],
+        [sys.executable, "-m", "src.processing.process_season_data", "--season-name", "all"],
+        [sys.executable, "-m", "src.processing.build_player_index"],
+        [sys.executable, "-m", "src.features.build_features"],
         [sys.executable, "-m", "src.db.database"],
     ]
     for command in commands:
@@ -239,6 +255,7 @@ def sync_season(
     delay: float = 0.1,
     dry_run: bool = False,
     rebuild: bool = True,
+    referees_only: bool = False,
 ) -> Dict[str, int]:
     raw_dir = DATA_DIR / "raw"
     matches_dir = raw_dir / "matches"
@@ -260,7 +277,8 @@ def sync_season(
     old_by_id = {int(f["id"]): f for f in old_fixtures if f.get("id") is not None}
     fresh_by_id = {int(f["id"]): f for f in fresh_fixtures if f.get("id") is not None}
 
-    appointment_updates = sync_upcoming_referees(session, season_name, fresh_fixtures, old_by_id)
+    referee_matches: List[str] = []
+    appointment_updates = sync_upcoming_referees(session, season_name, fresh_fixtures, old_by_id, referee_matches)
     fixture_changes = sum(
         {
             key: value for key, value in old_by_id.get(mid, {}).items()
@@ -277,6 +295,21 @@ def sync_season(
         != main_referee_name(fixture.get("matchOfficials"))
         for mid, fixture in fresh_by_id.items()
     )
+    if referees_only:
+        # Store only the appointments; old fixture state stays so a later full sync still sees finished matches.
+        merged = [
+            {**f, "matchOfficials": fresh_by_id[int(f["id"])]["matchOfficials"]}
+            if fresh_by_id.get(int(f.get("id", -1)), {}).get("matchOfficials") else f
+            for f in old_fixtures
+        ]
+        if appointment_changes and not dry_run:
+            atomic_write_json(fixture_path, merged)
+            if rebuild:
+                rebuild_derived_data()
+        logger.info("Referee-only sync: %s appointments changed", appointment_changes)
+        return {"fixtures": len(fresh_fixtures), "fixture_changes": 0, "referee_appointments_updated": appointment_changes,
+                "completed_or_score_changes": 0, "matches_with_downloads": 0, "files_downloaded": 0, "failed_downloads": 0,
+                "matches": referee_matches}
     completed_changes = []
     needs_download: Dict[int, List[str]] = {}
     for match_id, fixture in fresh_by_id.items():
@@ -315,6 +348,7 @@ def sync_season(
         "matches_with_downloads": len(needs_download),
         "files_downloaded": 0,
         "failed_downloads": 0,
+        "matches": [],
     }
 
     if dry_run:
@@ -332,6 +366,8 @@ def sync_season(
                 failed_match_ids.add(match_id)
                 summary["failed_downloads"] += 1
             time.sleep(delay)
+
+    summary["matches"] = [match_label(fresh_by_id[mid]) for mid in sorted(needs_download) if mid not in failed_match_ids]
 
     # Keep old fixture state for failed matches so their score/status change is
     # detected and retried the next time the sync runs.
@@ -367,6 +403,7 @@ def main() -> None:
     parser.add_argument("--comps", type=int, default=1)
     parser.add_argument("--delay", type=float, default=0.1, help="Pause between match-data requests")
     parser.add_argument("--dry-run", action="store_true", help="Fetch fixture index and report planned downloads without writing data")
+    parser.add_argument("--referees-only", action="store_true", help="Only refresh upcoming referee appointments; skip match downloads")
     parser.add_argument("--no-rebuild", action="store_true", help="Do not regenerate Parquet, feature, and SQLite data")
     args = parser.parse_args()
 
@@ -378,8 +415,10 @@ def main() -> None:
         delay=args.delay,
         dry_run=args.dry_run,
         rebuild=not args.no_rebuild,
+        referees_only=args.referees_only,
     )
     logger.info("Sync summary: %s", summary)
+    print("SYNC_RESULT " + json.dumps({"matches": summary.get("matches", [])}, ensure_ascii=False))
     if summary["failed_downloads"]:
         logger.error("Some match files failed; rerun the sync to retry them.")
         raise SystemExit(1)

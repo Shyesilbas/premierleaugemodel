@@ -11,7 +11,7 @@ from src.analytics.team_tactics import load_team_match_rows
 
 
 ROOT = Path(__file__).resolve().parents[2]
-REPORT = ROOT / "reports" / "team_scenario_validation.md"
+REPORT = ROOT / "docs" / "reports" / "team_scenario_validation.md"
 
 
 def build_report() -> str:

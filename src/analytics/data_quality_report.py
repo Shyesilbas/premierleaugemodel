@@ -13,7 +13,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "data" / "raw"
 PROCESSED = ROOT / "data" / "processed"
-REPORT = ROOT / "reports" / "data_quality.md"
+REPORT = ROOT / "docs" / "reports" / "data_quality.md"
 
 TRACKED_METRICS = {
     "corners": "won_corners",

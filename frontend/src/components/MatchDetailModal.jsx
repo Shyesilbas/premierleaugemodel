@@ -73,7 +73,8 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
     getMatchDetails(match.match_id)
       .then(data => {
         setDetails(data);
-        if (isCompleted || data?.team_stats?.length > 0 || (data?.events && data.events.length > 0)) {
+        // Freeze only finished matches whose stats are downloaded; otherwise a partial/empty response would stay forever
+        if (isCompleted && data?.team_stats?.length > 0) {
           setCachedTeamData('match_detail', match.match_id, 'all', data, null, 'Tamamlanan maç detayı');
         }
         setLoading(false);

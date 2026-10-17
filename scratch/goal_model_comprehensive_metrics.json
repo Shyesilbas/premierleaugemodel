@@ -1,0 +1,463 @@
+{
+  "model_architecture": {
+    "kind": "blend_dc_feat",
+    "dc_half_life_days": 365.0,
+    "feature_alpha": 10.0,
+    "dc_weight": 0.25,
+    "total_features": 58,
+    "fit_matches": 1580,
+    "calibration_matches": 1520
+  },
+  "market_metrics": {
+    "over_1_5": {
+      "brier": 0.1495,
+      "log_loss": 0.4756,
+      "accuracy": 81.8,
+      "roc_auc": 0.538,
+      "precision": 81.8,
+      "recall": 100.0,
+      "f1": 0.9,
+      "ece": 2.85
+    },
+    "over_2_5": {
+      "brier": 0.2423,
+      "log_loss": 0.6774,
+      "accuracy": 57.2,
+      "roc_auc": 0.537,
+      "precision": 58.9,
+      "recall": 89.9,
+      "f1": 0.712,
+      "ece": 2.17
+    },
+    "over_3_5": {
+      "brier": 0.2295,
+      "log_loss": 0.652,
+      "accuracy": 65.0,
+      "roc_auc": 0.516,
+      "precision": 71.4,
+      "recall": 2.3,
+      "f1": 0.045,
+      "ece": 2.23
+    },
+    "btts": {
+      "brier": 0.2438,
+      "log_loss": 0.6806,
+      "accuracy": 57.2,
+      "roc_auc": 0.516,
+      "precision": 57.9,
+      "recall": 96.7,
+      "f1": 0.725,
+      "ece": 2.06
+    }
+  },
+  "goal_metrics": {
+    "home": {
+      "mae": 0.989,
+      "rmse": 1.21,
+      "corr": 0.34
+    },
+    "away": {
+      "mae": 0.881,
+      "rmse": 1.136,
+      "corr": 0.304
+    },
+    "total": {
+      "mae": 1.3,
+      "rmse": 1.641,
+      "corr": 0.065
+    },
+    "exact_score": {
+      "top1_accuracy": 11.5,
+      "top3_accuracy": 29.6,
+      "top5_accuracy": 45.3
+    }
+  },
+  "seasons_summary": {
+    "2023_24": {
+      "n_matches": 380,
+      "o25_log_loss": 0.6692,
+      "o25_brier": 0.2383,
+      "o25_acc": 57.9,
+      "btts_brier": 0.2418,
+      "goal_mae": 1.367,
+      "top3_score_hit": 27.4
+    },
+    "2024_25": {
+      "n_matches": 380,
+      "o25_log_loss": 0.6764,
+      "o25_brier": 0.2418,
+      "o25_acc": 57.4,
+      "btts_brier": 0.2438,
+      "goal_mae": 1.279,
+      "top3_score_hit": 31.6
+    },
+    "2025_26": {
+      "n_matches": 380,
+      "o25_log_loss": 0.6861,
+      "o25_brier": 0.2465,
+      "o25_acc": 55.8,
+      "btts_brier": 0.2451,
+      "goal_mae": 1.23,
+      "top3_score_hit": 30.5
+    },
+    "2026_27": {
+      "n_matches": 60,
+      "o25_log_loss": 0.6806,
+      "o25_brier": 0.2437,
+      "o25_acc": 61.7,
+      "btts_brier": 0.2471,
+      "goal_mae": 1.461,
+      "top3_score_hit": 25.0
+    }
+  },
+  "feature_coefficients": [
+    {
+      "feature": "effective_log_mv_ratio",
+      "coef_home": 0.01566,
+      "coef_away": -0.012924,
+      "abs_impact": 0.028584
+    },
+    {
+      "feature": "away_touches_in_opp_box_roll_10",
+      "coef_home": -0.010088,
+      "coef_away": 0.010906,
+      "abs_impact": 0.020994
+    },
+    {
+      "feature": "away_touches_in_opp_box_ewma_02",
+      "coef_home": -0.009366,
+      "coef_away": 0.010473,
+      "abs_impact": 0.019839
+    },
+    {
+      "feature": "elo_home",
+      "coef_home": 0.009382,
+      "coef_away": -0.010164,
+      "abs_impact": 0.019545
+    },
+    {
+      "feature": "elo_venue_home",
+      "coef_home": 0.009422,
+      "coef_away": -0.009444,
+      "abs_impact": 0.018866
+    },
+    {
+      "feature": "home_venue_xg_against_ewma_02",
+      "coef_home": -0.007252,
+      "coef_away": 0.011318,
+      "abs_impact": 0.01857
+    },
+    {
+      "feature": "ppg_home",
+      "coef_home": 0.009743,
+      "coef_away": -0.008655,
+      "abs_impact": 0.018398
+    },
+    {
+      "feature": "away_xg_for_roll_10",
+      "coef_home": -0.006196,
+      "coef_away": 0.010867,
+      "abs_impact": 0.017063
+    },
+    {
+      "feature": "home_touches_in_opp_box_roll_10",
+      "coef_home": 0.011704,
+      "coef_away": -0.005036,
+      "abs_impact": 0.016741
+    },
+    {
+      "feature": "gdpg_home",
+      "coef_home": 0.008932,
+      "coef_away": -0.006868,
+      "abs_impact": 0.015801
+    },
+    {
+      "feature": "home_xg_against_roll_10",
+      "coef_home": -0.006573,
+      "coef_away": 0.009115,
+      "abs_impact": 0.015688
+    },
+    {
+      "feature": "home_venue_xg_for_ewma_02",
+      "coef_home": 0.011123,
+      "coef_away": -0.004491,
+      "abs_impact": 0.015614
+    },
+    {
+      "feature": "home_touches_in_opp_box_ewma_02",
+      "coef_home": 0.010801,
+      "coef_away": -0.004708,
+      "abs_impact": 0.015509
+    },
+    {
+      "feature": "home_xg_against_ewma_02",
+      "coef_home": -0.005893,
+      "coef_away": 0.009515,
+      "abs_impact": 0.015408
+    },
+    {
+      "feature": "home_shots_ontarget_against_roll_10",
+      "coef_home": -0.007187,
+      "coef_away": 0.007805,
+      "abs_impact": 0.014992
+    },
+    {
+      "feature": "away_shots_ontarget_against_ewma_02",
+      "coef_home": 0.011493,
+      "coef_away": -0.003483,
+      "abs_impact": 0.014976
+    },
+    {
+      "feature": "away_shots_ontarget_for_roll_10",
+      "coef_home": -0.005795,
+      "coef_away": 0.008911,
+      "abs_impact": 0.014706
+    },
+    {
+      "feature": "home_possession_roll_10",
+      "coef_home": 0.010916,
+      "coef_away": -0.00347,
+      "abs_impact": 0.014387
+    },
+    {
+      "feature": "away_shots_ontarget_for_ewma_02",
+      "coef_home": -0.005348,
+      "coef_away": 0.008982,
+      "abs_impact": 0.014331
+    },
+    {
+      "feature": "away_xg_for_ewma_02",
+      "coef_home": -0.003898,
+      "coef_away": 0.010222,
+      "abs_impact": 0.01412
+    },
+    {
+      "feature": "away_big_chances_for_roll_10",
+      "coef_home": -0.007234,
+      "coef_away": 0.006872,
+      "abs_impact": 0.014106
+    },
+    {
+      "feature": "away_shots_ontarget_against_roll_10",
+      "coef_home": 0.011158,
+      "coef_away": -0.002918,
+      "abs_impact": 0.014076
+    },
+    {
+      "feature": "elo_away",
+      "coef_home": -0.006658,
+      "coef_away": 0.00741,
+      "abs_impact": 0.014068
+    },
+    {
+      "feature": "home_xg_for_roll_10",
+      "coef_home": 0.008492,
+      "coef_away": -0.005298,
+      "abs_impact": 0.013791
+    },
+    {
+      "feature": "home_xg_for_ewma_02",
+      "coef_home": 0.007335,
+      "coef_away": -0.005328,
+      "abs_impact": 0.012663
+    },
+    {
+      "feature": "away_xi_att_vs_home_def",
+      "coef_home": -0.005768,
+      "coef_away": 0.006674,
+      "abs_impact": 0.012443
+    },
+    {
+      "feature": "home_shots_ontarget_for_roll_10",
+      "coef_home": 0.007686,
+      "coef_away": -0.004517,
+      "abs_impact": 0.012203
+    },
+    {
+      "feature": "away_xg_against_ewma_02",
+      "coef_home": 0.008979,
+      "coef_away": -0.003214,
+      "abs_impact": 0.012193
+    },
+    {
+      "feature": "home_goals_for_ewma_02",
+      "coef_home": 0.006721,
+      "coef_away": -0.00532,
+      "abs_impact": 0.012041
+    },
+    {
+      "feature": "gdpg_away",
+      "coef_home": -0.003786,
+      "coef_away": 0.008242,
+      "abs_impact": 0.012029
+    },
+    {
+      "feature": "home_shots_ontarget_against_ewma_02",
+      "coef_home": -0.004482,
+      "coef_away": 0.007487,
+      "abs_impact": 0.01197
+    },
+    {
+      "feature": "away_xg_against_roll_10",
+      "coef_home": 0.009559,
+      "coef_away": -0.002399,
+      "abs_impact": 0.011958
+    },
+    {
+      "feature": "home_goals_for_roll_10",
+      "coef_home": 0.006755,
+      "coef_away": -0.004754,
+      "abs_impact": 0.011509
+    },
+    {
+      "feature": "away_venue_xg_for_ewma_02",
+      "coef_home": -0.004448,
+      "coef_away": 0.006733,
+      "abs_impact": 0.011181
+    },
+    {
+      "feature": "home_xi_att_vs_away_def",
+      "coef_home": 0.008297,
+      "coef_away": -0.002823,
+      "abs_impact": 0.011121
+    },
+    {
+      "feature": "away_big_chances_for_ewma_02",
+      "coef_home": -0.005523,
+      "coef_away": 0.005414,
+      "abs_impact": 0.010938
+    },
+    {
+      "feature": "away_possession_roll_10",
+      "coef_home": -0.003599,
+      "coef_away": 0.007333,
+      "abs_impact": 0.010931
+    },
+    {
+      "feature": "elo_venue_away",
+      "coef_home": -0.005598,
+      "coef_away": 0.005291,
+      "abs_impact": 0.010889
+    },
+    {
+      "feature": "home_venue_goals_for_roll_5",
+      "coef_home": 0.005803,
+      "coef_away": -0.004688,
+      "abs_impact": 0.010492
+    },
+    {
+      "feature": "home_shots_ontarget_for_ewma_02",
+      "coef_home": 0.006678,
+      "coef_away": -0.003468,
+      "abs_impact": 0.010146
+    },
+    {
+      "feature": "ppg_away",
+      "coef_home": -0.002789,
+      "coef_away": 0.00717,
+      "abs_impact": 0.009959
+    },
+    {
+      "feature": "home_goals_against_roll_10",
+      "coef_home": -0.004125,
+      "coef_away": 0.005535,
+      "abs_impact": 0.00966
+    },
+    {
+      "feature": "home_venue_goals_against_roll_5",
+      "coef_home": -0.004551,
+      "coef_away": 0.004617,
+      "abs_impact": 0.009168
+    },
+    {
+      "feature": "away_goals_for_ewma_02",
+      "coef_home": -0.001848,
+      "coef_away": 0.007153,
+      "abs_impact": 0.009001
+    },
+    {
+      "feature": "away_venue_xg_against_ewma_02",
+      "coef_home": 0.007605,
+      "coef_away": -0.000569,
+      "abs_impact": 0.008173
+    },
+    {
+      "feature": "exp_match_shots_5",
+      "coef_home": 0.003881,
+      "coef_away": 0.004178,
+      "abs_impact": 0.008059
+    },
+    {
+      "feature": "home_big_chances_against_roll_10",
+      "coef_home": -0.000381,
+      "coef_away": 0.007603,
+      "abs_impact": 0.007984
+    },
+    {
+      "feature": "away_goals_for_roll_10",
+      "coef_home": -0.001237,
+      "coef_away": 0.006686,
+      "abs_impact": 0.007923
+    },
+    {
+      "feature": "home_high_line",
+      "coef_home": 0.006265,
+      "coef_away": 0.001498,
+      "abs_impact": 0.007762
+    },
+    {
+      "feature": "home_goals_against_ewma_02",
+      "coef_home": -0.003421,
+      "coef_away": 0.004283,
+      "abs_impact": 0.007704
+    },
+    {
+      "feature": "home_big_chances_for_roll_10",
+      "coef_home": 0.004607,
+      "coef_away": -0.002605,
+      "abs_impact": 0.007212
+    },
+    {
+      "feature": "home_big_chances_for_ewma_02",
+      "coef_home": 0.00408,
+      "coef_away": -0.002345,
+      "abs_impact": 0.006425
+    },
+    {
+      "feature": "mutual_high_line_risk",
+      "coef_home": 0.002827,
+      "coef_away": 0.003246,
+      "abs_impact": 0.006073
+    },
+    {
+      "feature": "away_venue_goals_for_roll_5",
+      "coef_home": -0.001356,
+      "coef_away": 0.004149,
+      "abs_impact": 0.005505
+    },
+    {
+      "feature": "away_high_line",
+      "coef_home": -0.001444,
+      "coef_away": 0.004051,
+      "abs_impact": 0.005494
+    },
+    {
+      "feature": "away_big_chances_against_roll_10",
+      "coef_home": 0.002186,
+      "coef_away": -0.003151,
+      "abs_impact": 0.005336
+    },
+    {
+      "feature": "away_goals_against_roll_10",
+      "coef_home": 0.003466,
+      "coef_away": 0.000686,
+      "abs_impact": 0.004152
+    },
+    {
+      "feature": "away_goals_against_ewma_02",
+      "coef_home": 0.002383,
+      "coef_away": -0.001166,
+      "abs_impact": 0.003549
+    }
+  ]
+}

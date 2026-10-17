@@ -3,7 +3,7 @@
 **Tarih:** 16 Ekim 2026  
 **Kapsam:** Premier League 2026/27 Sezonu 7. Hafta (17 - 19 Ekim 2026) 10 Karşılaşması  
 **Model Mimarisi:** 55 Özellikli Bivariate Poisson Hibrit Modeli (%25 Dixon-Coles + %75 Feature Poisson, $\alpha=10.0$) & Düzenlileştirilmiş 1X2 Topluluk Modeli  
-**Veri Kaynakları:** [`data/processed/features_matches_all.parquet`](file:///Users/serhat/PycharmProjects/premierLeaugeModelApp/data/processed/features_matches_all.parquet), TheStatsAPI Canlı Piyasa Oranları (Bet365 / Pinnacle)
+**Veri Kaynakları:** `data/processed/features_matches_all.parquet`, TheStatsAPI Canlı Piyasa Oranları (Bet365 / Pinnacle)
 
 ---
 

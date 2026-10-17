@@ -7515,7 +7515,8 @@
           "teamType": "FIRST",
           "shortName": "Everton",
           "id": 7.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -7529,7 +7530,8 @@
           "teamType": "FIRST",
           "shortName": "Chelsea",
           "id": 4.0
-        }
+        },
+        "score": 2.0
       }
     ],
     "replay": false,
@@ -7540,23 +7542,42 @@
       "id": 9308.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "attendance": 52271.0,
+    "clock": {
+      "secs": 6240.0,
+      "label": "90+14'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 21998.0,
+        "clock": {
+          "secs": 2760.0,
+          "label": "46'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 21998.0,
+        "clock": {
+          "secs": 5400.0,
+          "label": "90'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128986.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Paul Tierney"
-        }
-      }
-    ]
+    "id": 128986.0
   },
   {
     "gameweek": {
@@ -7607,7 +7628,8 @@
           "teamType": "FIRST",
           "shortName": "Brentford",
           "id": 130.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -7621,7 +7643,8 @@
           "teamType": "FIRST",
           "shortName": "Liverpool",
           "id": 10.0
-        }
+        },
+        "score": 2.0
       }
     ],
     "replay": false,
@@ -7632,23 +7655,54 @@
       "id": 4003.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "clock": {
+      "secs": 5820.0,
+      "label": "90+7'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 24369.0,
+        "assistId": 124052.0,
+        "clock": {
+          "secs": 2640.0,
+          "label": "44'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 119386.0,
+        "assistId": 75382.0,
+        "clock": {
+          "secs": 3720.0,
+          "label": "62'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 21737.0,
+        "assistId": 68840.0,
+        "clock": {
+          "secs": 4200.0,
+          "label": "70'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128984.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "John Brooks"
-        }
-      }
-    ]
+    "id": 128984.0
   },
   {
     "gameweek": {
@@ -7699,7 +7753,8 @@
           "teamType": "FIRST",
           "shortName": "Fulham",
           "id": 34.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -7713,7 +7768,8 @@
           "teamType": "FIRST",
           "shortName": "Hull",
           "id": 41.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -7724,23 +7780,32 @@
       "id": 9521.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "clock": {
+      "secs": 5820.0,
+      "label": "90+7'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 4717.0,
+        "assistId": 21614.0,
+        "clock": {
+          "secs": 1980.0,
+          "label": "33'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128987.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Chris Kavanagh"
-        }
-      }
-    ]
+    "id": 128987.0
   },
   {
     "gameweek": {
@@ -7791,7 +7856,8 @@
           "teamType": "FIRST",
           "shortName": "Man City",
           "id": 11.0
-        }
+        },
+        "score": 3.0
       },
       {
         "team": {
@@ -7805,7 +7871,8 @@
           "teamType": "FIRST",
           "shortName": "Ipswich",
           "id": 8.0
-        }
+        },
+        "score": 2.0
       }
     ],
     "replay": false,
@@ -7816,23 +7883,76 @@
       "id": 9514.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 60817.0,
+    "clock": {
+      "secs": 6180.0,
+      "label": "90+13'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 14805.0,
+        "assistId": 54156.0,
+        "clock": {
+          "secs": 1140.0,
+          "label": "19'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 122002.0,
+        "assistId": 126111.0,
+        "clock": {
+          "secs": 1260.0,
+          "label": "21'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 65970.0,
+        "assistId": 12520.0,
+        "clock": {
+          "secs": 2040.0,
+          "label": "34'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 65970.0,
+        "assistId": 31936.0,
+        "clock": {
+          "secs": 4140.0,
+          "label": "69'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 75735.0,
+        "clock": {
+          "secs": 5400.0,
+          "label": "90'00"
+        },
+        "phase": "2",
+        "type": "P",
+        "description": "P"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128989.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Farai Hallam"
-        }
-      }
-    ]
+    "id": 128989.0
   },
   {
     "gameweek": {
@@ -7883,7 +8003,8 @@
           "teamType": "FIRST",
           "shortName": "Newcastle",
           "id": 23.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -7897,7 +8018,8 @@
           "teamType": "FIRST",
           "shortName": "Aston Villa",
           "id": 2.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -7908,23 +8030,31 @@
       "id": 9517.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "L",
+    "phase": "1",
+    "clock": {
+      "secs": 2580.0,
+      "label": "43'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 304175.0,
+        "assistId": 133679.0,
+        "clock": {
+          "secs": 2160.0,
+          "label": "36'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128990.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Jarred Gillett"
-        }
-      }
-    ]
+    "id": 128990.0
   },
   {
     "gameweek": {

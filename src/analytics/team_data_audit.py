@@ -19,7 +19,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW_MATCHES = ROOT / "data" / "raw" / "matches"
-REPORT = ROOT / "reports" / "team_tactical_data_audit.md"
+REPORT = ROOT / "docs" / "reports" / "team_tactical_data_audit.md"
 
 CORE_METRICS = {
     "Topa sahip olma ve ilerleme": [

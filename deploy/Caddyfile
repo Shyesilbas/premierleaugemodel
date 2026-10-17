@@ -1,0 +1,12 @@
+# Yalnızca localhost'ta dinler; dışarıya Tailscale (tailscale serve) açar.
+:8080 {
+	bind 127.0.0.1
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle {
+		root * /opt/plm/frontend/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

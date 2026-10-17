@@ -1,0 +1,12 @@
+# Sunucu saat dilimi UTC olmalı (timedatectl set-timezone UTC). Env: /opt/plm/.env
+SHELL=/bin/bash
+# Hakem atamaları (önümüzdeki 14 gün) + biten maçların istatistiği -> işle, DB/parquet'i yeniden kur
+*/30 * * * * set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh sync /opt/plm/venv/bin/python -m src.ingest.sync_season_data
+# Resmi kadro: sonraki 1 saat içindeki maçlar için (kadro ~60-75 dk önce açıklanır; 5 dk'da bir dener)
+# shortcut: kadro yoksa da her 5 dk parquet+model yüklenir, yük sorun olursa yalnızca maç günlerine kısıtla
+*/5 * * * * set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh lineups /opt/plm/venv/bin/python -m src.ingest.sync_prematch_lineups --hours-ahead 1
+# Haftalık yeniden eğitim (Pazartesi 04:00 UTC)
+0 4 * * 1 set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh train /opt/plm/venv/bin/python run_full_pipeline.py
+# İleriye dönük 1X2 testi: tahmini kaydet (script maç başına günde 1 kayıt tutar) ve biten maçları puanla
+30 6 * * * set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh benchmark /opt/plm/venv/bin/python -m src.analytics.prospective_1x2_benchmark snapshot
+15 23 * * * set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh benchmark /opt/plm/venv/bin/python -m src.analytics.prospective_1x2_benchmark score

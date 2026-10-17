@@ -1,334 +1,248 @@
-# AI_CONTEXT.md — Premier League Goal Model Machine Context
+# AI_CONTEXT.md — Premier League Predictive Modeling Machine Context
 
-> **Target Audience:** AI Agents, Copilots, and Quantitative Developers.  
-> **Purpose:** Canonical single-file ground-truth context. No conversational prose; dense factual reference data.  
+> **Target Audience:** AI Agents, Copilots, Automated CI/CD Pipelines, and Quantitative Developers.  
+> **Purpose:** Canonical single-file ground-truth context for the entire repository. No conversational prose; dense factual reference data.  
+> **Documentation Network:** [README](README.md) | [Rapor Merkezi](docs/reports/README.md) | [Ana Kapsamlı Rapor](docs/reports/premier_league_models_comprehensive_report.md) | [Paper Trading 2026/27](docs/reports/paper_trading_protocol_2026_27.md) | [API Entegrasyonu](docs/model_api_integration.md) | [Veri Kataloğu](VERI_VE_GOSTERIM_KATALOGU.md)  
 > **Last Updated:** 2026-10-17  
-> **Project Commit:** `1715019` / `9070f61`  
-> **Active Model Path:** `models/production/goals_models_v1.joblib`
+> **Database:** `data/premier_league.db` (SQLite3, 1,900 fixtures, 1,580 completed matches, 320 upcoming)  
+> **Active Production Models:** `models/production/*.joblib`
 
 ---
 
-## 1. Core Model Specification & Hyperparameters
+## 1. Database & Data Architecture Specification
 
 ```yaml
-model_architecture:
-  type: "Hybrid Bivariate Poisson + Dixon-Coles Matrix"
+database_architecture:
+  sqlite_path: "data/premier_league.db"
+  total_seasons: 5 (2022/23, 2023/24, 2024/25, 2025/26, 2026/27)
+  fixture_counts:
+    total_fixtures: 1900
+    completed_matches: 1580
+    upcoming_fixtures: 320
+    current_season_played_matches: 60 (2026/27)
+  tables:
+    matches: { rows: 1900, cols: 39, role: "Core fixtures, scores, kickoff_millis, ground, referees, match status" }
+    external_match_xg: { rows: 1564, cols: 8, role: "TheStatsAPI / Opta verified shot-level xG backfill" }
+    external_match_odds: { rows: 391, cols: 29, role: "Bookmaker opening and closing odds for 1X2, Over 2.5, BTTS" }
+    player_market_values: { rows: 1771, cols: 10, role: "Transfermarkt player valuations, age, position, nationality" }
+    team_market_values: { rows: 102, cols: 9, role: "Club total squad market values and squad size per season" }
+    referees: { rows: 153, cols: 15, role: "Referee season aggregates, yellow/red card rates, strictness_label" }
+    model_match_audit: { rows: 440, cols: 39, role: "Historical backtest audit log of model probabilities vs actuals" }
+    tm_clubs_cache: { rows: 280, cols: 3, role: "Transfermarkt club ID mapping and badge asset URLs" }
+    team_transfers_cache: { rows: 27, cols: 4, role: "Club inbound/outbound transfer market transaction history" }
+    team_season_transfers_cache: { rows: 6, cols: 5, role: "Season-specific transfer detail cache" }
+    player_market_value_history_cache: { rows: 3, cols: 4, role: "Player historical valuation trajectory cache" }
+    predictions_cache: { rows: 0, cols: 6, role: "In-memory dynamic match prediction cache" }
+  processed_parquet_layer:
+    matches_summary_all: "data/processed/matches_summary_all.parquet (1,580 matches, 244+ Opta metrics)"
+    shots_events_all: "data/processed/shots_events_all.parquet (all shot coordinates, events, outcome tags)"
+    features_matches_all: "data/processed/features_matches_all.parquet (58 tactical features, strict shift(1))"
+  event_stream_reconstruction:
+    won_corners_recovered: 67 matches recovered from timeline event streams
+    saves_reconstruction: cross-verified against opponent shots on target minus goals
+```
+
+---
+
+## 2. Model 1: Flagship Goals Model (`goals_models_v1.joblib`)
+
+> Audited and rebuilt on 2026-10-17. Full findings: `docs/reports/models/goals_model.md` §11.
+
+```yaml
+goal_model:
+  type: "Independent Poisson rates + Dixon-Coles low-score tau, 13x13 score matrix (NOT a bivariate Poisson)"
   matrix_dimension: "13x13 (score cells from 0-0 to 12-12)"
-  components:
-    feature_poisson:
-      class: "src.models.goals_model.FeatureGoalModel"
-      loss: "Poisson Deviance"
-      penalty: "L2 (Ridge)"
-      alpha: 10.0
-      max_iter: 3000
-      scaler: "StandardScaler"
-      imputer: "SimpleImputer(strategy='median')"
-      feature_count: 58
-      home_intercept: 0.4431
-      away_intercept: 0.1748
-    dixon_coles:
-      class: "src.models.dixon_coles.DixonColesModel"
-      time_decay: "Exponential"
-      half_life_days: 365
-      rho_parameter: -0.0910
-      rho_bootstrap_mean: -0.0869
-      rho_bootstrap_se: 0.0408
-      rho_bootstrap_95_ci: [-0.1500, -0.0062]
-      rho_sensitivity_over25_ll: "Invariant at 0.67743 for rho in [-0.20, +0.10] (cells (0,0),(1,0),(0,1),(1,1) are all Under 2.5)"
-      estimation: "L-BFGS-B Maximum Penalized Likelihood on training set"
-  blending:
-    method: "Geometric"
-    formula: "lambda_final = (lambda_dc ** 0.25) * (lambda_feat ** 0.75)"
-    dc_weight_production: 0.25
-    dc_weight_global_optimum: 0.20
-    delta_ll_production_vs_optimum: +0.000056
-    rho_blend: "0.5 * (rho_dc + rho_feat) = -0.0610 (optimal for low-score NLL: 2.4549)"
-  numerical_guardrails:
-    lambda_clip_min: 0.05
-    lambda_clip_max: 6.00
+  selection:
+    source_of_truth: "src/models/train_goals.py::BLEND_GRID"
+    grid: { feature_sets: [compact, full], feature_alphas: [1, 3, 10, 30], dc_weights: [0, 0.25, 0.5], dc_half_life_days: 365 }
+    procedure: "select_blend_config(): forward folds inside the given data only, O2.5 log loss, 1-SE rule (simplest tied config: compact > full, then stronger L2)"
+    nested_in_evaluation: true   # evaluate_goal_models reruns selection inside each outer season
+    gate_requires_same_grid: true
+  production_config:            # chosen on all unlocked seasons (2022/23-2025/26); 2026/27 locked season not used
+    feature_set: compact
+    feature_count: 11
+    features: [elo_home, elo_away, home_xg_for_ewma_02, home_xg_against_ewma_02, away_xg_for_ewma_02, away_xg_against_ewma_02,
+               home_shots_ontarget_for_ewma_02, home_shots_ontarget_against_ewma_02, away_shots_ontarget_for_ewma_02,
+               away_shots_ontarget_against_ewma_02, exp_match_shots_5]
+    feature_alpha: 30.0
+    dc_weight: 0.5            # lambda = lambda_dc^0.5 * lambda_feat^0.5
+    dc_half_life_days: 365
+    rho: "0.5 * (rho_dc + rho_feat); fold-unstable, irrelevant to O2.5 (tau preserves mass in <=1-goal cells)"
+    calibrators: none          # forward-fold check: no market improved (O2.5 0.6782 -> 0.6835)
+    fit_matches: 1580
+  api_serving:
+    endpoint: "GET /api/predict"
+    one_x_two_source: "outcome_models_v1 (logistic)"
+    score_matrix: "align_to_outcome_probs(): matrix 1X2 regions rescaled to the logistic 1X2; O/U, BTTS, team totals, expected goals all read from the aligned matrix"
+    btts_label_threshold: 0.5
+  honest_outer_holdout:        # 1,140 matches (2023/24-2025/26), each season fit on earlier seasons only, nested selection
+    over_25_frozen_season: { mean_season_log_loss: 0.6803, delta_vs_prior: -0.0044, ci95: [-0.0105, +0.0014], ece_decile: 0.046, significant: false }
+    over_25_weekly_refit:  { log_loss: 0.6756, vs_frozen: -0.0048, ci95_vs_frozen: [-0.0093, -0.0005], vs_rolling_prior: -0.0046, ci95_vs_rolling_prior: [-0.0108, +0.0015] }
+    by_season_over_25_model_vs_prior: { "2023_24": [0.6794, 0.6790], "2024_25": [0.6755, 0.6854], "2025_26": [0.6861, 0.6900] }
+    btts_model_vs_prior:     { "2023_24": [0.6835, 0.6863], "2024_25": [0.6801, 0.6824], "2025_26": [0.6832, 0.6859] }
+    alignment_to_logistic_1x2: { one_x_two: -0.0157, over_25: -0.0012, over_15: 0.0000, over_35: -0.0003, btts: +0.0014 }
+  diagnosis:
+    supremacy_vs_volume: "corr(lambda_h - lambda_a, goal diff) 0.44; corr(lambda_total, total goals) 0.065 (measured on the 58-feature model)"
+    level_shift: "season scoring level moves: 2023/24 trained on 2.85 goals/match, observed 3.28 -> main cause of the pooled Under bias; weekly refit recovers it"
+    market_benchmark_only: "closing O/U odds are a benchmark, not a feature (using them as a feature would copy the market)"
+  rejected_experiments:
+    1_isotonic_calibration: "In-sample 0.6712 -> OOF collapsed to 0.7107 (overfit step functions)"
+    2_xgboost_residual_learner: "LL 0.6890 - 0.6904 vs 0.6774 (noise splitting)"
+    3_sliding_window_500: "LL 0.6801 vs 0.6774 (data starvation at 25 matches/team)"
+    4_lambda_floor_shrinkage: "Train-optimal alpha=0.00 (previous 0.40 was holdout snooping)"
+    5_segment_10_blind_spot: "Mann-Whitney raw p=0.1687, Bonferroni p=1.0000, FDR q=0.4049 (Type I error)"
+    6_temperature_calibration_ou: "Shuffled-KFold gain was time leakage; forward folds: O2.5 0.6777 -> 0.6799 (worse)"
+    7_com_poisson_dispersion: "nu in {1.15, 1.3} via nested grid: O2.5 delta -0.0040 vs -0.0044 baseline, ECE 6.8% vs 4.6%, BTTS 2025/26 worse than prior"
+    8_feature_model_recency_weights: "half-life 365d never selected in nested grid; 180d under weekly refit -0.0004 vs refit (noise)"
+  superseded_values: "Pre-audit 0.6774 / ECE 2.17% / 1,200 matches included the locked 2026/27 season and hyperparameters picked on the same holdout."
+```
+
+---
+
+## 3. Model 2: 1X2 Match Outcome Model (`outcome_models_v1.joblib`)
+
+```yaml
+outcome_1x2_model:
+  type: "Multinomial Logistic Regression with Softmax Temperature Calibration"
+  artifact_path: "models/production/outcome_models_v1.joblib"
+  pipeline:
+    imputer: "SimpleImputer(strategy='median', keep_empty_features=True)"
+    scaler: "StandardScaler()"
+    classifier: "LogisticRegression(C=0.003, max_iter=5000)"
+  feature_count: 77  # verified from artifact 2026-10-17 (older docs said 44)
+  calibrator:
+    method: "forward_oof_on_all_eligible_training_matches"
+    oof_sample_size: 922
+    temperature: 0.959136  # retrained 2026-10-17 on the current feature table
+    class_biases: [-0.072709, +0.030000, -0.009276]
+  dc_comparator:
+    team_count: 25
+    intercept: 0.240819
+    home_advantage: 0.144825
+    rho: -0.046433
+  benchmark_304_holdout_matches:
+    multiclass_log_loss: 1.026 (prior: 1.092)
+    class_prior_baseline_log_loss: 1.0920
+    paired_bootstrap_delta_ll: -0.0622 (95% CI: [-0.0999, -0.0225], p_superior = 0.9992)
+    multiclass_brier: 0.617 (prior: 0.661)
+    accuracy_pct: 49.67% (prior: 40.79%)
+    dixon_coles_holdout_ll: 1.0454 (calibrated; raw 1.0477)
+  class_log_loss_breakdown:
+    home_win: { matches: 124, model_ll: 0.7868, prior_ll: 0.8205, pred_mean_prob: 48.16% }
+    draw:     { matches: 85,  model_ll: 1.4089, prior_ll: 1.4608, pred_mean_prob: 24.91% }
+    away_win: { matches: 95,  model_ll: 1.0070, prior_ll: 1.1155, pred_mean_prob: 39.83% }
+  known_limitation:
+    draw_separation: "Draw AUC = 0.557 (current artifact; earlier runs 0.513-0.527). Model knows macro draw rate (25.1% predicted vs 28.0% actual) but cannot discriminate single match draws. In an earlier run 38% of total log-loss stemmed from draw matches (not re-measured on the current artifact)."
+  rejected_experiments:
+    1_lagged_xg_form_features: "Removed due to post-match timing leakage and historical provider sparsity."
+    2_two_stage_draw_model: "Holdout LL collapsed to 1.0536, Brier 0.6378. Predicted zero draws."
+    3_nine_draw_propensity_features: "Outer season delta LL = +0.0041 (worsened). Decision gate failed."
+    4_1x2_ensemble_gate: "Dixon-Coles + Logreg ensemble outer season delta LL = +0.00455 (p=0.1754). Gate failed."
+    5_calibration_drift_windowing: "Outer season delta LL = +0.00049. Gate failed."
+```
+
+---
+
+## 4. Model 3: Secondary Count & Dynamics Models (`models/production/`)
+
+```yaml
+count_and_dynamics_models:
+  regression_skill_gate:
+    policy: >-
+      Two gates (src/models/model_utils.py). CV gate: 4-fold expanding window on the first 80%;
+      must beat training_mean by >=0.5% RMSE and win >=3 folds. Outer-season gate (2026-10-17):
+      must beat training_mean in a majority of complete nested outer seasons (locked 2026/27 excluded).
+      Failing either deploys training_mean and the API reports model_skill="baseline".
+    evaluation_pool: "1,264 dev matches, 316 held-out matches (holdout is report-only; it contains the locked season)"
+    source_of_truth: "artifact['metrics'] in each joblib; per-model reports in docs/reports/models/"
+  models:  # retrained 2026-10-17 on the 2026-10-16 feature parquet
+    corners:
+      artifact: "models/production/corner_model_v1.joblib"
+      report: "docs/reports/models/corners_model.md"
+      algorithm: "elastic_0.05_0.8"
+      features_count: 10
+      outer_season_wins: "2/3"
+      dispersion_alpha: 0.0114
+      holdout_rmse: 3.1999 (baseline: 3.2405)
+      holdout_mae: 2.6023 (baseline: 2.6610)
+    throws:
+      artifact: "models/production/throws_model_v1.joblib"
+      report: "docs/reports/models/throws_model.md"
+      algorithm: "poisson_10"
+      features_count: 14
+      outer_season_wins: "3/3"
+      dispersion_alpha: 0.0265
+      holdout_rmse: 7.0221 (baseline: 7.3881)
+      holdout_mae: 5.6042 (baseline: 5.9665)
+    offsides:
+      artifact: "models/production/offside_model_v1.joblib"
+      report: "docs/reports/models/offsides_model.md"
+      algorithm: "ridge_250"
+      features_count: 10
+      outer_season_wins: "3/3"
+      dispersion_alpha: 0.0761
+      holdout_rmse: 1.9102 (baseline: 2.0238)
+      holdout_mae: 1.5231 (baseline: 1.6302)
+    cards:
+      artifact: "models/production/cards_model_v1.joblib"
+      report: "docs/reports/models/cards_model.md"
+      algorithm: "training_mean (poisson_1 passed CV gate, failed outer-season gate 1/3)"
+      candidate_features_count: 11
+      dispersion_alpha: 0.0287
+      holdout_rmse: 2.0014 (feature candidate poisson_1 was 2.0201, worse than the mean)
+      target_definition: "total_cards = total_yellow_cards + total_red_cards (equal 1.0 weight)"
+      referee_feature: "referee_avg_cards / referee_avg_fouls: leakage-free historical averages, 10-match shrinkage to 4.15 / 21.5; referee identity carries no significant card signal in this data (ANOVA p=0.28)"
+    saves:
+      artifact: "models/production/saves_model_v1.joblib"
+      report: "docs/reports/models/saves_model.md"
+      algorithm: "training_mean (ridge_500 failed CV gate: 0.51% gain but only 2/4 folds)"
+      candidate_features_count: 13
+      dispersion_alpha: 0.0128
+      holdout_rmse: 2.3785 (baseline: 2.3785)
+      holdout_mae: 1.9203 (baseline: 1.9203)
+```
+
+---
+
+## 5. Universal Quantitative Guardrails
+
+```yaml
+quant_guardrails:
+  zero_snooping: "Calibrators, shrinkage weights, and hyperparams fitted strictly on train/OOF folds."
+  small_sample_ci: "All metrics with N < 500 must report 10,000-iteration Bootstrap 95% CIs."
+  multiple_testing: "Bonferroni or Benjamini-Hochberg FDR correction mandatory when testing k > 1 subsets."
+  temporal_integrity:
+    shift_1_rule: "All rolling and EWMA features shift by 1 match; simultaneous kickoff matches partitioned."
     locked_seasons: ["2026_27"]
-  leakage_audit_certificate:
-    state_after_shift_1_applied: true
-    kickoff_timestamp_monotonic: true
-    walk_forward_cross_season_leakage: 0.0000
+  reproducibility: "Bitwise deterministic; random_state=42 everywhere."
 ```
 
 ---
 
-## 2. Definitive Benchmark & Evaluation Metrics (1,200 Holdout Matches)
-
-*Holdout Pool: Seasons 2023/24, 2024/25, 2025/26, 2026/27 (walk-forward out-of-fold).*
-
-```yaml
-evaluation_pool:
-  total_matches: 1200
-  actual_over_25_rate: 0.586667
-  actual_btts_rate: 0.583333
-  entropy_upper_bound_H: 0.678049
-
-baselines_log_loss:
-  naive_fixed_prior_p05263: 0.685403
-  naive_blind_poisson_p05430: 0.681915
-  theoretical_constant_ceiling: 0.678049
-  production_model_v12: 0.677428
-  safe_information_gain: -0.000621
-
-market_metrics_v12:
-  over_25:
-    log_loss: 0.677428
-    brier: 0.242277
-    roc_auc: 0.536623
-    ece_percent: 2.17
-  over_15:
-    log_loss: 0.475612
-    brier: 0.158421
-    roc_auc: 0.538120
-    ece_percent: 2.85
-  over_35:
-    log_loss: 0.648031
-    brier: 0.228145
-    roc_auc: 0.535890
-    ece_percent: 3.31
-  btts:
-    log_loss: 0.680614
-    brier: 0.243810
-    roc_auc: 0.524018
-    ece_percent: 2.90
-
-continuous_lambda_and_score:
-  mae_home_goals: 0.989
-  mae_away_goals: 0.881
-  mae_total_goals: 1.300
-  correlation_lambda_actual: +0.285
-  exact_score_top_1_accuracy: 11.5%
-  exact_score_top_3_accuracy: 29.6%
-  exact_score_top_5_accuracy: 45.3%
-
-walk_forward_seasons_ll:
-  season_2023_24: 0.6692
-  season_2024_25: 0.6764
-  season_2025_26: 0.6861
-  season_2026_27_first_60: 0.6806
-```
-
----
-
-## 3. Market Comparison & Edge Sweep (218 Odds Matches)
-
-```yaml
-bookmaker_vs_model:
-  sample_size: 218
-  market_closing_auc: 0.5962
-  model_auc: 0.5843
-  delta_auc_market_minus_model: +0.0118
-  bootstrap_10k_delta_auc_ci_95: [-0.0483, +0.0723]
-  p_value_auc_diff: 0.3520
-  verdict: "Statistically indistinguishable; underpowered sample."
-
-edge_sweep_multiple_testing:
-  k_hypotheses: 7
-  threshold_gt_0pct:  { n: 118, win_rate: 0.500, roi: -6.99%,  p_binom_raw: 0.6491, p_bonf: 1.0000, q_fdr: 0.8714 }
-  threshold_gt_2pct:  { n: 67,  win_rate: 0.552, roi: +6.25%,  p_binom_raw: 0.2368, p_bonf: 1.0000, q_fdr: 0.8289 }
-  threshold_gt_3pct:  { n: 51,  win_rate: 0.569, roi: +10.02%, p_binom_raw: 0.1995, p_bonf: 1.0000, q_fdr: 0.8289 }
-  threshold_gt_4pct:  { n: 32,  win_rate: 0.500, roi: -1.62%,  p_binom_raw: 0.5432, p_bonf: 1.0000, q_fdr: 0.8714 }
-  threshold_gt_5pct:  { n: 18,  win_rate: 0.500, roi: -3.42%,  p_binom_raw: 0.5916, p_bonf: 1.0000, q_fdr: 0.8714 }
-  threshold_gt_7pct:  { n: 7,   win_rate: 0.429, roi: -15.50%, p_binom_raw: 0.7469, p_bonf: 1.0000, q_fdr: 0.8714 }
-  threshold_gt_10pct: { n: 0,   win_rate: 0.000, roi: +0.00%,  p_binom_raw: 1.0000, p_bonf: 1.0000, q_fdr: 1.0000 }
-  verdict: "All thresholds span noise margins after FDR control (q > 0.80). Paper trading mandatory."
-
-tail_risk_decile_calibration_1200:
-  prediction_range: { min_p: 0.4109, max_p: 0.7455, median_p: 0.5630 }
-  bins:
-    lt_45_extreme_under: { n: 8,   share: "0.7%",  pred_mean: 43.70%, actual: 75.00%, gap: +31.30%, ll: 0.7682, brier: 0.2873 }
-    45_to_50_mild_under: { n: 117, share: "9.8%",  pred_mean: 48.22%, actual: 55.56%, gap: +7.33%,  ll: 0.6992, brier: 0.2530 }
-    50_to_55_balanced:   { n: 345, share: "28.7%", pred_mean: 52.99%, actual: 53.62%, gap: +0.63%,  ll: 0.6932, brier: 0.2500 }
-    55_to_60_mild_over:  { n: 469, share: "39.1%", pred_mean: 57.34%, actual: 59.91%, gap: +2.58%,  ll: 0.6756, brier: 0.2413 }
-    60_to_65_clear_over: { n: 188, share: "15.7%", pred_mean: 62.00%, actual: 61.17%, gap: -0.83%,  ll: 0.6660, brier: 0.2366 }
-    65_to_70_high_over:  { n: 56,  share: "4.7%",  pred_mean: 66.79%, actual: 69.64%, gap: +2.85%,  ll: 0.6147, brier: 0.2118 }
-    gt_70_extreme_over:  { n: 17,  share: "1.4%",  pred_mean: 72.47%, actual: 76.47%, gap: +4.00%,  ll: 0.5470, brier: 0.1804 }
-  verdict: "High probabilities (>65%) are monotonically well calibrated with decreasing log-loss (0.547). Model avoids overconfidence (>85%)."
-```
-
----
-
-## 4. Feature Ablations, Collinear Redundancy & Stability
-
-```yaml
-feature_ablation_effective_log_mv_ratio:
-  hypothesis: "Highest regression coefficient (0.0148) is collinear with Elo/PPG."
-  results_1200_matches:
-    58_features_ll: 0.677428
-    57_features_ll: 0.677517
-    delta_ll_57_minus_58: +0.000089
-    delta_auc_57_minus_58: -0.000487
-    bootstrap_10k_delta_ll_ci: [-0.000158, +0.000341]
-    p_value_delta_ll: 0.4900
-    bootstrap_10k_delta_auc_ci: [-0.001808, +0.000816]
-    p_value_delta_auc: 0.4814
-  verdict: "Strictly equivalent. Safe to drop in v1.3 for model parsimony."
-
-feature_importance_vs_coefficients:
-  spearman_rank_correlation: 0.1379
-  spearman_p_value: 0.3019
-  verdict: "Zero correlation between raw coefficient size and true permutation importance."
-  top_permutation_features:
-    1: home_big_chances_against_roll_10 (delta_ll = +0.000634)
-    2: home_high_line (delta_ll = +0.000242)
-    3: away_xg_against_ewma_02 (delta_ll = +0.000227)
-    4: away_xg_against_roll_10 (delta_ll = +0.000224)
-    5: elo_venue_home (delta_ll = +0.000181)
-    12: effective_log_mv_ratio (delta_ll = +0.000087, raw_coef_rank = 1)
-
-feature_drift_stability_across_seasons:
-  spearman_rank_correlation_matrix:
-    2023_24_vs_2024_25: -0.0245
-    2024_25_vs_2025_26: +0.0927
-    2023_24_vs_2025_26: +0.0140
-  verdict: "Features exhibit collinear rank drift across seasons due to L2 regularization over redundant football quality metrics."
-  top_5_most_stable_features:
-    1: away_shots_ontarget_against_ewma_02 (mean_rank: 6.7, std: 3.3)
-    2: away_venue_xg_against_ewma_02 (mean_rank: 11.3, std: 3.8)
-    3: elo_home (mean_rank: 13.7, std: 3.1)
-    4: ppg_away (mean_rank: 15.7, std: 6.9)
-    5: home_big_chances_for_roll_10 (mean_rank: 19.0, std: 5.9)
-```
-
----
-
-## 5. Rejected Empirical Experiments Log
-
-```yaml
-rejected_experiments:
-  1_isotonic_calibration:
-    in_sample_ll: 0.6712
-    out_of_fold_5cv_ll: 0.7107
-    reason: "Catastrophic overfit on non-parametric step functions."
-  2_btts_post_calibration:
-    platt_oof_ll: 0.6830
-    beta_oof_ll: 0.6832
-    raw_bivariate_matrix_ll: 0.6806
-    reason: "Non-stationary target drift (%61.6 in 2023 -> %55.0 in 2026). Retained raw matrix."
-  3_xgboost_residual_learner:
-    stacking_ll: 0.6901
-    native_residual_base_margin_ll: 0.6890
-    independent_xgboost_ll: 0.6904
-    reason: "Tree splits amplified noise without L2 Poisson shrinkage. Features lacked chaos representation."
-  4_sliding_window_500:
-    sliding_ll: 0.6801
-    expanding_ll: 0.6774
-    reason: "Sample starvation (~25 matches/team). Expanding window with half_life=365 is superior."
-  5_lambda_floor_shrinkage:
-    train_optimal_alpha: 0.0000
-    reason: "Previous alpha=0.40 was holdout snooping. Pre-2023 train set lacked bottom-tier goal explosion."
-  6_segment_10_blind_spot_hypothesis:
-    raw_p_mann_whitney: 0.1687
-    bonferroni_p: 1.0000
-    bh_fdr_q: 0.4049
-    correlation_lambda_actual_p: 0.1018
-    reason: "False positive due to uncorrected multiple subgroup testing across 12 cohorts. Refuted."
-```
-
----
-
-## 6. Complete List of 58 Features Categorized
-
-```yaml
-features_58:
-  penalty_box_and_shots_14:
-    - home_touches_in_opp_box_roll_10
-    - home_touches_in_opp_box_ewma_02
-    - away_touches_in_opp_box_roll_10
-    - away_touches_in_opp_box_ewma_02
-    - home_shots_for_roll_10
-    - home_shots_for_ewma_02
-    - away_shots_for_roll_10
-    - away_shots_for_ewma_02
-    - home_shots_against_roll_10
-    - away_shots_against_roll_10
-    - home_shots_ontarget_against_roll_10
-    - home_shots_ontarget_against_ewma_02
-    - away_shots_ontarget_against_roll_10
-    - away_shots_ontarget_against_ewma_02
-  xg_quality_8:
-    - home_xg_for_roll_10
-    - home_xg_for_ewma_02
-    - away_xg_for_roll_10
-    - away_xg_for_ewma_02
-    - home_xg_against_roll_10
-    - home_xg_against_ewma_02
-    - away_xg_against_roll_10
-    - away_xg_against_ewma_02
-  elo_and_points_form_8:
-    - elo_home
-    - elo_away
-    - elo_venue_home
-    - elo_venue_away
-    - ppg_home
-    - ppg_away
-    - gdpg_home
-    - gdpg_away
-  venue_specific_form_8:
-    - home_venue_xg_for_roll_10
-    - home_venue_xg_for_ewma_02
-    - home_venue_xg_against_roll_10
-    - home_venue_xg_against_ewma_02
-    - away_venue_xg_for_roll_10
-    - away_venue_xg_for_ewma_02
-    - away_venue_xg_against_roll_10
-    - away_venue_xg_against_ewma_02
-  big_chances_6:
-    - home_big_chances_for_roll_10
-    - home_big_chances_for_ewma_02
-    - away_big_chances_for_roll_10
-    - away_big_chances_for_ewma_02
-    - home_big_chances_against_roll_10
-    - away_big_chances_against_roll_10
-  tactical_high_line_3:
-    - home_high_line
-    - away_high_line
-    - mutual_high_line_risk
-  squad_market_value_4:
-    - effective_log_mv_ratio
-    - log_mv_ratio
-    - home_attack_vs_away_defense_mv
-    - away_attack_vs_home_defense_mv
-  possession_and_pace_7:
-    - home_possession_roll_10
-    - away_possession_roll_10
-    - home_passes_acc_roll_10
-    - away_passes_acc_roll_10
-    - exp_match_shots_5
-    - abs_elo_diff
-    - rest_days_diff
-```
-
----
-
-## 7. System & API Endpoint Integration
+## 6. API and System Endpoint Mapping
 
 ```yaml
 api_endpoints:
   predict_match:
-    route: "/api/predict"
-    method: "POST"
-    schema_fields:
+    route: "GET /api/predict?home_id=&away_id="
+    consumed_by:
+      - "frontend/src/components/match-detail/MatchPredictionTab.jsx"
+      - "frontend/src/components/PredictorTab.jsx"
+      - "frontend/src/components/PredictorMetricCards.jsx"
+    response_fields:
+      1x2: "predictions.1x2 { home_pct, draw_pct, away_pct }"
       goals_over_15: "goals.over_1.5.pct"
       goals_over_25: "goals.over_2.5.pct"
       goals_over_35: "goals.over_3.5.pct"
-      goals_btts: "goals.btts_pct"
-      goals_btts_pred: "goals.btts_prediction"
-      goals_team_totals_home: "goals.team_totals.home"
-      goals_team_totals_away: "goals.team_totals.away"
-      exact_scores: "goals.exact_scores"
-      lambdas: "goals.lambdas { home, away, total }"
-    frontend_components:
-      - "frontend/src/components/match-detail/MatchPredictionTab.jsx"
-      - "frontend/src/components/PredictorMetricCards.jsx"
-  audit_and_simulation:
-    route: "/api/audit/goals"
-    method: "GET"
-    frontend_components:
-      - "frontend/src/components/ModelAuditTab.jsx"
+      goals_btts: "goals.btts_pct, goals.btts_prediction"
+      goals_team_totals: "goals.team_totals { home, away }"
+      metrics_corners: "metrics.corners"
+      metrics_cards: "metrics.cards"
+      metrics_saves: "metrics.saves"
+      metrics_offsides: "metrics.offsides"
+      metrics_throws: "metrics.throws"
+  prospective_logging:
+    log_file: "data/processed/1x2_forecast_log.jsonl"
+    scorecard_file: "docs/reports/prospective_1x2_scorecard.json"
+    command: "python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14"
 ```
-
----

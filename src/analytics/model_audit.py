@@ -17,7 +17,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from src.models.dixon_coles import btts_prob, over_prob
+from src.models.dixon_coles import align_to_outcome_probs, btts_prob, expected_goals, over_prob
 from src.models.model_utils import blend_log, apply_probability_calibrator
 
 logger = logging.getLogger(__name__)
@@ -209,16 +209,22 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
         hit_1x2 = bool(pred_winner == actual_res)
 
         # Goals Prediction
-        gm = goals_art["model"]
-        mat = gm.predict_matrices(pd.DataFrame([row]))
-        lam_h, lam_a = gm.lambdas(pd.DataFrame([row]))
+        # Same scoring path as /api/predict: matrix aligned to the 1X2 model, then stored calibrators.
+        mat = align_to_outcome_probs(goals_art["model"].predict_matrices(pd.DataFrame([row])), p1)
+        lam_h, lam_a = expected_goals(mat)
         exp_tot_goals = round(float(lam_h[0] + lam_a[0]), 2)
-        p_over25 = round(float(over_prob(mat, 2.5)[0]) * 100, 1)
-        p_btts = round(float(btts_prob(mat)[0]) * 100, 1)
+        goal_calibrators = goals_art.get("calibrators", {})
+        raw_o25, raw_btts = float(over_prob(mat, 2.5)[0]), float(btts_prob(mat)[0])
+        if goal_calibrators.get("over_2.5"):
+            raw_o25 = float(apply_probability_calibrator(np.array([[1.0 - raw_o25, raw_o25]]), goal_calibrators["over_2.5"])[0, 1])
+        if goal_calibrators.get("btts"):
+            raw_btts = float(apply_probability_calibrator(np.array([[1.0 - raw_btts, raw_btts]]), goal_calibrators["btts"])[0, 1])
+        p_over25 = round(raw_o25 * 100, 1)
+        p_btts = round(raw_btts * 100, 1)
 
         actual_tot_goals = h_score + a_score
         hit_over25 = bool((p_over25 >= 50.0) == (actual_tot_goals > 2.5))
-        btts_threshold = round(float(goals_art.get("base_rates", {}).get("btts", 0.566)) * 100, 1) if goals_art else 56.6
+        btts_threshold = 50.0
         hit_btts = bool((p_btts >= btts_threshold) == (h_score > 0 and a_score > 0))
 
         # Corners

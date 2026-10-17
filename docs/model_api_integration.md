@@ -1,20 +1,24 @@
-# Premier League Gol Modeli — API & Sistem Entegrasyon Kılavuzu
+# Premier League Modelleri — API & Sistem Entegrasyon Kılavuzu
 
-Bu doküman, Premier League Gol Tahmin Modeli'nin (`goals_models_v1.joblib`) backend API uç noktaları, veritabanı şeması ve kullanıcı arayüzü bileşenleri ile olan teknik entegrasyon detaylarını içerir.
+**Dokümantasyon Ağı:** [README](../README.md) · [Ana Kapsamlı Rapor](reports/premier_league_models_comprehensive_report.md) · [Rapor Merkezi](reports/README.md) · [Paper Trading 2026/27](reports/paper_trading_protocol_2026_27.md) · [AI Context](../AI_CONTEXT.md) · [Veri Kataloğu](../VERI_VE_GOSTERIM_KATALOGU.md)
+
+Bu doküman, üretim modellerinin (gol skor matrisi `goals_models_v1`, 1X2 `outcome_models_v1` ve beş sayım modeli) çıktılarının `GET /api/predict` alanlarına ve React bileşenlerine nasıl bağlandığını anlatır. Modellerin kendisi için bkz. [model raporları](reports/models/).
 
 ---
 
 ## 1. Sistem Mimari Akışı
 
-Gol modelimiz tek bir ikili (binary) sınıflandırıcı yerine, maçın tüm olası skorlarını eş zamanlı modelleyen **$13 \times 13$ İki Değişkenli (Bivariate) Skor Matrisi** üzerinde çalışır ve aşağıdaki API uç noktalarını besler:
+Gol modelimiz tek bir ikili (binary) sınıflandırıcı yerine, maçın tüm olası skorlarını eş zamanlı modelleyen bir **$13 \times 13$ skor matrisi** üzerinde çalışır: iki bağımsız Poisson oranı (Dixon-Coles takım modeli × 11 özellikli Poisson regresyonu, geometrik harman) + düşük skor hücrelerinde Dixon-Coles $\tau$ düzeltmesi. Gerçek bir *bivariate* Poisson değildir.
+
+**Tek kaynak kuralı (17 Ekim 2026):** `GET /api/predict` içinde matris, lojistik 1X2 modelinin (`outcome_models_v1`) olasılıklarına hizalanır (`align_to_outcome_probs`). Böylece ekrandaki 1X2, Üst/Alt, KG, takım baremleri ve beklenen goller aynı dağılımdan gelir ve birbiriyle çelişmez.
 
 ```
-                          [GOL MODELİ BİVARİATE MATRİSİ]
+                    [SKOR MATRİSİ — lojistik 1X2'ye hizalı]
                                          │
      ┌──────────────────┬───────────────┼───────────────┬──────────────────┐
      ▼                  ▼               ▼               ▼                  ▼
-[2.5 Üst/Alt]     [1.5 & 3.5 Üst]   [KG Var/Yok]   [Takım Baremleri]  [1X2 Doğrulama]
-  API & UI           API & UI         API & UI      0.5, 1.5, 2.5        Dixon-Coles
+[2.5 Üst/Alt]     [1.5 & 3.5 Üst]   [KG Var/Yok]   [Takım Baremleri]  [Beklenen Goller]
+  API & UI           API & UI         API & UI      0.5, 1.5, 2.5      matris beklentisi
 ```
 
 ---
@@ -22,7 +26,7 @@ Gol modelimiz tek bir ikili (binary) sınıflandırıcı yerine, maçın tüm ol
 ## 2. API Uç Noktaları ve Kullanılan Alanlar
 
 ### 2.1. 2.5 Gol Üst / Alt Piyasası
-- **API Alanı:** `/api/predict` -> `goals.over_2.5.pct`
+- **API Alanı:** `GET /api/predict` -> `goals.over_2.5.pct`
 - **Arayüz Bileşeni:** `MatchPredictionTab.jsx` ve genel maç listesi kartları.
 - **Piyasa Karşılaştırması:** Bahis bürosu adil kapanış oranı ile kıyaslanarak Value (Edge) tespitinde referans alınır.
 
@@ -35,7 +39,7 @@ Gol modelimiz tek bir ikili (binary) sınıflandırıcı yerine, maçın tüm ol
 - **API Alanı:** `/api/predict` -> `goals.btts_pct`, `goals.btts_prediction`
 - **Hesaplama Formülü:** Matrisin sıfır gol içeren satır ve sütunlarının elenmesiyle türetilir:
   $$P(\text{BTTS}) = 1 - \sum_{i=0}^{12} M_{i,0} - \sum_{j=0}^{12} M_{0,j} + M_{0,0}$$
-- **Dinamik Eşik:** Ligin tarihsel KG Var ortalaması (%56.6) dinamik sınıflandırma eşiği olarak kullanılır.
+- **Etiket Eşiği:** `btts_prediction` = "KG Var" ⇔ $P \ge 0.5$. Ligin tarihsel KG oranı ayrıca `btts_prior_pct` alanında döner (yalnızca bilgi). *(17 Ekim 2026 öncesi eşik lig ortalamasıydı; %56.4'e "KG Yok" yazıyordu.)*
 
 ### 2.4. Tek Taraflı Takım Gol Baremleri (Team Totals)
 - **API Alanı:** `/api/predict` -> `goals.team_totals.home` ve `goals.team_totals.away`
@@ -43,11 +47,21 @@ Gol modelimiz tek bir ikili (binary) sınıflandırıcı yerine, maçın tüm ol
 - **Dinamik Piyasa Çizgisi:** %50 olasılığa en yakın barem otomatik olarak `🎯 Ana Barem` olarak etiketlenir.
 - **Arayüz Bileşeni:** `MatchPredictionTab.jsx` takım baremleri paneli ve `PredictorMetricCards.jsx` özet rozeti.
 
-### 2.5. 1X2 Maç Sonucu Modeli Çapraz Doğrulaması
-- 1X2 sınıflandırıcısının (XGBoost/LightGBM) yanında, Dixon-Coles matrisinin köşegen altı ve üstü toplamı alınarak saf skor bazlı 1X2 olasılıkları üretilir ve model denetim raporlarında çapraz kontrol çıpası olarak kullanılır.
+### 2.5. 1X2 ile Skor Matrisinin Hizalanması
+- 1X2 olasılıkları lojistik modelden gelir (aynı sezon holdout'larında matris 1X2'sinden sezon başına 0.006–0.016 log-loss daha iyi).
+- Matrisin ev galibiyeti / beraberlik / deplasman bölgeleri bu olasılıklara ölçeklenir; bölge içindeki skor dağılımı korunur. Holdout testi: 1X2 −0.0157, O2.5 −0.0012, O1.5/O3.5 ≈ 0, BTTS +0.0014.
+- `goals.expected_home_goals` / `expected_away_goals` hizalanmış matristen hesaplanır (`expected_goals`).
 
-### 2.6. Model Audit & Simülasyon
-- `ModelAuditTab.jsx` üzerinden haftalık/sezonluk bahis simülasyonları ve ROI analizlerinde girdi olarak kullanılır.
+### 2.6. Sayım Modelleri (Korner, Kart, Kurtarış, Ofsayt, Taç)
+- **API Alanları:** `GET /api/predict` → `corners`, `cards`, `saves`, `offsides`, `throws`. Her biri `expected_total`, `expected_home`, `expected_away` ve (kurtarış hariç) `prob_over_*_pct` döner; `cards` için ayrıca `referee { name, avg_cards, avg_fouls }`.
+- **`model_skill`:** `"model"` ya da `"baseline"`. Model iki kapıyı da geçemezse (CV + iç içe dış sezon; [Ana Rapor Bölüm 8, madde 7](reports/premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage)) artifact eğitim ortalamasını taşır ve alan `"baseline"` olur. Arayüz bunu "Veri ortalaması tabanlı tahmin" rozetiyle gösterir. Güncel durum: kart ve kurtarış `baseline`, diğerleri `model`.
+- **Olasılıklar:** `expected_total` üzerinden NB2(μ, α) kuyruk olasılığı; α artifact'taki `count_dispersion_alpha`.
+- **Ev/deplasman paylaşımı model değildir:** toplam, takımların rolling for/against ortalamalarından türetilen bir oranla bölünür (%20–%80 aralığına kırpılır).
+- **`shots.expected_total` model değildir:** `expected_saves × 4.1` sabit çarpanıdır; kurtarış modeli ortalamada olduğundan pratikte her maçta aynıdır.
+- **Arayüz Bileşenleri:** `PredictorMetricCards.jsx`, `MatchPredictionTab.jsx`. Model ayrıntıları: [docs/reports/models/](reports/models/).
+
+### 2.7. Model Audit & Simülasyon
+- `ModelAuditTab.jsx` üzerinden haftalık/sezonluk bahis simülasyonları ve ROI analizlerinde girdi olarak kullanılır. `src/analytics/model_audit.py` API ile aynı yolu izler (hizalanmış matris, kayıtlı kalibratörler, KG eşiği %50); önbellekteki özetler `force_recalc=True` ile yenilenmelidir.
 
 ---
 

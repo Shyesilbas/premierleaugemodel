@@ -44,3 +44,24 @@ def test_team_over_probabilities_are_monotone_across_goal_lines():
     a25 = team_over_prob(matrices, "away", 2.5)
     assert a05[0] >= a15[0] >= a25[0]
 
+
+
+def test_alignment_matches_target_1x2_and_keeps_region_shape():
+    from src.models.dixon_coles import align_to_outcome_probs, expected_goals
+
+    matrices = matrix_from_lambdas(np.array([1.6, 0.9]), np.array([1.1, 1.7]), rho=-0.05)
+    target = np.array([[0.30, 0.30, 0.40], [0.55, 0.25, 0.20]])
+    aligned = align_to_outcome_probs(matrices, target)
+
+    np.testing.assert_allclose(aligned.sum(axis=(1, 2)), np.ones(2), atol=1e-9)
+    np.testing.assert_allclose(outcome_probs(aligned), target, atol=1e-9)
+    # Within the draw region the relative score shape is unchanged.
+    draws_before = np.diagonal(matrices, axis1=1, axis2=2)
+    draws_after = np.diagonal(aligned, axis1=1, axis2=2)
+    np.testing.assert_allclose(
+        draws_after / draws_after.sum(axis=1, keepdims=True),
+        draws_before / draws_before.sum(axis=1, keepdims=True),
+    )
+    home, away = expected_goals(aligned)
+    assert home.shape == away.shape == (2,)
+

@@ -1,33 +1,61 @@
 # Project Status
 
-**Snapshot:** 2026-10-14, local cached data  
-**Current season:** 2026/27, 60 of 380 fixtures completed
+**Snapshot:** 17 Ekim 2026  
+**Belgeler:** [README](README.md) · [Rapor Merkezi](docs/reports/README.md) · [Ana Rapor](docs/reports/premier_league_models_comprehensive_report.md) · [Model Raporları](docs/reports/models/) · [Model Benchmarks](docs/reports/model_benchmarks.md)
 
-Raporlara erişim: [Rapor Merkezi](reports/README.md) · [Kapsamlı kod denetimi](reports/repository_audit.md)
+---
 
-## Current state
+## 1. Veri
 
-- Five seasons contain 1,900 fixtures: 1,580 completed matches and 320 upcoming fixtures. Processed match and feature tables and production models were rebuilt from the local raw cache.
-- Missing `won_corners` values are reconstructed from team-attributed event streams when the raw stat is absent. This adds 67 recovered team values and makes the total-corners target usable for all 1,580 completed matches. Raw values and reconstruction flags remain separate.
-- Count-model selection now compares each feature model with a training-mean candidate inside every expanding-window fold. This gives the trainer a conservative fallback when the features do not generalize.
-- TheStatsAPI xG remains in the separate provider table and API/frontend match display. Lagged xG form features have been removed from the feature dataset and 1X2 model because actual match xG is known only after kickoff. Coverage is 366/380 (2022/23), 35/380 (2023/24), 60/380 (2024/25), 320/380 (2025/26), and 60/60 played (2026/27).
-- F10 extends prospective logging to Over 1.5/2.5/3.5 and BTTS, alongside 1X2, with outcome and goal-model fingerprints. See the [repository audit](reports/repository_audit.md) and append-only [forecast log](data/processed/1x2_forecast_log.jsonl).
-- The full pipeline was rerun on 2026-10-14 from the local raw cache, rebuilding processed features, production artifacts, and current benchmark/data audit reports. The automated suite passed: 18 tests.
-- Current benchmark scores and temporal comparisons are in [Model Benchmarks](reports/model_benchmarks.md). Data coverage and source quality are in [Data Quality](reports/data_quality.md); event-stream corner checks are in [Team Scenario Validation](reports/team_scenario_validation.md).
+| Kalem | Değer |
+| :--- | :--- |
+| Fikstür | 1.900 (5 sezon: 2022/23–2026/27) |
+| Oynanmış maç | 1.580 · 2026/27: 60/380 (kilitli sezon, yalnızca raporlanır) |
+| Sağlayıcı xG kapsamı (iki takım) | 2022/23 366/380 · 2023/24 378/380 · 2024/25 380/380 · 2025/26 380/380 · 2026/27 60/60 oynanmış |
+| Özellik tablosu | `data/processed/features_matches_all.parquet` (16 Ekim 2026) |
+| İleriye dönük tahmin kaydı | `data/processed/1x2_forecast_log.jsonl`: 140 kayıt (son yazım 17 Ekim 2026: 7. ve 8. hafta, eski ve yeni 1X2 artifact'ıyla) |
 
-## Known model limits
+- Eksik `won_corners` değerleri olay akışından kurtarılır (67 takım değeri). Kurtarış hedefi de olay akışıyla 1.580 maçın tamamında kullanılabilir. Ham değerler ve kurtarma bayrakları ayrı tutulur.
+- Gerçekleşmiş maç xG'si yalnızca gösterim ve maç sonrası analiz içindir; maç öncesi modellerde kullanılmaz, çünkü başlama saatinden sonra bilinir.
+- Ayrıntı: [Data Quality](docs/reports/data_quality.md).
 
-- The grouped 1X2 holdout contains 304 matches (2025-10-18 onward); the fit uses 836 of the 1,216 development-period rows after the fixed 2022/23 exclusion. After removing xG form features, log loss is 1.028 versus 1.092 for the class-prior baseline; multiclass Brier is 0.620 versus 0.661. The model selected a draw as its most likely outcome in 2 of 304 matches. The draw-propensity gate saw one clean full development outer season, so the added features remain disabled.
-- Equal kickoff times now stay together in CV and holdout splits. Current-run feature, ensemble, and recency decisions use development data only. The existing 2022/23 exclusion was held fixed rather than re-selected; treat the pre-kickoff 2026/27 forecast log as the cleaner prospective validation.
-- Provider xG coverage remains incomplete, especially 2023/24 and the unfilled 2025/26 fixtures. Actual match xG is retained for display and post-match analysis, not pre-match prediction; the old aggregate proxy remains excluded.
-- Saves are now usable for all 1,580 completed matches through event-stream recovery; raw provider values remain complete for 1,371 matches, and the original source flags are preserved. The saves model still selects `training_mean` after the CV skill gate. Details: [Model Benchmarks](reports/model_benchmarks.md) and [Data Quality](reports/data_quality.md).
-- Count-model improvements over the mean are small for corners, saves, and cards. The fold-fitted mean candidate prevents selecting a more complex model unless it wins chronological CV, but holdout scores remain the authority.
-- Dixon–Coles remains an evaluation comparator: on the same rows and training policy it scored 1.043 versus the classifier's 1.030. Its development-only ensemble gate currently has one eligible full season and did not improve; the three-season threshold is unmet. Full F4–F6 decisions are in the [1X2 audit](reports/1x2_model_audit.md).
+## 2. Modeller
 
-## Next work
+| Model | Üretimde | Değerlendirme | Rapor |
+| :--- | :--- | :--- | :--- |
+| Gol skor matrisi (`v1.3`) | Bağımsız Poisson × Dixon-Coles, 11 özellik, α=30, w_dc=0.5; API'de 1X2'ye hizalı | O2.5 LL 0.6803 vs prior 0.6847, CI [−0.0105, +0.0014]: **anlamlı değil** | [goals_model.md](docs/reports/models/goals_model.md) |
+| 1X2 | 77 özellikli lojistik (C=0.003) + sıcaklık kalibrasyonu | LL 1.026 vs 1.092, Brier 0.617 vs 0.661; beraberlik AUC 0.557 | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
+| Korner | `elastic_0.05_0.8` | RMSE 3.200 vs 3.241; dış sezon 2/3 | [corners_model.md](docs/reports/models/corners_model.md) |
+| Taç | `poisson_10` | RMSE 7.022 vs 7.388; dış sezon 3/3 | [throws_model.md](docs/reports/models/throws_model.md) |
+| Ofsayt | `ridge_250` | RMSE 1.910 vs 2.024; dış sezon 3/3 | [offsides_model.md](docs/reports/models/offsides_model.md) |
+| Kart | `training_mean` | Özellikli aday dış sezon 1/3 → ortalama | [cards_model.md](docs/reports/models/cards_model.md) |
+| Kurtarış | `training_mean` | CV kapısı 2/4 kat → ortalama | [saves_model.md](docs/reports/models/saves_model.md) |
 
-1. Keep saving immutable pre-kickoff 1X2 and goal-market forecasts, then score them after matches finish; do not use the partially evaluated season to repeatedly tune the model.
-2. Compare high-coverage tactical features, such as forward-zone passing and final-third entries, through the same season holdouts before adding them to production.
-3. Validate the event-derived corner fallback against source stats and unresolved team attribution as new raw data arrives.
-4. Investigate authoritative goalkeeper-save data to recover the remaining missing target rows.
-5. Run `python3 run_full_pipeline.py` after each raw-cache update and restart the API to load rebuilt production artifacts.
+Artifact tarihleri: tüm modeller 17 Ekim 2026, aynı özellik tablosuyla (16 Ekim 23:24) eğitildi. Veri 6. haftanın sonuna kadar (1.580 maç); bir sonraki tam pipeline 7. hafta bittikten sonra (19 Ekim).
+
+## 3. Son Değişiklikler (17 Ekim 2026)
+
+- **Gol modeli denetimi ve `v1.3`:** Hiperparametreler artık iç içe ileri katlarla ve 1-SE kuralıyla seçiliyor; özellik sayısı 58'den 11'e indi; skor matrisi API'de lojistik 1X2'ye hizalanıyor; KG etiketi %50 eşiğine bağlandı. Ayrıntı: [goals_model.md §11](docs/reports/models/goals_model.md#bölüm-11-bağımsız-denetim-17-ekim-2026--gol-modeli--api-bulguları).
+- **Sayım modelleri için dış sezon kapısı** (`apply_outer_season_gate`, `src/models/model_utils.py`): Özellikli model ancak tam dış sezonların çoğunluğunda ortalamayı yenerse üretime girer. Sonuç: kart modeli ortalamaya düştü (holdout'ta ortalamadan kötüydü), diğerleri değişmedi.
+- **Belge yapısı:** Her modelin kendi raporu var (`docs/reports/models/`); ana rapor bir indeks. Tüm raporlar tek konumda: `docs/reports/`. Kod artık eski `reports/` klasörüne yazmıyor.
+- **1X2 yeniden eğitildi:** Eski artifact güncel özellik tablosundan önce eğitilmişti. Holdout manşet değerleri aynı (LL 1.026, Brier 0.617, isabet %49.67, beraberlik AUC 0.557); sıcaklık 0.9587 → 0.9591, beraberlik ECE %4.6 → %5.3. Yedek: `models/production/outcome_models_v1.backup_2026-10-16.joblib`.
+- **Testler:** 22/22 geçiyor (`tests/`).
+
+## 4. Bilinen Sınırlar
+
+- **Gol modeli** takım güç farkını yakalıyor (gol farkı korelasyonu 0.44) ama toplam gol hacmini neredeyse hiç ayırt edemiyor (0.065). Prior'a karşı farkı anlamlı değil; bahis edge'i iddiası için temel oluşturmaz.
+- **1X2 modeli** genel beraberlik oranını biliyor ama beraberliği maç maç ayıramıyor (beraberlik olasılığı, beraberlikle biten maçlarda %25.7, diğerlerinde %24.8).
+- **Sayım modellerinin** ortalamaya karşı kazancı küçük. Kart ve kurtarış ortalamada. Kilitli sezonun ilk 60 maçında ofsayt ve taç ortalamadan hafif kötü; örneklem küçük, izleniyor.
+- **API'de model olmayan alanlar:** `shots.expected_total` sabit çarpandır (`kurtarış × 4.1`). Ev/deplasman paylaşımları rolling oranlardan gelir. Bkz. [API Entegrasyonu §2.6](docs/model_api_integration.md).
+- **`/api/benchmarks`** kart metriklerini döndürmüyor (yalnızca korner, taç, kurtarış, 1X2, ofsayt).
+- **Ortam:** Python bağımlılıkları için `requirements.txt` / `pyproject.toml` yok. `pytest` sistem Python'ında kurulu değil; testler bu turda doğrudan çalıştırıldı.
+- **İleriye dönük kayıt** 7. ve 8. hafta için alındı (17 Ekim). Puan kartı (`docs/reports/prospective_1x2_scorecard.json`) henüz üretilmedi; 7. hafta bitince `score` komutuyla üretilecek.
+
+## 5. Sıradaki İşler
+
+1. Her oyun haftasından sonra `python3 run_full_pipeline.py` çalıştır, ardından API'yi yeniden başlat. Otomatik raporlar (`model_benchmarks.md`, `data_quality.md`, `team_*.md`) bu sırada yenilenir.
+2. Maç öncesi tahmin kaydını sürdür (`prospective_1x2_benchmark snapshot`) ve biten maçları puanla. Kısmi sezona bakarak modeli tekrar tekrar ayarlama.
+3. Korner, ofsayt ve taç modellerine kart modelindeki gibi derin denetim yap: özellik ablasyonu, kazancın "seviye uyumu" ile "maçlar arası ayrım" arasında ayrıştırılması.
+4. 1X2 denetimini güncel artifact (77 özellik) üzerinde yenile; [1x2_model_audit.md](docs/reports/1x2_model_audit.md) 14 Ekim tarihli.
+5. Python bağımlılıklarını bir `requirements.txt` dosyasına sabitle; `pytest`'i geliştirme bağımlılığı olarak ekle.
+6. Kart hedefinde `total_yellow_cards_target_usable` bayrağının eğitimde filtrelenmesi gerekip gerekmediğini doğrula.

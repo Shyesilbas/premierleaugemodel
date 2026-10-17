@@ -12,13 +12,13 @@ import pandas as pd
 from src.models.dixon_coles import (
     DixonColesModel,
     btts_prob,
-    matrix_from_lambdas,
     outcome_probs,
     over_prob,
 )
 from src.models.eval_utils import paired_bootstrap_delta, per_match_log_loss
-from src.models.goals_model import FeatureGoalModel, blend_lambdas
+from src.models.goals_model import FeatureGoalModel
 from src.models.model_utils import apply_probability_calibrator
+from src.models.train_goals import BLEND_GRID, blend_model, goal_feature_sets, select_blend_config
 from src.models.train_match_outcome import (
     LOCKED_SEASONS,
     candidate_models,
@@ -104,7 +104,7 @@ def _goal_matrices(
     train: pd.DataFrame,
     test: pd.DataFrame,
     features: list[str],
-) -> dict[str, np.ndarray]:
+) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     matrices: dict[str, np.ndarray] = {}
     dc_variants = {"dc": None, "dc_hl365": 365.0, "dc_hl730": 730.0}
     dc_models = {
@@ -114,22 +114,18 @@ def _goal_matrices(
     for name, model in dc_models.items():
         matrices[name] = model.predict_matrices(test)
 
-    feature_models: dict[float, FeatureGoalModel] = {}
     for alpha in FEATURE_ALPHAS:
         model = FeatureGoalModel(features, alpha=alpha).fit(train)
-        feature_models[alpha] = model
         matrices[f"feat_alpha{alpha:g}"] = model.predict_matrices(test)
 
-    # Blend recency-weighted DC and the alpha=10.0 feature model geometrically.
-    dc_home, dc_away = dc_models["dc_hl365"].lambdas(test)
-    feat_home, feat_away = feature_models[10.0].lambdas(test)
-    blend_rho = 0.5 * (dc_models["dc_hl365"].rho_ + feature_models[10.0].rho_)
-    matrices["blend_dc_feat"] = matrix_from_lambdas(
-        blend_lambdas(dc_home, feat_home, 0.25),
-        blend_lambdas(dc_away, feat_away, 0.25),
-        blend_rho,
+    # Nested: choose the blend on forward folds of the training seasons only,
+    # exactly as production training does on all unlocked seasons.
+    feature_sets = goal_feature_sets(list(train.columns))
+    chosen = select_blend_config(train, feature_sets)
+    matrices[BLEND_GRID["kind"]] = (
+        blend_model(feature_sets[chosen["feature_set"]], chosen).fit(train).predict_matrices(test)
     )
-    return matrices
+    return matrices, chosen
 
 
 def _logreg_o25_probabilities(
@@ -179,6 +175,7 @@ def evaluate_outer_seasons(
     pooled_o25_actuals: list[np.ndarray] = []
     pooled_o25_losses: dict[str, list[np.ndarray]] = {}
     pooled_o25_prior_losses: list[np.ndarray] = []
+    selected_configs: dict[str, dict[str, Any]] = {}
 
     for season_index, season in enumerate(seasons):
         if season_index == 0:
@@ -189,7 +186,7 @@ def evaluate_outer_seasons(
         if len(train) < 300 or test.empty:
             continue
 
-        matrices = _goal_matrices(train, test, features)
+        matrices, selected_configs[season] = _goal_matrices(train, test, features)
         total_goals = (test["home_score"] + test["away_score"]).to_numpy(dtype=float)
 
         for line in OU_LINES:
@@ -309,7 +306,55 @@ def evaluate_outer_seasons(
                 and rel["bins"][-1]["observed_rate"] > rel["bins"][0]["observed_rate"]
             ),
         }
+    for gate in candidate_gates.values():
+        # Reported, not enforced: the pass rule above has no significance requirement.
+        gate["ci_excludes_zero"] = bool(gate["pooled_paired_bootstrap"]["ci_high"] < 0)
+    if BLEND_GRID["kind"] in candidate_gates:
+        candidate_gates[BLEND_GRID["kind"]]["selection_grid"] = BLEND_GRID
+        candidate_gates[BLEND_GRID["kind"]]["selected_configs"] = selected_configs
     return results, reliability, candidate_gates
+
+
+def evaluate_in_season_refit(
+    df: pd.DataFrame,
+    selected_configs: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Score the season-start blend config refitted before every gameweek, like weekly retraining.
+
+    The config stays the one chosen on earlier seasons; only parameters see the
+    season's already-played matches. The fair baseline is a prior refreshed the same way.
+    """
+    ordered = df.sort_values(["kickoff_millis", "match_id"], kind="mergesort").reset_index(drop=True)
+    feature_sets = goal_feature_sets(list(ordered.columns))
+    seasons = list(pd.unique(ordered["season"].astype(str)))
+    losses: dict[str, list[np.ndarray]] = {"refit": [], "frozen": [], "rolling_prior": []}
+    by_season: dict[str, dict[str, float]] = {}
+    for season, chosen in selected_configs.items():
+        features = feature_sets[chosen["feature_set"]]
+        before = ordered[ordered["season"].astype(str).isin(seasons[:seasons.index(season)])]
+        current = ordered[ordered["season"].astype(str).eq(season)]
+        frozen = blend_model(features, chosen).fit(before)
+        season_losses: dict[str, list[np.ndarray]] = {key: [] for key in losses}
+        blocks = sorted(current.groupby("gameweek", dropna=False), key=lambda item: item[1]["kickoff_millis"].min())
+        for _, block in blocks:
+            train = pd.concat([before, current[current["kickoff_millis"] < block["kickoff_millis"].min()]])
+            y = ((block["home_score"] + block["away_score"]) > 2.5).to_numpy(dtype=int)
+            prior_rate = float(((train["home_score"] + train["away_score"]) > 2.5).mean())
+            refit = blend_model(features, chosen).fit(train)
+            season_losses["refit"].append(per_match_log_loss(_binary_probs(over_prob(refit.predict_matrices(block), 2.5)), y))
+            season_losses["frozen"].append(per_match_log_loss(_binary_probs(over_prob(frozen.predict_matrices(block), 2.5)), y))
+            season_losses["rolling_prior"].append(per_match_log_loss(_binary_probs(np.full(len(y), prior_rate)), y))
+        by_season[season] = {key: float(np.concatenate(parts).mean()) for key, parts in season_losses.items()}
+        for key, parts in season_losses.items():
+            losses[key].extend(parts)
+    pooled = {key: np.concatenate(parts) for key, parts in losses.items()}
+    return {
+        "n": int(len(pooled["refit"])),
+        "log_loss": {key: float(values.mean()) for key, values in pooled.items()},
+        "refit_vs_frozen": paired_bootstrap_delta(pooled["refit"], pooled["frozen"], n_boot=2000),
+        "refit_vs_rolling_prior": paired_bootstrap_delta(pooled["refit"], pooled["rolling_prior"], n_boot=2000),
+        "by_season": by_season,
+    }
 
 
 def main(
@@ -321,6 +366,7 @@ def main(
     if LOCKED_SEASONS:
         df = df[~df["season"].astype(str).isin(LOCKED_SEASONS)].copy()
     results, reliability, candidate_gates = evaluate_outer_seasons(df)
+    in_season_refit = evaluate_in_season_refit(df, candidate_gates[BLEND_GRID["kind"]]["selected_configs"])
 
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -328,6 +374,7 @@ def main(
         "outer_season_results": results,
         "pooled_o25_reliability": reliability,
         "o25_candidate_gates": candidate_gates,
+        "o25_in_season_refit": in_season_refit,
     }, indent=2), encoding="utf-8")
 
     table = pd.DataFrame(results).pivot_table(
@@ -339,6 +386,7 @@ def main(
     print(table.round(4).sort_values(["target", "mean_delta"]).to_string())
     print("\nO2.5 candidate gates:")
     print(pd.DataFrame(candidate_gates).T.round(4).to_string())
+    print("\nO2.5 weekly in-season refit:", json.dumps(in_season_refit, indent=2))
     return results
 
 

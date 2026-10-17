@@ -77,6 +77,32 @@ def outcome_probs(matrices: np.ndarray) -> np.ndarray:
     return probabilities / probabilities.sum(axis=1, keepdims=True)
 
 
+def align_to_outcome_probs(matrices: np.ndarray, outcome: np.ndarray) -> np.ndarray:
+    """Rescale home-win, draw and away-win cells so the matrix 1X2 equals ``outcome``.
+
+    The score shape inside each region is kept, so every market read from the
+    matrix agrees with a separately modelled 1X2 probability.
+    """
+    values = _validate_score_matrices(matrices)
+    target = np.asarray(outcome, dtype=float)
+    if target.shape != (values.shape[0], 3):
+        raise ValueError("outcome must have shape (n_matches, 3)")
+    if not np.isfinite(target).all() or (target < 0).any() or (target.sum(axis=1) <= 0).any():
+        raise ValueError("outcome probabilities must be finite, non-negative, with positive row sums")
+    target = target / target.sum(axis=1, keepdims=True)
+    goal_count = values.shape[1]
+    home_goals, away_goals = np.indices((goal_count, goal_count))
+    region = np.sign(away_goals - home_goals) + 1  # 0 home win, 1 draw, 2 away win
+    return values * (target / outcome_probs(values))[:, region]
+
+
+def expected_goals(matrices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return home and away goal expectations implied by each score matrix."""
+    values = _validate_score_matrices(matrices)
+    goals = np.arange(values.shape[1])
+    return values.sum(axis=2) @ goals, values.sum(axis=1) @ goals
+
+
 def over_prob(matrices: np.ndarray, line: float) -> np.ndarray:
     """Return the probability that total goals exceed a half-goal line."""
     values = _validate_score_matrices(matrices)

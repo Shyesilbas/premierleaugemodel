@@ -1,0 +1,12 @@
+[Unit]
+Description=Premier League Model API
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/plm
+EnvironmentFile=-/opt/plm/.env
+ExecStart=/opt/plm/venv/bin/uvicorn src.api.server:app --host 127.0.0.1 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

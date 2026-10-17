@@ -33,7 +33,7 @@ from src.models.model_utils import (
     count_tail_probability,
     safe_feature_frame as _safe_features,
 )
-from src.models.dixon_coles import btts_prob, over_prob, team_over_prob
+from src.models.dixon_coles import align_to_outcome_probs, btts_prob, expected_goals, over_prob, team_over_prob
 from src.db.database import get_referees_list, get_referee_detail, get_all_grouped_fixtures, get_referee_summary, get_db, attach_statsapi_xg
 from src.features.build_features import (
     calculate_rest_days,
@@ -420,9 +420,18 @@ def reload_runtime_datasets() -> None:
         get_live_state(None)
 
 
-def _run_season_sync_job(job_id: str, season: str) -> None:
-    script_path = BASE_DIR / "src" / "ingest" / "sync_season_data.py"
-    command = [sys.executable, str(script_path), "--season-name", season]
+def _sync_command(kind: str, season: str) -> List[str]:
+    sync_season_script = str(BASE_DIR / "src" / "ingest" / "sync_season_data.py")
+    return {
+        "matches": [sys.executable, sync_season_script, "--season-name", season],
+        "referees": [sys.executable, sync_season_script, "--season-name", season, "--referees-only"],
+        # 2h window: official XIs are published roughly 60-75 min before kickoff
+        "lineups": [sys.executable, "-m", "src.ingest.sync_prematch_lineups", "--season", season, "--hours-ahead", "2"],
+    }[kind]
+
+
+def _run_season_sync_job(job_id: str, season: str, kind: str = "matches") -> None:
+    command = _sync_command(kind, season)
     try:
         result = subprocess.run(
             command,
@@ -442,7 +451,16 @@ def _run_season_sync_job(job_id: str, season: str) -> None:
         reload_runtime_datasets()
         with _sync_job_lock:
             if _sync_job.get("id") == job_id:
-                _sync_job.update(status="completed", message="Veriler güncellendi.", output=output)
+                matches = []
+                for line in result.stdout.splitlines():
+                    if line.startswith("SYNC_RESULT "):
+                        matches = json.loads(line[len("SYNC_RESULT "):]).get("matches", [])
+                _sync_job.update(
+                    status="completed",
+                    message="Veri bulundu" if matches else "Veri bulunamadı",
+                    matches=matches,
+                    output=output,
+                )
     except Exception as exc:
         logger.exception("Season sync job failed")
         with _sync_job_lock:
@@ -451,16 +469,18 @@ def _run_season_sync_job(job_id: str, season: str) -> None:
 
 
 @app.post("/api/admin/sync-season")
-def start_season_sync(season: str = Query("2026_27")):
-    """Start an incremental season sync in the background."""
+def start_season_sync(season: str = Query("2026_27"), kind: str = Query("matches")):
+    """Start a background sync: matches (results + stats), referees, or lineups."""
+    if kind not in {"matches", "referees", "lineups"}:
+        raise HTTPException(status_code=400, detail="Unsupported sync kind")
     if season not in {"2022_23", "2023_24", "2024_25", "2025_26", "2026_27"}:
         raise HTTPException(status_code=400, detail="Unsupported season")
     with _sync_job_lock:
         if _sync_job.get("status") in {"queued", "running"}:
             return {**_sync_job, "already_running": True}
         job_id = str(uuid.uuid4())
-        _sync_job.update(id=job_id, status="running", season=season, message="Sezon verileri kontrol ediliyor...", output="")
-    thread = threading.Thread(target=_run_season_sync_job, args=(job_id, season), daemon=True)
+        _sync_job.update(id=job_id, status="running", season=season, kind=kind, message="Başlandı...", matches=[], output="")
+    thread = threading.Thread(target=_run_season_sync_job, args=(job_id, season, kind), daemon=True)
     thread.start()
     return {**_sync_job, "already_running": False}
 
@@ -3039,6 +3059,7 @@ def predict_match(
         season=target_season,
         draw_state=draw_state,
         gameweek=gameweek,
+        match_id=match_id or target_match_id,
     )
 
     # 1. Corner Prediction
@@ -3100,9 +3121,11 @@ def predict_match(
     goals_extra: Dict[str, Any] = {}
     over_source = "legacy"
     if goals_artifact is not None:
-        goal_model = goals_artifact["model"]
-        score_matrix = goal_model.predict_matrices(simulated_df)
-        lam_h, lam_a = goal_model.lambdas(simulated_df)
+        # Align score cells to the (better-scoring) 1X2 model so every market shown agrees with it.
+        score_matrix = align_to_outcome_probs(
+            goals_artifact["model"].predict_matrices(simulated_df), np.atleast_2d(probs_1x2)
+        )
+        lam_h, lam_a = expected_goals(score_matrix)
         for line in goals_artifact.get("ou_lines", [1.5, 2.5, 3.5]):
             key = f"over_{line}"
             gate = goals_artifact.get("skill_gate", {}).get(key, "model_matrix")
@@ -3119,12 +3142,15 @@ def predict_match(
             goals_extra[key] = {"pct": round(p_line * 100.0, 1), "source": source}
 
         # BTTS from bivariate score matrix with dynamic Bayesian prior threshold
-        raw_btts = float(btts_prob(score_matrix)[0])
+        p_btts = float(btts_prob(score_matrix)[0])
+        btts_calibrator = goals_artifact.get("calibrators", {}).get("btts")
+        if btts_calibrator:
+            p_btts = float(apply_probability_calibrator(np.array([[1.0 - p_btts, p_btts]]), btts_calibrator)[0, 1])
         btts_prior = float(goals_artifact.get("base_rates", {}).get("btts", 0.566))
-        goals_extra["btts_pct"] = round(raw_btts * 100.0, 1)
+        goals_extra["btts_pct"] = round(p_btts * 100.0, 1)
         goals_extra["btts_source"] = "model_matrix"
         goals_extra["btts_prior_pct"] = round(btts_prior * 100.0, 1)
-        goals_extra["btts_prediction"] = "KG Var" if raw_btts >= btts_prior else "KG Yok"
+        goals_extra["btts_prediction"] = "KG Var" if p_btts >= 0.5 else "KG Yok"
         goals_extra["expected_home_goals"] = round(float(lam_h[0]), 2)
         goals_extra["expected_away_goals"] = round(float(lam_a[0]), 2)
         goals_extra["expected_total_goals"] = round(float(lam_h[0] + lam_a[0]), 2)
@@ -3395,7 +3421,7 @@ def get_player_rating_endpoint(player_id: int, as_of_match_id: Optional[int] = N
 @app.get("/api/benchmarks")
 def get_benchmarks():
     """Returns saved model benchmark metrics and summary."""
-    benchmarks_path = BASE_DIR / "reports" / "model_benchmarks.md"
+    benchmarks_path = BASE_DIR / "docs" / "reports" / "model_benchmarks.md"
     content = ""
     if benchmarks_path.exists():
         with open(benchmarks_path, "r", encoding="utf-8") as f:
