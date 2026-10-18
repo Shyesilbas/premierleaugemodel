@@ -3,6 +3,8 @@
  * Saves requests by keeping data cached in localStorage until the team's next scheduled match completes.
  */
 
+import { getJson } from '../services/apiClient';
+
 const CACHE_PREFIX = 'pl_team_cache_v6_'; // v6: drops match_detail entries frozen without stats
 
 /**
@@ -130,5 +132,24 @@ export function clearAllCaches() {
       .forEach(key => localStorage.removeItem(key));
   } catch (err) {
     console.warn('Failed to clear caches:', err);
+  }
+}
+
+const DATA_VERSION_KEY = 'pl_data_version';
+
+/**
+ * Drop every cache when the backend reports reloaded data (e.g. a sync script run from the terminal).
+ * Returns true when the version changed.
+ */
+export async function syncDataVersion() {
+  try {
+    const { version } = await getJson('/api/data-version');
+    if (!version || localStorage.getItem(DATA_VERSION_KEY) === version) return false;
+    clearAllCaches();
+    localStorage.setItem(DATA_VERSION_KEY, version);
+    return true;
+  } catch (err) {
+    console.warn('Data version check failed:', err);
+    return false;
   }
 }

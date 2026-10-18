@@ -1,10 +1,97 @@
 import React, { useMemo } from 'react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import PlayerAvatar from './PlayerAvatar';
-import { ExternalLink, Shield } from 'lucide-react';
+import { BallIcon, RedCardIcon, YellowCardIcon } from './match-detail/eventIcons';
 
-/**
- * FotMob / SofaScore Style Interactive Tactical Pitch Lineups
- */
+const POSITION_ORDER = { G: 0, GK: 0, D: 1, DEF: 1, M: 2, MID: 2, F: 3, FWD: 3 };
+const POSITION_LABEL = { G: 'KL', GK: 'KL', D: 'DF', DEF: 'DF', M: 'OS', MID: 'OS', F: 'FV', FWD: 'FV' };
+
+const ratingClass = (r) =>
+  r >= 7.5 ? 'bg-emerald-500 text-white'
+    : r >= 6.5 ? 'bg-sky-500 text-white'
+    : r >= 5.5 ? 'bg-amber-500 text-white'
+    : 'bg-rose-500 text-white';
+
+// Resolve rows (GK first) from backend formation_matrix, falling back to the formation label
+function getTeamRows(lineup) {
+  if (!lineup?.starters?.length) return [];
+
+  const startersMap = new Map(lineup.starters.map(p => [p.id, p]));
+  if (Array.isArray(lineup.formation_matrix) && lineup.formation_matrix.length > 0) {
+    const rows = lineup.formation_matrix
+      .map(ids => ids.map(id => startersMap.get(id)).filter(Boolean))
+      .filter(r => r.length > 0);
+    if (rows.reduce((acc, r) => acc + r.length, 0) >= 10) return rows;
+  }
+
+  const parts = String(lineup.formation || '4-3-3').split('-').map(n => parseInt(n, 10)).filter(n => !isNaN(n));
+  const sorted = [...lineup.starters].sort((a, b) => {
+    const oa = POSITION_ORDER[a.position] ?? 2;
+    const ob = POSITION_ORDER[b.position] ?? 2;
+    return oa !== ob ? oa - ob : (a.shirt || 99) - (b.shirt || 99);
+  });
+
+  const rows = [];
+  let cur = 0;
+  for (const count of [1, ...parts]) {
+    if (cur >= sorted.length) break;
+    rows.push(sorted.slice(cur, cur + count));
+    cur += count;
+  }
+  if (cur < sorted.length) {
+    if (rows.length > 0) rows[rows.length - 1] = rows[rows.length - 1].concat(sorted.slice(cur));
+    else rows.push(sorted.slice(cur));
+  }
+  return rows;
+}
+
+// FIFA-standard 105x68 pitch markings, drawn horizontally
+function PitchMarkings() {
+  return (
+    <g fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="0.35">
+      <rect x="0" y="0" width="105" height="68" />
+      <line x1="52.5" y1="0" x2="52.5" y2="68" />
+      <circle cx="52.5" cy="34" r="9.15" />
+      <circle cx="52.5" cy="34" r="0.5" fill="rgba(255,255,255,0.6)" />
+      <rect x="0" y="13.84" width="16.5" height="40.32" />
+      <rect x="0" y="24.84" width="5.5" height="18.32" />
+      <circle cx="11" cy="34" r="0.4" fill="rgba(255,255,255,0.6)" />
+      <path d="M16.5 26.69 A9.15 9.15 0 0 1 16.5 41.31" />
+      <rect x="88.5" y="13.84" width="16.5" height="40.32" />
+      <rect x="99.5" y="24.84" width="5.5" height="18.32" />
+      <circle cx="94" cy="34" r="0.4" fill="rgba(255,255,255,0.6)" />
+      <path d="M88.5 26.69 A9.15 9.15 0 0 0 88.5 41.31" />
+      <rect x="-1.2" y="30.34" width="1.2" height="7.32" />
+      <rect x="105" y="30.34" width="1.2" height="7.32" />
+      <path d="M0 1 A1 1 0 0 0 1 0 M104 0 A1 1 0 0 0 105 1 M0 67 A1 1 0 0 1 1 68 M104 68 A1 1 0 0 1 105 67" />
+    </g>
+  );
+}
+
+function TeamHeader({ team, lineup, label, align = 'left' }) {
+  const isRight = align === 'right';
+  const ratingLabel = lineup?.starters?.[0]?.is_match_rating ? 'Maç notu' : '11 formu';
+  return (
+    <div className={`flex items-center gap-3 min-w-0 ${isRight ? 'flex-row-reverse text-right' : ''}`}>
+      <img src={team?.badge} alt="" className="w-9 h-9 sm:w-10 sm:h-10 object-contain shrink-0 drop-shadow" />
+      <div className="min-w-0">
+        <div className="text-sm sm:text-base font-black leading-tight truncate">{team?.name}</div>
+        <div className={`flex items-center gap-1.5 mt-0.5 text-[11px] text-white/60 font-semibold ${isRight ? 'justify-end' : ''}`}>
+          <span className="uppercase tracking-wider">{label}</span>
+          {lineup?.formation && (
+            <span className="font-mono font-black text-[#00ff87] bg-white/10 rounded-md px-1.5 py-px">{lineup.formation}</span>
+          )}
+          {lineup?.team_ratings?.overall != null && (
+            <span className="hidden sm:inline" title={ratingLabel}>
+              · {ratingLabel} <strong className="font-mono text-white">{Number(lineup.team_ratings.overall).toFixed(1)}</strong>
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PitchLineup({
   homeLineup,
   awayLineup,
@@ -13,470 +100,199 @@ export default function PitchLineup({
   playerStats = { home: [], away: [] },
   onPlayerClick,
 }) {
-  // Helper to get match stats (goals, cards) for a player
-  const getPlayerMatchStats = (pid, side) => {
-    const list = playerStats[side] || [];
-    return list.find(p => p.id === pid) || {};
-  };
+  const getStats = (pid, side) => (playerStats?.[side] || []).find(p => p.id === pid) || {};
 
-  // Helper to resolve player rows from formation_matrix or fallback formation parser
-  const getTeamRows = (lineup, side) => {
-    if (!lineup || !lineup.starters || lineup.starters.length === 0) return [];
-
-    const startersMap = new Map();
-    lineup.starters.forEach(p => startersMap.set(p.id, p));
-
-    // 1. Try exact formation_matrix if provided by backend
-    if (lineup.formation_matrix && Array.isArray(lineup.formation_matrix) && lineup.formation_matrix.length > 0) {
-      const rows = [];
-      lineup.formation_matrix.forEach(rowIds => {
-        const rowPlayers = [];
-        rowIds.forEach(id => {
-          const p = startersMap.get(id);
-          if (p) rowPlayers.push(p);
-        });
-        if (rowPlayers.length > 0) rows.push(rowPlayers);
-      });
-
-      // If all or most starters were mapped
-      const totalMapped = rows.reduce((acc, r) => acc + r.length, 0);
-      if (totalMapped >= 10) {
-        return rows;
-      }
-    }
-
-    // 2. Fallback: Parse formation label (e.g. "4-2-3-1" or "4-3-3" or "3-5-2")
-    const formStr = String(lineup.formation || '4-3-3').trim();
-    const parts = formStr.split('-').map(n => parseInt(n, 10)).filter(n => !isNaN(n));
-    const counts = [1, ...parts]; // prepend 1 for Goalkeeper
-
-    // Sort starters: GK -> DEF -> MID -> FWD
-    const positionOrder = { 'G': 0, 'GK': 0, 'D': 1, 'DEF': 1, 'M': 2, 'MID': 2, 'F': 3, 'FWD': 3 };
-    const sorted = [...lineup.starters].sort((a, b) => {
-      const orderA = positionOrder[a.position] !== undefined ? positionOrder[a.position] : 2;
-      const orderB = positionOrder[b.position] !== undefined ? positionOrder[b.position] : 2;
-      if (orderA !== orderB) return orderA - orderB;
-      return (a.shirt || 99) - (b.shirt || 99);
-    });
-
-    const rows = [];
-    let curIdx = 0;
-    for (const count of counts) {
-      if (curIdx >= sorted.length) break;
-      rows.push(sorted.slice(curIdx, curIdx + count));
-      curIdx += count;
-    }
-    // Any remaining players added to last row
-    if (curIdx < sorted.length) {
-      if (rows.length > 0) {
-        rows[rows.length - 1] = rows[rows.length - 1].concat(sorted.slice(curIdx));
-      } else {
-        rows.push(sorted.slice(curIdx));
-      }
-    }
-    return rows;
-  };
-
-  const awayRows = useMemo(() => getTeamRows(awayLineup, 'away'), [awayLineup]);
-  const homeRows = useMemo(() => getTeamRows(homeLineup, 'home'), [homeLineup]);
-
-  // Position badge class
-  const getPosBadgeColor = (pos) => {
-    const p = String(pos || '').toUpperCase();
-    if (['G', 'GK'].includes(p)) return 'bg-amber-500 text-slate-950';
-    if (['D', 'DEF'].includes(p)) return 'bg-sky-500 text-white';
-    if (['M', 'MID'].includes(p)) return 'bg-emerald-500 text-white';
-    if (['F', 'FWD'].includes(p)) return 'bg-rose-500 text-white';
-    return 'bg-slate-500 text-white';
-  };
+  const homeRows = useMemo(() => getTeamRows(homeLineup), [homeLineup]);
+  const awayRows = useMemo(() => getTeamRows(awayLineup), [awayLineup]);
 
   const renderPlayerNode = (player, side) => {
-    const stats = getPlayerMatchStats(player.id, side);
+    const stats = getStats(player.id, side);
     const goals = stats.goals || 0;
     const assists = stats.assists || 0;
-    const yellowCards = stats.yellow_cards || 0;
-    const redCards = stats.red_cards || 0;
-
-    // Short display name: usually last name or single display name
+    const rating = stats.rating ?? player.rating;
+    const isMatchRating = stats.rating != null || player.is_match_rating;
+    // shortcut: subbed-off minute is inferred from minutes played (no sub event join), off by stoppage time
+    const subOffMinute = stats.minutes > 0 && stats.minutes < 90 && !stats.red_cards ? stats.minutes : null;
     const nameParts = (player.name || '').trim().split(/\s+/);
     const shortName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : player.name;
 
     return (
-      <div
+      <button
+        type="button"
         key={player.id || player.shirt}
-        onClick={() => onPlayerClick && onPlayerClick(player, side)}
-        title={`${player.name} (#${player.shirt}) · Detaylar için tıklayın`}
-        className="group flex flex-col items-center cursor-pointer transition-all duration-200 hover:scale-110 active:scale-95 select-none relative z-10"
+        onClick={(e) => onPlayerClick && onPlayerClick(player, side, e)}
+        title={`${player.name} (#${player.shirt ?? '-'}) · Detaylar için tıklayın`}
+        className="group relative flex flex-col items-center w-16 sm:w-20 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00ff87]"
       >
-        {/* Avatar with Badges */}
-        <div className="relative">
+        <div className="relative transition-transform duration-200 group-hover:-translate-y-0.5">
           <PlayerAvatar
             photoUrl={player.photo_url}
             name={player.name}
             shirt={player.shirt}
             fallback="initials"
-            size="w-9 h-9 sm:w-11 sm:h-11"
-            className="rounded-full border-2 border-white/90 shadow-md group-hover:border-[#00ff87] group-hover:shadow-[0_0_12px_rgba(0,255,135,0.6)] transition-all bg-slate-900"
+            size="w-9 h-9 sm:w-12 sm:h-12 text-[10px]"
+            className="!border-0 ring-2 ring-white/90 shadow-lg shadow-black/30 group-hover:ring-[#00ff87] transition-all"
           />
 
-          {/* Captain Armband Badge */}
+          {rating != null && (
+            <span
+              className={`absolute -top-1.5 -right-3 min-w-[26px] text-center px-1 rounded-md font-mono font-black text-[10px] leading-4 shadow-md ring-1 ring-black/10 ${ratingClass(rating)}`}
+              title={isMatchRating
+                ? `Maç Performans Notu: ${Number(rating).toFixed(1)}/10`
+                : `5 Maçlık Form Puanı: ${Number(rating).toFixed(1)}/10 · ${player.form_label || 'Normal'} · Kart Riski: ${player.cards_risk ?? '-'}/10`}
+            >
+              {Number(rating).toFixed(1)}
+            </span>
+          )}
+
           {player.captain && (
-            <span className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-amber-400 text-slate-950 font-black text-[9px] flex items-center justify-center border border-white shadow-xs">
+            <span className="absolute -top-1 -left-1.5 w-4 h-4 rounded-full bg-amber-400 text-slate-950 font-black text-[9px] flex items-center justify-center ring-2 ring-white shadow" title="Kaptan">
               C
             </span>
           )}
 
-          {/* Card Badge */}
-          {redCards > 0 ? (
-            <span className="absolute -top-1 -left-1 w-3.5 h-4.5 rounded-xs bg-rose-600 border border-white shadow-xs" title="Kırmızı Kart" />
-          ) : yellowCards > 0 ? (
-            <span className="absolute -top-1 -left-1 w-3 h-4 rounded-xs bg-amber-400 border border-white shadow-xs" title="Sarı Kart" />
-          ) : null}
-
-          {/* Goal & Assist Badges */}
-          {(goals > 0 || assists > 0) && (
-            <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 z-20">
-              {goals > 0 && (
-                <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full px-1 py-0.2 border border-white shadow-xs flex items-center leading-tight" title={`${goals} Gol`}>
-                  ⚽{goals > 1 ? goals : ''}
+          {(goals > 0 || assists > 0 || stats.yellow_cards > 0 || stats.red_cards > 0 || subOffMinute || (!isMatchRating && player.cards_risk >= 7)) && (
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-0.5 whitespace-nowrap">
+              {Array.from({ length: goals }).map((_, i) => (
+                <span key={`g${i}`} className="w-4 h-4 rounded-full bg-white text-slate-900 flex items-center justify-center shadow" title="Gol">
+                  <BallIcon className="w-3 h-3" />
+                </span>
+              ))}
+              {assists > 0 && (
+                <span className="h-4 px-1 rounded-full bg-[#38003c] text-white text-[9px] font-black flex items-center shadow ring-1 ring-white/60" title={`${assists} Asist`}>
+                  A{assists > 1 ? assists : ''}
                 </span>
               )}
-              {assists > 0 && (
-                <span className="bg-purple-600 text-white text-[9px] font-black rounded-full px-1 py-0.2 border border-white shadow-xs flex items-center leading-tight" title={`${assists} Asist`}>
-                  🎯{assists > 1 ? assists : ''}
+              {stats.red_cards > 0 ? <RedCardIcon className="w-2.5 h-3.5 ring-1 ring-white" />
+                : stats.yellow_cards > 0 ? <YellowCardIcon className="w-2.5 h-3.5 ring-1 ring-white" />
+                : (!isMatchRating && player.cards_risk >= 7) ? (
+                  <span className="w-2.5 h-3.5 rounded-[2px] border border-dashed border-amber-300 bg-amber-400/40" title={`Yüksek Kart Riski: ${player.cards_risk}/10`} />
+                ) : null}
+              {subOffMinute && (
+                <span className="h-4 pl-0.5 pr-1 rounded-full bg-white text-rose-600 text-[9px] font-black font-mono flex items-center shadow" title={`${subOffMinute}' oyundan çıktı`}>
+                  <ArrowDown className="w-2.5 h-2.5" strokeWidth={3} />{subOffMinute}'
                 </span>
               )}
             </div>
           )}
-
-          {/* Shirt Number Badge (subtle) */}
-          <span className={`absolute -bottom-1 -right-1 px-1 rounded text-[9px] font-mono font-black border border-white/80 shadow-2xs ${getPosBadgeColor(player.position)}`}>
-            {player.shirt || '-'}
-          </span>
         </div>
 
-        {/* Player Name Pill */}
-        <div className="mt-1 px-2 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-xs border border-white/20 text-white font-bold text-[10px] sm:text-[11px] shadow-sm truncate max-w-[75px] sm:max-w-[95px] text-center group-hover:bg-slate-900 group-hover:border-[#00ff87]/80 group-hover:text-[#00ff87] transition-all">
-          {shortName}
-        </div>
+        <span className="mt-2.5 max-w-full truncate text-[10px] sm:text-xs font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.8)] group-hover:text-[#00ff87] transition-colors">
+          <span className="font-mono text-white/60 mr-0.5">{player.shirt}</span>{shortName}
+        </span>
+      </button>
+    );
+  };
 
-        {/* Dynamic Player Rating & Cards Risk Pill */}
-        {(stats.rating != null || player.rating != null) && (
-          <div className="mt-0.5 flex items-center justify-center gap-1">
-            {(() => {
-              const displayRating = stats.rating != null ? stats.rating : player.rating;
-              const isMatch = stats.rating != null || player.is_match_rating;
+  // Rows are GK-first. Mobile: vertical pitch (home bottom); xl+: horizontal pitch (home left).
+  const renderHalf = (rows, side) => (
+    <div className={`relative flex-1 flex ${side === 'home' ? 'flex-col-reverse xl:flex-row' : 'flex-col xl:flex-row-reverse'} py-3 xl:py-0 xl:px-3`}>
+      {rows.map((row, i) => (
+        <div key={`${side}-${i}`} className="flex-1 flex xl:flex-col items-center justify-around">
+          {row.map(p => renderPlayerNode(p, side))}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderBench = (lineup, team, side) => {
+    const subs = lineup?.substitutes || [];
+    const hasStats = (playerStats?.[side] || []).length > 0;
+    return (
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-100">
+          <img src={team?.badge} alt="" className="w-5 h-5 object-contain" />
+          <span className="text-xs font-black text-slate-900 truncate">{team?.name}</span>
+          <span className="ml-auto text-[10px] font-bold text-slate-400">{subs.length} oyuncu</span>
+        </div>
+        {subs.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-6">Kayıtlı yedek oyuncu yok.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {subs.map((sub, idx) => {
+              const stats = getStats(sub.id, side);
+              const played = stats.minutes > 0;
+              const rating = played ? stats.rating : (hasStats ? null : sub.rating);
               return (
-                <span
-                  className={`px-1.5 py-0.2 rounded-full font-mono font-bold text-[9px] shadow-xs border ${
-                    displayRating >= 7.5
-                      ? 'bg-emerald-500 text-slate-950 border-emerald-300'
-                      : displayRating >= 6.5
-                      ? 'bg-sky-500 text-white border-sky-300'
-                      : displayRating >= 5.5
-                      ? 'bg-slate-700 text-slate-200 border-slate-600'
-                      : 'bg-rose-500 text-white border-rose-300'
-                  }`}
-                  title={
-                    isMatch
-                      ? `Maç Performans Notu: ${Number(displayRating).toFixed(1)}/10`
-                      : `5 Maçlık Form Puanı: ${Number(displayRating).toFixed(1)}/10 · Durum: ${player.form_label || 'Normal'} · Kart Riski: ${player.cards_risk || 3.0}/10`
-                  }
-                >
-                  {Number(displayRating).toFixed(1)}
-                </span>
+                <li key={sub.id || idx}>
+                  <button
+                    type="button"
+                    onClick={(e) => onPlayerClick && onPlayerClick(sub, side, e)}
+                    title={`${sub.name} maç performansını görüntüle`}
+                    className={`w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 transition-colors group ${hasStats && !played ? 'opacity-55 hover:opacity-100' : ''}`}
+                  >
+                    <span className="w-5 text-right font-mono text-[11px] font-bold text-slate-400">{sub.shirt ?? '-'}</span>
+                    <PlayerAvatar photoUrl={sub.photo_url} name={sub.name} shirt={sub.shirt} fallback="initials" size="w-8 h-8 text-[10px]" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs sm:text-sm font-bold text-slate-800 truncate group-hover:text-[#38003c] transition-colors">{sub.name}</div>
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
+                        <span>{POSITION_LABEL[sub.position] || sub.position || '-'}</span>
+                        {played && (
+                          // shortcut: entry minute inferred as 90 - minutes played, off by stoppage time
+                          <span className="inline-flex items-center text-emerald-600 font-mono font-black" title="Oyuna girdi">
+                            <ArrowUp className="w-2.5 h-2.5" strokeWidth={3} />{Math.max(1, 90 - stats.minutes)}'
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {Array.from({ length: stats.goals || 0 }).map((_, i) => <BallIcon key={i} className="w-3.5 h-3.5 text-slate-700" />)}
+                      {stats.red_cards > 0 ? <RedCardIcon /> : stats.yellow_cards > 0 ? <YellowCardIcon /> : null}
+                      {rating != null && (
+                        <span className={`min-w-[30px] text-center px-1 rounded-md font-mono font-black text-[10px] leading-5 ${ratingClass(rating)}`}>
+                          {Number(rating).toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                </li>
               );
-            })()}
-            {player.cards_risk >= 7.0 && (
-              <span
-                className="w-2.5 h-3.5 bg-amber-400 rounded-2xs border border-amber-600 shadow-2xs shrink-0"
-                title={`Yüksek Kart Riski: ${player.cards_risk}/10`}
-              />
-            )}
-          </div>
+            })}
+          </ul>
         )}
       </div>
     );
   };
 
   return (
-    <div className="space-y-6">
-      
-      {/* ================= TACTICAL PITCH CONTAINER ================= */}
-      <div className="relative w-full max-w-3xl mx-auto rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-900/10 bg-[#165b33] select-none">
-        
-        {/* Grass Turf Stripes Effect */}
-        <div className="absolute inset-0 pointer-events-none flex flex-col">
-          {[...Array(12)].map((_, i) => (
-            <div
-              key={i}
-              className={`flex-1 ${i % 2 === 0 ? 'bg-emerald-800/40' : 'bg-emerald-700/25'}`}
-            />
-          ))}
+    <div className="space-y-5">
+      <div className="rounded-3xl overflow-hidden bg-[#1f0022] shadow-xl ring-1 ring-black/5">
+        <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-3.5 text-white bg-gradient-to-r from-[#38003c] via-[#2a002e] to-[#38003c]">
+          <TeamHeader team={homeTeam} lineup={homeLineup} label="Ev" />
+          <TeamHeader team={awayTeam} lineup={awayLineup} label="Dep" align="right" />
         </div>
 
-        {/* Subtle Pitch Vignette */}
-        <div className="absolute inset-0 pointer-events-none bg-radial from-transparent via-black/10 to-black/35" />
-
-        {/* ================= PITCH MARKINGS ================= */}
-        <div className="absolute inset-3 sm:inset-4 border-2 border-white/40 rounded-2xl pointer-events-none">
-          
-          {/* Halfway Line */}
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/40 -translate-y-1/2" />
-          
-          {/* Center Circle */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 sm:w-36 sm:h-36 rounded-full border-2 border-white/40 flex items-center justify-center">
-            <div className="w-2.5 h-2.5 rounded-full bg-white/70" />
-          </div>
-
-          {/* TOP GOAL AREA (Away Goal) */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-44 sm:w-64 h-24 sm:h-32 border-x-2 border-b-2 border-white/40">
-            {/* 6-Yard Box */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 sm:w-32 h-10 sm:h-14 border-x-2 border-b-2 border-white/40" />
-            {/* Penalty Spot */}
-            <div className="absolute top-16 sm:top-22 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-white/70" />
-          </div>
-          {/* Top Penalty Arc */}
-          <div className="absolute top-24 sm:top-32 left-1/2 -translate-x-1/2 w-24 h-12 border-b-2 border-white/40 rounded-b-full" />
-
-          {/* BOTTOM GOAL AREA (Home Goal) */}
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-44 sm:w-64 h-24 sm:h-32 border-x-2 border-t-2 border-white/40">
-            {/* 6-Yard Box */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 sm:w-32 h-10 sm:h-14 border-x-2 border-t-2 border-white/40" />
-            {/* Penalty Spot */}
-            <div className="absolute bottom-16 sm:bottom-22 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-white/70" />
-          </div>
-          {/* Bottom Penalty Arc */}
-          <div className="absolute bottom-24 sm:bottom-32 left-1/2 -translate-x-1/2 w-24 h-12 border-t-2 border-white/40 rounded-t-full" />
-
-          {/* Corner Arcs */}
-          <div className="absolute top-0 left-0 w-4 h-4 border-r-2 border-b-2 border-white/40 rounded-br-full" />
-          <div className="absolute top-0 right-0 w-4 h-4 border-l-2 border-b-2 border-white/40 rounded-bl-full" />
-          <div className="absolute bottom-0 left-0 w-4 h-4 border-r-2 border-t-2 border-white/40 rounded-tr-full" />
-          <div className="absolute bottom-0 right-0 w-4 h-4 border-l-2 border-t-2 border-white/40 rounded-tl-full" />
-        </div>
-
-        {/* ================= PITCH CONTENT ================= */}
-        <div className="relative py-4 px-3 sm:px-6 flex flex-col justify-between min-h-[640px] sm:min-h-[780px]">
-          
-          {/* TOP TEAM BANNER (Away Team Header) */}
-          <div className="relative z-10 flex items-center justify-between bg-slate-950/70 backdrop-blur-md rounded-2xl px-4 py-2 border border-white/10 text-white mb-2 shadow-lg">
-            <div className="flex items-center gap-2.5">
-              <img src={awayTeam?.badge} alt="" className="w-6 h-6 object-contain" />
-              <div>
-                <span className="text-xs font-black tracking-wide block leading-tight">{awayTeam?.name}</span>
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Deplasman</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {awayLineup?.team_ratings?.overall != null && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/10 border border-white/15 text-[11px] font-bold" title={awayLineup.starters?.[0]?.is_match_rating ? '11 Oyuncu Maç Performansı Ortalaması' : '11 Ortalama Form Puanı'}>
-                  <span className="text-slate-300 font-medium">
-                    {awayLineup.starters?.[0]?.is_match_rating ? 'Maç Notu:' : '11 Form:'}
-                  </span>
-                  <span className="text-[#00ff87] font-mono font-black">{Number(awayLineup.team_ratings.overall).toFixed(1)}</span>
-                </div>
-              )}
-              {awayLineup?.formation && (
-                <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-lg bg-white/10 text-[#00ff87] border border-[#00ff87]/30">
-                  {awayLineup.formation}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* AWAY TEAM HALF (Top Half: GK at top, down to Attackers) */}
-          <div className="flex-1 flex flex-col justify-around py-3">
-            {awayRows.map((row, rowIdx) => (
-              <div key={`away-row-${rowIdx}`} className="flex items-center justify-around w-full px-2 sm:px-6">
-                {row.map(player => renderPlayerNode(player, 'away'))}
-              </div>
+        <div className="relative w-full aspect-[72/109] min-h-[620px] sm:min-h-0 xl:aspect-[109/72] bg-[#1d6b3a] select-none">
+          <div className="absolute inset-0 flex flex-col xl:flex-row pointer-events-none">
+            {[...Array(14)].map((_, i) => (
+              <div key={i} className={`flex-1 ${i % 2 === 0 ? 'bg-white/[0.035]' : 'bg-black/[0.06]'}`} />
             ))}
           </div>
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.25))]" />
+          <svg className="absolute inset-0 w-full h-full pointer-events-none xl:hidden" viewBox="-2 -2 72 109" preserveAspectRatio="none" aria-hidden="true">
+            <g transform="translate(68 0) rotate(90)"><PitchMarkings /></g>
+          </svg>
+          <svg className="absolute inset-0 w-full h-full pointer-events-none hidden xl:block" viewBox="-2 -2 109 72" aria-hidden="true">
+            <PitchMarkings />
+          </svg>
 
-          {/* CENTER LINE TACTICAL DIVIDER */}
-          <div className="relative z-10 my-1 py-1 flex items-center justify-center">
-            <span className="px-3 py-0.5 rounded-full bg-black/60 border border-white/15 text-[10px] font-mono font-bold text-white/70 uppercase tracking-widest shadow-xs">
-              Saha Merkezi
-            </span>
+          <div className="absolute inset-0 flex flex-col-reverse xl:flex-row px-1 sm:px-3 py-2 xl:py-3">
+            {renderHalf(homeRows, 'home')}
+            {renderHalf(awayRows, 'away')}
           </div>
-
-          {/* HOME TEAM HALF (Bottom Half: Attackers near center, down to GK at bottom) */}
-          <div className="flex-1 flex flex-col justify-around py-3">
-            {/* Reverse home rows so row 0 (GK) is at the very bottom! */}
-            {[...homeRows].reverse().map((row, rowIdx) => (
-              <div key={`home-row-${rowIdx}`} className="flex items-center justify-around w-full px-2 sm:px-6">
-                {row.map(player => renderPlayerNode(player, 'home'))}
-              </div>
-            ))}
-          </div>
-
-          {/* BOTTOM TEAM BANNER (Home Team Header) */}
-          <div className="relative z-10 flex items-center justify-between bg-slate-950/70 backdrop-blur-md rounded-2xl px-4 py-2 border border-white/10 text-white mt-2 shadow-lg">
-            <div className="flex items-center gap-2.5">
-              <img src={homeTeam?.badge} alt="" className="w-6 h-6 object-contain" />
-              <div>
-                <span className="text-xs font-black tracking-wide block leading-tight">{homeTeam?.name}</span>
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ev Sahibi</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {homeLineup?.team_ratings?.overall != null && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/10 border border-white/15 text-[11px] font-bold" title={homeLineup.starters?.[0]?.is_match_rating ? '11 Oyuncu Maç Performansı Ortalaması' : '11 Ortalama Form Puanı'}>
-                  <span className="text-slate-300 font-medium">
-                    {homeLineup.starters?.[0]?.is_match_rating ? 'Maç Notu:' : '11 Form:'}
-                  </span>
-                  <span className="text-[#00ff87] font-mono font-black">{Number(homeLineup.team_ratings.overall).toFixed(1)}</span>
-                </div>
-              )}
-              {homeLineup?.formation && (
-                <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-lg bg-white/10 text-[#00ff87] border border-[#00ff87]/30">
-                  {homeLineup.formation}
-                </span>
-              )}
-            </div>
-          </div>
-
         </div>
       </div>
 
-      {/* ================= SUBSTITUTES BENCH SECTION ================= */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-        
-        {/* Home Substitutes */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <img src={homeTeam?.badge} alt="" className="w-5 h-5 object-contain" />
-              <span className="text-xs font-black text-slate-900">
-                {homeTeam?.name} Yedekleri ({homeLineup?.substitutes?.length || 0})
-              </span>
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium">Detay için tıklayın</span>
-          </div>
-
-          {(!homeLineup?.substitutes || homeLineup.substitutes.length === 0) ? (
-            <p className="text-xs text-slate-400 text-center py-4">Kayıtlı yedek oyuncu yok.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {homeLineup.substitutes.map((sub, idx) => {
-                const stats = getPlayerMatchStats(sub.id, 'home');
-                return (
-                  <div
-                    key={sub.id || idx}
-                    onClick={() => onPlayerClick && onPlayerClick(sub, 'home')}
-                    className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200/80 hover:bg-white hover:border-[#38003c]/40 hover:shadow-xs transition-all cursor-pointer group text-xs"
-                    title={`${sub.name} maç performansını görüntüle`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <PlayerAvatar
-                        photoUrl={sub.photo_url}
-                        name={sub.name}
-                        shirt={sub.shirt}
-                        fallback="initials"
-                        size="w-7 h-7 text-[10px]"
-                        className="shrink-0"
-                      />
-                      <span className="font-mono text-xs font-bold text-slate-500">#{sub.shirt || '-'}</span>
-                      <span className="font-bold text-slate-800 truncate group-hover:text-[#38003c] transition-colors">{sub.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {sub.rating != null && (
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded font-mono ${
-                            sub.rating >= 7.5
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : sub.rating >= 6.5
-                              ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                              : 'bg-slate-100 text-slate-700 border border-slate-300'
-                          }`}
-                          title={`Form Puanı: ${sub.rating}/10`}
-                        >
-                          {Number(sub.rating).toFixed(1)}
-                        </span>
-                      )}
-                      {stats.goals > 0 && <span className="text-[10px]">⚽{stats.goals > 1 ? stats.goals : ''}</span>}
-                      {stats.yellow_cards > 0 && <span className="w-2.5 h-3.5 bg-amber-400 rounded-2xs inline-block" />}
-                      {stats.red_cards > 0 && <span className="w-2.5 h-3.5 bg-rose-600 rounded-2xs inline-block" />}
-                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${getPosBadgeColor(sub.position)}`}>
-                        {sub.position || 'M'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <h4 className="text-sm font-black text-slate-900">Yedek Kulübesi</h4>
+          <span className="text-[10px] text-slate-400 font-medium">Detay için oyuncuya tıklayın</span>
         </div>
-
-        {/* Away Substitutes */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <img src={awayTeam?.badge} alt="" className="w-5 h-5 object-contain" />
-              <span className="text-xs font-black text-slate-900">
-                {awayTeam?.name} Yedekleri ({awayLineup?.substitutes?.length || 0})
-              </span>
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium">Detay için tıklayın</span>
-          </div>
-
-          {(!awayLineup?.substitutes || awayLineup.substitutes.length === 0) ? (
-            <p className="text-xs text-slate-400 text-center py-4">Kayıtlı yedek oyuncu yok.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {awayLineup.substitutes.map((sub, idx) => {
-                const stats = getPlayerMatchStats(sub.id, 'away');
-                return (
-                  <div
-                    key={sub.id || idx}
-                    onClick={() => onPlayerClick && onPlayerClick(sub, 'away')}
-                    className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200/80 hover:bg-white hover:border-[#38003c]/40 hover:shadow-xs transition-all cursor-pointer group text-xs"
-                    title={`${sub.name} maç performansını görüntüle`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <PlayerAvatar
-                        photoUrl={sub.photo_url}
-                        name={sub.name}
-                        shirt={sub.shirt}
-                        fallback="initials"
-                        size="w-7 h-7 text-[10px]"
-                        className="shrink-0"
-                      />
-                      <span className="font-mono text-xs font-bold text-slate-500">#{sub.shirt || '-'}</span>
-                      <span className="font-bold text-slate-800 truncate group-hover:text-[#38003c] transition-colors">{sub.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {sub.rating != null && (
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded font-mono ${
-                            sub.rating >= 7.5
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : sub.rating >= 6.5
-                              ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                              : 'bg-slate-100 text-slate-700 border border-slate-300'
-                          }`}
-                          title={`Form Puanı: ${sub.rating}/10`}
-                        >
-                          {Number(sub.rating).toFixed(1)}
-                        </span>
-                      )}
-                      {stats.goals > 0 && <span className="text-[10px]">⚽{stats.goals > 1 ? stats.goals : ''}</span>}
-                      {stats.yellow_cards > 0 && <span className="w-2.5 h-3.5 bg-amber-400 rounded-2xs inline-block" />}
-                      {stats.red_cards > 0 && <span className="w-2.5 h-3.5 bg-rose-600 rounded-2xs inline-block" />}
-                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${getPosBadgeColor(sub.position)}`}>
-                        {sub.position || 'M'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-2 md:divide-x divide-slate-200">
+          {renderBench(homeLineup, homeTeam, 'home')}
+          {renderBench(awayLineup, awayTeam, 'away')}
         </div>
-
       </div>
-
     </div>
   );
 }

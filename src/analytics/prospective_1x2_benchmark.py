@@ -21,6 +21,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, roc_auc_score
 
+from src.models.eval_utils import multiclass_report
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FEATURES_PATH = PROJECT_ROOT / "data" / "processed" / "features_matches_all.parquet"
@@ -264,6 +266,7 @@ def score() -> Dict[str, Any]:
         probabilities /= probabilities.sum(axis=1, keepdims=True)
         predicted = probabilities.argmax(axis=1)
         draw_actual = (y == 1).astype(int)
+        report = multiclass_report(probabilities, y)
         results.append({
             "artifact_sha256": artifact_hash,
             "matches": int(len(y)),
@@ -278,6 +281,9 @@ def score() -> Dict[str, Any]:
             "mean_draw_probability": round(float(probabilities[:, 1].mean()), 4),
             "accuracy": round(float(accuracy_score(y, predicted)), 4),
             "predicted_draws": int((predicted == 1).sum()),
+            "rps": report["rps"],
+            "auc_by_class": report["auc_by_class"],
+            "ece_by_class": report["ece_by_class"],
         })
 
     goal_groups: Dict[str, List[tuple[Dict[str, Any], Dict[str, int]]]] = {}
@@ -375,7 +381,7 @@ def score() -> Dict[str, Any]:
     for row in results:
         print(
             f"artifact={row['artifact_sha256'][:12]} n={row['matches']} "
-            f"LL={row['log_loss']:.4f} Brier={row['multiclass_brier']:.4f} "
+            f"LL={row['log_loss']:.4f} Brier={row['multiclass_brier']:.4f} RPS={row['rps']:.4f} "
             f"draw_Brier={row['draw_brier']:.4f} draw_AUC={row['draw_auc']} "
             f"P(draw)={row['mean_draw_probability']:.3f}/{row['actual_draw_rate']:.3f}"
         )

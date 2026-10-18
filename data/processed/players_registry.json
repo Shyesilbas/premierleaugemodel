@@ -72,7 +72,7 @@
     "total_goals": 2,
     "total_assists": 9,
     "total_appearances": 108,
-    "total_minutes": 8744
+    "total_minutes": 8731
   },
   {
     "id": 126111,
@@ -687,7 +687,7 @@
     "total_goals": 1,
     "total_assists": 0,
     "total_appearances": 9,
-    "total_minutes": 228
+    "total_minutes": 183
   },
   {
     "id": 69176,
@@ -1646,8 +1646,8 @@
     "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p611665.png",
     "total_goals": 1,
     "total_assists": 0,
-    "total_appearances": 4,
-    "total_minutes": 81
+    "total_appearances": 5,
+    "total_minutes": 115
   },
   {
     "id": 14242,
@@ -3506,8 +3506,8 @@
     "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p78916.png",
     "total_goals": 5,
     "total_assists": 5,
-    "total_appearances": 138,
-    "total_minutes": 11395
+    "total_appearances": 139,
+    "total_minutes": 11396
   },
   {
     "id": 50623,
@@ -4767,7 +4767,7 @@
     "total_goals": 12,
     "total_assists": 4,
     "total_appearances": 93,
-    "total_minutes": 4844
+    "total_minutes": 4826
   },
   {
     "id": 32388,
@@ -6416,8 +6416,8 @@
     "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p638987.png",
     "total_goals": 0,
     "total_assists": 0,
-    "total_appearances": 3,
-    "total_minutes": 59
+    "total_appearances": 4,
+    "total_minutes": 77
   },
   {
     "id": 136398,
@@ -8322,7 +8322,7 @@
     "total_goals": 6,
     "total_assists": 10,
     "total_appearances": 107,
-    "total_minutes": 5487
+    "total_minutes": 5453
   },
   {
     "id": 13622,
@@ -8409,10 +8409,10 @@
     "country": "Switzerland",
     "opta_code": "p614071",
     "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p614071.png",
-    "total_goals": 1,
+    "total_goals": 2,
     "total_assists": 2,
     "total_appearances": 4,
-    "total_minutes": 275
+    "total_minutes": 257
   },
   {
     "id": 4394,
@@ -8456,8 +8456,8 @@
     "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p122806.png",
     "total_goals": 14,
     "total_assists": 17,
-    "total_appearances": 139,
-    "total_minutes": 10648
+    "total_appearances": 140,
+    "total_minutes": 10693
   },
   {
     "id": 4505,
@@ -8890,9 +8890,9 @@
     "opta_code": "p448089",
     "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p448089.png",
     "total_goals": 7,
-    "total_assists": 3,
+    "total_assists": 4,
     "total_appearances": 120,
-    "total_minutes": 9509
+    "total_minutes": 9491
   },
   {
     "id": 11259,
@@ -10003,6 +10003,21 @@
     "total_assists": 0,
     "total_appearances": 3,
     "total_minutes": 175
+  },
+  {
+    "id": 5378,
+    "name": "Leon Goretzka",
+    "position": "M",
+    "shirt": 27,
+    "teamId": 2,
+    "teamName": "Aston Villa",
+    "country": "Germany",
+    "opta_code": "p119090",
+    "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p119090.png",
+    "total_goals": 0,
+    "total_assists": 0,
+    "total_appearances": 1,
+    "total_minutes": 18
   },
   {
     "id": 74960,
@@ -11697,7 +11712,7 @@
     "total_goals": 0,
     "total_assists": 0,
     "total_appearances": 5,
-    "total_minutes": 339
+    "total_minutes": 305
   },
   {
     "id": 72239,
@@ -13916,8 +13931,8 @@
     "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p244954.png",
     "total_goals": 2,
     "total_assists": 0,
-    "total_appearances": 77,
-    "total_minutes": 6348
+    "total_appearances": 78,
+    "total_minutes": 6361
   },
   {
     "id": 4340,
@@ -14996,8 +15011,8 @@
     "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p88894.png",
     "total_goals": 11,
     "total_assists": 6,
-    "total_appearances": 78,
-    "total_minutes": 4270
+    "total_appearances": 79,
+    "total_minutes": 4288
   },
   {
     "id": 112549,
@@ -17396,8 +17411,8 @@
     "photo_url": "https://resources.premierleague.com/premierleague/photos/players/250x250/p538207.png",
     "total_goals": 8,
     "total_assists": 1,
-    "total_appearances": 61,
-    "total_minutes": 1785
+    "total_appearances": 62,
+    "total_minutes": 1819
   },
   {
     "id": 66204,

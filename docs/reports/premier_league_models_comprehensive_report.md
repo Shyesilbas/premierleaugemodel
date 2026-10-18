@@ -98,7 +98,7 @@ erDiagram
 ### 2.2. Tablo Envanteri:
 1. `matches` (1.900 satır, 39 sütun): Fikstür ana tablosu; 1.580 tamamlanmış, 320 yaklaşan maç.
 2. `external_match_xg` (1.564 satır, 8 sütun): TheStatsAPI / Opta doğrulanmış şut koordinatları ve kümülatif takım xG değerleri.
-3. `external_match_odds` (391 satır, 29 sütun): Açılış ve kapanış bahis oranları (1X2, Over/Under 2.5, BTTS).
+3. `external_match_odds` (1.531 satır, 29 sütun): Açılış ve kapanış bahis oranları (1X2, Over/Under 2.5, BTTS). 2023/24–2025/26: sezon başına 380 maç, yalnızca Bet365 kapanış; 2026/27: 80 maç, 5 büro.
 4. `player_market_values` (1.771 satır, 10 sütun): Transfermarkt oyuncu değerleri, yaş, mevki ve uyruk bilgileri.
 5. `team_market_values` (102 satır, 9 sütun): Kulüp bazında sezonluk toplam kadro değerleri.
 6. `referees` (153 satır, 15 sütun): Hakem maç sayıları, kart ve faul ortalamaları, `strictness_label` (katılık endeksi).

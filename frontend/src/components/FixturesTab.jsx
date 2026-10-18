@@ -16,7 +16,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import MatchDetailModal from './MatchDetailModal';
-import { getCachedTeamData, setCachedTeamData, clearAllCaches, calculateTeamExpiry } from '../utils/teamProfileCache';
+import { getCachedTeamData, setCachedTeamData, clearAllCaches, calculateTeamExpiry, syncDataVersion } from '../utils/teamProfileCache';
 import { getGroupedFixtures, getSeasonSyncStatus, getStandings, startSeasonSync } from '../services/competitionService';
 import { getTeamManagers } from '../services/teamService';
 
@@ -153,6 +153,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
           setSyncMessage(job.message || 'Veriler güncellendi.');
           setSyncMatches(job.matches || []);
           clearAllCaches();
+          await syncDataVersion();
           setDataRefreshVersion(version => version + 1);
           return;
         }

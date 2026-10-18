@@ -304,6 +304,7 @@ Henüz oynanmamış maçlar için eğitilmiş üretim modelleri (LightGBM, Ridge
   3. `Betfair Exchange`
   4. `Paddy Power`
   5. `BetMGM UK`
+* **Sezon Kapsamı:** 2026/27 → 80 maç, 5 büro (açılış + kapanış). 2023/24, 2024/25 ve 2025/26 → her biri 380 maç, yalnızca `Bet365`, yalnızca kapanış (`*_open` alanları NULL; TheStatsAPI geçmiş sezonda açılış vermiyor).
 * **Piyasa Türleri:**
   - **1X2 Maç Sonucu:** Açılış (`open`) ve Kapanış (`last_seen`) oranları (Ev Sahibi, Beraberlik, Deplasman).
   - **2.5 Gol Alt / Üst:** `over_25_open`, `under_25_open`, `over_25_last_seen`, `under_25_last_seen`.

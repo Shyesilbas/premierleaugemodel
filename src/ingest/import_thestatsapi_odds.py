@@ -288,7 +288,7 @@ def import_odds(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--api-key", default=os.environ.get("THESTATSAPI_API_KEY", "fapi_banrxDZnyZEtiTF8kWtTnzsDEtgQPhIC"))
+    parser.add_argument("--api-key", default=os.environ.get("THESTATSAPI_API_KEY", ""))
     parser.add_argument("--season", default="2026_27")
     parser.add_argument("--competition-id", default="comp_3039")
     parser.add_argument("--only-played", action="store_true", default=True)

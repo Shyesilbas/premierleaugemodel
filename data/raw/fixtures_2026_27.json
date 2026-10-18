@@ -8030,11 +8030,13 @@
       "id": 9517.0
     },
     "neutralGround": false,
-    "status": "L",
-    "phase": "1",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "attendance": 52626.0,
     "clock": {
-      "secs": 2580.0,
-      "label": "43'00"
+      "secs": 5820.0,
+      "label": "90+7'00"
     },
     "fixtureType": "REGULAR",
     "extraTime": false,

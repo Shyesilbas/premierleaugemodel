@@ -36,6 +36,7 @@ from src.models.model_utils import apply_probability_calibrator, blend_log
 from src.models.dixon_coles import DixonColesModel, model_summary
 from src.models.eval_utils import (
     expected_calibration_error,
+    multiclass_report,
     paired_bootstrap_delta,
     per_match_log_loss,
     reliability_table,
@@ -560,6 +561,10 @@ def evaluate_season_holdouts(
             "prior_log_loss": round(_ll(y_valid, prior_probs, labels), 4),
             "raw_accuracy_pct": round(float(accuracy_score(y_valid, raw_probs.argmax(axis=1)) * 100), 2),
             "calibrated_accuracy_pct": round(float(accuracy_score(y_valid, calibrated.argmax(axis=1)) * 100), 2),
+            **({
+                "probability_report": multiclass_report(calibrated, y_valid.to_numpy(dtype=int)),
+                "prior_rps": multiclass_report(prior_probs, y_valid.to_numpy(dtype=int))["rps"],
+            } if len(labels) == 3 else {}),
         })
     return results
 
@@ -1188,6 +1193,9 @@ def train_match_outcome_models(
             res["draw_expected_calibration_error"] = expected_calibration_error(
                 probs[:, 1], draw_actual.astype(int)
             )
+            res["probability_report"] = multiclass_report(probs, y_hold.to_numpy(dtype=int))
+            res["rps"] = res["probability_report"]["rps"]
+            res["baseline_rps"] = multiclass_report(prior_probs, y_hold.to_numpy(dtype=int))["rps"]
 
         # Production model: refit on all eligible played matches (including the
         # latest holdout). For 1X2, 2022-23 remains feature history only.

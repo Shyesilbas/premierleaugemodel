@@ -209,7 +209,7 @@ export default function MatchLineupsTab({
                             return (
                               <div 
                                 key={p.id || idx}
-                                onClick={() => handlePlayerClick(p, 'home')}
+                                onClick={(e) => handlePlayerClick(p, 'home', e)}
                                 className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-[#38003c]/40 hover:bg-slate-50/80 transition-all cursor-pointer group shadow-2xs"
                                 title={`${p.name} maç performansını görüntüle`}
                               >
@@ -301,7 +301,7 @@ export default function MatchLineupsTab({
                           return (
                             <div 
                               key={sub.id || idx}
-                              onClick={() => handlePlayerClick(sub, 'home')}
+                              onClick={(e) => handlePlayerClick(sub, 'home', e)}
                               className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer group text-xs shadow-2xs"
                               title={`${sub.name} maç performansını görüntüle`}
                             >
@@ -385,7 +385,7 @@ export default function MatchLineupsTab({
                             return (
                               <div 
                                 key={p.id || idx}
-                                onClick={() => handlePlayerClick(p, 'away')}
+                                onClick={(e) => handlePlayerClick(p, 'away', e)}
                                 className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-[#38003c]/40 hover:bg-slate-50/80 transition-all cursor-pointer group shadow-2xs"
                                 title={`${p.name} maç performansını görüntüle`}
                               >
@@ -477,7 +477,7 @@ export default function MatchLineupsTab({
                           return (
                             <div 
                               key={sub.id || idx}
-                              onClick={() => handlePlayerClick(sub, 'away')}
+                              onClick={(e) => handlePlayerClick(sub, 'away', e)}
                               className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer group text-xs shadow-2xs"
                               title={`${sub.name} maç performansını görüntüle`}
                             >

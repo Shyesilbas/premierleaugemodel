@@ -1,8 +1,8 @@
 import MatchScoreboard from './match-detail/MatchScoreboard';
 import MatchPageOddsTab from './match-detail/MatchPageOddsTab';
-import PlayerMatchPerformanceModal from './match-detail/PlayerMatchPerformanceModal';
+import PlayerMatchPanel from './match-detail/PlayerMatchPanel';
 import MatchPredictionTab from './match-detail/MatchPredictionTab';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Clock, Users, BarChart3, Activity, AlertCircle, Sparkles, TrendingUp } from 'lucide-react';
 import { getTeam } from '../data/teams';
 import { getCachedTeamData, setCachedTeamData } from '../utils/teamProfileCache';
@@ -35,7 +35,6 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
 
   // Modal for player match scorecard
   const [selectedPlayerModal, setSelectedPlayerModal] = useState(null);
-  const [modalTab, setModalTab] = useState('general'); // 'general' | 'attack' | 'defense'
   const [lineupViewMode, setLineupViewMode] = useState('pitch'); // 'pitch' | 'list'
   const [predSubTab, setPredSubTab] = useState('outcome'); // 'outcome', 'goals', 'stats'
   const [oddsData, setOddsData] = useState([]);
@@ -256,7 +255,9 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
     ].filter(g => g.list.length > 0);
   };
 
-  const handlePlayerClick = (player, side) => {
+  const closePlayerPanel = useCallback(() => setSelectedPlayerModal(null), []);
+
+  const handlePlayerClick = (player, side, e) => {
     const list = playerStats?.[side] || [];
     const statsObj = list.find(p => String(p.id) === String(player.id)) || {
       ...player,
@@ -284,9 +285,9 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
       player,
       stats: statsObj,
       team: side === 'home' ? homeTeam : awayTeam,
-      side
+      side,
+      anchor: e?.currentTarget?.getBoundingClientRect?.() || null
     });
-    setModalTab('general');
   };
 
   if (!match) return null;
@@ -501,14 +502,12 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
 
       </div>
 
-      {/* ================= PLAYER MATCH PERFORMANCE MODAL ================= */}
-      <PlayerMatchPerformanceModal
-        selectedPlayerModal={selectedPlayerModal}
-        onClose={() => setSelectedPlayerModal(null)}
-        modalTab={modalTab}
-        setModalTab={setModalTab}
+      {/* ================= PLAYER MATCH PERFORMANCE PANEL ================= */}
+      <PlayerMatchPanel
+        selectedPlayer={selectedPlayerModal}
+        onClose={closePlayerPanel}
+        isCompleted={isCompleted}
         formatPosition={formatPosition}
-        getPositionBadgeClass={getPositionBadgeClass}
       />
 
     </div>

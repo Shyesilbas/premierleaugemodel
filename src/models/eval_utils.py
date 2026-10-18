@@ -6,14 +6,10 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import roc_auc_score
 
 
-def per_match_log_loss(probabilities: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """Return each row's negative log probability for its observed class.
-
-    ``probabilities`` must have shape ``(n_matches, n_classes)`` and ``y``
-    must contain integer class indices from zero to ``n_classes - 1``.
-    """
+def _validated_rows(probabilities: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     p = np.asarray(probabilities, dtype=float)
     labels = np.asarray(y, dtype=int)
     if p.ndim != 2:
@@ -26,9 +22,51 @@ def per_match_log_loss(probabilities: np.ndarray, y: np.ndarray) -> np.ndarray:
         raise ValueError("probabilities must contain only finite values")
     if labels.size and ((labels < 0).any() or (labels >= p.shape[1]).any()):
         raise ValueError("y contains a class index outside the probability columns")
+    return p, labels
 
+
+def per_match_log_loss(probabilities: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Return each row's negative log probability for its observed class.
+
+    ``probabilities`` must have shape ``(n_matches, n_classes)`` and ``y``
+    must contain integer class indices from zero to ``n_classes - 1``.
+    """
+    p, labels = _validated_rows(probabilities, y)
     p = np.clip(p, 1e-12, 1.0)
     return -np.log(p[np.arange(len(labels)), labels])
+
+
+def per_match_rps(probabilities: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Ranked probability score per row; columns must be in outcome order (home, draw, away)."""
+    p, labels = _validated_rows(probabilities, y)
+    if p.shape[1] < 2:
+        raise ValueError("RPS needs at least two ordered classes")
+    cumulative_error = np.cumsum(p - np.eye(p.shape[1])[labels], axis=1)[:, :-1]
+    return (cumulative_error ** 2).sum(axis=1) / (p.shape[1] - 1)
+
+
+def multiclass_report(probabilities: np.ndarray, y: np.ndarray, bins: int = 10) -> dict[str, Any]:
+    """Proper scores plus one-vs-rest AUC and calibration error for every class."""
+    p, labels = _validated_rows(probabilities, y)
+    onehot = np.eye(p.shape[1])[labels]
+    auc_by_class: dict[str, float | None] = {}
+    ece_by_class: dict[str, float] = {}
+    for k in range(p.shape[1]):
+        event = onehot[:, k]
+        # AUC is undefined when the class never (or always) occurs in this sample.
+        auc_by_class[str(k)] = (
+            round(float(roc_auc_score(event, p[:, k])), 4) if 0 < event.sum() < len(event) else None
+        )
+        ece_by_class[str(k)] = round(expected_calibration_error(p[:, k], event, bins), 4)
+    return {
+        "n": int(len(labels)),
+        "log_loss": round(float(per_match_log_loss(p, labels).mean()), 4),
+        "brier": round(float(((p - onehot) ** 2).sum(axis=1).mean()), 4),
+        "rps": round(float(per_match_rps(p, labels).mean()), 4),
+        "accuracy_pct": round(float((p.argmax(axis=1) == labels).mean() * 100), 2),
+        "auc_by_class": auc_by_class,
+        "ece_by_class": ece_by_class,
+    }
 
 
 def paired_bootstrap_delta(

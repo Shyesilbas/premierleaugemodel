@@ -72,7 +72,7 @@
           "opta": "t7"
         }
       },
-      "score": 0
+      "score": 1
     }
   ],
   "replay": false,
@@ -83,11 +83,13 @@
     "id": 9517
   },
   "neutralGround": false,
-  "status": "L",
-  "phase": "1",
+  "status": "C",
+  "phase": "F",
+  "outcome": "A",
+  "attendance": 52626,
   "clock": {
-    "secs": 1860,
-    "label": "31'00"
+    "secs": 5820,
+    "label": "90+7'00"
   },
   "fixtureType": "REGULAR",
   "extraTime": false,
@@ -160,7 +162,7 @@
   ],
   "halfTimeScore": {
     "homeScore": 0,
-    "awayScore": 0
+    "awayScore": 1
   },
   "teamLists": [
     {
@@ -1852,11 +1854,496 @@
       }
     },
     {
+      "id": 186096,
+      "personId": 304175,
+      "teamId": 2,
+      "assistId": 133679,
+      "clock": {
+        "secs": 2160,
+        "label": "36'00"
+      },
       "phase": "1",
-      "type": "PE",
+      "type": "G",
+      "description": "G",
+      "time": {
+        "millis": 1792256781000,
+        "label": "17 October 2026, 18:06",
+        "gmtOffset": 1.0
+      },
       "score": {
         "homeScore": 0,
-        "awayScore": 0
+        "awayScore": 1
+      }
+    },
+    {
+      "clock": {
+        "secs": 2880,
+        "label": "45+3'00"
+      },
+      "phase": "1",
+      "type": "PE",
+      "time": {
+        "millis": 1792257445000,
+        "label": "17 October 2026, 18:17",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397030,
+      "personId": 51423,
+      "teamId": 2,
+      "clock": {
+        "secs": 2700,
+        "label": "45'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "ON",
+      "time": {
+        "millis": 1792258387000,
+        "label": "17 October 2026, 18:33",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397030,
+      "personId": 326089,
+      "teamId": 2,
+      "clock": {
+        "secs": 2700,
+        "label": "45'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "OFF",
+      "time": {
+        "millis": 1792258387000,
+        "label": "17 October 2026, 18:33",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "clock": {
+        "secs": 2700,
+        "label": "45'00"
+      },
+      "phase": "2",
+      "type": "PS",
+      "time": {
+        "millis": 1792258387000,
+        "label": "17 October 2026, 18:33",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 230074,
+      "personId": 67849,
+      "teamId": 23,
+      "clock": {
+        "secs": 3180,
+        "label": "53'00"
+      },
+      "phase": "2",
+      "type": "B",
+      "description": "Y",
+      "time": {
+        "millis": 1792258867000,
+        "label": "17 October 2026, 18:41",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 230075,
+      "personId": 117497,
+      "teamId": 23,
+      "clock": {
+        "secs": 3300,
+        "label": "55'00"
+      },
+      "phase": "2",
+      "type": "B",
+      "description": "Y",
+      "time": {
+        "millis": 1792258987000,
+        "label": "17 October 2026, 18:43",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397031,
+      "personId": 114590,
+      "teamId": 23,
+      "clock": {
+        "secs": 3360,
+        "label": "56'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "ON",
+      "time": {
+        "millis": 1792259047000,
+        "label": "17 October 2026, 18:44",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397031,
+      "personId": 14446,
+      "teamId": 23,
+      "clock": {
+        "secs": 3360,
+        "label": "56'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "OFF",
+      "time": {
+        "millis": 1792259047000,
+        "label": "17 October 2026, 18:44",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397032,
+      "personId": 302900,
+      "teamId": 23,
+      "clock": {
+        "secs": 3360,
+        "label": "56'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "ON",
+      "time": {
+        "millis": 1792259047000,
+        "label": "17 October 2026, 18:44",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397032,
+      "personId": 135108,
+      "teamId": 23,
+      "clock": {
+        "secs": 3360,
+        "label": "56'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "OFF",
+      "time": {
+        "millis": 1792259047000,
+        "label": "17 October 2026, 18:44",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397033,
+      "personId": 4115,
+      "teamId": 2,
+      "clock": {
+        "secs": 4320,
+        "label": "72'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "ON",
+      "time": {
+        "millis": 1792260007000,
+        "label": "17 October 2026, 19:00",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397033,
+      "personId": 133679,
+      "teamId": 2,
+      "clock": {
+        "secs": 4320,
+        "label": "72'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "OFF",
+      "time": {
+        "millis": 1792260007000,
+        "label": "17 October 2026, 19:00",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397034,
+      "personId": 142138,
+      "teamId": 2,
+      "clock": {
+        "secs": 4320,
+        "label": "72'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "ON",
+      "time": {
+        "millis": 1792260007000,
+        "label": "17 October 2026, 19:00",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397034,
+      "personId": 304175,
+      "teamId": 2,
+      "clock": {
+        "secs": 4320,
+        "label": "72'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "OFF",
+      "time": {
+        "millis": 1792260007000,
+        "label": "17 October 2026, 19:00",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397035,
+      "personId": 5378,
+      "teamId": 2,
+      "clock": {
+        "secs": 4320,
+        "label": "72'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "ON",
+      "time": {
+        "millis": 1792260007000,
+        "label": "17 October 2026, 19:00",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397035,
+      "personId": 26408,
+      "teamId": 2,
+      "clock": {
+        "secs": 4320,
+        "label": "72'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "OFF",
+      "time": {
+        "millis": 1792260007000,
+        "label": "17 October 2026, 19:00",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397036,
+      "personId": 21529,
+      "teamId": 2,
+      "clock": {
+        "secs": 4620,
+        "label": "77'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "ON",
+      "time": {
+        "millis": 1792260307000,
+        "label": "17 October 2026, 19:05",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397036,
+      "personId": 14164,
+      "teamId": 2,
+      "clock": {
+        "secs": 4620,
+        "label": "77'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "OFF",
+      "time": {
+        "millis": 1792260307000,
+        "label": "17 October 2026, 19:05",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 230076,
+      "personId": 114590,
+      "teamId": 23,
+      "clock": {
+        "secs": 4680,
+        "label": "78'00"
+      },
+      "phase": "2",
+      "type": "B",
+      "description": "Y",
+      "time": {
+        "millis": 1792260367000,
+        "label": "17 October 2026, 19:06",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 230077,
+      "personId": 124462,
+      "teamId": 23,
+      "clock": {
+        "secs": 5160,
+        "label": "86'00"
+      },
+      "phase": "2",
+      "type": "B",
+      "description": "Y",
+      "time": {
+        "millis": 1792260847000,
+        "label": "17 October 2026, 19:14",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397037,
+      "personId": 8707,
+      "teamId": 23,
+      "clock": {
+        "secs": 5400,
+        "label": "90'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "ON",
+      "time": {
+        "millis": 1792261087000,
+        "label": "17 October 2026, 19:18",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "id": 397037,
+      "personId": 20607,
+      "teamId": 23,
+      "clock": {
+        "secs": 5400,
+        "label": "90'00"
+      },
+      "phase": "2",
+      "type": "S",
+      "description": "OFF",
+      "time": {
+        "millis": 1792261087000,
+        "label": "17 October 2026, 19:18",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
+      }
+    },
+    {
+      "clock": {
+        "secs": 5820,
+        "label": "90+7'00"
+      },
+      "phase": "2",
+      "type": "PE",
+      "time": {
+        "millis": 1792261478000,
+        "label": "17 October 2026, 19:24",
+        "gmtOffset": 1.0
+      },
+      "score": {
+        "homeScore": 0,
+        "awayScore": 1
       }
     }
   ],

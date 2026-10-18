@@ -11,6 +11,7 @@ import sqlite3
 import subprocess
 import sys
 import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -24,7 +25,8 @@ except ImportError:
 import numpy as np
 import pandas as pd
 import joblib
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from src.models.model_utils import (
@@ -360,8 +362,10 @@ def reload_runtime_datasets() -> None:
     """Reload data files refreshed by the season sync job into this API worker."""
     global df_matches, df_features, raw_fixtures_2627, teams_dict, match_stats_map
     global teams_list, _matches_prepared, _long_history, _played_matches, CURRENT_SEASON, _live_state_cache
-    global outcome_artifact, goals_artifact, offside_artifact, cards_artifact
+    global outcome_artifact, goals_artifact, offside_artifact, cards_artifact, _loaded_data_version
 
+    # Captured before reading so a write landing mid-reload triggers another reload.
+    version = current_data_version()
     outcome_artifact = joblib.load(MODELS_DIR / "outcome_models_v1.joblib") if (MODELS_DIR / "outcome_models_v1.joblib").exists() else None
     goals_artifact = joblib.load(MODELS_DIR / "goals_models_v1.joblib") if (MODELS_DIR / "goals_models_v1.joblib").exists() else None
     offside_artifact = joblib.load(MODELS_DIR / "offside_model_v1.joblib") if (MODELS_DIR / "offside_model_v1.joblib").exists() else None
@@ -418,6 +422,51 @@ def reload_runtime_datasets() -> None:
     get_team_attacking_leaders.cache_clear()
     if not _long_history.empty:
         get_live_state(None)
+    _loaded_data_version = version
+
+
+_RELOAD_WATCHED = [matches_parquet, features_parquet, fix_2627_path] + [
+    MODELS_DIR / name
+    for name in ("outcome_models_v1.joblib", "goals_models_v1.joblib", "offside_model_v1.joblib", "cards_model_v1.joblib")
+]
+_RELOAD_SETTLE_NS = 2_000_000_000  # don't read files a sync script may still be writing
+
+
+def current_data_version() -> int:
+    """Newest mtime (ns) among the files reload_runtime_datasets loads into memory."""
+    return max((p.stat().st_mtime_ns for p in _RELOAD_WATCHED if p.exists()), default=0)
+
+
+_loaded_data_version = current_data_version()
+_data_reload_lock = threading.Lock()
+
+
+def _reload_if_data_changed() -> None:
+    """Pick up files rewritten outside the API (e.g. sync scripts run from a terminal)."""
+    version = current_data_version()
+    if version == _loaded_data_version or time.time_ns() - version < _RELOAD_SETTLE_NS:
+        return
+    with _data_reload_lock:
+        if current_data_version() == _loaded_data_version:  # another request already reloaded
+            return
+        logger.info("Data files changed on disk; reloading runtime datasets")
+        try:
+            reload_runtime_datasets()
+        except Exception:
+            logger.exception("Automatic data reload failed; will retry on a later request")
+
+
+@app.middleware("http")
+async def reload_changed_data(request: Request, call_next):
+    if request.url.path.startswith("/api/"):
+        await run_in_threadpool(_reload_if_data_changed)
+    return await call_next(request)
+
+
+@app.get("/api/data-version")
+def get_data_version():
+    """Changes whenever the API reloads data; the frontend drops its localStorage caches on change."""
+    return {"version": str(_loaded_data_version)}
 
 
 def _sync_command(kind: str, season: str) -> List[str]:
