@@ -193,7 +193,7 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 | **B8** | O | **Yönetim ucu ve CORS.** `/api/admin/*` kimlik doğrulamasız, `allow_origins=["*"]`. Sunucuda `127.0.0.1` + Caddy + Tailscale ile azaltılmış, ama kodda koruma yok. 14 Ekim denetimi de aynısını işaretlemişti; hâlâ açık. | `server.py:70, 520–546`; `deploy/Caddyfile` |
 | **B9** | O | **`start.py`/`start.sh` portu kullanan her süreci `kill -9` yapar** ve aynı işi iki dosya yapıyor. | `start.py:22–26`, `start.sh:39–42` |
 | **B10** | O | **Hata sinyali yok.** `fetch_season_data` hataları sayar ama çıkış kodu 0; `import_thestatsapi_xg` xG'siz yanıtı yutar; `job.sh` her zaman 0 döner ve yalnızca bir log dosyası yazar. Cron'dan hata görünmez. | Bu oturumdaki 2021/22 çekimi: "Errors encountered: 1", çıkış 0 |
-| **B11** | O | **Repo hijyeni.** 12 MB `.db`, 15 MB `player_match_logs.json`, parquet'ler ve `models/backup/` git'te; çalışma ağacı sürekli kirli, commit'ler şişiyor. | `git ls-files` boyutları; `git status` |
+| **B11** | O | ✅ **ÇÖZÜLDÜ (19 Ekim 2026, `e25aa20`)** — **Repo hijyeni.** 12 MB `.db`, 15 MB `player_match_logs.json`, parquet'ler ve `models/backup/` git'te; çalışma ağacı sürekli kirli, commit'ler şişiyor. | `git ls-files` boyutları; `git status` |
 | **B12** | D | **Tekrarlanan yardımcılar:** `atomic_write_json` (2 kopya), `evaluate_season_holdouts` (`model_utils` ve `train_match_outcome`, farklı imza), `build_report` (3 analytics modülü, ayrı mantık), `run_pipeline` (2 ingest). | AST ad çakışmaları |
 | **B13** | D | **Kod stili:** 26 çıplak/geniş `except`, 63 `print` / 129 `logger`, 4 dosyada `sys.path` hack'i. | grep sayımları |
 | **B14** | D | **Belge sapması:** `scripts_reference.md` "server.py (3430 satır)" diyor, gerçek 3.503; içerikleri satır satır doğrulanmadığını kendisi belirtiyor. `lightgbm` 6 dosyada kullanılıyor ve listede; `xgboost` 1 dosyada (`scratch`) kullanılıyor ama listede yok; `pytest` listede yok. | Bu rapordaki taramalar |
@@ -238,7 +238,7 @@ Sıra: önce hata sinyali ve veri tutarlılığı, sonra test ve yapılandırma,
 | # | Öneri | Çözdüğü |
 |---|---|---|
 | U1 | **`server.py`'yi `APIRouter` modüllerine böl** (`predict`, `fixtures`, `teams`, `players`, `referees`, `admin`), 819 ve 406 satırlık işleyicileri servis fonksiyonlarına ayır, veri yüklemeyi `startup`'a taşı. | B3 |
-| U2 | **Veri/model dosyalarını git'ten çıkar:** `.db`, büyük parquet/JSON ve `models/backup/` için `.gitignore` veya Git LFS; yeniden üretim komutunu belgele. | B11 |
+| U2 | ✅ **YAPILDI (`e25aa20`)** — **Veri/model dosyalarını git'ten çıkar:** `.db`, büyük parquet/JSON ve `models/backup/` için `.gitignore` veya Git LFS; yeniden üretim komutunu belgele. | B11 |
 | U3 | **CI** (GitHub Actions): `pytest`, `ruff`, `npm run build` her push'ta. | B4 |
 
 ### 8.4 Önerilen sıra
