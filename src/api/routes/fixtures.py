@@ -1,5 +1,6 @@
 """Fixtures, standings, referees and recent-form routes."""
 
+import json
 import logging
 import pandas as pd
 from datetime import datetime
@@ -33,7 +34,8 @@ def get_fixtures(limit: int = 800, search: Optional[str] = None, season: Optiona
         )
         df = df[mask]
 
-    records = df.head(limit).to_dict(orient="records")
+    # to_json turns NaN into null and timestamps into ISO strings; plain to_dict leaves NaN, which JSON rejects.
+    records = json.loads(df.head(limit).to_json(orient="records", date_format="iso"))
     return {"fixtures": records, "total": len(records)}
 
 
