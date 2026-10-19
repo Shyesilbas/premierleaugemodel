@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[2]
-RAW_MATCHES = ROOT / "data" / "raw" / "matches"
-REPORT = ROOT / "docs" / "reports" / "team_tactical_data_audit.md"
+from src.config import MATCHES_RAW_DIR as RAW_MATCHES, REPORTS_DIR, ROOT
+
+REPORT = REPORTS_DIR / "team_tactical_data_audit.md"
 
 CORE_METRICS = {
     "Topa sahip olma ve ilerleme": [

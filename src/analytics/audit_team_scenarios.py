@@ -10,8 +10,9 @@ from src.analytics.team_scenarios import load_team_match_scenarios
 from src.analytics.team_tactics import load_team_match_rows
 
 
-ROOT = Path(__file__).resolve().parents[2]
-REPORT = ROOT / "docs" / "reports" / "team_scenario_validation.md"
+from src.config import REPORTS_DIR, ROOT
+
+REPORT = REPORTS_DIR / "team_scenario_validation.md"
 
 
 def build_report() -> str:

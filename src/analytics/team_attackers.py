@@ -10,10 +10,11 @@ from typing import Any
 import pandas as pd
 
 
-ROOT = Path(__file__).resolve().parents[2]
-PLAYER_REGISTRY_PATH = ROOT / "data" / "processed" / "players_registry.json"
-PLAYER_LOGS_PATH = ROOT / "data" / "processed" / "player_match_logs.json"
-SHOT_EVENTS_PATH = ROOT / "data" / "processed" / "shots_events_all.parquet"
+from src.config import PROCESSED_DIR, ROOT
+
+PLAYER_REGISTRY_PATH = PROCESSED_DIR / "players_registry.json"
+PLAYER_LOGS_PATH = PROCESSED_DIR / "player_match_logs.json"
+SHOT_EVENTS_PATH = PROCESSED_DIR / "shots_events_all.parquet"
 SHOT_EVENT_TYPES = {"goal", "miss", "attempt blocked", "attempt saved"}
 MIN_MINUTES = 180
 

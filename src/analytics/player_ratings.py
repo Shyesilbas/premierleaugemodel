@@ -16,10 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("player_ratings")
 
-ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "data"
-PROCESSED_DIR = DATA_DIR / "processed"
-MATCHES_RAW_DIR = DATA_DIR / "raw" / "matches"
+from src.config import DATA_DIR, MATCHES_RAW_DIR, PROCESSED_DIR, ROOT
 
 # Global module caches
 _bookings_cache: Optional[Dict[int, Dict[int, Dict[str, int]]]] = None

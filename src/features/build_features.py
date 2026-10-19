@@ -22,6 +22,7 @@ import pandas as pd
 import numpy as np
 from src.features.draw_features import DrawFeatureState, add_draw_features
 from src.db.database import attach_statsapi_xg
+from src.config import DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MATCHES_SUMMARY_PATH
 
 logging.basicConfig(
     level=logging.INFO,
@@ -628,7 +629,7 @@ def load_official_match_starters(match_id: Optional[int]) -> Dict[int, List[Tupl
     """Reads official starting XIs (team_id -> [(player_id, position), ...]) from cached match details JSON."""
     if not match_id:
         return {}
-    path = Path("data/raw/matches") / f"{int(match_id)}_details.json"
+    path = MATCHES_RAW_DIR / f"{int(match_id)}_details.json"
     if not path.exists():
         return {}
     try:
@@ -873,7 +874,7 @@ def get_team_market_values_map() -> Dict[Any, float]:
     """Returns (team_id, season) -> market_value_eur in Millions, plus fallback team_id -> market_value_eur."""
     mv_map = {}
     try:
-        db_file = Path("data/premier_league.db")
+        db_file = DB_PATH
         if db_file.exists():
             con = sqlite3.connect(db_file)
             cur = con.cursor()
@@ -1381,8 +1382,8 @@ def build_feature_dataset(
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, default="data/processed/matches_summary_all.parquet")
-    parser.add_argument("--output", type=str, default="data/processed/features_matches_all.parquet")
+    parser.add_argument("--input", type=str, default=str(MATCHES_SUMMARY_PATH))
+    parser.add_argument("--output", type=str, default=str(FEATURES_PATH))
     args = parser.parse_args()
 
     build_feature_dataset(Path(args.input), Path(args.output))

@@ -13,8 +13,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fetch_season_data import BASE_API_URL, build_session  # noqa: E402
+sys.path.insert(0, str(PROJECT_ROOT))  # works for `python3 src/...py` and `python -m`
+from src.config import PROCESSED_DIR, RAW_DIR  # noqa: E402
+from src.ingest.fetch_season_data import BASE_API_URL, build_session  # noqa: E402
 
 logger = logging.getLogger("fetch_team_staff")
 
@@ -115,7 +116,7 @@ def main() -> None:
     parser.add_argument("--season", default="2026_27", help="Season label, for example 2025_26")
     parser.add_argument("--comp-season-id", type=int, help="Override the ID read from the fixture file")
     parser.add_argument("--fixtures", type=Path, help="Fixture JSON (defaults to data/raw/fixtures_{season}.json)")
-    parser.add_argument("--output", type=Path, default=PROJECT_ROOT / "data/processed/team_staff.json")
+    parser.add_argument("--output", type=Path, default=PROCESSED_DIR / "team_staff.json")
     parser.add_argument("--delay", type=float, default=0.1, help="Delay between requests in seconds")
     args = parser.parse_args()
 
@@ -123,7 +124,7 @@ def main() -> None:
     season = re.sub(r"[^0-9_-]", "", args.season)
     if not season:
         parser.error("--season must contain a valid season label")
-    fixtures = args.fixtures or PROJECT_ROOT / "data/raw" / f"fixtures_{season}.json"
+    fixtures = args.fixtures or RAW_DIR / f"fixtures_{season}.json"
     try:
         run(season, fixtures, args.output, args.comp_season_id, args.delay)
     except Exception as exc:

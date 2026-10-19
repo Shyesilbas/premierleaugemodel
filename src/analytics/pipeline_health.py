@@ -16,9 +16,9 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from src.config import DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MODELS_DIR
 
 
-ROOT = Path(__file__).resolve().parents[2]
 RAW_KINDS = ("stats", "stream", "details")
 MIN_PAST_COVERAGE = 0.90   # xG / odds share of played matches expected for finished seasons
 MODEL_STALE_DAYS = 8.0     # weekly retraining: older than this vs the newest played match is stale
@@ -30,10 +30,10 @@ def _ids(db_path: Path, sql: str) -> set[int]:
 
 
 def collect(
-    features_path: Path = ROOT / "data/processed/features_matches_all.parquet",
-    db_path: Path = ROOT / "data/premier_league.db",
-    raw_dir: Path = ROOT / "data/raw/matches",
-    models_dir: Path = ROOT / "models/production",
+    features_path: Path = FEATURES_PATH,
+    db_path: Path = DB_PATH,
+    raw_dir: Path = MATCHES_RAW_DIR,
+    models_dir: Path = MODELS_DIR,
 ) -> dict[str, Any]:
     """Gather coverage counts per season plus raw-file and model-age facts."""
     matches = pd.read_parquet(features_path, columns=["match_id", "season", "gameweek", "kickoff_millis", "home_score"])

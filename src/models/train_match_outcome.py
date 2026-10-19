@@ -42,6 +42,8 @@ from src.models.eval_utils import (
     reliability_table,
 )
 from src.features.draw_features import DRAW_PROPENSITY_FEATURES, add_draw_features
+from src.config import FEATURES_PATH, MODELS_DIR, PROCESSED_DIR
+from src.config import EXCLUDED_1X2_TRAINING_SEASONS, LOCKED_SEASONS  # noqa: F401
 
 logging.basicConfig(
     level=logging.INFO,
@@ -131,10 +133,7 @@ N_CV_SPLITS = 4
 # Pre-existing policy from earlier paired chronological experiments. This run
 # holds it fixed; it is not re-selected on the main holdout. Keep those matches
 # in feature history, but don't fit 1X2 on their labels.
-EXCLUDED_1X2_TRAINING_SEASONS = {"2022_23"}
-# This season is excluded from all evaluation, selection, and calibration.
-# Played matches may still be used to fit the final production estimator.
-LOCKED_SEASONS = {"2026_27"}
+# Season policy lives in src/config.py; re-exported so existing imports keep working.
 
 
 def _form_features(kind: str = "o25") -> List[str]:
@@ -994,8 +993,8 @@ def evaluate_calibration_drift_outer_seasons(
 
 
 def train_match_outcome_models(
-    data_path: str = "data/processed/features_matches_all.parquet",
-    model_output_dir: str = "models/production",
+    data_path: str = str(FEATURES_PATH),
+    model_output_dir: str = str(MODELS_DIR),
 ) -> Dict[str, Any]:
     if not Path(data_path).exists():
         raise FileNotFoundError(f"Feature dataset not found: {data_path}. Run the full pipeline to rebuild it.")
@@ -1278,7 +1277,7 @@ def train_match_outcome_models(
     metrics["1x2_variant_outer_holdouts"] = variant_results
     metrics["1x2_draw_propensity_outer_eval"] = draw_propensity_gate
     metrics["draw_propensity_enabled"] = bool(include_draw_propensity)
-    draw_eval_path = Path("data/processed/1x2_draw_propensity_outer_eval.json")
+    draw_eval_path = PROCESSED_DIR / "1x2_draw_propensity_outer_eval.json"
     draw_eval_path.parent.mkdir(parents=True, exist_ok=True)
     draw_eval_path.write_text(json.dumps(draw_propensity_gate, indent=2), encoding="utf-8")
     metrics["dixon_coles_1x2"] = evaluate_dixon_coles(
@@ -1293,7 +1292,7 @@ def train_match_outcome_models(
         dev["target_1x2"].reset_index(drop=True),
         dev["season"].reset_index(drop=True) if "season" in dev else pd.Series(["all"] * len(dev)),
     )
-    outer_eval_path = Path("data/processed/1x2_ensemble_outer_eval.json")
+    outer_eval_path = PROCESSED_DIR / "1x2_ensemble_outer_eval.json"
     outer_eval_path.parent.mkdir(parents=True, exist_ok=True)
     outer_eval_path.write_text(json.dumps(metrics["1x2_ensemble_outer_eval"], indent=2), encoding="utf-8")
 
@@ -1303,7 +1302,7 @@ def train_match_outcome_models(
         dev["target_1x2"].reset_index(drop=True),
         dev["season"].reset_index(drop=True) if "season" in dev else pd.Series(["all"] * len(dev)),
     )
-    drift_eval_path = Path("data/processed/1x2_calibration_drift_outer_eval.json")
+    drift_eval_path = PROCESSED_DIR / "1x2_calibration_drift_outer_eval.json"
     drift_eval_path.parent.mkdir(parents=True, exist_ok=True)
     drift_eval_path.write_text(
         json.dumps(metrics["1x2_calibration_drift_outer_eval"], indent=2), encoding="utf-8"

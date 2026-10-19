@@ -18,15 +18,18 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 from tqdm import tqdm
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
+from src.config import PROCESSED_DIR, RAW_DIR  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("build_player_index")
 
 
 def parse_player_data():
-    raw_dir = Path("data/raw")
+    raw_dir = RAW_DIR
     matches_dir = raw_dir / "matches"
-    processed_dir = Path("data/processed")
+    processed_dir = PROCESSED_DIR
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     # Load all seasons' fixtures to map match_id to season & gameweek

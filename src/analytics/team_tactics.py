@@ -14,8 +14,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[2]
-RAW_MATCHES = ROOT / "data" / "raw" / "matches"
+from src.config import MATCHES_RAW_DIR as RAW_MATCHES, ROOT
 
 TACTICAL_METRICS = {
     "possession": {

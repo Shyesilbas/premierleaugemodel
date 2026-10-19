@@ -23,8 +23,9 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-DB_PATH = BASE_DIR / "data" / "premier_league.db"
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
+from src.config import DB_PATH, ROOT as BASE_DIR  # noqa: E402
+
 API_BASE = "https://api.thestatsapi.com/api"
 PROVIDER = "TheStatsAPI"
 

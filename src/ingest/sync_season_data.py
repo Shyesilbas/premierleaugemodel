@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timedelta, timezone
 
-from fetch_season_data import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # works for `python3 src/...py` and `python -m`
+from src.config import DATA_DIR, ROOT as PROJECT_ROOT  # noqa: E402
+from src.ingest.fetch_season_data import (  # noqa: E402
     build_session,
     fetch_fixtures,
     fetch_match_details,
@@ -26,9 +28,6 @@ from fetch_season_data import (
     fetch_match_stream,
 )
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data"
 logger = logging.getLogger("sync_season_data")
 SDP_API_BASE = "https://sdp-prem-prod.premier-league-prod.pulselive.com/api"
 

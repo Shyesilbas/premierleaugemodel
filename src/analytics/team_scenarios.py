@@ -13,8 +13,7 @@ from typing import Any
 from src.analytics.team_tactics import normalize_season
 
 
-ROOT = Path(__file__).resolve().parents[2]
-RAW_MATCHES = ROOT / "data" / "raw" / "matches"
+from src.config import MATCHES_RAW_DIR as RAW_MATCHES, ROOT
 SCORING_TYPES = {"goal", "penalty goal", "own goal"}
 SHOT_TYPES = {
     "goal",

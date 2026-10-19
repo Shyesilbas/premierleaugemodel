@@ -22,6 +22,7 @@ from src.models.train_match_outcome import (
     fit_probability_calibrator,
     forward_time_splits,
 )
+from src.config import FEATURES_PATH, MODELS_DIR, PROCESSED_DIR
 
 
 logger = logging.getLogger("train_goals")
@@ -205,9 +206,9 @@ def _calibration_result(
 
 
 def train_goals_models(
-    data_path: str = "data/processed/features_matches_all.parquet",
-    evaluation_path: str = "data/processed/goal_model_outer_eval.json",
-    model_output_dir: str = "models/production",
+    data_path: str = str(FEATURES_PATH),
+    evaluation_path: str = str(PROCESSED_DIR / "goal_model_outer_eval.json"),
+    model_output_dir: str = str(MODELS_DIR),
 ) -> dict[str, Any]:
     """Fit the selected model on played matches and calibrate on unlocked seasons."""
     source = Path(data_path)

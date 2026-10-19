@@ -31,6 +31,7 @@ from src.models.train_match_outcome import (
     ordered_probabilities,
     select_model,
 )
+from src.config import DB_PATH, FEATURES_PATH, PROCESSED_DIR
 
 
 OU_LINES = (1.5, 2.5, 3.5)
@@ -42,7 +43,7 @@ def _binary_probs(event_probability: np.ndarray) -> np.ndarray:
     return np.column_stack([1 - probability, probability])
 
 
-def _market_probabilities(match_ids: pd.Series, db_path: str = "data/premier_league.db") -> pd.DataFrame:
+def _market_probabilities(match_ids: pd.Series, db_path: str = str(DB_PATH)) -> pd.DataFrame:
     """Vig-free Bet365 last-seen O2.5 / BTTS probabilities per match (NaN when absent).
 
     Benchmark only: never a model input and never part of a pass/fail decision.
@@ -441,8 +442,8 @@ def evaluate_in_season_refit(
 
 
 def main(
-    data_path: str = "data/processed/features_matches_all.parquet",
-    output_path: str = "data/processed/goal_model_outer_eval.json",
+    data_path: str = str(FEATURES_PATH),
+    output_path: str = str(PROCESSED_DIR / "goal_model_outer_eval.json"),
 ) -> list[dict[str, Any]]:
     df = pd.read_parquet(data_path)
     df = df[df["home_score"].notna() & df["away_score"].notna()].copy()

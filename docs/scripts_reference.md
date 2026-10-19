@@ -4,6 +4,17 @@ Projedeki tüm çalıştırılabilir script ve modüllerin ne işe yaradığı. 
 
 Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQLite) → **features** (sızıntısız özellikler) → **models** (eğitim) → **api** (servis) → **frontend**.
 
+## 0. Yapılandırma ve ortam değişkenleri
+
+`src/config.py` projedeki tüm yolların ve sezon politikasının tek kaynağıdır (`ROOT`, `DATA_DIR`, `RAW_DIR`, `PROCESSED_DIR`, `DB_PATH`, `MODELS_DIR`, `REPORTS_DIR`, `LOCKED_SEASONS`, `EXCLUDED_1X2_TRAINING_SEASONS`).
+
+| Değişken | Etkisi |
+|---|---|
+| `PLM_DATA_DIR` | Veri dizinini (`raw/`, `processed/`, SQLite) değiştirir; pipeline'ı izole bir veri kopyasında çalıştırmak için. Varsayılan `<repo>/data`. |
+| `PLM_MODELS_DIR` | Model dizinini değiştirir. Varsayılan `<repo>/models/production`. |
+
+Örnek: `PLM_DATA_DIR=/tmp/veri python3 -m src.processing.process_season_data --season-name all`.
+
 ## 1. Kök dizin
 
 | Dosya | Ne yapar |

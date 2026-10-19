@@ -22,6 +22,7 @@ from src.models.train_goals import train_goals_models
 from src.analytics.data_quality_report import main as run_data_quality_report
 from src.analytics.team_data_audit import main as run_team_data_audit
 from src.analytics.audit_team_scenarios import main as run_team_scenario_audit
+from src.config import FEATURES_PATH, MATCHES_SUMMARY_PATH, PROCESSED_DIR, RAW_DIR, REPORTS_DIR
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,7 +35,7 @@ logger = logging.getLogger("master_pipeline")
 def generate_outer_validation_sections() -> list[str]:
     """Render goal-market and 1X2 ensemble outer-season tables from eval JSONs."""
     lines: list[str] = []
-    goal_eval_path = Path("data/processed/goal_model_outer_eval.json")
+    goal_eval_path = PROCESSED_DIR / "goal_model_outer_eval.json"
     if goal_eval_path.exists():
         goal_eval = json.loads(goal_eval_path.read_text(encoding="utf-8"))
         goal_rows = goal_eval.get("outer_season_results", [])
@@ -61,7 +62,7 @@ def generate_outer_validation_sections() -> list[str]:
                 f"[{result['ci_low']:+.4f}, {result['ci_high']:+.4f}] |"
             )
 
-    ensemble_eval_path = Path("data/processed/1x2_ensemble_outer_eval.json")
+    ensemble_eval_path = PROCESSED_DIR / "1x2_ensemble_outer_eval.json"
     if ensemble_eval_path.exists():
         ensemble_eval = json.loads(ensemble_eval_path.read_text(encoding="utf-8"))
         lines.extend([
@@ -103,7 +104,7 @@ def generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offs
         int(corner_res["train_samples"]) + int(corner_res["test_samples"]),
         int(outcome_res["model_1x2"]["n_train_final"]),
     )))
-    season_count = sum(1 for _ in Path("data/raw").glob("fixtures_*.json"))
+    season_count = sum(1 for _ in RAW_DIR.glob("fixtures_*.json"))
     lines = [
         "# Model Benchmark Report",
         "",
@@ -387,8 +388,8 @@ def main():
 
     # Step 2: Feature Engineering
     logger.info("--- Running Phase 3: Feature Engineering ---")
-    matches_parquet = Path("data/processed/matches_summary_all.parquet")
-    features_parquet = Path("data/processed/features_matches_all.parquet")
+    matches_parquet = MATCHES_SUMMARY_PATH
+    features_parquet = FEATURES_PATH
     build_feature_dataset(matches_parquet, features_parquet)
 
     logger.info("--- Refreshing current data and event audits ---")
@@ -409,7 +410,7 @@ def main():
     train_goals_models()
 
     # Step 4: Benchmark Report
-    bench_report = Path("docs/reports/model_benchmarks.md")
+    bench_report = REPORTS_DIR / "model_benchmarks.md"
     bench_report.parent.mkdir(parents=True, exist_ok=True)
     generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offsides_res, outcome_res, bench_report)
 

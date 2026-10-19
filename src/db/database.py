@@ -14,9 +14,7 @@ import logging
 
 logger = logging.getLogger("db_layer")
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = BASE_DIR / "data"
-DB_PATH = DATA_DIR / "premier_league.db"
+from src.config import DATA_DIR, DB_PATH, ROOT as BASE_DIR
 
 
 def get_db():

@@ -22,11 +22,9 @@ from src.models.model_utils import blend_log, apply_probability_calibrator
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = BASE_DIR / "data"
-MODELS_DIR = BASE_DIR / "models" / "production"
-DB_PATH = DATA_DIR / "premier_league.db"
-SUMMARY_JSON = DATA_DIR / "processed" / "model_audit_summary.json"
+from src.config import DATA_DIR, DB_PATH, MODELS_DIR, PROCESSED_DIR, ROOT as BASE_DIR
+
+SUMMARY_JSON = PROCESSED_DIR / "model_audit_summary.json"
 
 
 def init_audit_table(conn: sqlite3.Connection, season: Optional[str] = None) -> None:

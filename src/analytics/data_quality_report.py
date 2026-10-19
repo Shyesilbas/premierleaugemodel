@@ -10,10 +10,9 @@ from typing import Any
 import pandas as pd
 
 
-ROOT = Path(__file__).resolve().parents[2]
-RAW = ROOT / "data" / "raw"
-PROCESSED = ROOT / "data" / "processed"
-REPORT = ROOT / "docs" / "reports" / "data_quality.md"
+from src.config import PROCESSED_DIR as PROCESSED, RAW_DIR as RAW, REPORTS_DIR, ROOT
+
+REPORT = REPORTS_DIR / "data_quality.md"
 
 TRACKED_METRICS = {
     "corners": "won_corners",

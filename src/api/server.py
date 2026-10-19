@@ -73,9 +73,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = BASE_DIR / "data"
-MODELS_DIR = BASE_DIR / "models" / "production"
+from src.config import DATA_DIR, MODELS_DIR, ROOT as BASE_DIR
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 FRONTEND_DIR = FRONTEND_DIST if FRONTEND_DIST.exists() else (BASE_DIR / "frontend")
 

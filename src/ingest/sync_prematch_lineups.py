@@ -48,12 +48,10 @@ from src.features.build_features import _aggregate_xi_ratings, _compute_pre_matc
 from src.models.dixon_coles import align_to_outcome_probs, btts_prob, expected_goals, over_prob
 from src.models.model_utils import apply_probability_calibrator, blend_log, safe_feature_frame
 
-DATA_DIR = PROJECT_ROOT / "data"
-DB_PATH = DATA_DIR / "premier_league.db"
-FEATURES_PATH = DATA_DIR / "processed" / "features_matches_all.parquet"
-MATCHES_RAW_DIR = DATA_DIR / "raw" / "matches"
-OUTCOME_MODEL_PATH = PROJECT_ROOT / "models" / "production" / "outcome_models_v1.joblib"
-GOALS_MODEL_PATH = PROJECT_ROOT / "models" / "production" / "goals_models_v1.joblib"
+from src.config import DATA_DIR, DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MODELS_DIR
+
+OUTCOME_MODEL_PATH = MODELS_DIR / "outcome_models_v1.joblib"
+GOALS_MODEL_PATH = MODELS_DIR / "goals_models_v1.joblib"
 
 
 def atomic_write_json(path: Path, payload: Any) -> None:

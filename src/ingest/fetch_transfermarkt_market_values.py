@@ -22,10 +22,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("fetch_tm_market_values")
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = BASE_DIR / "data"
-DB_PATH = DATA_DIR / "premier_league.db"
-JSON_OUT_PATH = DATA_DIR / "processed" / "market_values_2026_27.json"
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
+from src.config import DATA_DIR, DB_PATH, PROCESSED_DIR, ROOT as BASE_DIR  # noqa: E402
+
+JSON_OUT_PATH = PROCESSED_DIR / "market_values_2026_27.json"
 
 TM_API_BASE = "https://transfermarkt-api.fly.dev"
 REQUEST_INTERVAL = 1.3  # Sleep 1.3 seconds between calls to respect rate limits

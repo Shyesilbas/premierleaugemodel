@@ -19,6 +19,9 @@ from typing import Dict, Any, List, Optional, Tuple
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
+from src.config import PROCESSED_DIR, RAW_DIR  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -374,8 +377,8 @@ def parse_stream_events(match_id: int, stream_data: Dict[str, Any]) -> List[Dict
 
 
 def process_season(season_name: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    raw_dir = Path("data/raw")
-    processed_dir = Path("data/processed")
+    raw_dir = RAW_DIR
+    processed_dir = PROCESSED_DIR
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     fixtures_file = raw_dir / f"fixtures_{season_name}.json"
@@ -445,8 +448,8 @@ def main():
     parser.add_argument("--season-name", type=str, default="all", help="Season name or 'all' to process and merge every cached season")
     args = parser.parse_args()
 
-    raw_dir = Path("data/raw")
-    processed_dir = Path("data/processed")
+    raw_dir = RAW_DIR
+    processed_dir = PROCESSED_DIR
 
     if args.season_name == "all":
         seasons = sorted(

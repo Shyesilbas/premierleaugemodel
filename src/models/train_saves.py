@@ -25,6 +25,7 @@ from src.models.model_utils import (
     incomplete_seasons,
     make_regression_pipeline,
 )
+from src.config import FEATURES_PATH, MODELS_DIR
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,8 +52,8 @@ CURATED_FEATURES = [
 
 
 def train_saves_model(
-    data_path: str = "data/processed/features_matches_all.parquet",
-    model_output_dir: str = "models/production",
+    data_path: str = str(FEATURES_PATH),
+    model_output_dir: str = str(MODELS_DIR),
 ) -> Dict[str, Any]:
     if not Path(data_path).exists():
         raise FileNotFoundError(f"Feature dataset not found: {data_path}. Run the full pipeline to rebuild it.")

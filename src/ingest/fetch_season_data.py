@@ -17,6 +17,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from tqdm import tqdm
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
+from src.config import DATA_DIR  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -142,7 +144,7 @@ def run_pipeline(
     season_id: int,
     season_name: str,
     comps: int = 1,
-    base_data_dir: str = "data",
+    base_data_dir: str = str(DATA_DIR),
     limit: Optional[int] = None,
     delay: float = 0.05,
     force: bool = False,
@@ -280,7 +282,7 @@ def main():
     parser.add_argument("--season", type=int, required=True, help="PulseLive CompSeason ID")
     parser.add_argument("--season-name", type=str, required=True, help="Local season label, for example 2026_27")
     parser.add_argument("--comps", type=int, default=1, help="PulseLive Comps ID (default: 1 for Premier League)")
-    parser.add_argument("--output-dir", type=str, default="data", help="Output directory for raw data")
+    parser.add_argument("--output-dir", type=str, default=str(DATA_DIR), help="Output directory for raw data")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of fixtures to process (for testing)")
     parser.add_argument("--delay", type=float, default=0.1, help="Delay between API requests in seconds")
     parser.add_argument("--workers", type=int, default=6, help="Number of concurrent download worker threads")

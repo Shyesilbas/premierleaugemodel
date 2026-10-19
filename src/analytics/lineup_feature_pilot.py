@@ -30,10 +30,9 @@ from src.models.train_match_outcome import (
 )
 
 
-ROOT = Path(__file__).resolve().parents[2]
-FEATURES_PATH = ROOT / "data/processed/features_matches_all.parquet"
-DETAILS_DIR = ROOT / "data/raw/matches"
-OUTPUT_PATH = ROOT / "docs/reports/1x2_lineup_feature_pilot.md"
+from src.config import FEATURES_PATH, MATCHES_RAW_DIR as DETAILS_DIR, REPORTS_DIR, ROOT
+
+OUTPUT_PATH = REPORTS_DIR / "1x2_lineup_feature_pilot.md"
 LABELS = [0, 1, 2]
 TARGET_SEASON = "2026_27"
 TARGET_MAX_GAMEWEEK = 6

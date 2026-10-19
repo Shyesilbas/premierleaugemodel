@@ -24,13 +24,12 @@ from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, roc_auc_
 from src.models.eval_utils import multiclass_report
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-FEATURES_PATH = PROJECT_ROOT / "data" / "processed" / "features_matches_all.parquet"
-MATCHES_PATH = PROJECT_ROOT / "data" / "processed" / "matches_summary_all.parquet"
-MODEL_PATH = PROJECT_ROOT / "models" / "production" / "outcome_models_v1.joblib"
-GOALS_MODEL_PATH = PROJECT_ROOT / "models" / "production" / "goals_models_v1.joblib"
-FORECAST_LOG = PROJECT_ROOT / "data" / "processed" / "1x2_forecast_log.jsonl"
-SCORECARD_PATH = PROJECT_ROOT / "docs" / "reports" / "prospective_1x2_scorecard.json"
+from src.config import FEATURES_PATH, MATCHES_SUMMARY_PATH as MATCHES_PATH, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR, ROOT as PROJECT_ROOT
+
+MODEL_PATH = MODELS_DIR / "outcome_models_v1.joblib"
+GOALS_MODEL_PATH = MODELS_DIR / "goals_models_v1.joblib"
+FORECAST_LOG = PROCESSED_DIR / "1x2_forecast_log.jsonl"
+SCORECARD_PATH = REPORTS_DIR / "prospective_1x2_scorecard.json"
 logger = logging.getLogger("prospective_1x2_benchmark")
 GOAL_MARKETS = ("over_1.5", "over_2.5", "over_3.5", "btts")
 

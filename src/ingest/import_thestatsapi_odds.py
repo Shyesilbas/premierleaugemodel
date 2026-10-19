@@ -15,14 +15,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.config import DB_PATH
 from src.ingest.import_thestatsapi_xg import (
-    BASE_DIR,
     PROVIDER,
     TheStatsApiClient,
     normalize_team,
 )
 
-DB_PATH = BASE_DIR / "data" / "premier_league.db"
 
 
 def parse_price(val: Any) -> float | None:
