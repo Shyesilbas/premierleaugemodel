@@ -18,6 +18,7 @@ jobs:
             requirements.txt
             requirements-dev.txt
       - run: pip install -r requirements-dev.txt
+      - run: ruff check .
       # The data lake and trained models are not in git, so tests marked `needs_data` are skipped here;
       # run them locally with the full data (`pytest`).
       - run: pytest -q

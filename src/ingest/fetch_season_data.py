@@ -4,7 +4,6 @@ Premier League Season Data Ingestion Pipeline (PulseLive API)
 Fetches fixtures, team match statistics, play-by-play text streams, and match details.
 """
 
-import os
 import sys
 import json
 import time

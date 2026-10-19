@@ -37,6 +37,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 
 | Dosya | Ne yapar |
 |---|---|
+| `files.py` | `atomic_write_json`: JSON'u geçici dosyaya yazıp yerine taşır (iki senkron scripti paylaşır). |
 | `fetch_season_data.py` | PulseLive API'den bir sezonun fikstürünü, maç istatistiklerini, olay akışını (stream) ve maç detaylarını indirir. Diğer ingest scriptlerinin kullandığı ortak istemci fonksiyonları burada (`build_session`, `fetch_match_details` vb.). |
 | `sync_season_data.py` | Artımlı senkronizasyon: fikstürü yeniler, **önümüzdeki 14 gün için hakem atamalarını** çeker, yeni biten veya eksik maçların verisini indirir, sonra Parquet/özellik/SQLite'ı yeniden kurar. Tekrar çalıştırmak güvenlidir. |
 | `sync_prematch_lineups.py` | Maç öncesi **resmi ilk 11'i** çeker, `data/raw/matches/*_details.json` önbelleğini günceller, özellik tablosundaki ilk 11 reytinglerini yazar ve "son maç 11'i" ile "resmi 11" tahminlerini yan yana yazdırır. `--match-id`, `--team`, `--gameweek`, `--hours-ahead` seçenekleri var. |
@@ -131,7 +132,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `test_evaluate_goal_models.py` | Gol kapıları (sabit Poisson, KG, piyasa) sentetik veriyle, piyasa marjı temizleme. |
 | `test_api_routes.py` | API rota duman testleri ve tahmin tutarlılığı (`needs_data`). |
 
-Çalıştırma: `pip install -r requirements-dev.txt && pytest` (`pytest.ini` yalnızca `tests/` toplar; `research/` hariç). Yerel veri ve modelleri okuyan testler `needs_data` işaretlidir ve veri yoksa (temiz klon, CI) otomatik atlanır. CI: `.github/workflows/ci.yml` (backend `pytest`, frontend `npm run build`).
+Çalıştırma: `pip install -r requirements-dev.txt && pytest` (`pytest.ini` yalnızca `tests/` toplar; `research/` hariç). Lint: `ruff check .` (`pyproject.toml`: sözdizimi, tanımsız ad, kullanılmayan içe aktarma, çıplak `except`; CI'da çalışır, yerelde `pre-commit install` ile commit öncesi de). Yerel veri ve modelleri okuyan testler `needs_data` işaretlidir ve veri yoksa (temiz klon, CI) otomatik atlanır. CI: `.github/workflows/ci.yml` (backend `pytest`, frontend `npm run build`).
 
 ## 10. `research/audit/` — tek seferlik adli denetimler
 

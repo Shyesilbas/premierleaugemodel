@@ -7,14 +7,13 @@ Eliminates heavy Parquet/JSON file reads on runtime requests.
 import os
 import sqlite3
 import json
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 import pandas as pd
 import logging
 
 logger = logging.getLogger("db_layer")
 
-from src.config import DATA_DIR, DB_PATH, ROOT as BASE_DIR, DEFAULT_SEASON, RAW_DIR, SEASONS
+from src.config import DATA_DIR, DB_PATH, DEFAULT_SEASON, RAW_DIR, SEASONS
 
 
 def get_db():

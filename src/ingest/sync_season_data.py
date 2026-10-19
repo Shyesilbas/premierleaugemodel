@@ -18,7 +18,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # works for `python3 src/...py` and `python -m`
-from src.config import DATA_DIR, ROOT as PROJECT_ROOT, DEFAULT_SEASON  # noqa: E402
+from src.config import DATA_DIR, DEFAULT_SEASON  # noqa: E402
+from src.ingest.files import atomic_write_json  # noqa: E402
 from src.pipeline.rebuild import rebuild_derived_data  # noqa: E402
 from src.ingest.fetch_season_data import (  # noqa: E402
     build_session,
@@ -209,11 +210,6 @@ def sync_upcoming_referees(
     return updates
 
 
-def atomic_write_json(path: Path, payload: Any) -> None:
-    temp_path = path.with_suffix(path.suffix + ".tmp")
-    with temp_path.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, ensure_ascii=False, indent=2)
-    temp_path.replace(path)
 
 
 def fetch_one(session, match_id: int, kind: str) -> bool:

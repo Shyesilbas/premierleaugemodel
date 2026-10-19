@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 
-from src.config import PROCESSED_DIR, ROOT
+from src.config import PROCESSED_DIR
 
 PLAYER_REGISTRY_PATH = PROCESSED_DIR / "players_registry.json"
 PLAYER_LOGS_PATH = PROCESSED_DIR / "player_match_logs.json"

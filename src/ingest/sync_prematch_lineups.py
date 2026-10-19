@@ -38,6 +38,7 @@ if str(PROJECT_ROOT / "src" / "ingest") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "src" / "ingest"))
 
 from src.ingest.fetch_season_data import build_session, fetch_match_details
+from src.ingest.files import atomic_write_json
 from src.analytics.player_ratings import (
     calculate_single_match_score,
     get_all_player_logs,
@@ -48,18 +49,12 @@ from src.features.build_features import _aggregate_xi_ratings, _compute_pre_matc
 from src.models.dixon_coles import align_to_outcome_probs, btts_prob, expected_goals, over_prob
 from src.models.model_utils import apply_probability_calibrator, blend_log, safe_feature_frame
 
-from src.config import DATA_DIR, DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MODELS_DIR, DEFAULT_SEASON
+from src.config import DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MODELS_DIR, DEFAULT_SEASON
 
 OUTCOME_MODEL_PATH = MODELS_DIR / "outcome_models_v1.joblib"
 GOALS_MODEL_PATH = MODELS_DIR / "goals_models_v1.joblib"
 
 
-def atomic_write_json(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    with tmp_path.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-    tmp_path.replace(path)
 
 
 def extract_team_lists(details: Dict[str, Any]) -> Dict[int, Dict[str, Any]]:

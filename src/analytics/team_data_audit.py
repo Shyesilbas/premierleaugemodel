@@ -13,11 +13,10 @@ import json
 import re
 from datetime import date
 from collections import Counter, defaultdict
-from pathlib import Path
 from typing import Any
 
 
-from src.config import MATCHES_RAW_DIR as RAW_MATCHES, REPORTS_DIR, ROOT, display_path
+from src.config import MATCHES_RAW_DIR as RAW_MATCHES, REPORTS_DIR, display_path
 
 REPORT = REPORTS_DIR / "team_tactical_data_audit.md"
 

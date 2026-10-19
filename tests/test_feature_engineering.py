@@ -1,15 +1,9 @@
 import unittest
 import pandas as pd
-import numpy as np
 
 from src.features.build_features import (
     _run_strength,
-    _team_strength,
     add_interaction_features,
-    fill_feature_priors,
-    build_prediction_row,
-    compute_team_states,
-    build_team_match_history,
 )
 
 

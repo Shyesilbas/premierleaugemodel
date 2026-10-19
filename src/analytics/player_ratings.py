@@ -11,12 +11,11 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("player_ratings")
 
-from src.config import DATA_DIR, MATCHES_RAW_DIR, PROCESSED_DIR, ROOT, DEFAULT_SEASON
+from src.config import MATCHES_RAW_DIR, PROCESSED_DIR, DEFAULT_SEASON
 
 # Global module caches
 _bookings_cache: Optional[Dict[int, Dict[int, Dict[str, int]]]] = None

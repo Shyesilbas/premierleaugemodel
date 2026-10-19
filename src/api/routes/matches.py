@@ -811,11 +811,11 @@ def get_match_full_details(match_id: int):
             parts = m.split("+")
             try:
                 return (float(parts[0]) + float(parts[1]) * 0.01, prio)
-            except:
+            except (ValueError, TypeError):
                 pass
         try:
             return (float(m), prio)
-        except:
+        except (ValueError, TypeError):
             return (0.0, prio)
 
     key_timeline.sort(key=parse_minute_sort)

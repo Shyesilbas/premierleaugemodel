@@ -11,7 +11,7 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import joblib
 import numpy as np
@@ -22,7 +22,7 @@ from src.models.model_utils import blend_log, apply_probability_calibrator
 
 logger = logging.getLogger(__name__)
 
-from src.config import DATA_DIR, DB_PATH, MODELS_DIR, PROCESSED_DIR, ROOT as BASE_DIR, DEFAULT_SEASON
+from src.config import DATA_DIR, DB_PATH, MODELS_DIR, PROCESSED_DIR, DEFAULT_SEASON
 
 SUMMARY_JSON = PROCESSED_DIR / "model_audit_summary.json"
 

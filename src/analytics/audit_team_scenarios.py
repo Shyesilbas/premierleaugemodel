@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import date
-from pathlib import Path
 
 from src.analytics.team_scenarios import load_team_match_scenarios
 from src.analytics.team_tactics import load_team_match_rows
 
 
-from src.config import REPORTS_DIR, ROOT, display_path
+from src.config import REPORTS_DIR, display_path
 
 REPORT = REPORTS_DIR / "team_scenario_validation.md"
 

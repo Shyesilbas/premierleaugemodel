@@ -10,11 +10,10 @@ import json
 import re
 from collections import defaultdict
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 
-from src.config import MATCHES_RAW_DIR as RAW_MATCHES, ROOT
+from src.config import MATCHES_RAW_DIR as RAW_MATCHES
 
 TACTICAL_METRICS = {
     "possession": {

@@ -1,0 +1,14 @@
+[tool.ruff]
+target-version = "py312"
+extend-exclude = ["research", "frontend", "data", "models"]
+
+[tool.ruff.lint]
+# Rules that catch real bugs and dead imports. Style rules stay off until the code base is clean enough to enforce them.
+select = [
+    "E9",    # syntax errors
+    "F63",   # invalid comparisons and assertions
+    "F7",    # misplaced return, yield, break
+    "F82",   # undefined names
+    "F401",  # unused imports
+    "E722",  # bare except
+]

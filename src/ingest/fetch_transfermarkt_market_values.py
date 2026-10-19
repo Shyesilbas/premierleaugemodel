@@ -19,7 +19,7 @@ logger = logging.getLogger("fetch_tm_market_values")
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
-from src.config import DATA_DIR, DB_PATH, PROCESSED_DIR, ROOT as BASE_DIR, configure_logging  # noqa: E402
+from src.config import DB_PATH, PROCESSED_DIR, configure_logging  # noqa: E402
 
 JSON_OUT_PATH = PROCESSED_DIR / "market_values_2026_27.json"
 

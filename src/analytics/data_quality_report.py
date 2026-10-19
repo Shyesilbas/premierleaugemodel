@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import json
 from datetime import date
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 
-from src.config import PROCESSED_DIR as PROCESSED, RAW_DIR as RAW, REPORTS_DIR, ROOT, display_path
+from src.config import PROCESSED_DIR as PROCESSED, RAW_DIR as RAW, REPORTS_DIR, display_path
 
 REPORT = REPORTS_DIR / "data_quality.md"
 

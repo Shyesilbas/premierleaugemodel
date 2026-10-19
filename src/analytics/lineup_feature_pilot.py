@@ -9,7 +9,6 @@ It does not label missing players as injured or suspended.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -30,7 +29,7 @@ from src.models.train_match_outcome import (
 )
 
 
-from src.config import FEATURES_PATH, MATCHES_RAW_DIR as DETAILS_DIR, REPORTS_DIR, ROOT
+from src.config import FEATURES_PATH, MATCHES_RAW_DIR as DETAILS_DIR, REPORTS_DIR
 
 OUTPUT_PATH = REPORTS_DIR / "1x2_lineup_feature_pilot.md"
 LABELS = [0, 1, 2]

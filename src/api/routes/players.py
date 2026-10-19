@@ -3,7 +3,6 @@
 import json
 import logging
 import sqlite3
-import urllib.request
 from fastapi import HTTPException
 from src.analytics.player_ratings import calculate_single_match_score, get_match_bookings_map, get_player_dynamic_rating
 from src.config import DATA_DIR

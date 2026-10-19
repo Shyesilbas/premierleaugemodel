@@ -24,7 +24,7 @@ from urllib.request import Request, urlopen
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
-from src.config import DB_PATH, ROOT as BASE_DIR, DEFAULT_SEASON  # noqa: E402
+from src.config import DB_PATH, DEFAULT_SEASON  # noqa: E402
 
 API_BASE = "https://api.thestatsapi.com/api"
 PROVIDER = "TheStatsAPI"

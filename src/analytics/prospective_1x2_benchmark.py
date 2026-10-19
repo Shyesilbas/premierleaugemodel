@@ -24,7 +24,7 @@ from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, roc_auc_
 from src.models.eval_utils import multiclass_report
 
 
-from src.config import FEATURES_PATH, MATCHES_SUMMARY_PATH as MATCHES_PATH, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR, ROOT as PROJECT_ROOT, display_path
+from src.config import FEATURES_PATH, MATCHES_SUMMARY_PATH as MATCHES_PATH, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR, display_path
 
 MODEL_PATH = MODELS_DIR / "outcome_models_v1.joblib"
 GOALS_MODEL_PATH = MODELS_DIR / "goals_models_v1.joblib"

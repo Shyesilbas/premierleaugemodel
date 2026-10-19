@@ -1,5 +1,5 @@
 import unittest
-from src.analytics.team_tactics import TACTICAL_METRICS, get_team_tactical_profile, load_team_match_rows
+from src.analytics.team_tactics import TACTICAL_METRICS, get_team_tactical_profile
 
 import pytest
 

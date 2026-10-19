@@ -7,13 +7,12 @@ import re
 import unicodedata
 from collections import Counter, defaultdict
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 from src.analytics.team_tactics import normalize_season
 
 
-from src.config import MATCHES_RAW_DIR as RAW_MATCHES, ROOT
+from src.config import MATCHES_RAW_DIR as RAW_MATCHES
 SCORING_TYPES = {"goal", "penalty goal", "own goal"}
 SHOT_TYPES = {
     "goal",
