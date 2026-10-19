@@ -2,15 +2,18 @@
 """Rebuild processed data, train all prediction families, and refresh reports.
 
 This pipeline uses the existing local raw-data cache; it does not contact the provider.
+Run everything with ``python3 run_full_pipeline.py`` or pick stages, for example
+``python3 run_full_pipeline.py --only goals`` or ``--skip rebuild,audits``.
 """
 
+import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 from src.db.database import get_db
 
-from src.processing.process_season_data import main as run_processing
-from src.features.build_features import build_feature_dataset
+from src.pipeline.rebuild import rebuild_derived_data
 from src.models.train_corners import train_corners_model
 from src.models.train_throws import train_throws_model
 from src.models.train_saves import train_saves_model
@@ -22,7 +25,7 @@ from src.models.train_goals import train_goals_models
 from src.analytics.data_quality_report import main as run_data_quality_report
 from src.analytics.team_data_audit import main as run_team_data_audit
 from src.analytics.audit_team_scenarios import main as run_team_scenario_audit
-from src.config import FEATURES_PATH, MATCHES_SUMMARY_PATH, PROCESSED_DIR, RAW_DIR, REPORTS_DIR
+from src.config import PROCESSED_DIR, RAW_DIR, REPORTS_DIR
 
 logging.basicConfig(
     level=logging.INFO,
@@ -379,43 +382,78 @@ def generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offs
     logger.info("Model benchmark report written to %s", output_path)
 
 
-def main():
-    logger.info("=== Starting Master Pipeline Execution ===")
+STAGES = ("rebuild", "audits", "counts", "outcome", "goals")
 
-    # Step 1: Processing & Audit
-    logger.info("--- Running Phase 2: Processing & Audit ---")
-    run_processing()
 
-    # Step 2: Feature Engineering
-    logger.info("--- Running Phase 3: Feature Engineering ---")
-    matches_parquet = MATCHES_SUMMARY_PATH
-    features_parquet = FEATURES_PATH
-    build_feature_dataset(matches_parquet, features_parquet)
+def select_stages(only: str | None = None, skip: str | None = None) -> list[str]:
+    """Return the stages to run, in pipeline order."""
+    split = lambda text: [part.strip() for part in (text or "").split(",") if part.strip()]
+    chosen, skipped = split(only) or list(STAGES), set(split(skip))
+    unknown = (set(chosen) | skipped) - set(STAGES)
+    if unknown:
+        raise ValueError(f"Unknown stage(s) {sorted(unknown)}; choose from {list(STAGES)}")
+    return [stage for stage in STAGES if stage in chosen and stage not in skipped]
 
-    logger.info("--- Refreshing current data and event audits ---")
-    run_data_quality_report()
-    run_team_data_audit()
-    run_team_scenario_audit()
 
-    # Step 3: Model Training
-    logger.info("--- Running Phase 4: Model Training ---")
-    corner_res = train_corners_model()
-    throws_res = train_throws_model()
-    saves_res = train_saves_model()
-    cards_res = train_cards_model()
-    offsides_res = train_offsides_model()
-    outcome_res = train_match_outcome_models()
-    logger.info("--- Evaluating and training the production goal-matrix model ---")
-    evaluate_goal_model_candidates()
-    train_goals_models()
+def run_pipeline(stages: list[str]) -> None:
+    logger.info("=== Starting Master Pipeline Execution: %s ===", ", ".join(stages))
+    results: dict[str, dict] = {}
 
-    # Step 4: Benchmark Report
-    bench_report = REPORTS_DIR / "model_benchmarks.md"
-    bench_report.parent.mkdir(parents=True, exist_ok=True)
-    generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offsides_res, outcome_res, bench_report)
+    if "rebuild" in stages:
+        # process -> player index -> features -> database, the same chain the cron sync runs
+        rebuild_derived_data()
 
+    if "audits" in stages:
+        logger.info("--- Refreshing current data and event audits ---")
+        run_data_quality_report()
+        run_team_data_audit()
+        run_team_scenario_audit()
+
+    if "counts" in stages:
+        logger.info("--- Training count models ---")
+        results["corner"] = train_corners_model()
+        results["throws"] = train_throws_model()
+        results["saves"] = train_saves_model()
+        results["cards"] = train_cards_model()
+        results["offsides"] = train_offsides_model()
+
+    if "outcome" in stages:
+        logger.info("--- Training the 1X2 model ---")
+        results["outcome"] = train_match_outcome_models()
+
+    if "goals" in stages:
+        logger.info("--- Evaluating and training the production goal-matrix model ---")
+        evaluate_goal_model_candidates()
+        train_goals_models()
+
+    if {"counts", "outcome"} <= set(stages):
+        bench_report = REPORTS_DIR / "model_benchmarks.md"
+        bench_report.parent.mkdir(parents=True, exist_ok=True)
+        generate_benchmark_report(
+            results["corner"], results["throws"], results["saves"], results["cards"],
+            results["offsides"], results["outcome"], bench_report,
+        )
+    else:
+        logger.info("Benchmark report skipped: it needs both the counts and outcome stages")
     logger.info("=== Master Pipeline Complete! ===")
 
 
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--only", help=f"comma-separated stages to run; choose from {', '.join(STAGES)}")
+    parser.add_argument("--skip", help="comma-separated stages to leave out")
+    args = parser.parse_args(argv)
+    try:
+        stages = select_stages(args.only, args.skip)
+    except ValueError as exc:
+        parser.error(str(exc))
+    try:
+        run_pipeline(stages)
+    except Exception:
+        logger.exception("Pipeline stopped on an error; data and models may be partially updated")
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

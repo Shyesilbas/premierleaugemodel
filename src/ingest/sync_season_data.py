@@ -10,7 +10,6 @@ import argparse
 import json
 import logging
 import re
-import subprocess
 import sys
 import time
 import unicodedata
@@ -20,6 +19,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # works for `python3 src/...py` and `python -m`
 from src.config import DATA_DIR, ROOT as PROJECT_ROOT  # noqa: E402
+from src.pipeline.rebuild import rebuild_derived_data  # noqa: E402
 from src.ingest.fetch_season_data import (  # noqa: E402
     build_session,
     fetch_fixtures,
@@ -233,18 +233,6 @@ def fetch_one(session, match_id: int, kind: str) -> bool:
     except Exception:
         logger.exception("Could not fetch %s for match %s", kind, match_id)
         return False
-
-
-def rebuild_derived_data() -> None:
-    commands = [
-        [sys.executable, "-m", "src.processing.process_season_data", "--season-name", "all"],
-        [sys.executable, "-m", "src.processing.build_player_index"],
-        [sys.executable, "-m", "src.features.build_features"],
-        [sys.executable, "-m", "src.db.database"],
-    ]
-    for command in commands:
-        logger.info("Running: %s", " ".join(command))
-        subprocess.run(command, cwd=PROJECT_ROOT, check=True)
 
 
 def sync_season(

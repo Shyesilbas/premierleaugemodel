@@ -21,7 +21,13 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 |---|---|
 | `start.py` | Backend (uvicorn, `:8000`, `--reload`) ve frontend'i (Vite, `:5173`) birlikte başlatır, Ctrl+C ile ikisini kapatır. Başlamadan önce portları boşaltır. |
 | `start.sh` | `start.py`'nin bash karşılığı, aynı işi yapar. |
-| `run_full_pipeline.py` | Ana pipeline: ham önbellekten işlenmiş veriyi yeniden kurar, tüm modelleri eğitir (köşe, atış, kurtarış, kart, ofsayt, 1X2, gol), kalite ve denetim raporlarını `docs/reports/` altına yazar. Sağlayıcıya bağlanmaz, yalnızca yerel `data/raw` kullanır. |
+| `run_full_pipeline.py` | Ana pipeline, **aşamalı**: `rebuild` (işleme → oyuncu dizini → özellikler → veritabanı), `audits`, `counts` (köşe, atış, kurtarış, kart, ofsayt), `outcome` (1X2), `goals` (değerlendirme + eğitim). `--only goals`, `--skip rebuild,audits`; geçersiz aşama çıkış 2, hatada çıkış 1. Sağlayıcıya bağlanmaz. |
+
+## 1b. `src/pipeline/`
+
+| Dosya | Ne yapar |
+|---|---|
+| `rebuild.py` | **Tek yeniden-kur zinciri**: `process → player_index → features → database`, her adım ayrı süreçte. `sync_season_data` (cron, 30 dk) ve `run_full_pipeline` (haftalık) aynı `rebuild_derived_data()` fonksiyonunu çağırır; ilk hatada durur ve adı `RebuildError` içinde söyler. `PLM_DATA_DIR` alt süreçlere geçer. |
 
 ## 2. `src/ingest/` — veri çekme
 
