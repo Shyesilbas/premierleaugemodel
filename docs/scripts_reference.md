@@ -70,6 +70,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `team_tactics.py` | Ham maç istatistiklerinden takım taktik profili (API tarafından kullanılır). |
 | `team_attackers.py` | Takımın sezon hücum liderleri (oyuncu kayıtları ve şut olaylarından). |
 | `player_ratings.py` | 0-10 oyuncu reytingi (genel, hücum, savunma, kart riski): son 5 maç EWMA %70 + sezon tabanı %30. Tahmini ve resmi ilk 11 toplulaştırması. |
+| `pipeline_health.py` | **Sağlık kontrolü** (yalnızca okur): sezon başına xG ve oran kapsamı, eksik ham dosyalar, özellik/veritabanı uyumsuzluğu, bayat model dosyaları. `python3 -m src.analytics.pipeline_health [--strict] [--json]`; FAIL varsa çıkış kodu 1. |
 | `lineup_feature_pilot.py` | İlk 11 sürekliliği özelliği 1X2'ye sinyal katıyor mu, üretimi değiştirmeden dener. |
 
 ## 8. `src/api/`

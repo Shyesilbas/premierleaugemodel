@@ -184,7 +184,7 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 | # | Önem | Bulgu | Kanıt |
 |---|:-:|---|---|
 | **B1** | Y | **İki farklı "yeniden kur" zinciri.** Haftalık `run_full_pipeline` oyuncu dizinini ve SQLite'ı yeniden kurmaz, 30 dakikalık sync kurar ama model eğitmez. Hangisinin sonra çalıştığına göre veri/ model tutarsızlığı oluşabilir. | §3 tablosu; `sync_season_data.py:239–248`; `run_full_pipeline.py:381–409` |
-| **B2** | Y | **xG/oran içe aktarma cron'da yok; xG varsayılanı 6. haftada kesiyor.** 2026/27'de 69 oynanmış maçın 60'ında xG var, 7. hafta xG'siz. Eksik xG'nin özelliklere etkisi **doğrulanmadı**: `attach_statsapi_xg` sol birleştirme yapar (eksik → NaN); ama 2021/22 sandbox denemesinde xG hiç olmadığı hâlde `xg_ewma` sütunlarında NaN çıkmadı, yani özellik hattında bir yerde dolduruluyor ve nasıl dolduğu incelenmedi. | SQL: oynanan 69, xG 60, eksik hafta {7}; `import_thestatsapi_xg.py --max-gameweek 6`; `crontab` |
+| **B2** | Y | *(tespit artık otomatik: `pipeline_health`)* **xG/oran içe aktarma cron'da yok; xG varsayılanı 6. haftada kesiyor.** 2026/27'de 69 oynanmış maçın 60'ında xG var, 7. hafta xG'siz. Eksik xG'nin özelliklere etkisi **doğrulanmadı**: `attach_statsapi_xg` sol birleştirme yapar (eksik → NaN); ama 2021/22 sandbox denemesinde xG hiç olmadığı hâlde `xg_ewma` sütunlarında NaN çıkmadı, yani özellik hattında bir yerde dolduruluyor ve nasıl dolduğu incelenmedi. | SQL: oynanan 69, xG 60, eksik hafta {7}; `import_thestatsapi_xg.py --max-gameweek 6`; `crontab` |
 | **B3** | Y | **`server.py` monolit.** 3.503 satır, tek işleyicide 819 satır, modül düzeyi veri yükleme (ilk API isteği dahil ~28 sn), 8+ global önbellek. Test, bakım ve çoklu işlem ölçeklemesi zor. | AST fonksiyon uzunlukları; API testinde "Loading cached datasets" ile ilk yanıt arası ~28 sn |
 | **B4** | Y | **Test/CI/lint boşluğu.** `pytest` ve `pytest.ini` yok, CI yok, lint yok. Testsiz kritik modüller: `evaluate_goal_models` (yeni kapılar), `database`, `process_season_data`, `sync_*`, `train_*` sayım modelleri, `player_ratings`, `model_audit`, API rotaları. | `requirements.txt`; `ls -a`; test–modül eşlemesi |
 | **B5** | O | **Yapılandırma dağınık.** Yollar, `2026_27`, DB yolu, loglama her dosyada ayrı; yeni sezon eklemek 15 dosyada düzenleme gerektirir. `process_season_data`, `database`, `import_thestatsapi_xg` izole dizinde çalıştırılamaz (`--data-dir` yok). | §5 sayıları; 2021/22 deneyinde repoyu kopyalamak gerekti |
@@ -192,7 +192,7 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 | **B7** | O | **`audit/` ve `scratch/` depoda (~4.200 satır).** `test_*` adları `pytest` toplamasıyla çakışıyor (içe aktarmada HTTP isteği, `server` yüklemesi). `scratch` tek seferlik ve 2026/27 öncesi sayılara bağlı. | `audit/test_draw_recalibration.py:9–10`; `scratch/*` |
 | **B8** | O | **Yönetim ucu ve CORS.** `/api/admin/*` kimlik doğrulamasız, `allow_origins=["*"]`. Sunucuda `127.0.0.1` + Caddy + Tailscale ile azaltılmış, ama kodda koruma yok. 14 Ekim denetimi de aynısını işaretlemişti; hâlâ açık. | `server.py:70, 520–546`; `deploy/Caddyfile` |
 | **B9** | O | **`start.py`/`start.sh` portu kullanan her süreci `kill -9` yapar** ve aynı işi iki dosya yapıyor. | `start.py:22–26`, `start.sh:39–42` |
-| **B10** | O | **Hata sinyali yok.** `fetch_season_data` hataları sayar ama çıkış kodu 0; `import_thestatsapi_xg` xG'siz yanıtı yutar; `job.sh` her zaman 0 döner ve yalnızca bir log dosyası yazar. Cron'dan hata görünmez. | Bu oturumdaki 2021/22 çekimi: "Errors encountered: 1", çıkış 0 |
+| **B10** | O | ✅ **ÇÖZÜLDÜ (H3, 19 Ekim 2026)** — **Hata sinyali yok.** `fetch_season_data` hataları sayar ama çıkış kodu 0; `import_thestatsapi_xg` xG'siz yanıtı yutar; `job.sh` her zaman 0 döner ve yalnızca bir log dosyası yazar. Cron'dan hata görünmez. | Bu oturumdaki 2021/22 çekimi: "Errors encountered: 1", çıkış 0 |
 | **B11** | O | ✅ **ÇÖZÜLDÜ (19 Ekim 2026, `e25aa20`)** — **Repo hijyeni.** 12 MB `.db`, 15 MB `player_match_logs.json`, parquet'ler ve `models/backup/` git'te; çalışma ağacı sürekli kirli, commit'ler şişiyor. | `git ls-files` boyutları; `git status` |
 | **B12** | D | **Tekrarlanan yardımcılar:** `atomic_write_json` (2 kopya), `evaluate_season_holdouts` (`model_utils` ve `train_match_outcome`, farklı imza), `build_report` (3 analytics modülü, ayrı mantık), `run_pipeline` (2 ingest). | AST ad çakışmaları |
 | **B13** | D | **Kod stili:** 26 çıplak/geniş `except`, 63 `print` / 129 `logger`, 4 dosyada `sys.path` hack'i. | grep sayımları |
@@ -217,7 +217,7 @@ Sıra: önce hata sinyali ve veri tutarlılığı, sonra test ve yapılandırma,
 |---|---|---|---|
 | H1 | **xG ve oran içe aktarmayı cron'a ekle**, `--max-gameweek` varsayılanını sezonun mevcut haftasına bağla (veya kaldır). | B2 | Önce mevcut 7. hafta boşluğunu elle kapat |
 | H2 | **`pytest` ekle:** `requirements-dev.txt`, `pytest.ini` (`testpaths = tests`), `audit/` ve `scratch/`'i toplamadan hariç tut. | B4, B7 | Tek komutla çalışır olsun |
-| H3 | **Hata sinyali:** `fetch_season_data` hata varsa çıkış kodu ≠ 0; xG importer eksik xG sayısını özetle ve bayrakla; `job.sh` hatada `exit 1`. | B10 | |
+| H3 | ✅ **YAPILDI** — **Hata sinyali:** `fetch_season_data` hata varsa çıkış kodu ≠ 0; xG importer eksik xG sayısını özetle ve bayrakla; `job.sh` hatada `exit 1`. | B10 | |
 | H4 | **`audit/` ve `scratch/` → `research/`** (veya silip git geçmişinde bırak); `test_*` adlarını kaldır. | B7 | `docs/scripts_reference.md` güncelle |
 | H5 | **Admin uçlarına ortam değişkeninden jeton** + CORS'u izinli kökenlerle sınırla. | B8 | Mevcut ağ korumasıyla birlikte |
 | H6 | `start.py`'yi tek başlatıcı yap, `start.sh`'yi sil veya `start.py`'yi çağıran 3 satıra indir; portu öldürmeden önce onay iste. | B9 | |
@@ -253,3 +253,10 @@ Sıra: önce hata sinyali ve veri tutarlılığı, sonra test ve yapılandırma,
 ## 9. Bu raporun dışında kalanlar
 
 Frontend kodu (`frontend/src`), `docs/reports/*` içindeki otomatik raporların içeriği, modellerin istatistiksel sonuçları (bkz. `GOAL_MODELS_ANALYSIS.md` ve model raporları), dış servislerin kullanım koşulları.
+
+## 10. Uygulama günlüğü
+
+| Tarih | Madde | Yapılan | Doğrulama |
+|---|---|---|---|
+| 19 Ekim 2026 | **H3** hata sinyali | `fetch_season_data` hatada çıkış 1; `import_thestatsapi_xg` xG'siz maç/eşleşmeyen fikstürde çıkış 1; `deploy/job.sh` iş çıkış kodunu döndürür ve `failures.log`'a yazar | `test_fetch_season_data_exits_nonzero_when_any_match_failed`; `bash -n` |
+| 19 Ekim 2026 | **Yeni script** `src/analytics/pipeline_health.py` | Veri/model sağlık kontrolü, 4 testle | Gerçek veride 1 FAIL buldu: `93656_details.json` eksikti (Luton–Brentford 2023/24); indirildi, FAIL kalmadı. Kalan uyarı: 2026/27 7. hafta xG'si (9 maç) |

@@ -6,6 +6,8 @@ name=$1; shift
 mkdir -p logs
 stamp() { stat -c %Y data/premier_league.db data/processed/features_matches_all.parquet 2>/dev/null; }
 before=$(stamp)
-flock -w 600 /tmp/plm.lock "$@" >> "logs/$name.log" 2>&1 || echo "$(date -u +%FT%TZ) $name FAILED" >> logs/failures.log
+flock -w 600 /tmp/plm.lock "$@" >> "logs/$name.log" 2>&1
+rc=$?
+[ "$rc" -ne 0 ] && echo "$(date -u +%FT%TZ) $name FAILED (exit $rc)" >> logs/failures.log
 [ "$before" != "$(stamp)" ] && systemctl restart plm-api
-exit 0
+exit "$rc"

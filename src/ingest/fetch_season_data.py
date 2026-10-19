@@ -288,7 +288,7 @@ def main():
 
     args = parser.parse_args()
 
-    run_pipeline(
+    summary = run_pipeline(
         season_id=args.season,
         season_name=args.season_name,
         comps=args.comps,
@@ -298,6 +298,10 @@ def main():
         force=args.force,
         workers=args.workers,
     )
+    if summary["errors_count"]:
+        # Cron and shell callers only see the exit code; a partial season must not look like success.
+        logger.error("%d matches failed: %s", summary["errors_count"], [e["match_id"] for e in summary["errors"]])
+        sys.exit(1)
 
 
 if __name__ == "__main__":

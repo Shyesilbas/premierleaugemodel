@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import time
 import unicodedata
 from datetime import datetime, timezone
@@ -253,7 +254,16 @@ def main() -> None:
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be positive")
-    print(json.dumps(import_season(args), sort_keys=True))
+    counts = import_season(args)
+    print(json.dumps(counts, sort_keys=True))
+    if counts["stats_missing_xg"] or counts["unmatched"]:
+        # Provider flagged xG as available but did not deliver it, or a fixture has no local match.
+        print(
+            f"WARNING: {counts['stats_missing_xg']} matches without xG values, "
+            f"{counts['unmatched']} unmatched fixtures.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":
