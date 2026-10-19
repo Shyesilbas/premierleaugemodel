@@ -218,10 +218,10 @@ def run_extraction():
         "feature_coefficients": coef_list,
     }
     
-    with open("scratch/goal_model_comprehensive_metrics.json", "w") as f:
+    with open("research/scratch/goal_model_comprehensive_metrics.json", "w") as f:
         json.dump(dump, f, indent=2)
         
-    print("Metrics extraction completed successfully! Saved to scratch/goal_model_comprehensive_metrics.json")
+    print("Metrics extraction completed successfully! Saved to research/scratch/goal_model_comprehensive_metrics.json")
     print(json.dumps(metrics, indent=2))
     print("Goal metrics:", json.dumps(goal_metrics, indent=2))
     print("Season summary:", json.dumps(seasons_summary, indent=2))

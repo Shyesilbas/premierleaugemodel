@@ -189,7 +189,7 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 | **B4** | Y | **Test/CI/lint boşluğu.** `pytest` ve `pytest.ini` yok, CI yok, lint yok. Testsiz kritik modüller: `evaluate_goal_models` (yeni kapılar), `database`, `process_season_data`, `sync_*`, `train_*` sayım modelleri, `player_ratings`, `model_audit`, API rotaları. | `requirements.txt`; `ls -a`; test–modül eşlemesi |
 | **B5** | O | **Yapılandırma dağınık.** Yollar, `2026_27`, DB yolu, loglama her dosyada ayrı; yeni sezon eklemek 15 dosyada düzenleme gerektirir. `process_season_data`, `database`, `import_thestatsapi_xg` izole dizinde çalıştırılamaz (`--data-dir` yok). | §5 sayıları; 2021/22 deneyinde repoyu kopyalamak gerekti |
 | **B6** | O | **`train_*` sayım modelleri kopya-yapıştır.** 5 dosya × ~170 satır, ikili satır benzerliği %42–58. Kapı ve rapor mantığı beş yerde ayrı bakım istiyor. | Jaccard ölçümü (cards–corners 0.45 … saves–throws 0.58) |
-| **B7** | O | **`audit/` ve `scratch/` depoda (~4.200 satır).** `test_*` adları `pytest` toplamasıyla çakışıyor (içe aktarmada HTTP isteği, `server` yüklemesi). `scratch` tek seferlik ve 2026/27 öncesi sayılara bağlı. | `audit/test_draw_recalibration.py:9–10`; `scratch/*` |
+| **B7** | O | ✅ **ÇÖZÜLDÜ (H4, 19 Ekim 2026)** — **`audit/` ve `scratch/` depoda (~4.200 satır).** `test_*` adları `pytest` toplamasıyla çakışıyor (içe aktarmada HTTP isteği, `server` yüklemesi). `scratch` tek seferlik ve 2026/27 öncesi sayılara bağlı. | `audit/test_draw_recalibration.py:9–10`; `scratch/*` |
 | **B8** | O | **Yönetim ucu ve CORS.** `/api/admin/*` kimlik doğrulamasız, `allow_origins=["*"]`. Sunucuda `127.0.0.1` + Caddy + Tailscale ile azaltılmış, ama kodda koruma yok. 14 Ekim denetimi de aynısını işaretlemişti; hâlâ açık. | `server.py:70, 520–546`; `deploy/Caddyfile` |
 | **B9** | O | **`start.py`/`start.sh` portu kullanan her süreci `kill -9` yapar** ve aynı işi iki dosya yapıyor. | `start.py:22–26`, `start.sh:39–42` |
 | **B10** | O | ✅ **ÇÖZÜLDÜ (H3, 19 Ekim 2026)** — **Hata sinyali yok.** `fetch_season_data` hataları sayar ama çıkış kodu 0; `import_thestatsapi_xg` xG'siz yanıtı yutar; `job.sh` her zaman 0 döner ve yalnızca bir log dosyası yazar. Cron'dan hata görünmez. | Bu oturumdaki 2021/22 çekimi: "Errors encountered: 1", çıkış 0 |
@@ -216,9 +216,9 @@ Sıra: önce hata sinyali ve veri tutarlılığı, sonra test ve yapılandırma,
 | # | Öneri | Çözdüğü | Not |
 |---|---|---|---|
 | H1 | **xG ve oran içe aktarmayı cron'a ekle**, `--max-gameweek` varsayılanını sezonun mevcut haftasına bağla (veya kaldır). | B2 | Önce mevcut 7. hafta boşluğunu elle kapat |
-| H2 | **`pytest` ekle:** `requirements-dev.txt`, `pytest.ini` (`testpaths = tests`), `audit/` ve `scratch/`'i toplamadan hariç tut. | B4, B7 | Tek komutla çalışır olsun |
+| H2 | ✅ **YAPILDI** — **`pytest` ekle:** `requirements-dev.txt`, `pytest.ini` (`testpaths = tests`), `audit/` ve `scratch/`'i toplamadan hariç tut. | B4, B7 | Tek komutla çalışır olsun |
 | H3 | ✅ **YAPILDI** — **Hata sinyali:** `fetch_season_data` hata varsa çıkış kodu ≠ 0; xG importer eksik xG sayısını özetle ve bayrakla; `job.sh` hatada `exit 1`. | B10 | |
-| H4 | **`audit/` ve `scratch/` → `research/`** (veya silip git geçmişinde bırak); `test_*` adlarını kaldır. | B7 | `docs/scripts_reference.md` güncelle |
+| H4 | ✅ **YAPILDI** — **`audit/` ve `scratch/` → `research/`** (veya silip git geçmişinde bırak); `test_*` adlarını kaldır. | B7 | `docs/scripts_reference.md` güncelle |
 | H5 | **Admin uçlarına ortam değişkeninden jeton** + CORS'u izinli kökenlerle sınırla. | B8 | Mevcut ağ korumasıyla birlikte |
 | H6 | `start.py`'yi tek başlatıcı yap, `start.sh`'yi sil veya `start.py`'yi çağıran 3 satıra indir; portu öldürmeden önce onay iste. | B9 | |
 
@@ -260,3 +260,5 @@ Frontend kodu (`frontend/src`), `docs/reports/*` içindeki otomatik raporların 
 |---|---|---|---|
 | 19 Ekim 2026 | **H3** hata sinyali | `fetch_season_data` hatada çıkış 1; `import_thestatsapi_xg` xG'siz maç/eşleşmeyen fikstürde çıkış 1; `deploy/job.sh` iş çıkış kodunu döndürür ve `failures.log`'a yazar | `test_fetch_season_data_exits_nonzero_when_any_match_failed`; `bash -n` |
 | 19 Ekim 2026 | **Yeni script** `src/analytics/pipeline_health.py` | Veri/model sağlık kontrolü, 4 testle | Gerçek veride 1 FAIL buldu: `93656_details.json` eksikti (Luton–Brentford 2023/24); indirildi, FAIL kalmadı. Kalan uyarı: 2026/27 7. hafta xG'si (9 maç) |
+| 19 Ekim 2026 | **H2** pytest | `requirements-dev.txt` (pytest 8.3.4) ve `pytest.ini` (`testpaths = tests`, `research/` hariç) | Kökten `pytest -q`: **31 test geçti** (48 sn), `research/` toplanmadı |
+| 19 Ekim 2026 | **H4** research | `audit/` ve `scratch/` → `research/audit`, `research/scratch` (`git mv`, geçmiş korunur); `test_` önekleri kaldırıldı; `research/README.md` eklendi | Taşınan scriptlerin derlenmesi; `extract_all_goal_metrics.py` yolu güncellendi |

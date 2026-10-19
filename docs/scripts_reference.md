@@ -93,22 +93,25 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `test_eval_utils.py` | Bootstrap. |
 | `test_inference_logic.py` | Çıkarım mantığı ve ev/deplasman payı. |
 | `test_team_tactics.py` | Takım taktik özetleri. |
+| `test_pipeline_health.py` | Sağlık kontrolü (xG boşluğu, eksik ham dosya) ve `fetch_season_data` çıkış kodu. |
 
-## 10. `audit/` — tek seferlik adli denetimler
+Çalıştırma: `pip install -r requirements-dev.txt && pytest` (`pytest.ini` yalnızca `tests/` toplar; `research/` hariç).
 
-Doğrulama amaçlı scriptler; pipeline'a bağlı değil, elle çalıştırılır.
+## 10. `research/audit/` — tek seferlik adli denetimler
+
+Doğrulama amaçlı scriptler; pipeline'a bağlı değil, elle çalıştırılır. Ayrıntı ve uyarılar: [`research/README.md`](../research/README.md).
 
 | Dosya | Konu |
 |---|---|
-| `test_investigation_1.py` | Yuvarlanan özelliklerde takım izolasyonu, shift gecikmesi, aynı anda başlayan maçlar. |
-| `test_investigation_2.py` | Veritabanı sayıları, bölmeler ve holdout yeniden kurulumu. |
-| `test_investigation_3.py` | Üretim modellerinin kayıtlı metriklerini yeniden hesaplama. |
-| `test_investigation_4.py` | Çıkarım yolu: lojistik, Dixon-Coles ve harman karşılaştırması. |
-| `test_investigation_5.py` | Olasılık aksiyomları, monotonluk, BTTS ve skor matrisi tutarlılığı. |
-| `test_investigation_6.py` | Kalibrasyon ve hafta bloklu bootstrap belirsizliği. |
-| `test_draw_calibration.py`, `test_draw_recalibration.py`, `test_tune_blend.py` | Beraberlik kalibrasyonu ve harman ağırlığı denemeleri (birkaç somut maç üzerinde). |
+| `investigation_1.py` | Yuvarlanan özelliklerde takım izolasyonu, shift gecikmesi, aynı anda başlayan maçlar. |
+| `investigation_2.py` | Veritabanı sayıları, bölmeler ve holdout yeniden kurulumu. |
+| `investigation_3.py` | Üretim modellerinin kayıtlı metriklerini yeniden hesaplama. |
+| `investigation_4.py` | Çıkarım yolu: lojistik, Dixon-Coles ve harman karşılaştırması. |
+| `investigation_5.py` | Olasılık aksiyomları, monotonluk, BTTS ve skor matrisi tutarlılığı. |
+| `investigation_6.py` | Kalibrasyon ve hafta bloklu bootstrap belirsizliği. |
+| `draw_calibration.py`, `draw_recalibration.py`, `tune_blend.py` | Beraberlik kalibrasyonu ve harman ağırlığı denemeleri (birkaç somut maç üzerinde). |
 
-## 11. `scratch/` — araştırma ve deney scriptleri
+## 11. `research/scratch/` — araştırma ve deney scriptleri
 
 Tek seferlik analizler; üretim pipeline'ında kullanılmaz. Çoğu 1.200 maçlık holdout üzerinde bootstrap ile çalışır.
 
@@ -121,9 +124,9 @@ Tek seferlik analizler; üretim pipeline'ında kullanılmaz. Çoğu 1.200 maçl�
 | `rigorous_p1c_evaluation.py` | Shrinkage bootstrap ve yan etkileri. |
 | `run_p1a_auc_segmentation.py` | AUC ve kalibrasyon segmentasyonu (Top 6 maçları vb.), güç analizi. |
 | `diagnose_segment10_and_test_xgboost.py` | Segment 10 teşhisi ve 3 XGBoost mimarisi. |
-| `test_segment10_distribution_and_features.py` | Poisson/Negatif Binom uyumu ve dağılım testleri. |
-| `test_key_passes_impact.py` | Key pass özelliklerinin gol modellerine etkisi (A/B). |
-| `test_tactical_pace_and_mv.py` | Piyasa değeri ağırlığı düşürme, tempo ve savunma hattı özellikleri (A/B). |
+| `segment10_distribution_and_features.py` | Poisson/Negatif Binom uyumu ve dağılım testleri. |
+| `key_passes_impact.py` | Key pass özelliklerinin gol modellerine etkisi (A/B). |
+| `tactical_pace_and_mv.py` | Piyasa değeri ağırlığı düşürme, tempo ve savunma hattı özellikleri (A/B). |
 | `extract_all_goal_metrics.py` | `goals_models_v1.joblib` için tüm metrikleri toplu çıkarır. |
 
 ## 12. `deploy/` — sunucu dosyaları (yeni)
