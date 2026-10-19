@@ -7,8 +7,8 @@ export default function TeamProfileHero({ profile, currentMeta, selectedTeamId, 
   if (!profile) return null;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm relative">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+    <div className="relative py-1">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                 
                 {/* Left: Badge, Form Dots, Names, Stadium, Manager, League Standing & Club Switcher */}
                 <div className="flex items-start sm:items-center gap-4 sm:gap-5 flex-1 min-w-0">
@@ -196,40 +196,38 @@ export default function TeamProfileHero({ profile, currentMeta, selectedTeamId, 
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
                   </div>
 
-                  {/* Prominent, Clean Kadro Değeri Card */}
+                  {/* Prominent, Clean Kadro Değeri (Frameless / Minimalist) */}
                   {profile.market_value && (
-                    <div 
+                    <button 
+                      type="button"
                       onClick={() => setShowMarketValueModal(true)}
-                      className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-50/80 hover:bg-amber-100/90 border border-amber-200/90 hover:border-amber-400 shadow-xs cursor-pointer transition-all hover:scale-[1.02] group"
+                      className="text-left lg:text-right group p-1 -m-1 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
                       title="5 yıllık piyasa değeri değişim grafiğini görüntülemek için tıklayın"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-300 flex items-center justify-center shrink-0 text-amber-800 group-hover:bg-amber-500/25 transition-colors">
-                        <Coins className="w-5 h-5 text-amber-700" />
+                      <div className="flex items-center lg:justify-end gap-1.5 text-xs text-slate-500">
+                        <Coins className="w-3.5 h-3.5 text-amber-600 transition-transform group-hover:scale-110" />
+                        <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider group-hover:text-amber-700 transition-colors">
+                          Kadro Değeri
+                        </span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-[10px] font-medium text-slate-400 group-hover:text-slate-600 transition-colors">
+                          Transfermarkt
+                        </span>
+                        <span className="text-[10px] font-bold text-amber-600 opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all inline-flex items-center ml-0.5">
+                          Grafik ↗
+                        </span>
                       </div>
-                      <div className="text-left">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800">
-                            Kadro Piyasa Değeri
+                      <div className="flex items-baseline lg:justify-end gap-2 mt-0.5">
+                        <strong className="text-2xl sm:text-3xl font-black font-mono text-slate-900 group-hover:text-amber-700 tracking-tight transition-colors">
+                          {profile.market_value.formatted}
+                        </strong>
+                        {profile.market_value.avg_formatted && (
+                          <span className="text-xs font-mono text-slate-500 font-medium">
+                            (Ort. {profile.market_value.avg_formatted})
                           </span>
-                          <span className="text-[9px] font-bold text-amber-700 bg-amber-200/60 px-1.5 py-0.2 rounded font-sans">
-                            Transfermarkt
-                          </span>
-                          <span className="text-[9px] text-amber-700 font-bold group-hover:text-amber-900 flex items-center gap-0.5 ml-1">
-                            Grafik Gör ↗
-                          </span>
-                        </div>
-                        <div className="flex items-baseline gap-2 mt-0.5">
-                          <strong className="text-xl sm:text-2xl font-black font-mono text-amber-950 tracking-tight">
-                            {profile.market_value.formatted}
-                          </strong>
-                          {profile.market_value.avg_formatted && (
-                            <span className="text-[11px] font-mono text-amber-800/80 font-semibold">
-                              (Ort. {profile.market_value.avg_formatted})
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
-                    </div>
+                    </button>
                   )}
                 </div>
 
