@@ -10,3 +10,8 @@ SHELL=/bin/bash
 # İleriye dönük 1X2 testi: tahmini kaydet (script maç başına günde 1 kayıt tutar) ve biten maçları puanla
 30 6 * * * set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh benchmark /opt/plm/venv/bin/python -m src.analytics.prospective_1x2_benchmark snapshot
 15 23 * * * set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh benchmark /opt/plm/venv/bin/python -m src.analytics.prospective_1x2_benchmark score
+# Maç sonu xG ve oranlar (anahtar /opt/plm/.env içinde THESTATSAPI_API_KEY). Yalnızca eksik maçları çeker; yeni xG gelince
+# özellikler ve veritabanı yeniden kurulur (diğer adımlar sync işinde zaten güncel).
+0 5 * * * set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh xg /opt/plm/venv/bin/python -m src.ingest.import_thestatsapi_xg
+30 5 * * * set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh odds /opt/plm/venv/bin/python -m src.ingest.import_thestatsapi_odds
+0 6 * * * set -a; . /opt/plm/.env; set +a; /opt/plm/deploy/job.sh rebuild /opt/plm/venv/bin/python -m src.pipeline.rebuild --skip process,player_index

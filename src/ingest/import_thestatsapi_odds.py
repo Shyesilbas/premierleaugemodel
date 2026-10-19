@@ -75,6 +75,7 @@ def import_odds(
     competition_id: str = "comp_3039",
     only_played: bool = True,
     minimum_interval: float = 5.2,
+    refresh: bool = False,
 ) -> dict[str, Any]:
     if not api_key:
         raise ValueError("API key must be provided.")
@@ -144,10 +145,18 @@ def import_odds(
         if local is not None:
             matches_to_fetch.append((m, local))
 
-    print(f"Matches to process: {len(matches_to_fetch)}")
+    # Played matches have final odds; re-fetching them costs one 5.2 s request each and would hold the
+    # shared cron lock for half an hour late in the season. --refresh forces a re-fetch.
+    skipped_existing = 0
+    if not refresh:
+        already = {row[0] for row in conn.execute("SELECT DISTINCT match_id FROM external_match_odds")}
+        kept = [(m, local) for m, local in matches_to_fetch if local["match_id"] not in already]
+        skipped_existing, matches_to_fetch = len(matches_to_fetch) - len(kept), kept
+    print(f"Matches to process: {len(matches_to_fetch)} ({skipped_existing} already stored)")
 
     stats = {
         "total_targets": len(matches_to_fetch),
+        "skipped_existing": skipped_existing,
         "matches_processed": 0,
         "odds_fetched_count": 0,
         "bookmaker_rows_saved": 0,
@@ -292,6 +301,7 @@ def main() -> None:
     parser.add_argument("--competition-id", default="comp_3039")
     parser.add_argument("--only-played", action="store_true", default=True)
     parser.add_argument("--minimum-interval", type=float, default=5.2)
+    parser.add_argument("--refresh", action="store_true", help="re-fetch odds for matches already stored")
     args = parser.parse_args()
 
     results = import_odds(
@@ -300,6 +310,7 @@ def main() -> None:
         competition_id=args.competition_id,
         only_played=args.only_played,
         minimum_interval=args.minimum_interval,
+        refresh=args.refresh,
     )
     print("\n--- INGESTION COMPLETE ---")
     print(json.dumps(results, indent=2))

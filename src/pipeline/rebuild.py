@@ -45,3 +45,24 @@ def rebuild_derived_data(skip: Iterable[str] = ()) -> None:
             subprocess.run(command, cwd=ROOT, check=True)
         except subprocess.CalledProcessError as exc:
             raise RebuildError(f"Rebuild step '{name}' failed with exit code {exc.returncode}") from exc
+
+
+def main() -> int:
+    import argparse
+
+    from src.config import configure_logging
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--skip", default="", help=f"comma-separated steps to leave out: {', '.join(STEPS)}")
+    args = parser.parse_args()
+    configure_logging()
+    try:
+        rebuild_derived_data(skip=[part.strip() for part in args.skip.split(",") if part.strip()])
+    except (RebuildError, ValueError) as exc:
+        logger.error("%s", exc)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

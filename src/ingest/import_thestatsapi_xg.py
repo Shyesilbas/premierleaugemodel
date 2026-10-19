@@ -173,13 +173,13 @@ def import_season(args: argparse.Namespace) -> dict[str, int]:
     matches = fetch_all_matches(client, args.competition_id, target["id"])
     candidates = [
         match for match in matches
-        if int(match.get("matchday") or 0) <= args.max_gameweek
+        if args.max_gameweek is None or int(match.get("matchday") or 0) <= args.max_gameweek
         and match.get("status") == "finished"
         and match.get("xg_available")
     ]
     counts = {
         "listed": len(matches), "eligible": len(candidates), "imported": 0,
-        "skipped_existing": 0, "duplicate_conflicts": 0, "unmatched": 0, "stats_missing_xg": 0,
+        "skipped_existing": 0, "duplicate_conflicts": 0, "unmatched": 0, "stats_missing_xg": 0, "stats_not_published": 0,
     }
 
     for index, match in enumerate(candidates, start=1):
@@ -216,7 +216,16 @@ def import_season(args: argparse.Namespace) -> dict[str, int]:
             print(f"Skipped duplicate provider fixture id {match['id']} already mapped to local match {provider_id_exists['match_id']}.", flush=True)
             continue
 
-        stats = client.get_json(f"/football/matches/{match['id']}/stats")
+        try:
+            stats = client.get_json(f"/football/matches/{match['id']}/stats")
+        except RuntimeError as exc:
+            if "HTTP 404" not in str(exc):
+                raise
+            # Flagged as having xG but the stats are not published yet; informational, retried on a later run.
+            # Played matches that stay without xG are reported by `python -m src.analytics.pipeline_health`.
+            counts["stats_not_published"] += 1
+            print(f"No stats yet for {match['id']} ({args.season} GW{match.get('matchday')}): {exc}", flush=True)
+            continue
         try:
             home_xg, away_xg = extract_xg(stats)
         except ValueError as exc:
@@ -248,7 +257,7 @@ def import_season(args: argparse.Namespace) -> dict[str, int]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--season", default=DEFAULT_SEASON, help="Season label such as 2026_27")
-    parser.add_argument("--max-gameweek", type=int, default=6)
+    parser.add_argument("--max-gameweek", type=int, default=None, help="optional cap; default imports every finished match")
     parser.add_argument("--limit", type=int, default=None, help="Maximum number of new xG records to import")
     parser.add_argument("--competition-id", default="comp_3039")
     parser.add_argument("--minimum-interval", type=float, default=5.2)

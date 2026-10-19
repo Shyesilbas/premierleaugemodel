@@ -74,8 +74,8 @@ Kod tabanı işlevsel ve sızıntı kuralları (`shift(1)`, kilitli sezon) tutar
   (iş sonunda veri dosyaları değiştiyse plm-api yeniden başlatılır)
 
  [Cron'da OLMAYAN — elle]
-  fetch_season_data (yeni sezon ham verisi), import_thestatsapi_xg, import_thestatsapi_odds,
-  fetch_team_staff, fetch_transfermarkt_market_values
+  fetch_season_data (yeni sezon ham verisi), fetch_team_staff, fetch_transfermarkt_market_values
+  (xG ve oran içe aktarma artık cron'da: 05:00 xg, 05:30 odds, 06:00 rebuild --skip process,player_index)
 
  [Geliştirme]  start.py / start.sh ──► uvicorn :8000 (--reload) + vite :5173
 ```
@@ -184,7 +184,7 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 | # | Önem | Bulgu | Kanıt |
 |---|:-:|---|---|
 | **B1** | Y | ✅ **ÇÖZÜLDÜ (O1, 19 Ekim 2026)** — **İki farklı "yeniden kur" zinciri.** Haftalık `run_full_pipeline` oyuncu dizinini ve SQLite'ı yeniden kurmaz, 30 dakikalık sync kurar ama model eğitmez. Hangisinin sonra çalıştığına göre veri/ model tutarsızlığı oluşabilir. | §3 tablosu; `sync_season_data.py:239–248`; `run_full_pipeline.py:381–409` |
-| **B2** | Y | *(tespit artık otomatik: `pipeline_health`)* **xG/oran içe aktarma cron'da yok; xG varsayılanı 6. haftada kesiyor.** 2026/27'de 69 oynanmış maçın 60'ında xG var, 7. hafta xG'siz. Eksik xG'nin özelliklere etkisi **doğrulanmadı**: `attach_statsapi_xg` sol birleştirme yapar (eksik → NaN); ama 2021/22 sandbox denemesinde xG hiç olmadığı hâlde `xg_ewma` sütunlarında NaN çıkmadı, yani özellik hattında bir yerde dolduruluyor ve nasıl dolduğu incelenmedi. | SQL: oynanan 69, xG 60, eksik hafta {7}; `import_thestatsapi_xg.py --max-gameweek 6`; `crontab` |
+| **B2** | Y | ✅ **ÇÖZÜLDÜ (H1, 19 Ekim 2026)** — *(tespit: `pipeline_health`)* **xG/oran içe aktarma cron'da yok; xG varsayılanı 6. haftada kesiyor.** 2026/27'de 69 oynanmış maçın 60'ında xG var, 7. hafta xG'siz. Eksik xG'nin özelliklere etkisi **doğrulanmadı**: `attach_statsapi_xg` sol birleştirme yapar (eksik → NaN); ama 2021/22 sandbox denemesinde xG hiç olmadığı hâlde `xg_ewma` sütunlarında NaN çıkmadı, yani özellik hattında bir yerde dolduruluyor ve nasıl dolduğu incelenmedi. | SQL: oynanan 69, xG 60, eksik hafta {7}; `import_thestatsapi_xg.py --max-gameweek 6`; `crontab` |
 | **B3** | Y | **`server.py` monolit.** 3.503 satır, tek işleyicide 819 satır, modül düzeyi veri yükleme (ilk API isteği dahil ~28 sn), 8+ global önbellek. Test, bakım ve çoklu işlem ölçeklemesi zor. | AST fonksiyon uzunlukları; API testinde "Loading cached datasets" ile ilk yanıt arası ~28 sn |
 | **B4** | Y | **Test/CI/lint boşluğu.** `pytest` ve `pytest.ini` yok, CI yok, lint yok. Testsiz kritik modüller: `evaluate_goal_models` (yeni kapılar), `database`, `process_season_data`, `sync_*`, `train_*` sayım modelleri, `player_ratings`, `model_audit`, API rotaları. | `requirements.txt`; `ls -a`; test–modül eşlemesi |
 | **B5** | O | ✅ **ÇÖZÜLDÜ (O2 aşama A + C, 19 Ekim 2026)** — **Yapılandırma dağınık.** Yollar, `2026_27`, DB yolu, loglama her dosyada ayrı; yeni sezon eklemek 15 dosyada düzenleme gerektirir. `process_season_data`, `database`, `import_thestatsapi_xg` izole dizinde çalıştırılamaz (`--data-dir` yok). | §5 sayıları; 2021/22 deneyinde repoyu kopyalamak gerekti |
@@ -216,7 +216,7 @@ Sıra: önce hata sinyali ve veri tutarlılığı, sonra test ve yapılandırma,
 
 | # | Öneri | Çözdüğü | Not |
 |---|---|---|---|
-| H1 | **xG ve oran içe aktarmayı cron'a ekle**, `--max-gameweek` varsayılanını sezonun mevcut haftasına bağla (veya kaldır). | B2 | Önce mevcut 7. hafta boşluğunu elle kapat |
+| H1 | ✅ **YAPILDI** — **xG ve oran içe aktarmayı cron'a ekle**, `--max-gameweek` varsayılanını sezonun mevcut haftasına bağla (veya kaldır). | B2 | Önce mevcut 7. hafta boşluğunu elle kapat |
 | H2 | ✅ **YAPILDI** — **`pytest` ekle:** `requirements-dev.txt`, `pytest.ini` (`testpaths = tests`), `audit/` ve `scratch/`'i toplamadan hariç tut. | B4, B7 | Tek komutla çalışır olsun |
 | H3 | ✅ **YAPILDI** — **Hata sinyali:** `fetch_season_data` hata varsa çıkış kodu ≠ 0; xG importer eksik xG sayısını özetle ve bayrakla; `job.sh` hatada `exit 1`. | B10 | |
 | H4 | ✅ **YAPILDI** — **`audit/` ve `scratch/` → `research/`** (veya silip git geçmişinde bırak); `test_*` adlarını kaldır. | B7 | `docs/scripts_reference.md` güncelle |
@@ -350,13 +350,16 @@ Sınırlar: dinamik içe aktarmalar ve komut satırı dizeleriyle kurulan çağr
 | `deploy/Caddyfile` | `:8080` (yalnızca localhost): `/api/*` → `127.0.0.1:8000`; diğer her şey `frontend/dist` |
 | `deploy/crontab` | Aşağıdaki 5 iş |
 
-**Zamanlanmış işler (`deploy/crontab`, hepsi `job.sh` ile):**
+**Zamanlanmış işler (`deploy/crontab`, hepsi `job.sh` ile; `xg` ve `odds` için sunucudaki `/opt/plm/.env` içinde `THESTATSAPI_API_KEY` olmalı):**
 
-| Zaman (UTC) | İş adı | Komut | Sonrasında tetiklediği |
+| Zaman (UTC) | İş adı | Komut | Ne yapar |
 |---|---|---|---|
 | her 30 dk | `sync` | `python -m src.ingest.sync_season_data` | PulseLive'dan fikstür, hakem ve biten maç dosyaları; veri değiştiyse `rebuild_derived_data()` → `process` → `player_index` → `features` → `database` |
 | her 5 dk | `lineups` | `python -m src.ingest.sync_prematch_lineups --hours-ahead 1` | Önümüzdeki 1 saatteki maçların resmi ilk 11'i; ham detay dosyası ve ilk 11 özellikleri güncellenir |
 | Pazartesi 04:00 | `train` | `python run_full_pipeline.py` | `rebuild` → `audits` → `counts` → `outcome` → `goals` → `model_benchmarks.md` |
+| her gün 05:00 | `xg` | `python -m src.ingest.import_thestatsapi_xg` | Yeni biten maçların xG'sini `external_match_xg`'ye ekler (yalnızca eksikleri çeker; sağlayıcı henüz yayımlamadıysa 404'ü sayar ve geçer) |
+| her gün 05:30 | `odds` | `python -m src.ingest.import_thestatsapi_odds` | Henüz kaydı olmayan biten maçların oranlarını `external_match_odds`'a ekler (`--refresh` ile hepsi yeniden çekilir) |
+| her gün 06:00 | `rebuild` | `python -m src.pipeline.rebuild --skip process,player_index` | Yeni xG özelliklere girsin diye `features` ve `database` adımları |
 | her gün 06:30 | `benchmark` | `python -m src.analytics.prospective_1x2_benchmark snapshot` | Maç öncesi 1X2 tahminini `1x2_forecast_log.jsonl`'a yazar |
 | her gün 23:15 | `benchmark` | `python -m src.analytics.prospective_1x2_benchmark score` | Biten maçları puanlar, `prospective_1x2_scorecard.json` |
 
@@ -438,3 +441,4 @@ run_full_pipeline.py
 | 19 Ekim 2026 | **O1 / aşama B** tek zincir | `src/pipeline/rebuild.py` (4 adım, ayrı süreç, ilk hatada durur). `sync_season_data` ve `run_full_pipeline` aynı fonksiyonu kullanır. `run_full_pipeline` aşamalı oldu (`--only`, `--skip`), hatada çıkış 1. **Davranış değişikliği:** haftalık eğitim artık oyuncu dizinini ve veritabanını da yeniden kurar | 5 yeni test. İzole dizinde `--only rebuild` çıktıları referansla birebir aynı; `--only goals` çalıştı ve aynı üretim ayarını seçti; üretim modeli md5'i değişmedi; `--only nonsense` çıkış 2 |
 | 19 Ekim 2026 | **O2 / aşama C** sezon ve loglama | `config.DEFAULT_SEASON` (env `PLM_SEASON`, yoksa en yeni `fixtures_*.json`) ve `config.SEASONS`; ~40 "2026_27" varsayılanı/karşılaştırması bunlara bağlandı (tarihsel/anlamsal olanlar bilerek kaldı: `lineup_feature_pilot`, Transfermarkt kayıtları, sıralama sözlüğü). Modül içe aktarılırken `logging.basicConfig` çağıran 12 dosya `configure_logging()`'e taşındı, yalnızca giriş noktalarında çağrılır | 39 test; 63 modülün içe aktarılması sessiz; izole `--only rebuild` çıktıları referansla birebir aynı (14 parquet, 2 JSON, 13 SQLite tablosu); API 4 rota 200 |
 | 19 Ekim 2026 | **Çalıştırma haritası** (§10) | Tüm 75 Python dosyası, kabuk/cron/systemd dosyaları, testler ve `research/` için "neyi çalıştırır, kim çalıştırır, hangi dış servise dokunur" tabloları koddan üretildi (AST + `subprocess` hedefleri + `deploy/crontab`) | Yeni bulgu B16: cron `snapshot` işi tüm API modülünü yüklüyor; öneri O7 eklendi |
+| 19 Ekim 2026 | **H1** xG ve oran cron'u | `import_thestatsapi_xg`: `--max-gameweek` tavanı kalktı (varsayılan tümü), sağlayıcı "xG var" deyip 404 verirse çökmek yerine `stats_not_published` sayar. `import_thestatsapi_odds`: kayıtlı maçları atlar (`--refresh` ile zorlanır). `src/pipeline/rebuild.py`'ye `--skip` komut satırı. `deploy/crontab`'a 3 iş: 05:00 xg, 05:30 odds, 06:00 rebuild | 6 yeni test (sahte API istemcisi). **Veri:** 2026/27 xG kaydı 60 → 69 (7. hafta kapandı), `rebuild --skip process,player_index` çalıştı, `pipeline_health` **"OK: no findings"**. Gerçek çalıştırma 404 hatasını ortaya çıkardı ve düzeltildi |

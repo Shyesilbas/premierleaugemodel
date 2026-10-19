@@ -28,7 +28,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 
 | Dosya | Ne yapar |
 |---|---|
-| `rebuild.py` | **Tek yeniden-kur zinciri**: `process → player_index → features → database`, her adım ayrı süreçte. `sync_season_data` (cron, 30 dk) ve `run_full_pipeline` (haftalık) aynı `rebuild_derived_data()` fonksiyonunu çağırır; ilk hatada durur ve adı `RebuildError` içinde söyler. `PLM_DATA_DIR` alt süreçlere geçer. |
+| `rebuild.py` | **Tek yeniden-kur zinciri** (`python -m src.pipeline.rebuild [--skip adım,adım]` ile de çalışır): `process → player_index → features → database`, her adım ayrı süreçte. `sync_season_data` (cron, 30 dk) ve `run_full_pipeline` (haftalık) aynı `rebuild_derived_data()` fonksiyonunu çağırır; ilk hatada durur ve adı `RebuildError` içinde söyler. `PLM_DATA_DIR` alt süreçlere geçer. |
 
 ## 2. `src/ingest/` — veri çekme
 
