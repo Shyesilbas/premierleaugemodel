@@ -7658,6 +7658,7 @@
     "status": "C",
     "phase": "F",
     "outcome": "A",
+    "attendance": 17232.0,
     "clock": {
       "secs": 5820.0,
       "label": "90+7'00"
@@ -7783,6 +7784,7 @@
     "status": "C",
     "phase": "F",
     "outcome": "H",
+    "attendance": 27531.0,
     "clock": {
       "secs": 5820.0,
       "label": "90+7'00"
@@ -8107,7 +8109,8 @@
           "teamType": "FIRST",
           "shortName": "Bournemouth",
           "id": 127.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -8121,7 +8124,8 @@
           "teamType": "FIRST",
           "shortName": "Sunderland",
           "id": 29.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -8132,23 +8136,43 @@
       "id": 9522.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 12004.0,
+    "clock": {
+      "secs": 5820.0,
+      "label": "90+7'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 14846.0,
+        "assistId": 33032.0,
+        "clock": {
+          "secs": 300.0,
+          "label": "05'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 33032.0,
+        "clock": {
+          "secs": 2880.0,
+          "label": "48'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128983.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Craig Pawson"
-        }
-      }
-    ]
+    "id": 128983.0
   },
   {
     "gameweek": {
@@ -8199,7 +8223,8 @@
           "teamType": "FIRST",
           "shortName": "Brighton",
           "id": 131.0
-        }
+        },
+        "score": 5.0
       },
       {
         "team": {
@@ -8213,7 +8238,8 @@
           "teamType": "FIRST",
           "shortName": "Crystal Palace",
           "id": 6.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -8224,23 +8250,74 @@
       "id": 9524.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 31440.0,
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 147312.0,
+        "clock": {
+          "secs": 240.0,
+          "label": "04'00"
+        },
+        "phase": "1",
+        "type": "O",
+        "description": "O"
+      },
+      {
+        "personId": 143240.0,
+        "assistId": 20505.0,
+        "clock": {
+          "secs": 420.0,
+          "label": "07'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 134333.0,
+        "assistId": 145043.0,
+        "clock": {
+          "secs": 600.0,
+          "label": "10'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 145043.0,
+        "clock": {
+          "secs": 2940.0,
+          "label": "49'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 112739.0,
+        "clock": {
+          "secs": 5040.0,
+          "label": "84'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128985.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Robert Jones"
-        }
-      }
-    ]
+    "id": 128985.0
   },
   {
     "gameweek": {
@@ -8291,7 +8368,8 @@
           "teamType": "FIRST",
           "shortName": "Leeds",
           "id": 9.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -8305,7 +8383,8 @@
           "teamType": "FIRST",
           "shortName": "Man Utd",
           "id": 12.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -8316,23 +8395,44 @@
       "id": 9430.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "D",
+    "attendance": 36983.0,
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 66360.0,
+        "assistId": 5865.0,
+        "clock": {
+          "secs": 2100.0,
+          "label": "35'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 9576.0,
+        "assistId": 114504.0,
+        "clock": {
+          "secs": 3060.0,
+          "label": "51'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128988.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Darren England"
-        }
-      }
-    ]
+    "id": 128988.0
   },
   {
     "gameweek": {
@@ -8383,7 +8483,8 @@
           "teamType": "FIRST",
           "shortName": "Nott'm Forest",
           "id": 15.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -8397,7 +8498,8 @@
           "teamType": "FIRST",
           "shortName": "Arsenal",
           "id": 1.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -8408,23 +8510,33 @@
       "id": 9520.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "attendance": 30893.0,
+    "clock": {
+      "secs": 5640.0,
+      "label": "90+4'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 67407.0,
+        "assistId": 15202.0,
+        "clock": {
+          "secs": 4800.0,
+          "label": "80'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128991.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Michael Oliver"
-        }
-      }
-    ]
+    "id": 128991.0
   },
   {
     "gameweek": {
