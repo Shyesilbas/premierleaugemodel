@@ -11,6 +11,12 @@ import sys
 import pandas as pd
 from pathlib import Path
 
+import pytest
+
+from src.config import FEATURES_PATH, MATCHES_SUMMARY_PATH
+
+pytestmark = pytest.mark.needs_data
+
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -19,7 +25,7 @@ from src.features.build_features import calculate_rest_days, build_team_match_hi
 
 def test_no_target_in_features():
     """Checks that selected rolling/expected feature names are not direct targets."""
-    feat_path = Path("data/processed/features_matches_all.parquet")
+    feat_path = FEATURES_PATH
     df = pd.read_parquet(feat_path)
     feature_cols = [
         c for c in df.columns if (
@@ -40,7 +46,7 @@ def test_invariance_to_match_outcome():
     Changes in-match values for one row, rebuilds features, and compares that row's
     pre-match rolling/expected features. This is a narrow local invariance check.
     """
-    df_raw = pd.read_parquet("data/processed/matches_summary_all.parquet").head(20).copy()
+    df_raw = pd.read_parquet(MATCHES_SUMMARY_PATH).head(20).copy()
 
     # Base features
     df1 = calculate_rest_days(df_raw.copy())

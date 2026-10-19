@@ -9,6 +9,7 @@ from src import config
 
 def test_plm_data_dir_moves_every_data_path_but_not_models_or_reports():
     with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"PLM_DATA_DIR": tmp}):
+        os.environ.pop("PLM_MODELS_DIR", None)
         cfg = importlib.reload(config)
         root = Path(tmp).resolve()
         assert cfg.DATA_DIR == root
@@ -17,8 +18,8 @@ def test_plm_data_dir_moves_every_data_path_but_not_models_or_reports():
         assert cfg.MATCHES_RAW_DIR == root / "raw" / "matches"
         assert cfg.MODELS_DIR == cfg.ROOT / "models" / "production"
         assert cfg.REPORTS_DIR == cfg.ROOT / "docs" / "reports"
-    cfg = importlib.reload(config)
-    assert cfg.DATA_DIR == cfg.ROOT / "data"
+    cfg = importlib.reload(config)  # back to whatever the caller's environment says
+    assert cfg.DATA_DIR == Path(os.environ.get("PLM_DATA_DIR") or cfg.ROOT / "data").resolve()
 
 
 def test_season_policy_is_reexported_for_existing_imports():

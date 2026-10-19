@@ -186,7 +186,7 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 | **B1** | Y | ✅ **ÇÖZÜLDÜ (O1, 19 Ekim 2026)** — **İki farklı "yeniden kur" zinciri.** Haftalık `run_full_pipeline` oyuncu dizinini ve SQLite'ı yeniden kurmaz, 30 dakikalık sync kurar ama model eğitmez. Hangisinin sonra çalıştığına göre veri/ model tutarsızlığı oluşabilir. | §3 tablosu; `sync_season_data.py:239–248`; `run_full_pipeline.py:381–409` |
 | **B2** | Y | ✅ **ÇÖZÜLDÜ (H1, 19 Ekim 2026)** — *(tespit: `pipeline_health`)* **xG/oran içe aktarma cron'da yok; xG varsayılanı 6. haftada kesiyor.** 2026/27'de 69 oynanmış maçın 60'ında xG var, 7. hafta xG'siz. Eksik xG'nin özelliklere etkisi **doğrulanmadı**: `attach_statsapi_xg` sol birleştirme yapar (eksik → NaN); ama 2021/22 sandbox denemesinde xG hiç olmadığı hâlde `xg_ewma` sütunlarında NaN çıkmadı, yani özellik hattında bir yerde dolduruluyor ve nasıl dolduğu incelenmedi. | SQL: oynanan 69, xG 60, eksik hafta {7}; `import_thestatsapi_xg.py --max-gameweek 6`; `crontab` |
 | **B3** | Y | **`server.py` monolit.** 3.503 satır, tek işleyicide 819 satır, modül düzeyi veri yükleme (ilk API isteği dahil ~28 sn), 8+ global önbellek. Test, bakım ve çoklu işlem ölçeklemesi zor. | AST fonksiyon uzunlukları; API testinde "Loading cached datasets" ile ilk yanıt arası ~28 sn |
-| **B4** | Y | **Test/CI/lint boşluğu.** `pytest` ve `pytest.ini` yok, CI yok, lint yok. Testsiz kritik modüller: `evaluate_goal_models` (yeni kapılar), `database`, `process_season_data`, `sync_*`, `train_*` sayım modelleri, `player_ratings`, `model_audit`, API rotaları. | `requirements.txt`; `ls -a`; test–modül eşlemesi |
+| **B4** | Y | 🔶 **BÜYÜK ÖLÇÜDE ÇÖZÜLDÜ (O4 + U3, 19 Ekim 2026; lint ve sayım modelleri açık)** — **Test/CI/lint boşluğu.** `pytest` ve `pytest.ini` yok, CI yok, lint yok. Testsiz kritik modüller: `evaluate_goal_models` (yeni kapılar), `database`, `process_season_data`, `sync_*`, `train_*` sayım modelleri, `player_ratings`, `model_audit`, API rotaları. | `requirements.txt`; `ls -a`; test–modül eşlemesi |
 | **B5** | O | ✅ **ÇÖZÜLDÜ (O2 aşama A + C, 19 Ekim 2026)** — **Yapılandırma dağınık.** Yollar, `2026_27`, DB yolu, loglama her dosyada ayrı; yeni sezon eklemek 15 dosyada düzenleme gerektirir. `process_season_data`, `database`, `import_thestatsapi_xg` izole dizinde çalıştırılamaz (`--data-dir` yok). | §5 sayıları; 2021/22 deneyinde repoyu kopyalamak gerekti |
 | **B6** | O | **`train_*` sayım modelleri kopya-yapıştır.** 5 dosya × ~170 satır, ikili satır benzerliği %42–58. Kapı ve rapor mantığı beş yerde ayrı bakım istiyor. | Jaccard ölçümü (cards–corners 0.45 … saves–throws 0.58) |
 | **B7** | O | ✅ **ÇÖZÜLDÜ (H4, 19 Ekim 2026)** — **`audit/` ve `scratch/` depoda (~4.200 satır).** `test_*` adları `pytest` toplamasıyla çakışıyor (içe aktarmada HTTP isteği, `server` yüklemesi). `scratch` tek seferlik ve 2026/27 öncesi sayılara bağlı. | `audit/test_draw_recalibration.py:9–10`; `scratch/*` |
@@ -230,7 +230,7 @@ Sıra: önce hata sinyali ve veri tutarlılığı, sonra test ve yapılandırma,
 | O1 | ✅ **YAPILDI** — **Tek yeniden-kur fonksiyonu** (`src/pipeline/rebuild.py`): `process → player_index → features → db`. `run_full_pipeline` ve `sync_season_data` aynısını çağırır; `run_full_pipeline` adım seçeneği (`--only goals`, `--skip-reports`) ve hatada net durum alır. | B1 |
 | O2 | ✅ **YAPILDI** — **`src/config.py`:** yollar, `CURRENT_SEASON`, `LOCKED_SEASONS`, DB yolu, tek `configure_logging()` (yalnızca giriş noktalarında). Süreç/veritabanı/ingest scriptlerine `--data-dir`. | B5, B13 |
 | O3 | **Ortak sayım modeli çatısı** (`train_count_model(spec)`): beş `train_*` dosyası yalnızca özellik listesi ve aday kümesini tanımlar. | B6 |
-| O4 | **Eksik testler:** `evaluate_goal_models` (null kapısı, KG kapısı, piyasa kıyası), `database.populate_db_from_sources` (geçici DB), `sync_season_data` (sahte sağlayıcı), `server` rotaları (`TestClient`). | B4 |
+| O4 | ✅ **YAPILDI (sayım modelleri `train_*` hariç; O3 ile birlikte)** — **Eksik testler:** `evaluate_goal_models` (null kapısı, KG kapısı, piyasa kıyası), `database.populate_db_from_sources` (geçici DB), `sync_season_data` (sahte sağlayıcı), `server` rotaları (`TestClient`). | B4 |
 | O5 | **Yinelenen yardımcıları birleştir:** `atomic_write_json` ortak modüle; `LOCKED_SEASONS` config'e; iki `evaluate_season_holdouts`'u adlandır/ortakla. | B12 |
 | O6 | **Ruff + `pre-commit`** (biçim + temel hatalar); çıplak `except`'leri daralt. | B13 |
 | O7 | **Tahmin mantığını API'den ayır:** `predict_match` ve ona bağlı küresel durumu (`df_features`, model artifact'ları) `src/serving/` altında bir modüle taşı; `server.py` ve `prospective_1x2_benchmark` aynı modülü çağırsın. U1 ile birlikte yapılabilir. | B16, B3 |
@@ -241,7 +241,7 @@ Sıra: önce hata sinyali ve veri tutarlılığı, sonra test ve yapılandırma,
 |---|---|---|
 | U1 | **`server.py`'yi `APIRouter` modüllerine böl** (`predict`, `fixtures`, `teams`, `players`, `referees`, `admin`), 819 ve 406 satırlık işleyicileri servis fonksiyonlarına ayır, veri yüklemeyi `startup`'a taşı. | B3 |
 | U2 | ✅ **YAPILDI (`e25aa20`)** — **Veri/model dosyalarını git'ten çıkar:** `.db`, büyük parquet/JSON ve `models/backup/` için `.gitignore` veya Git LFS; yeniden üretim komutunu belgele. | B11 |
-| U3 | **CI** (GitHub Actions): `pytest`, `ruff`, `npm run build` her push'ta. | B4 |
+| U3 | ✅ **YAPILDI** — **CI** (GitHub Actions): `pytest`, `ruff`, `npm run build` her push'ta. | B4 |
 
 ### 8.4 Önerilen sıra
 
@@ -294,7 +294,7 @@ Sınırlar: dinamik içe aktarmalar ve komut satırı dizeleriyle kurulan çağr
 | `src/db/database.py` | zincir adımı `database` (cron sync + haftalık) | - | - | - | ham JSON, SQLite, veri dizini | `api/server`, `features/build_features`, `pipeline/rebuild`, `run_full_pipeline` |
 | `src/features/build_features.py` | zincir adımı `features` (cron sync + haftalık) | `analytics/player_ratings`, `db/database`, `features/draw_features` | - | - | ham JSON, işlenmiş tablolar, SQLite | `api/server`, `ingest/sync_prematch_lineups`, `pipeline/rebuild` |
 | `src/features/draw_features.py` | kütüphane (başka scriptler içe aktarır) | - | - | - | - | `api/server`, `features/build_features`, `models/train_match_outcome` |
-| `src/pipeline/rebuild.py` | kütüphane (başka scriptler içe aktarır) | `db/database`, `features/build_features`, `processing/build_player_index`, `processing/process_season_data` | `db/database`, `features/build_features`, `processing/build_player_index`, `processing/process_season_data` | - | - | `ingest/sync_season_data`, `run_full_pipeline` |
+| `src/pipeline/rebuild.py` | elle (`python -m`) | `db/database`, `features/build_features`, `processing/build_player_index`, `processing/process_season_data` | `db/database`, `features/build_features`, `processing/build_player_index`, `processing/process_season_data` | - | - | `ingest/sync_season_data`, `run_full_pipeline` |
 | `src/processing/build_player_index.py` | zincir adımı `player_index` (cron sync + haftalık) | - | - | PL foto CDN | ham JSON, işlenmiş tablolar | `pipeline/rebuild` |
 | `src/processing/process_season_data.py` | zincir adımı `process` (cron sync + haftalık) | - | - | - | ham JSON, işlenmiş tablolar | `pipeline/rebuild` |
 
@@ -350,16 +350,13 @@ Sınırlar: dinamik içe aktarmalar ve komut satırı dizeleriyle kurulan çağr
 | `deploy/Caddyfile` | `:8080` (yalnızca localhost): `/api/*` → `127.0.0.1:8000`; diğer her şey `frontend/dist` |
 | `deploy/crontab` | Aşağıdaki 5 iş |
 
-**Zamanlanmış işler (`deploy/crontab`, hepsi `job.sh` ile; `xg` ve `odds` için sunucudaki `/opt/plm/.env` içinde `THESTATSAPI_API_KEY` olmalı):**
+**Zamanlanmış işler (`deploy/crontab`, hepsi `job.sh` ile):**
 
-| Zaman (UTC) | İş adı | Komut | Ne yapar |
+| Zaman (UTC) | İş adı | Komut | Sonrasında tetiklediği |
 |---|---|---|---|
 | her 30 dk | `sync` | `python -m src.ingest.sync_season_data` | PulseLive'dan fikstür, hakem ve biten maç dosyaları; veri değiştiyse `rebuild_derived_data()` → `process` → `player_index` → `features` → `database` |
 | her 5 dk | `lineups` | `python -m src.ingest.sync_prematch_lineups --hours-ahead 1` | Önümüzdeki 1 saatteki maçların resmi ilk 11'i; ham detay dosyası ve ilk 11 özellikleri güncellenir |
 | Pazartesi 04:00 | `train` | `python run_full_pipeline.py` | `rebuild` → `audits` → `counts` → `outcome` → `goals` → `model_benchmarks.md` |
-| her gün 05:00 | `xg` | `python -m src.ingest.import_thestatsapi_xg` | Yeni biten maçların xG'sini `external_match_xg`'ye ekler (yalnızca eksikleri çeker; sağlayıcı henüz yayımlamadıysa 404'ü sayar ve geçer) |
-| her gün 05:30 | `odds` | `python -m src.ingest.import_thestatsapi_odds` | Henüz kaydı olmayan biten maçların oranlarını `external_match_odds`'a ekler (`--refresh` ile hepsi yeniden çekilir) |
-| her gün 06:00 | `rebuild` | `python -m src.pipeline.rebuild --skip process,player_index` | Yeni xG özelliklere girsin diye `features` ve `database` adımları |
 | her gün 06:30 | `benchmark` | `python -m src.analytics.prospective_1x2_benchmark snapshot` | Maç öncesi 1X2 tahminini `1x2_forecast_log.jsonl`'a yazar |
 | her gün 23:15 | `benchmark` | `python -m src.analytics.prospective_1x2_benchmark score` | Biten maçları puanlar, `prospective_1x2_scorecard.json` |
 
@@ -399,6 +396,7 @@ run_full_pipeline.py
 | `tests/test_pipeline_health.py` | `analytics/pipeline_health` |
 | `tests/test_rebuild.py` | `run_full_pipeline` |
 | `tests/test_skill_gate.py` | `models/model_utils` |
+| `tests/test_stats_api_imports.py` | yalnızca `src.config` |
 | `tests/test_team_tactics.py` | `analytics/team_tactics` |
 
 #### 10.9 `research/` (elle: `PYTHONPATH=. python3 research/…`; cron, pipeline ve pytest dışı)
@@ -440,5 +438,6 @@ run_full_pipeline.py
 | 19 Ekim 2026 | **Bulgu:** `sync_season_data` `-m` ile çalışmıyordu | `from fetch_season_data import …` yalnızca script modunda çalışır; `deploy/crontab` `python -m src.ingest.sync_season_data` kullanıyor. `from src.ingest.fetch_season_data import …` olarak düzeltildi, iki mod da denendi | Orijinal kodda `ModuleNotFoundError` doğrulandı (stash ile) |
 | 19 Ekim 2026 | **O1 / aşama B** tek zincir | `src/pipeline/rebuild.py` (4 adım, ayrı süreç, ilk hatada durur). `sync_season_data` ve `run_full_pipeline` aynı fonksiyonu kullanır. `run_full_pipeline` aşamalı oldu (`--only`, `--skip`), hatada çıkış 1. **Davranış değişikliği:** haftalık eğitim artık oyuncu dizinini ve veritabanını da yeniden kurar | 5 yeni test. İzole dizinde `--only rebuild` çıktıları referansla birebir aynı; `--only goals` çalıştı ve aynı üretim ayarını seçti; üretim modeli md5'i değişmedi; `--only nonsense` çıkış 2 |
 | 19 Ekim 2026 | **O2 / aşama C** sezon ve loglama | `config.DEFAULT_SEASON` (env `PLM_SEASON`, yoksa en yeni `fixtures_*.json`) ve `config.SEASONS`; ~40 "2026_27" varsayılanı/karşılaştırması bunlara bağlandı (tarihsel/anlamsal olanlar bilerek kaldı: `lineup_feature_pilot`, Transfermarkt kayıtları, sıralama sözlüğü). Modül içe aktarılırken `logging.basicConfig` çağıran 12 dosya `configure_logging()`'e taşındı, yalnızca giriş noktalarında çağrılır | 39 test; 63 modülün içe aktarılması sessiz; izole `--only rebuild` çıktıları referansla birebir aynı (14 parquet, 2 JSON, 13 SQLite tablosu); API 4 rota 200 |
-| 19 Ekim 2026 | **Çalıştırma haritası** (§10) | Tüm 75 Python dosyası, kabuk/cron/systemd dosyaları, testler ve `research/` için "neyi çalıştırır, kim çalıştırır, hangi dış servise dokunur" tabloları koddan üretildi (AST + `subprocess` hedefleri + `deploy/crontab`) | Yeni bulgu B16: cron `snapshot` işi tüm API modülünü yüklüyor; öneri O7 eklendi |
+| 19 Ekim 2026 | **Çalıştırma haritası** (§10) | Tüm 76 Python dosyası, kabuk/cron/systemd dosyaları, testler ve `research/` için "neyi çalıştırır, kim çalıştırır, hangi dış servise dokunur" tabloları koddan üretildi (AST + `subprocess` hedefleri + `deploy/crontab`) | Yeni bulgu B16: cron `snapshot` işi tüm API modülünü yüklüyor; öneri O7 eklendi |
 | 19 Ekim 2026 | **H1** xG ve oran cron'u | `import_thestatsapi_xg`: `--max-gameweek` tavanı kalktı (varsayılan tümü), sağlayıcı "xG var" deyip 404 verirse çökmek yerine `stats_not_published` sayar. `import_thestatsapi_odds`: kayıtlı maçları atlar (`--refresh` ile zorlanır). `src/pipeline/rebuild.py`'ye `--skip` komut satırı. `deploy/crontab`'a 3 iş: 05:00 xg, 05:30 odds, 06:00 rebuild | 6 yeni test (sahte API istemcisi). **Veri:** 2026/27 xG kaydı 60 → 69 (7. hafta kapandı), `rebuild --skip process,player_index` çalıştı, `pipeline_health` **"OK: no findings"**. Gerçek çalıştırma 404 hatasını ortaya çıkardı ve düzeltildi |
+| 19 Ekim 2026 | **O4 + U3** testler ve CI | `tests/conftest.py` + `needs_data` işareti (yerel veri/model yoksa otomatik atlar); 4 modülün yeni testleri: `evaluate_goal_models` kapıları (sentetik veri), `database.populate_db_from_sources`, `sync_season_data` yardımcıları, API rotaları; veri bağımlı 3 test dosyası işaretlendi, `test_data_leakage` config yollarına geçti; `.github/workflows/ci.yml` (backend pytest, frontend build) | Yerelde **64 test geçti**; temiz ortam simülasyonunda (boş `PLM_DATA_DIR`/`PLM_MODELS_DIR`, fixtures yok) **51 geçti, 13 atlandı, 0 hata**. Simülasyon `test_config` ve `test_database` testlerimde CI'a özgü iki hatayı yakaladı ve düzeltildi |

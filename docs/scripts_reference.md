@@ -112,8 +112,14 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `test_inference_logic.py` | Çıkarım mantığı ve ev/deplasman payı. |
 | `test_team_tactics.py` | Takım taktik özetleri. |
 | `test_pipeline_health.py` | Sağlık kontrolü (xG boşluğu, eksik ham dosya) ve `fetch_season_data` çıkış kodu. |
+| `test_config.py`, `test_rebuild.py` | Yapılandırma (`PLM_DATA_DIR`, `PLM_SEASON`) ve tek yeniden-kur zinciri, aşama seçimi. |
+| `test_stats_api_imports.py` | xG ve oran içe aktarıcıları (sahte API istemcisiyle): tavansız xG, 404 dayanıklılığı, kayıtlı maçları atlama. |
+| `test_database.py` | `populate_db_from_sources`: maç/yaklaşan fikstür/hakem özetleri, ikinci çalıştırmada değişmeme, xG tablosunun korunması. |
+| `test_sync_helpers.py` | `sync_season_data` saf yardımcıları: tamamlanma, skor, takım adı eşleme, hakem. |
+| `test_evaluate_goal_models.py` | Gol kapıları (sabit Poisson, KG, piyasa) sentetik veriyle, piyasa marjı temizleme. |
+| `test_api_routes.py` | API rota duman testleri ve tahmin tutarlılığı (`needs_data`). |
 
-Çalıştırma: `pip install -r requirements-dev.txt && pytest` (`pytest.ini` yalnızca `tests/` toplar; `research/` hariç).
+Çalıştırma: `pip install -r requirements-dev.txt && pytest` (`pytest.ini` yalnızca `tests/` toplar; `research/` hariç). Yerel veri ve modelleri okuyan testler `needs_data` işaretlidir ve veri yoksa (temiz klon, CI) otomatik atlanır. CI: `.github/workflows/ci.yml` (backend `pytest`, frontend `npm run build`).
 
 ## 10. `research/audit/` — tek seferlik adli denetimler
 

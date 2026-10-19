@@ -1,6 +1,10 @@
 import unittest
 from src.analytics.team_tactics import TACTICAL_METRICS, get_team_tactical_profile, load_team_match_rows
 
+import pytest
+
+pytestmark = pytest.mark.needs_data
+
 
 class TestTeamTactics(unittest.TestCase):
     def test_shots_conceded_metric_defined(self):
