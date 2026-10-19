@@ -75,6 +75,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `goals_model.py` | Özellik tabanlı gol hızları (lambda) ve harmanlama (`blend_lambdas`). |
 | `dixon_coles.py` | Dixon-Coles skor matrisi: 1X2, üst/alt, BTTS, takım üst/alt olasılıkları ve 1X2'ye hizalama. |
 | `train_corners.py`, `train_cards.py`, `train_saves.py`, `train_throws.py`, `train_offsides.py` | Sayım modelleri: köşe, kart (hakem özetleriyle), kurtarış, taç, ofsayt. Toplam sayıyı ve eşik üstü olasılıkları verir. Kapıyı geçemezse `training_mean`'e düşer. |
+| `count_model.py` | Beş sayım eğiticisinin ortak parçaları: veri yükleme ve doğrulama (`load_count_dataset`), öne çıkan özellikler (`top_features_of`), eğitim hatası (`train_errors`), artifact yazma (`save_count_artifact`). Her eğitici adaylarını, eşiklerini ve API/rapor için metrik anahtarlarını kendi dosyasında tutar. |
 | `model_utils.py` | Ortak yardımcılar: güvenli özellik tablosu, dağılım tahmini, sayım kuyruk olasılığı, kalibratör, beceri kapıları (`apply_skill_gate`, `apply_outer_season_gate`). |
 | `eval_utils.py` | Log loss, eşleştirilmiş bootstrap, güvenilirlik tablosu, ECE. |
 
