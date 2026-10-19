@@ -1,6 +1,6 @@
 # Script Referansı
 
-Projedeki tüm çalıştırılabilir script ve modüllerin ne işe yaradığı. Kaynak: her dosyanın docstring'i ve fonksiyon listesi (içerikleri satır satır doğrulanmadı). `node_modules`, `frontend/src` (React bileşenleri) ve `graphify-out` kapsam dışı.
+Projedeki tüm çalıştırılabilir script ve modüllerin ne işe yaradığı. Kaynak: her dosyanın docstring'i ve fonksiyon listesi. Hangi dosyaların listelendiği `tests/test_docs.py` ile denetlenir (yeni dosya eklenip burada geçmezse test kırılır); açıklamaların içeriği satır satır doğrulanmadı. `node_modules`, `frontend/src` (React bileşenleri) ve `graphify-out` kapsam dışı.
 
 Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQLite) → **features** (sızıntısız özellikler) → **models** (eğitim) → **api** (servis) → **frontend**.
 
@@ -130,7 +130,14 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `test_database.py` | `populate_db_from_sources`: maç/yaklaşan fikstür/hakem özetleri, ikinci çalıştırmada değişmeme, xG tablosunun korunması. |
 | `test_sync_helpers.py` | `sync_season_data` saf yardımcıları: tamamlanma, skor, takım adı eşleme, hakem. |
 | `test_evaluate_goal_models.py` | Gol kapıları (sabit Poisson, KG, piyasa) sentetik veriyle, piyasa marjı temizleme. |
-| `test_api_routes.py` | API rota duman testleri ve tahmin tutarlılığı (`needs_data`). |
+| `test_api_routes.py` | API rota duman testleri, tahmin tutarlılığı, yeniden yüklemede durumun yeniden bağlanması, yönetim ucu ve CORS (`needs_data`). |
+| `test_api_fixtures.py` | `GET /api/fixtures`: NaN/NaT serileştirme (regresyon) ve sezon/arama/limit filtreleri. |
+| `test_api_security.py` | Yönetim jetonu (`PLM_ADMIN_TOKEN`) ve CORS kökenleri; mini uygulamayla, veri gerektirmez. |
+| `test_count_models.py` | Beş sayım eğiticisinin ortak yardımcıları ve her eğiticinin sentetik veriyle uçtan uca çalışması. |
+| `test_ingest_files.py` | `atomic_write_json`. |
+| `test_start.py` | `start.py` port mantığı: yalnızca projenin kendi süreci kapatılır, `--force`. |
+| `test_docs.py` | Bu belgenin gerçeğe uyması: her `src/` ve `tests/` dosyası burada geçer, burada geçen her dosya vardır. |
+| `conftest.py` | `needs_data` işareti: yerel veri ve model yoksa o testler atlanır. |
 
 Çalıştırma: `pip install -r requirements-dev.txt && pytest` (`pytest.ini` yalnızca `tests/` toplar; `research/` hariç). Lint: `ruff check .` (`pyproject.toml`: sözdizimi, tanımsız ad, kullanılmayan içe aktarma, çıplak `except`; CI'da çalışır, yerelde `pre-commit install` ile commit öncesi de). Yerel veri ve modelleri okuyan testler `needs_data` işaretlidir ve veri yoksa (temiz klon, CI) otomatik atlanır. CI: `.github/workflows/ci.yml` (backend `pytest`, frontend `npm run build`).
 
