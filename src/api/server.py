@@ -3199,7 +3199,10 @@ def predict_match(
         goals_extra["btts_pct"] = round(p_btts * 100.0, 1)
         goals_extra["btts_source"] = "model_matrix"
         goals_extra["btts_prior_pct"] = round(btts_prior * 100.0, 1)
-        goals_extra["btts_prediction"] = "KG Var" if p_btts >= 0.5 else "KG Yok"
+        # No label when the BTTS gate failed (model not better than the league average, GOAL_MODELS_ANALYSIS P5).
+        btts_informative = bool(goals_artifact.get("evaluation_gate", {}).get("btts_gate", {}).get("passed", False))
+        goals_extra["btts_informative"] = btts_informative
+        goals_extra["btts_prediction"] = ("KG Var" if p_btts >= 0.5 else "KG Yok") if btts_informative else None
         goals_extra["expected_home_goals"] = round(float(lam_h[0]), 2)
         goals_extra["expected_away_goals"] = round(float(lam_a[0]), 2)
         goals_extra["expected_total_goals"] = round(float(lam_h[0] + lam_a[0]), 2)

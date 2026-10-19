@@ -54,33 +54,36 @@ goal_model:
   matrix_dimension: "13x13 (score cells from 0-0 to 12-12)"
   selection:
     source_of_truth: "src/models/train_goals.py::BLEND_GRID"
-    grid: { feature_sets: [compact, full], feature_alphas: [1, 3, 10, 30], dc_weights: [0, 0.25, 0.5], dc_half_life_days: 365 }
-    procedure: "select_blend_config(): forward folds inside the given data only, O2.5 log loss, 1-SE rule (simplest tied config: compact > full, then stronger L2)"
+    grid: { feature_sets: [compact, full], feature_alphas: [0.1, 0.3, 1, 3, 10, 30], dc_weights: [0.0], dc_half_life_days: 365 }
+    procedure: "select_blend_config(): forward folds inside the given data only, pooled exact-score NLL (-log M[i, min(h,12), min(a,12)]), lowest wins, no 1-SE rule"
     nested_in_evaluation: true   # evaluate_goal_models reruns selection inside each outer season
     gate_requires_same_grid: true
   production_config:            # chosen on all unlocked seasons (2022/23-2025/26); 2026/27 locked season not used
-    feature_set: compact
-    feature_count: 11
-    features: [elo_home, elo_away, home_xg_for_ewma_02, home_xg_against_ewma_02, away_xg_for_ewma_02, away_xg_against_ewma_02,
-               home_shots_ontarget_for_ewma_02, home_shots_ontarget_against_ewma_02, away_shots_ontarget_for_ewma_02,
-               away_shots_ontarget_against_ewma_02, exp_match_shots_5]
-    feature_alpha: 30.0
-    dc_weight: 0.5            # lambda = lambda_dc^0.5 * lambda_feat^0.5
+    feature_set: full
+    feature_count: 58          # feature_names in the artifact; COMPACT_GOAL_FEATURES (11) remains a grid option
+    feature_alpha: 3.0
+    dc_weight: 0.0            # lambda = lambda_feat; DC only contributes to the shared rho
     dc_half_life_days: 365
     rho: "0.5 * (rho_dc + rho_feat); fold-unstable, irrelevant to O2.5 (tau preserves mass in <=1-goal cells)"
-    calibrators: none          # forward-fold check: no market improved (O2.5 0.6782 -> 0.6835)
-    fit_matches: 1580
+    calibrators: { over_1.5: applied (0.4729 -> 0.4714), btts: applied (0.6822 -> 0.6814), over_2.5: none (0.6793 -> 0.6797), over_3.5: none }  # forward-fold OOF
+    fit_matches: 1589
   api_serving:
     endpoint: "GET /api/predict"
     one_x_two_source: "outcome_models_v1 (logistic)"
     score_matrix: "align_to_outcome_probs(): matrix 1X2 regions rescaled to the logistic 1X2; O/U, BTTS, team totals, expected goals all read from the aligned matrix"
-    btts_label_threshold: 0.5
-  honest_outer_holdout:        # 1,140 matches (2023/24-2025/26), each season fit on earlier seasons only, nested selection
-    over_25_frozen_season: { mean_season_log_loss: 0.6803, delta_vs_prior: -0.0044, ci95: [-0.0105, +0.0014], ece_decile: 0.046, significant: false }
-    over_25_weekly_refit:  { log_loss: 0.6756, vs_frozen: -0.0048, ci95_vs_frozen: [-0.0093, -0.0005], vs_rolling_prior: -0.0046, ci95_vs_rolling_prior: [-0.0108, +0.0015] }
-    by_season_over_25_model_vs_prior: { "2023_24": [0.6794, 0.6790], "2024_25": [0.6755, 0.6854], "2025_26": [0.6861, 0.6900] }
-    btts_model_vs_prior:     { "2023_24": [0.6835, 0.6863], "2024_25": [0.6801, 0.6824], "2025_26": [0.6832, 0.6859] }
-    alignment_to_logistic_1x2: { one_x_two: -0.0157, over_25: -0.0012, over_15: 0.0000, over_35: -0.0003, btts: +0.0014 }
+    btts_label: "null unless evaluation_gate.btts_gate.passed (CI vs constant Poisson must exclude 0); API also returns btts_informative"
+  honest_outer_holdout:        # 1,140 matches (2023/24-2025/26), each season fit on earlier seasons only, nested selection; v1.4 (2026-10-19)
+    score_nll: { model: 2.9786, constant_poisson: 3.0959, v1_3: 3.0152, delta_vs_v1_3: -0.0366 }
+    over_25_frozen_season: { mean_season_log_loss: 0.6774, delta_vs_prior: -0.0074, ci95: [-0.0146, -0.0001], ece_decile: 0.0507, significant: "borderline" }
+    over_25_vs_constant_poisson: { delta: -0.0051, ci95: [-0.0119, +0.0019], significant: false }
+    over_25_vs_market_bet365: { delta: +0.0086, ci95: [+0.0011, +0.0162], n: 1134, market_better: true }
+    btts_vs_constant_poisson: { delta: -0.0013, ci95: [-0.0071, +0.0042], gate_passed: false }
+    btts_vs_market_bet365:   { delta: +0.0050, ci95: [-0.0005, +0.0106], n: 1138 }
+    over_25_weekly_refit:  { log_loss: 0.6760, vs_frozen: -0.0014, ci95_vs_frozen: [-0.0037, +0.0009], vs_rolling_prior: -0.0042, ci95_vs_rolling_prior: [-0.0104, +0.0021] }
+    selected_configs: { "2023_24": "full a10 w0", "2024_25": "full a3 w0", "2025_26": "full a3 w0" }
+    by_season_over_25_model_vs_prior: { "2023_24": [0.6648, 0.6790], "2024_25": [0.6774, 0.6854], "2025_26": [0.6901, 0.6900] }
+    btts_model_vs_prior:     { "2023_24": [0.6729, 0.6863], "2024_25": [0.6840, 0.6824], "2025_26": [0.6843, 0.6859] }
+    alignment_to_logistic_1x2: "not re-measured in v1.4 (v1.3: one_x_two -0.0157, over_25 -0.0012, btts +0.0014)"
   diagnosis:
     supremacy_vs_volume: "corr(lambda_h - lambda_a, goal diff) 0.44; corr(lambda_total, total goals) 0.065 (measured on the 58-feature model)"
     level_shift: "season scoring level moves: 2023/24 trained on 2.85 goals/match, observed 3.28 -> main cause of the pooled Under bias; weekly refit recovers it"
@@ -94,6 +97,9 @@ goal_model:
     6_temperature_calibration_ou: "Shuffled-KFold gain was time leakage; forward folds: O2.5 0.6777 -> 0.6799 (worse)"
     7_com_poisson_dispersion: "nu in {1.15, 1.3} via nested grid: O2.5 delta -0.0040 vs -0.0044 baseline, ECE 6.8% vs 4.6%, BTTS 2025/26 worse than prior"
     8_feature_model_recency_weights: "half-life 365d never selected in nested grid; 180d under weekly refit -0.0004 vs refit (noise)"
+    9_dixon_coles_ridge_search: "ridge {1,3,10,30} nested: score NLL 3.0003 -> 3.0005; DC alone ridge 30 3.0314 vs blend 3.0003"
+    10_lineup_shot_volume_features: "XI shot-volume features (2 variants): score NLL -0.0033 [-0.0051,-0.0016] but O2.5 -0.0005 / BTTS 0.0000, n.s. vs constant Poisson"
+    11_dc_weight_0.25_0.5: "removed from grid: nested score NLL 3.0003 -> 2.9786 with dc_weights=[0.0]"
   superseded_values: "Pre-audit 0.6774 / ECE 2.17% / 1,200 matches included the locked 2026/27 season and hyperparameters picked on the same holdout."
 ```
 

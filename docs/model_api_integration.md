@@ -8,7 +8,7 @@ Bu doküman, üretim modellerinin (gol skor matrisi `goals_models_v1`, 1X2 `outc
 
 ## 1. Sistem Mimari Akışı
 
-Gol modelimiz tek bir ikili (binary) sınıflandırıcı yerine, maçın tüm olası skorlarını eş zamanlı modelleyen bir **$13 \times 13$ skor matrisi** üzerinde çalışır: iki bağımsız Poisson oranı (Dixon-Coles takım modeli × 11 özellikli Poisson regresyonu, geometrik harman) + düşük skor hücrelerinde Dixon-Coles $\tau$ düzeltmesi. Gerçek bir *bivariate* Poisson değildir.
+Gol modelimiz tek bir ikili (binary) sınıflandırıcı yerine, maçın tüm olası skorlarını eş zamanlı modelleyen bir **$13 \times 13$ skor matrisi** üzerinde çalışır: iki bağımsız Poisson oranı (58 özellikli Poisson regresyonu, α=3; Dixon-Coles takım modeli blend'de ağırlık 0 ile yalnızca ortak $\rho$'ya katkı verir) + düşük skor hücrelerinde Dixon-Coles $\tau$ düzeltmesi. Gerçek bir *bivariate* Poisson değildir.
 
 **Tek kaynak kuralı (17 Ekim 2026):** `GET /api/predict` içinde matris, lojistik 1X2 modelinin (`outcome_models_v1`) olasılıklarına hizalanır (`align_to_outcome_probs`). Böylece ekrandaki 1X2, Üst/Alt, KG, takım baremleri ve beklenen goller aynı dağılımdan gelir ve birbiriyle çelişmez.
 
@@ -39,7 +39,7 @@ Gol modelimiz tek bir ikili (binary) sınıflandırıcı yerine, maçın tüm ol
 - **API Alanı:** `/api/predict` -> `goals.btts_pct`, `goals.btts_prediction`
 - **Hesaplama Formülü:** Matrisin sıfır gol içeren satır ve sütunlarının elenmesiyle türetilir:
   $$P(\text{BTTS}) = 1 - \sum_{i=0}^{12} M_{i,0} - \sum_{j=0}^{12} M_{0,j} + M_{0,0}$$
-- **Etiket Eşiği:** `btts_prediction` = "KG Var" ⇔ $P \ge 0.5$. Ligin tarihsel KG oranı ayrıca `btts_prior_pct` alanında döner (yalnızca bilgi). *(17 Ekim 2026 öncesi eşik lig ortalamasıydı; %56.4'e "KG Yok" yazıyordu.)*
+- **Etiket Eşiği:** `btts_prediction` = "KG Var" ⇔ $P \ge 0.5$. KG kapısı (`btts_gate`, sabit Poisson'a karşı) geçilmediyse `btts_informative=false` ve `btts_prediction=null` döner; yalnızca `btts_pct` bilgi olarak kalır (19 Ekim 2026 kararı). Ligin tarihsel KG oranı ayrıca `btts_prior_pct` alanında döner (yalnızca bilgi). *(17 Ekim 2026 öncesi eşik lig ortalamasıydı; %56.4'e "KG Yok" yazıyordu.)*
 
 ### 2.4. Tek Taraflı Takım Gol Baremleri (Team Totals)
 - **API Alanı:** `/api/predict` -> `goals.team_totals.home` ve `goals.team_totals.away`

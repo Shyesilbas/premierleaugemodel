@@ -4,7 +4,7 @@
 > 🗂️ **Yapı (17 Ekim 2026'dan itibaren):** Bu belge **ana indekstir**: özet karne, veri/ETL, edge denetimi, metodolojik anayasa, API ve yol haritası. Her modelin ayrıntısı kendi raporundadır: [Gol](models/goals_model.md) · [1X2](models/outcome_1x2_model.md) · [Korner](models/corners_model.md) · [Kart](models/cards_model.md) · [Kurtarış](models/saves_model.md) · [Ofsayt](models/offsides_model.md) · [Taç](models/throws_model.md). Bir model değiştiğinde önce kendi raporu, sonra aşağıdaki özet karne güncellenir.
 
 **Kapsanan Tüm Modeller:**
-- ⚽ **Gol Modeli (`v1.3`, 17 Ekim 2026):** 11 Özellikli Poisson + Dixon-Coles Hibriti, lojistik 1X2'ye hizalı skor matrisi (`models/production/goals_models_v1.joblib`)
+- ⚽ **Gol Modeli (`v1.4`, 19 Ekim 2026):** 58 Özellikli (`full`, α=3) Poisson skor matrisi + Dixon-Coles düzeltmesi ($w_{dc}=0$), lojistik 1X2'ye hizalı skor matrisi (`models/production/goals_models_v1.joblib`)
 - 🎯 **1X2 Maç Sonucu Modeli (`v1.1`):** 77 Özellikli L2 Çok Terimli Lojistik Regresyon & Sıcaklık Kalibrasyonu (`models/production/outcome_models_v1.joblib`)
 - 📊 **Sayım & Maç Dinamikleri Modelleri:** Korner (`corner_model_v1`), Kart (`cards_model_v1`), Kurtarış (`saves_model_v1`), Ofsayt (`offside_model_v1`), Taç (`throws_model_v1`)
 - 🗄️ **Veritabanı & ETL Altyapısı:** `data/premier_league.db` (SQLite3, 12 tablo, 1.900 fikstür) & Parquet katmanı  
@@ -26,7 +26,7 @@
 9. [BÖLÜM 9: Sistem & API Entegrasyonu (Nerede Kullanılır?)](#bölüm-9-sistem--api-entegrasyonu-nerede-kullanılır)
 10. [BÖLÜM 10: Sonuç ve Üretim Yol Haritası](#bölüm-10-sonuç-ve-üretim-yol-haritası)
 11. BÖLÜM 11: Gol Modeli Bağımsız Denetimi → **[Gol Model Raporu](models/goals_model.md#bölüm-11-bağımsız-denetim-17-ekim-2026--gol-modeli--api-bulguları)**
-    - [11.10 Eksiklerin Giderilmesi Denemeleri](models/goals_model.md#1110-eksiklerin-giderilmesi-denemeleri-17-ekim-2026) · [11.11 Güncel Değerler](models/goals_model.md#1111-gol-modeli--güncel-değerler-v13-17-ekim-2026) · [11.12 İş Akışı](models/goals_model.md#1112-gol-modeli-iş-akışı-workflow)
+    - [11.10 Eksiklerin Giderilmesi Denemeleri](models/goals_model.md#1110-eksiklerin-giderilmesi-denemeleri-17-ekim-2026) · [11.11 Güncel Değerler](models/goals_model.md#1111-gol-modeli--güncel-değerler-v14-19-ekim-2026) · [11.12 İş Akışı](models/goals_model.md#1112-gol-modeli-iş-akışı-workflow)
 
 ---
 
@@ -38,8 +38,8 @@ Premier League Model platformu; İngiltere Premier League maçları için maç �
 
 | Model / Hedef | Üretim Algoritması | Girdi Sayısı | Holdout Havuzu | Temel Başarı Metriği | Temel Çizgi (Baseline) | Karar / Durum |
 | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| **[2.5 Gol Üst / Alt](models/goals_model.md)** | Geometrik Hibrit ($\lambda_{\text{DC}}^{0.5} \times \lambda_{\text{Feat}}^{0.5}$), iç içe seçim | 11 Özellik | 1.140 Maç | **Log-Loss `0.6803`** (haftalık yeniden eğitimle `0.6756`), ECE (desil) `%4.6` | Prior: $\Delta=-0.0044$, CI $[-0.0105,+0.0014]$ — **anlamlı değil** | ⚠️ **Üretimde; prior'a karşı anlamlı beceri yok** ([Gol Model Raporu §11.11](models/goals_model.md)) |
-| **[1.5 & 3.5 & BTTS](models/goals_model.md)** | $13 \times 13$ skor matrisi marjinali (bağımsız Poisson × DC $\tau$), lojistik 1X2'ye hizalı | 11 Özellik | 1.140 Maç | O1.5 ve BTTS her sezon prior'dan hafif iyi; O3.5 2023/24'te kötü | Tüm pazarlar ve 1X2 aynı matristen, tutarlı | 🏆 **Üretimde Aktif** |
+| **[2.5 Gol Üst / Alt](models/goals_model.md)** | Feature-Poisson ($w_{dc}=0$), iç içe seçim (skor NLL) | 58 Özellik | 1.140 Maç | **Log-Loss `0.6774`** (haftalık yeniden eğitimle `0.6760`), skor NLL `2.9786`, ECE (desil) `%5.1` | Prior: $\Delta=-0.0074$, CI $[-0.0146,-0.0001]$ (sınırda anlamlı); lig ortalaması: $\Delta=-0.0051$, CI $[-0.0119,+0.0019]$ — **anlamlı değil**; Bet365'ten $+0.0086$ kötü | ⚠️ **Üretimde; skor dağılımı iyi, toplam gol pazarında lig ortalamasını/piyasayı geçen beceri yok** ([Gol Model Raporu §11.11](models/goals_model.md)) |
+| **[1.5 & 3.5 & BTTS](models/goals_model.md)** | $13 \times 13$ skor matrisi marjinali (bağımsız Poisson × DC $\tau$), lojistik 1X2'ye hizalı | 58 Özellik | 1.140 Maç | O3.5 üç sezonda da prior'dan iyi; O1.5 ve BTTS 2024/25'te prior'dan hafif kötü; BTTS lig ortalamasını geçemedi (kapı ❌, etiket kapalı) | Tüm pazarlar ve 1X2 aynı matristen, tutarlı | 🏆 **Üretimde Aktif** |
 | **[1X2 Maç Sonucu](models/outcome_1x2_model.md)** | L2 Çok Terimli Lojistik ($C=0.003, T=0.9591$) | 77 Özellik | 304 Maç | **Log-Loss `1.026`**, Brier `0.617` | Sınıf-Prior: `1.092` ($p=0.9992$) | 🏆 **Üretimde Aktif** |
 | **[Korner Sayımı](models/corners_model.md)** | ElasticNet (`elastic_0.05_0.8`) | 10 Özellik | 316 Maç | **RMSE `3.1999`**, MAE `2.6023`; dış sezon 2/3 | Lig Ortalaması: `3.2405` | 🏆 **Üretimde; kazanç küçük (R² 0.004)** |
 | **[Taç Atışı Sayımı](models/throws_model.md)** | Poisson Regresyonu (`poisson_10`) | 14 Özellik | 316 Maç | **RMSE `7.0221`**, MAE `5.6042`; dış sezon 3/3 | Lig Ortalaması: `7.3881` | 🏆 **Üretimde Aktif** |
@@ -194,7 +194,7 @@ api_integration_mapping:
 
 ## BÖLÜM 10: Sonuç ve Üretim Yol Haritası
 
-1. **Üretim Kararı:** 11 Özellikli Poisson + Dixon-Coles Gol Modeli (`goals_models_v1`, matris lojistik 1X2'ye hizalı), 77 Özellikli Lojistik 1X2 Modeli (`outcome_models_v1`) ve 5 sayım modeli üretimdedir; bunlardan korner, ofsayt ve taç özellikli, kart ve kurtarış sabit ortalamadır (Bölüm 8 madde 7).
+1. **Üretim Kararı:** 58 Özellikli Poisson + Dixon-Coles Gol Modeli (`goals_models_v1`, matris lojistik 1X2'ye hizalı), 77 Özellikli Lojistik 1X2 Modeli (`outcome_models_v1`) ve 5 sayım modeli üretimdedir; bunlardan korner, ofsayt ve taç özellikli, kart ve kurtarış sabit ortalamadır (Bölüm 8 madde 7).
 2. **Model Sadeleştirme (Occam's Razor):** ✅ Tamamlandı — gol modeli 58 → 11 özelliğe indi (`effective_log_mv_ratio` dahil çıkarıldı), doğruluk kaybı yok ([Gol Model Raporu §11.9](models/goals_model.md)).
 3. **Canlı Paper Trading Takibi:** 2026/27 sezonunda Edge $>2\%, >3\%, >5\%$ portföyleri [Paper Trading Protokolü](paper_trading_protocol_2026_27.md) çerçevesinde canlı oranlarla $N \ge 200$ maçlık tescil kararına kadar izlenecektir.
 4. **Denetim Sonrası Öncelikler (17 Ekim 2026):** [Gol Model Raporu §11.6](models/goals_model.md)'daki P0 maddeleri (kalibratörün devreye alınması, API'de tek 1X2 kaynağı, BTTS etiketi, iç içe hiperparametre seçimi) `v1.3`'ten önce kapatılmalıdır.

@@ -31,7 +31,7 @@ sqlite3 data/premier_league.db "SELECT ..."                        # Canlı veri
 
 | Model | Üretimdeki Hali | Durum | Rapor |
 | :--- | :--- | :--- | :--- |
-| **Gol (skor matrisi)** | 13×13 matris: bağımsız Poisson × Dixon-Coles τ, $\lambda = \lambda_{DC}^{0.5}\lambda_{Feat}^{0.5}$, 11 özellik, α=30; API'de 1X2'ye hizalanır | ⚠️ Prior'a karşı anlamlı beceri yok (O2.5 LL 0.6803, Δ −0.0044, CI sıfırı içeriyor) | [goals_model.md](docs/reports/models/goals_model.md) |
+| **Gol (skor matrisi)** | 13×13 matris: bağımsız Poisson × Dixon-Coles τ, $\lambda = \lambda_{Feat}$ ($w_{dc}=0$), `full` 58 özellik, α=3; API'de 1X2'ye hizalanır | ⚠️ Skor dağılımı iyileşti (NLL 2.9786), 2.5 Üst'te prior'a karşı sınırda anlamlı (LL 0.6774, Δ −0.0074), lig ortalamasına karşı ve piyasaya karşı anlamlı beceri yok; KG etiketi kapalı | [goals_model.md](docs/reports/models/goals_model.md) |
 | **1X2 maç sonucu** | 77 özellikli L2 çok terimli lojistik + sıcaklık kalibrasyonu | 🏆 Prior'u anlamlı geçiyor (LL 1.026 vs 1.092); beraberlik ayrımı zayıf | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
 | **Korner** | `elastic_0.05_0.8`, 10 özellik | 🏆 Küçük kazanç (RMSE 3.200 vs 3.241) | [corners_model.md](docs/reports/models/corners_model.md) |
 | **Taç** | `poisson_10`, 14 özellik | 🏆 Dış sezon 3/3 (RMSE 7.022 vs 7.388) | [throws_model.md](docs/reports/models/throws_model.md) |

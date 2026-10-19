@@ -31,9 +31,11 @@ logger = logging.getLogger("train_goals")
 BLEND_GRID = {
     "kind": "blend_dc_feat",
     "dc_half_life_days": 365.0,
-    "feature_sets": ["compact", "full"],  # simplest first: drives the 1-SE tie-break
-    "feature_alphas": [1.0, 3.0, 10.0, 30.0],
-    "dc_weights": [0.0, 0.25, 0.5],
+    "feature_sets": ["compact", "full"],
+    "feature_alphas": [0.1, 0.3, 1.0, 3.0, 10.0, 30.0],
+    # DC weight 0 only: nested outer seasons chose it every time and beat the 0/0.25/0.5 grid by
+    # 0.0217 score NLL (GOAL_MODELS_ANALYSIS P8); DC still supplies half of the shared rho.
+    "dc_weights": [0.0],
 }
 # Fixed a priori (not tuned on outer seasons): one strength rating per side,
 # one recency form version (ewma_02) of chance quality and shot volume for and
@@ -46,6 +48,7 @@ COMPACT_GOAL_FEATURES = [
     "away_shots_ontarget_for_ewma_02", "away_shots_ontarget_against_ewma_02",
     "exp_match_shots_5",
 ]
+SCORE_CAP = 12  # last row/column of the score matrix
 OU_LINES = (1.5, 2.5, 3.5)
 LABELS = [0, 1]
 
@@ -75,7 +78,7 @@ def blend_model(features: list[str], chosen: dict[str, Any]) -> BlendedGoalModel
 
 
 def select_blend_config(df: pd.DataFrame, feature_sets: dict[str, list[str]]) -> dict[str, Any]:
-    """Pick feature set, feature_alpha and dc_weight by forward-fold O2.5 log loss using ``df`` only."""
+    """Pick feature set, feature_alpha and dc_weight by forward-fold score-matrix NLL using ``df`` only."""
     kickoffs = df["kickoff_millis"] if "kickoff_millis" in df.columns else None
     losses: dict[tuple[str, float, float], list[np.ndarray]] = {}
     for train_idx, valid_idx in forward_time_splits(len(df), kickoffs, n_splits=N_CV_SPLITS):
@@ -86,7 +89,9 @@ def select_blend_config(df: pd.DataFrame, feature_sets: dict[str, list[str]]) ->
             logger.warning("Skipping selection fold: Dixon-Coles did not converge on %d rows", len(train))
             continue
         dc_home, dc_away = dc.lambdas(valid)
-        y = ((valid["home_score"] + valid["away_score"]) > 2.5).to_numpy(dtype=int)
+        cells = np.arange(len(valid))
+        home_goals = np.minimum(valid["home_score"].to_numpy(dtype=int), SCORE_CAP)
+        away_goals = np.minimum(valid["away_score"].to_numpy(dtype=int), SCORE_CAP)
         for set_name in BLEND_GRID["feature_sets"]:
             for alpha in BLEND_GRID["feature_alphas"]:
                 feat = FeatureGoalModel(feature_sets[set_name], alpha=alpha).fit(train)
@@ -99,23 +104,14 @@ def select_blend_config(df: pd.DataFrame, feature_sets: dict[str, list[str]]) ->
                         rho,
                     )
                     losses.setdefault((set_name, alpha, weight), []).append(
-                        per_match_log_loss(_binary_probabilities(over_prob(matrices, 2.5)), y)
+                        -np.log(matrices[cells, home_goals, away_goals])
                     )
     if not losses:
         raise RuntimeError("No selection fold had a converged Dixon-Coles fit")
     pooled = {key: np.concatenate(parts) for key, parts in losses.items()}
-    best = min(pooled, key=lambda key: float(pooled[key].mean()))
-
-    def tied_with_best(key: tuple[str, float, float]) -> bool:
-        delta = pooled[key] - pooled[best]
-        return float(delta.mean()) <= float(delta.std(ddof=1) / np.sqrt(len(delta)))
-
-    # 1-SE rule: among configs within one paired standard error of the best,
-    # take the simplest (compact features, then stronger L2), then the lowest loss.
-    set_name, alpha, weight = min(
-        (key for key in pooled if tied_with_best(key)),
-        key=lambda key: (BLEND_GRID["feature_sets"].index(key[0]), -key[1], float(pooled[key].mean())),
-    )
+    # The matrix carries goal difference and team goals, which O2.5 alone cannot rank
+    # (total-goals signal is weak), so the lowest score NLL wins with no tie-break.
+    set_name, alpha, weight = min(pooled, key=lambda key: float(pooled[key].mean()))
     return {
         "kind": BLEND_GRID["kind"],
         "dc_half_life_days": BLEND_GRID["dc_half_life_days"],

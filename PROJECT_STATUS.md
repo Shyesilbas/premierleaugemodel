@@ -23,7 +23,7 @@
 
 | Model | Üretimde | Değerlendirme | Rapor |
 | :--- | :--- | :--- | :--- |
-| Gol skor matrisi (`v1.3`) | Bağımsız Poisson × Dixon-Coles, 11 özellik, α=30, w_dc=0.5; API'de 1X2'ye hizalı | O2.5 LL 0.6803 vs prior 0.6847, CI [−0.0105, +0.0014]: **anlamlı değil** | [goals_model.md](docs/reports/models/goals_model.md) |
+| Gol skor matrisi (`v1.4`) | Bağımsız Poisson × Dixon-Coles, `full` 58 özellik, α=3, w_dc=0.0; API'de 1X2'ye hizalı; KG etiketi kapalı | Skor NLL 2.9786 (v1.3: 3.0152); O2.5 LL 0.6774, Δ prior −0.0074 CI [−0.0146, −0.0001] (sınırda anlamlı), lig ortalamasına karşı −0.0051 CI [−0.0119, +0.0019]: **anlamlı değil**; Bet365'ten +0.0086 kötü | [goals_model.md](docs/reports/models/goals_model.md) |
 | 1X2 | 77 özellikli lojistik (C=0.003) + sıcaklık kalibrasyonu | LL 1.026 vs 1.092, Brier 0.617 vs 0.661; beraberlik AUC 0.557 | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
 | Korner | `elastic_0.05_0.8` | RMSE 3.200 vs 3.241; dış sezon 2/3 | [corners_model.md](docs/reports/models/corners_model.md) |
 | Taç | `poisson_10` | RMSE 7.022 vs 7.388; dış sezon 3/3 | [throws_model.md](docs/reports/models/throws_model.md) |

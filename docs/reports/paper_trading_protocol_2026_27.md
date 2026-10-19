@@ -28,6 +28,7 @@ olarak saptanmıştır. Bu durum, $N=51$ maçlık geçmiş örneğin tek başın
    - **2.5 Gol Üstü / Altı** ($P(\text{Üst } 2.5)$)
    - **Karşılıklı Gol Var / Yok (BTTS)** ($P(\text{BTTS})$)
    *(Her iki piyasanın olasılıkları istisnasız $13 \times 13$ iki değişkenli skor matrisinden $M_{ij}$ türetilir; bağımsız alt model dallanması yasaktır).*
+   > **Değişiklik (19 Ekim 2026):** Bu iki piyasada **bahis sinyali üretilmez**; yalnızca olasılık kaydı tutulur (log-loss izleme). Gerekçe: 3 dış sezonda model Bet365'ten anlamlı derecede kötü (2.5 Üst +0.0114, CI [+0.0031, +0.0195]; KG +0.0075, CI [+0.0014, +0.0137]), KG ayrıca sabit Poisson'u geçemiyor (`GOAL_MODELS_ANALYSIS.md`). Kural, kanıt değişirse (yeni özellik, Ç4) yeniden açılır.
 3. **Oran Kaynağı:**
    - Kapanış / Açılış piyasa oranları (`over_25_open`, `under_25_open`, `btts_yes_open`, `btts_no_open`).
    - Adil piyasa olasılığı, büro marjı (vig) çıkarılarak normalize edilir:

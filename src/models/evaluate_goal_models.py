@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -12,13 +13,14 @@ import pandas as pd
 from src.models.dixon_coles import (
     DixonColesModel,
     btts_prob,
+    matrix_from_lambdas,
     outcome_probs,
     over_prob,
 )
 from src.models.eval_utils import paired_bootstrap_delta, per_match_log_loss
 from src.models.goals_model import FeatureGoalModel
 from src.models.model_utils import apply_probability_calibrator
-from src.models.train_goals import BLEND_GRID, blend_model, goal_feature_sets, select_blend_config
+from src.models.train_goals import BLEND_GRID, SCORE_CAP, blend_model, goal_feature_sets, select_blend_config
 from src.models.train_match_outcome import (
     LOCKED_SEASONS,
     candidate_models,
@@ -38,6 +40,26 @@ FEATURE_ALPHAS = (3.0, 10.0, 30.0, 100.0, 300.0)
 def _binary_probs(event_probability: np.ndarray) -> np.ndarray:
     probability = np.clip(np.asarray(event_probability, dtype=float), 1e-6, 1 - 1e-6)
     return np.column_stack([1 - probability, probability])
+
+
+def _market_probabilities(match_ids: pd.Series, db_path: str = "data/premier_league.db") -> pd.DataFrame:
+    """Vig-free Bet365 last-seen O2.5 / BTTS probabilities per match (NaN when absent).
+
+    Benchmark only: never a model input and never part of a pass/fail decision.
+    """
+    with sqlite3.connect(db_path) as conn:
+        odds = pd.read_sql_query(
+            "SELECT match_id, over_25_last_seen AS o, under_25_last_seen AS u, "
+            "btts_yes_last_seen AS yes, btts_no_last_seen AS no "
+            "FROM external_match_odds WHERE bookmaker = 'Bet365'",
+            conn,
+            index_col="match_id",
+        )
+    odds = odds.reindex(match_ids)
+    return pd.DataFrame({
+        "o25": (1 / odds["o"]) / (1 / odds["o"] + 1 / odds["u"]),
+        "btts": (1 / odds["yes"]) / (1 / odds["yes"] + 1 / odds["no"]),
+    }).reset_index(drop=True)
 
 
 def _score_row(
@@ -114,6 +136,13 @@ def _goal_matrices(
     for name, model in dc_models.items():
         matrices[name] = model.predict_matrices(test)
 
+    # League-average benchmark: every match gets the training-mean goals, no team signal.
+    matrices["null"] = matrix_from_lambdas(
+        np.full(len(test), train["home_score"].mean()),
+        np.full(len(test), train["away_score"].mean()),
+        0.0,
+    )
+
     for alpha in FEATURE_ALPHAS:
         model = FeatureGoalModel(features, alpha=alpha).fit(train)
         matrices[f"feat_alpha{alpha:g}"] = model.predict_matrices(test)
@@ -176,6 +205,10 @@ def evaluate_outer_seasons(
     pooled_o25_losses: dict[str, list[np.ndarray]] = {}
     pooled_o25_prior_losses: list[np.ndarray] = []
     selected_configs: dict[str, dict[str, Any]] = {}
+    pooled_btts_losses: dict[str, list[np.ndarray]] = {}
+    pooled_btts_actuals: list[np.ndarray] = []
+    pooled_score_nll: dict[str, list[np.ndarray]] = {}
+    pooled_market: dict[str, list[np.ndarray]] = {"o25": [], "btts": []}
 
     for season_index, season in enumerate(seasons):
         if season_index == 0:
@@ -188,6 +221,12 @@ def evaluate_outer_seasons(
 
         matrices, selected_configs[season] = _goal_matrices(train, test, features)
         total_goals = (test["home_score"] + test["away_score"]).to_numpy(dtype=float)
+        home_cell = np.minimum(test["home_score"].to_numpy(dtype=int), SCORE_CAP)
+        away_cell = np.minimum(test["away_score"].to_numpy(dtype=int), SCORE_CAP)
+        for model_name, matrix in matrices.items():
+            pooled_score_nll.setdefault(model_name, []).append(
+                -np.log(matrix[np.arange(len(test)), home_cell, away_cell])
+            )
 
         for line in OU_LINES:
             target = f"over_{line:g}"
@@ -225,6 +264,7 @@ def evaluate_outer_seasons(
         y_btts = (
             (test["home_score"] >= 1) & (test["away_score"] >= 1)
         ).to_numpy(dtype=int)
+        pooled_btts_actuals.append(y_btts)
         prior_btts = float(
             ((train["home_score"] >= 1) & (train["away_score"] >= 1)).mean()
         )
@@ -233,14 +273,19 @@ def evaluate_outer_seasons(
             season, "btts", "prior", prior_btts_probabilities, y_btts, prior_btts_probabilities
         ))
         for model_name, matrix in matrices.items():
+            btts_probabilities = _binary_probs(btts_prob(matrix))
+            pooled_btts_losses.setdefault(model_name, []).append(per_match_log_loss(btts_probabilities, y_btts))
             results.append(_score_row(
                 season,
                 "btts",
                 model_name,
-                _binary_probs(btts_prob(matrix)),
+                btts_probabilities,
                 y_btts,
                 prior_btts_probabilities,
             ))
+        market = _market_probabilities(test["match_id"])
+        pooled_market["o25"].append(market["o25"].to_numpy())
+        pooled_market["btts"].append(market["btts"].to_numpy())
 
         y_1x2 = np.select(
             [test["home_score"] > test["away_score"], test["home_score"] == test["away_score"]],
@@ -276,14 +321,23 @@ def evaluate_outer_seasons(
     )
     logreg_mean = float(result_frame.loc[result_frame["model"] == "logreg_o25", "log_loss"].mean())
     candidate_gates = {}
-    matrix_names = sorted(set(result_frame["model"]) - {"logreg_o25"})
+    matrix_names = sorted(set(result_frame["model"]) - {"logreg_o25", "null"})
+    null_o25 = np.concatenate(pooled_o25_losses["null"])
     for model_name in matrix_names:
         model_rows = result_frame[result_frame["model"] == model_name]
         rel = reliability[model_name]
         mean_delta = float(model_rows["delta_vs_prior"].mean())
         negative_seasons = int((model_rows["delta_vs_prior"] < 0).sum())
         better_than_logreg = float(model_rows["log_loss"].mean()) < logreg_mean
+        vs_null = paired_bootstrap_delta(np.concatenate(pooled_o25_losses[model_name]), null_o25, n_boot=2000)
+        score_nll = np.concatenate(pooled_score_nll[model_name])
         candidate_gates[model_name] = {
+            # Exact-score NLL is the blend-selection criterion (Ç1); reported so changes are comparable.
+            "mean_score_nll": float(score_nll.mean()),
+            "score_nll_vs_null": paired_bootstrap_delta(
+                score_nll, np.concatenate(pooled_score_nll["null"]), n_boot=2000
+            ),
+            "pooled_paired_bootstrap_vs_null": vs_null,
             "mean_delta_vs_prior": mean_delta,
             "negative_seasons": negative_seasons,
             "mean_log_loss": float(model_rows["log_loss"].mean()),
@@ -303,15 +357,44 @@ def evaluate_outer_seasons(
                 mean_delta < -0.003
                 and negative_seasons >= 2
                 and better_than_logreg
+                and vs_null["mean_delta"] < 0  # must beat a constant league-average Poisson, not just the prior
                 and rel["bins"][-1]["observed_rate"] > rel["bins"][0]["observed_rate"]
             ),
         }
     for gate in candidate_gates.values():
         # Reported, not enforced: the pass rule above has no significance requirement.
         gate["ci_excludes_zero"] = bool(gate["pooled_paired_bootstrap"]["ci_high"] < 0)
+        gate["ci_vs_null_excludes_zero"] = bool(gate["pooled_paired_bootstrap_vs_null"]["ci_high"] < 0)
     if BLEND_GRID["kind"] in candidate_gates:
         candidate_gates[BLEND_GRID["kind"]]["selection_grid"] = BLEND_GRID
         candidate_gates[BLEND_GRID["kind"]]["selected_configs"] = selected_configs
+        kind = BLEND_GRID["kind"]
+        o25_blend, o25_null = np.concatenate(pooled_o25_losses[kind]), null_o25
+        btts_blend, btts_null = np.concatenate(pooled_btts_losses[kind]), np.concatenate(pooled_btts_losses["null"])
+        # BTTS has its own gate: a market that cannot beat the league average is shown as such.
+        btts_vs_null = paired_bootstrap_delta(btts_blend, btts_null, n_boot=2000)
+        candidate_gates[kind]["btts_gate"] = {
+            "mean_log_loss": float(btts_blend.mean()),
+            "pooled_paired_bootstrap_vs_null": btts_vs_null,
+            # Significance required: a label on a gain the CI cannot tell from zero is not information.
+            "passed": bool(btts_vs_null["ci_high"] < 0),
+            "ci_excludes_zero": bool(btts_vs_null["ci_high"] < 0),
+        }
+        # Report-only market benchmark on matches that have Bet365 odds.
+        market_report = {}
+        for name, blend_loss in (("o25", o25_blend), ("btts", btts_blend)):
+            p_market = np.concatenate(pooled_market[name])
+            has_odds = ~np.isnan(p_market)
+            market_loss = per_match_log_loss(_binary_probs(p_market[has_odds]), (
+                np.concatenate(pooled_o25_actuals) if name == "o25" else np.concatenate(pooled_btts_actuals)
+            )[has_odds])
+            market_report[name] = {
+                "n": int(has_odds.sum()),
+                "model_log_loss": float(blend_loss[has_odds].mean()),
+                "market_log_loss": float(market_loss.mean()),
+                "model_minus_market": paired_bootstrap_delta(blend_loss[has_odds], market_loss, n_boot=2000),
+            }
+        candidate_gates[kind]["market_comparison"] = market_report
     return results, reliability, candidate_gates
 
 

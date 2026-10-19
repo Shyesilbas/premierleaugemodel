@@ -252,7 +252,9 @@ export default function PredictorMetricCards({ prediction, homeTeam, awayTeam })
                         <strong className="text-slate-800 font-mono">%{prediction.goals['over_3.5']?.pct}</strong>
                       </div>
                       <div className="flex justify-between text-slate-600">
-                        <span>Karşılıklı Gol</span>
+                        <span title={prediction.goals.btts_informative === false ? 'Model lig ortalamasından iyi değil; düşük ayırt edicilik' : undefined}>
+                          Karşılıklı Gol{prediction.goals.btts_informative === false && ' (düşük ayırt edicilik)'}
+                        </span>
                         <strong className="text-slate-800 font-mono">%{prediction.goals.btts_pct}</strong>
                       </div>
                       <div className="flex justify-between text-slate-600">
