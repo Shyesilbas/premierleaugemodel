@@ -14,7 +14,7 @@ import requests
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))  # works for `python3 src/...py` and `python -m`
-from src.config import PROCESSED_DIR, RAW_DIR  # noqa: E402
+from src.config import PROCESSED_DIR, RAW_DIR, DEFAULT_SEASON  # noqa: E402
 from src.ingest.fetch_season_data import BASE_API_URL, build_session  # noqa: E402
 
 logger = logging.getLogger("fetch_team_staff")
@@ -113,7 +113,7 @@ def run(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--season", default="2026_27", help="Season label, for example 2025_26")
+    parser.add_argument("--season", default=DEFAULT_SEASON, help="Season label, for example 2025_26")
     parser.add_argument("--comp-season-id", type=int, help="Override the ID read from the fixture file")
     parser.add_argument("--fixtures", type=Path, help="Fixture JSON (defaults to data/raw/fixtures_{season}.json)")
     parser.add_argument("--output", type=Path, default=PROCESSED_DIR / "team_staff.json")

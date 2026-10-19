@@ -48,7 +48,7 @@ from src.features.build_features import _aggregate_xi_ratings, _compute_pre_matc
 from src.models.dixon_coles import align_to_outcome_probs, btts_prob, expected_goals, over_prob
 from src.models.model_utils import apply_probability_calibrator, blend_log, safe_feature_frame
 
-from src.config import DATA_DIR, DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MODELS_DIR
+from src.config import DATA_DIR, DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MODELS_DIR, DEFAULT_SEASON
 
 OUTCOME_MODEL_PATH = MODELS_DIR / "outcome_models_v1.joblib"
 GOALS_MODEL_PATH = MODELS_DIR / "goals_models_v1.joblib"
@@ -144,7 +144,7 @@ def build_player_history_and_last_xi(
 
 def get_target_fixtures(
     df_features: pd.DataFrame,
-    season: str = "2026_27",
+    season: str = DEFAULT_SEASON,
     match_id: Optional[int] = None,
     team_query: Optional[str] = None,
     gameweek: Optional[int] = None,
@@ -285,7 +285,7 @@ def print_match_report(
     home_id, away_id = int(fx["home_id"]), int(fx["away_id"])
     home_name = str(fx.get("home_name") or home_id)
     away_name = str(fx.get("away_name") or away_id)
-    season = str(fx.get("season") or "2026_27")
+    season = str(fx.get("season") or DEFAULT_SEASON)
     gw = int(fx.get("gameweek") or 0)
     kickoff_utc = fx.get("_kickoff_utc")
     tr_time_str = (
@@ -464,7 +464,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Fetch pre-match official lineups from PulseLive and run updated model predictions."
     )
-    parser.add_argument("--season", default="2026_27", help="Season label (default: 2026_27)")
+    parser.add_argument("--season", default=DEFAULT_SEASON, help="Season label (default: current season)")
     parser.add_argument("--match-id", type=int, help="Specific PulseLive match ID (e.g. 128986)")
     parser.add_argument("--team", type=str, help="Team name filter (e.g. Everton, Chelsea)")
     parser.add_argument("--gameweek", type=int, help="Specific gameweek number (e.g. 7)")

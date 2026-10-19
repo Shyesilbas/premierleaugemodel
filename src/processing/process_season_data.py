@@ -21,13 +21,8 @@ import numpy as np
 from tqdm import tqdm
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
-from src.config import PROCESSED_DIR, RAW_DIR  # noqa: E402
+from src.config import PROCESSED_DIR, RAW_DIR, configure_logging  # noqa: E402
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger("process_season_data")
 
 
@@ -487,4 +482,5 @@ def main():
 
 
 if __name__ == "__main__":
+    configure_logging()
     main()

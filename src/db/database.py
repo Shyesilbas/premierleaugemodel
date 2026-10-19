@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger("db_layer")
 
-from src.config import DATA_DIR, DB_PATH, ROOT as BASE_DIR
+from src.config import DATA_DIR, DB_PATH, ROOT as BASE_DIR, DEFAULT_SEASON, RAW_DIR, SEASONS
 
 
 def get_db():
@@ -209,7 +209,7 @@ def populate_db_from_sources():
     logger.info(f"Loaded {len(df)} matches from parquet for SQLite import.")
 
     # Load 2026-27 raw fixtures for upcoming matches
-    fix_2627_path = DATA_DIR / "raw" / "fixtures_2026_27.json"
+    fix_2627_path = RAW_DIR / f"fixtures_{DEFAULT_SEASON}.json"
     raw_2627 = []
     if fix_2627_path.exists():
         with open(fix_2627_path, "r", encoding="utf-8") as f:
@@ -309,7 +309,7 @@ def populate_db_from_sources():
         ref_n = officials[0].get("matchOfficial", {}).get("name", {}).get("display") if officials else "Atanmadı"
 
         upcoming_to_insert.append((
-            mid, "2026_27", gw, "", kickoff_str, day_p, time_p,
+            mid, DEFAULT_SEASON, gw, "", kickoff_str, day_p, time_p,
             f.get("ground", {}).get("name", "Premier League Stadı"),
             int(h_team.get("id", 0)), h_team.get("name", ""), h_team.get("club", {}).get("abbr", ""),
             h_score, int(a_team.get("id", 0)), a_team.get("name", ""), a_team.get("club", {}).get("abbr", ""),
@@ -336,7 +336,7 @@ def populate_db_from_sources():
     cursor.execute("DELETE FROM referees;")
 
     # Seasons to process + 'all'
-    seasons = ["2026_27", "2025_26", "2024_25", "2023_24", "2022_23"]
+    seasons = list(reversed(SEASONS))
     for s in seasons:
         cursor.execute("""
         SELECT 
@@ -443,7 +443,7 @@ def populate_db_from_sources():
     logger.info("Successfully populated SQLite database and referee aggregates.")
 
 
-def get_referee_summary(name: str, season: str = "2026_27") -> Dict[str, Any]:
+def get_referee_summary(name: str, season: str = DEFAULT_SEASON) -> Dict[str, Any]:
     """Returns referee aggregates for a given season or career fallback."""
     conn = get_db()
     cursor = conn.cursor()
@@ -468,7 +468,7 @@ def get_referee_summary(name: str, season: str = "2026_27") -> Dict[str, Any]:
     }
 
 
-def get_referees_list(season: str = "2026_27", search: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_referees_list(season: str = DEFAULT_SEASON, search: Optional[str] = None) -> List[Dict[str, Any]]:
     """Returns list of referees for the selected season, optionally filtered by search."""
     conn = get_db()
     cursor = conn.cursor()
@@ -486,7 +486,7 @@ def get_referees_list(season: str = "2026_27", search: Optional[str] = None) -> 
     rows = [dict(r) for r in cursor.fetchall()]
 
     # If few referees in current season, also fetch available active refs from 'all'
-    if len(rows) < 10 and season == "2026_27":
+    if len(rows) < 10 and season == DEFAULT_SEASON:
         cursor.execute("SELECT * FROM referees WHERE season = 'all' ORDER BY matches_count DESC")
         all_refs = {r["referee_name"]: dict(r) for r in cursor.fetchall()}
         existing_names = {r["referee_name"] for r in rows}
@@ -501,7 +501,7 @@ def get_referees_list(season: str = "2026_27", search: Optional[str] = None) -> 
     return rows
 
 
-def get_referee_detail(referee_name: str, season: str = "2026_27") -> Dict[str, Any]:
+def get_referee_detail(referee_name: str, season: str = DEFAULT_SEASON) -> Dict[str, Any]:
     """Returns referee detailed profile, career stats, and match history."""
     conn = get_db()
     cursor = conn.cursor()
@@ -569,7 +569,7 @@ def get_referee_detail(referee_name: str, season: str = "2026_27") -> Dict[str, 
     }
 
 
-def get_all_grouped_fixtures(season: str = "2026_27") -> List[Dict[str, Any]]:
+def get_all_grouped_fixtures(season: str = DEFAULT_SEASON) -> List[Dict[str, Any]]:
     """Fetches all matches from SQLite for the given season with referee stats pre-attached."""
     conn = get_db()
     cursor = conn.cursor()

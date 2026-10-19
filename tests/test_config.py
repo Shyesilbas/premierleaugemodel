@@ -26,3 +26,18 @@ def test_season_policy_is_reexported_for_existing_imports():
 
     assert LOCKED_SEASONS == config.LOCKED_SEASONS and "2026_27" in LOCKED_SEASONS
     assert EXCLUDED_1X2_TRAINING_SEASONS == config.EXCLUDED_1X2_TRAINING_SEASONS
+
+
+def test_default_season_follows_plm_season_then_newest_fixtures_file():
+    with tempfile.TemporaryDirectory() as tmp:
+        raw = Path(tmp) / "raw"
+        raw.mkdir()
+        for season in ("2024_25", "2025_26", "2026_27"):
+            (raw / f"fixtures_{season}.json").write_text("[]")
+        with mock.patch.dict(os.environ, {"PLM_DATA_DIR": tmp}, clear=False):
+            os.environ.pop("PLM_SEASON", None)
+            cfg = importlib.reload(config)
+            assert cfg.SEASONS == ["2024_25", "2025_26", "2026_27"] and cfg.DEFAULT_SEASON == "2026_27"
+            with mock.patch.dict(os.environ, {"PLM_SEASON": "2025_26"}):
+                assert importlib.reload(config).DEFAULT_SEASON == "2025_26"
+    importlib.reload(config)

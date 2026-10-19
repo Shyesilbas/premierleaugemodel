@@ -20,9 +20,8 @@ from typing import Dict, Any, List
 from tqdm import tqdm
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
-from src.config import PROCESSED_DIR, RAW_DIR  # noqa: E402
+from src.config import PROCESSED_DIR, RAW_DIR, SEASONS, configure_logging  # noqa: E402
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("build_player_index")
 
 
@@ -34,7 +33,7 @@ def parse_player_data():
 
     # Load all seasons' fixtures to map match_id to season & gameweek
     match_meta = {}
-    for season in ["2022_23", "2023_24", "2024_25", "2025_26", "2026_27"]:
+    for season in SEASONS:
         fix_path = raw_dir / f"fixtures_{season}.json"
         if fix_path.exists():
             with open(fix_path, "r", encoding="utf-8") as f:
@@ -310,4 +309,5 @@ def parse_player_data():
 
 
 if __name__ == "__main__":
+    configure_logging()
     parse_player_data()

@@ -57,7 +57,6 @@ from src.analytics.player_ratings import (
     get_match_bookings_map,
 )
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api_server")
 
 app = FastAPI(title="Premier League Model Engine API", version="1.0.0")
@@ -73,7 +72,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from src.config import DATA_DIR, MODELS_DIR, ROOT as BASE_DIR
+from src.config import DATA_DIR, MODELS_DIR, ROOT as BASE_DIR, DEFAULT_SEASON, SEASONS, configure_logging
+
+configure_logging()
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 FRONTEND_DIR = FRONTEND_DIST if FRONTEND_DIST.exists() else (BASE_DIR / "frontend")
 
@@ -128,7 +129,7 @@ def resolve_player_photo(pid: Any, reg_p: Optional[Dict[str, Any]] = None) -> Op
 
 
 @app.get("/api/teams/staff")
-def get_team_staff(season: str = "2026_27", team_id: Optional[int] = None):
+def get_team_staff(season: str = DEFAULT_SEASON, team_id: Optional[int] = None):
     """Return season staff, falling back to archived source data for older seasons."""
     staff_path = DATA_DIR / "processed" / "team_staff.json"
     raw_staff_path = DATA_DIR / "processed" / "team_staff_raw.json"
@@ -283,7 +284,7 @@ def get_player_cards_dict() -> Dict[str, Any]:
 
 # Load 2026-27 fixtures if available
 raw_fixtures_2627 = []
-fix_2627_path = DATA_DIR / "raw" / "fixtures_2026_27.json"
+fix_2627_path = DATA_DIR / "raw" / f"fixtures_{DEFAULT_SEASON}.json"
 if fix_2627_path.exists():
     with open(fix_2627_path, "r", encoding="utf-8") as f:
         raw_fixtures_2627 = json.load(f)
@@ -516,11 +517,11 @@ def _run_season_sync_job(job_id: str, season: str, kind: str = "matches") -> Non
 
 
 @app.post("/api/admin/sync-season")
-def start_season_sync(season: str = Query("2026_27"), kind: str = Query("matches")):
+def start_season_sync(season: str = Query(DEFAULT_SEASON), kind: str = Query("matches")):
     """Start a background sync: matches (results + stats), referees, or lineups."""
     if kind not in {"matches", "referees", "lineups"}:
         raise HTTPException(status_code=400, detail="Unsupported sync kind")
-    if season not in {"2022_23", "2023_24", "2024_25", "2025_26", "2026_27"}:
+    if season not in set(SEASONS):
         raise HTTPException(status_code=400, detail="Unsupported season")
     with _sync_job_lock:
         if _sync_job.get("status") in {"queued", "running"}:
@@ -548,7 +549,7 @@ def get_season_sync_status():
 @app.get("/api/teams")
 def get_teams(season: Optional[str] = None):
     """Returns sorted list of teams, optionally filtered by season."""
-    if season == "2026_27":
+    if season == DEFAULT_SEASON:
         current_teams = {}
         for fixture in raw_fixtures_2627:
             for entry in fixture.get("teams", []):
@@ -650,9 +651,9 @@ def _regression_model_skill(artifact: Optional[Dict[str, Any]]) -> str:
 
 
 @app.get("/api/teams/manager-changes")
-def get_manager_changes(season: str = "2026_27"):
+def get_manager_changes(season: str = DEFAULT_SEASON):
     """Place verified appointment events on each team's first subsequent league fixture."""
-    if season not in ("2026_27", "all") and season in _historical_manager_changes_cache:
+    if season not in (DEFAULT_SEASON, "all") and season in _historical_manager_changes_cache:
         return _historical_manager_changes_cache[season]
 
     changes_path = DATA_DIR / "processed" / "manager_changes.json"
@@ -707,7 +708,7 @@ def get_manager_changes(season: str = "2026_27"):
         })
 
     response_data = {"season": season, "events_by_match": all_events_by_match}
-    if season not in ("2026_27", "all"):
+    if season not in (DEFAULT_SEASON, "all"):
         _historical_manager_changes_cache[season] = response_data
     return response_data
 
@@ -751,7 +752,7 @@ def get_manager_performance(team_id: int, manager_name: str, season: str = "all"
         # If this season has no change record or roster entry, a continuing
         # manager listed for the following season is a useful baseline.
         if not baseline:
-            later_staff = staff_by_season.get("2026_27", {}).get(str(team_id), {})
+            later_staff = staff_by_season.get(DEFAULT_SEASON, {}).get(str(team_id), {})
             baseline = next((
                 official.get("name", {}).get("display")
                 for official in later_staff.get("officials", [])
@@ -801,12 +802,12 @@ def get_manager_performance(team_id: int, manager_name: str, season: str = "all"
 
 
 @app.get("/api/fixtures/grouped")
-def get_grouped_fixtures(season: str = "2026_27"):
+def get_grouped_fixtures(season: str = DEFAULT_SEASON):
     """
     Returns fixtures grouped by Gameweek, and within each Gameweek, grouped by match day.
     Uses indexed SQLite database with instant response time and attached referee cards data.
     """
-    if season not in ("2026_27", "current") and season in _historical_fixtures_grouped_cache:
+    if season not in (DEFAULT_SEASON, "current") and season in _historical_fixtures_grouped_cache:
         return _historical_fixtures_grouped_cache[season]
 
     db_fixtures = get_all_grouped_fixtures(season)
@@ -943,37 +944,37 @@ def get_grouped_fixtures(season: str = "2026_27"):
         "current_gameweek": current_gw,
         "next_match": next_match_info,
     }
-    if season not in ("2026_27", "current"):
+    if season not in (DEFAULT_SEASON, "current"):
         _historical_fixtures_grouped_cache[season] = res
     return res
 
 
 @app.get("/api/referees")
-def get_referees(season: str = "2026_27", search: Optional[str] = None):
+def get_referees(season: str = DEFAULT_SEASON, search: Optional[str] = None):
     """Returns list of Premier League referees and card statistics from SQLite."""
     return {"referees": get_referees_list(season, search)}
 
 
 @app.get("/api/referees/{name}")
-def get_referee_profile(name: str, season: str = "2026_27"):
+def get_referee_profile(name: str, season: str = DEFAULT_SEASON):
     """Returns detailed profile and matches officiated by referee from SQLite."""
     return get_referee_detail(name, season)
 
 
 
 @app.get("/api/standings")
-def get_standings(season: str = "2026_27"):
+def get_standings(season: str = DEFAULT_SEASON):
     """
     Computes Premier League standings table for the specified season.
     Includes Played, Won, Drawn, Lost, GF, GA, GD, Points, and Last 5 Form,
     plus Home and Away breakdowns.
     """
-    if season not in ("2026_27", "current") and season in _historical_standings_cache:
+    if season not in (DEFAULT_SEASON, "current") and season in _historical_standings_cache:
         return _historical_standings_cache[season]
 
     matches_to_process = []
 
-    if season == "2026_27" and raw_fixtures_2627:
+    if season == DEFAULT_SEASON and raw_fixtures_2627:
         for f in raw_fixtures_2627:
             teams = f.get("teams", [])
             if len(teams) < 2:
@@ -1102,7 +1103,7 @@ def get_standings(season: str = "2026_27"):
         "total_teams": len(standings_list),
         "standings": standings_list
     }
-    if season not in ("2026_27", "current"):
+    if season not in (DEFAULT_SEASON, "current"):
         _historical_standings_cache[season] = res
     return res
 
@@ -1154,7 +1155,7 @@ def get_match_recent_form(match_id: int):
                         results.append("W" if away_score > home_score else "L" if away_score < home_score else "D")
             for results in form.values():
                 results.reverse()
-            return {"match_id": match_id, "season": "2026_27", "form": form}
+            return {"match_id": match_id, "season": DEFAULT_SEASON, "form": form}
 
     conn = get_db()
     cursor = conn.cursor()
@@ -1321,13 +1322,13 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
 
     # If 2026_27, use the official verified 2026_27 roster from team_staff.json
     roster_players = []
-    if season == "2026_27":
+    if season == DEFAULT_SEASON:
         staff_path = DATA_DIR / "processed" / "team_staff.json"
         if staff_path.exists():
             try:
                 with staff_path.open("r", encoding="utf-8") as sf:
                     staff_data = json.load(sf)
-                    roster_players = staff_data.get("2026_27", {}).get(str(team_id), {}).get("players", [])
+                    roster_players = staff_data.get(DEFAULT_SEASON, {}).get(str(team_id), {}).get("players", [])
             except Exception:
                 roster_players = []
         roster_pids = {int(p["id"]) for p in roster_players if "id" in p}
@@ -1443,7 +1444,7 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
         assists = sum(int(l.get("assists") or 0) for l in team_logs)
 
         # For historical seasons, don't include players with 0 appearances for this team in this season
-        if season != "all" and season != "2026_27" and apps == 0:
+        if season != "all" and season != DEFAULT_SEASON and apps == 0:
             continue
 
         photo_url = resolve_player_photo(pid, p)
@@ -1739,9 +1740,9 @@ async def get_team_transfers(team_id: int, season: Optional[str] = None):
         """)
         conn.commit()
 
-        season_key = (season or "2026_27").strip()
+        season_key = (season or DEFAULT_SEASON).strip()
         if season_key == "all":
-            season_key = "2026_27"
+            season_key = DEFAULT_SEASON
 
         # Check season cache
         cache_row = conn.execute(
@@ -1767,7 +1768,7 @@ async def get_team_transfers(team_id: int, season: Optional[str] = None):
         team_name = team_info.get("name", "")
 
         # If 2026_27 and already in team_transfers_cache, use it!
-        if season_key == "2026_27":
+        if season_key == DEFAULT_SEASON:
             old_row = conn.execute("SELECT data_json FROM team_transfers_cache WHERE team_id = ?", (team_id,)).fetchone()
             if old_row and old_row["data_json"]:
                 data = json.loads(old_row["data_json"])
@@ -1845,13 +1846,13 @@ def get_season_players_map(season: str) -> Dict[int, Dict[str, Any]]:
                 except (ValueError, TypeError):
                     pass
 
-    if season == "2026_27":
+    if season == DEFAULT_SEASON:
         staff_path = DATA_DIR / "processed" / "team_staff.json"
         if staff_path.exists():
             try:
                 with staff_path.open("r", encoding="utf-8") as sf:
                     staff_data = json.load(sf)
-                    for tid_str, tdata in staff_data.get("2026_27", {}).items():
+                    for tid_str, tdata in staff_data.get(DEFAULT_SEASON, {}).items():
                         t_name = tdata.get("name")
                         for p in tdata.get("players", []):
                             if "id" in p:
@@ -3028,7 +3029,7 @@ def get_match_odds(match_id: int):
 
 @app.get("/api/model-audit")
 def get_model_audit(
-    season: str = "2026_27",
+    season: str = DEFAULT_SEASON,
     gameweek: Optional[int] = None,
     force_recalc: bool = False,
 ):

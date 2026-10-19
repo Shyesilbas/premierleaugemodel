@@ -43,13 +43,8 @@ from src.models.eval_utils import (
 )
 from src.features.draw_features import DRAW_PROPENSITY_FEATURES, add_draw_features
 from src.config import FEATURES_PATH, MODELS_DIR, PROCESSED_DIR
-from src.config import EXCLUDED_1X2_TRAINING_SEASONS, LOCKED_SEASONS  # noqa: F401
+from src.config import EXCLUDED_1X2_TRAINING_SEASONS, LOCKED_SEASONS, configure_logging  # noqa: F401
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger("train_match_outcome")
 
 FORM_STATS = [
@@ -1417,4 +1412,5 @@ def train_match_outcome_models(
 
 
 if __name__ == "__main__":
+    configure_logging()
     train_match_outcome_models()

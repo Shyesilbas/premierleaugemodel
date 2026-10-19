@@ -25,13 +25,8 @@ from src.models.train_goals import train_goals_models
 from src.analytics.data_quality_report import main as run_data_quality_report
 from src.analytics.team_data_audit import main as run_team_data_audit
 from src.analytics.audit_team_scenarios import main as run_team_scenario_audit
-from src.config import PROCESSED_DIR, RAW_DIR, REPORTS_DIR
+from src.config import PROCESSED_DIR, RAW_DIR, REPORTS_DIR, configure_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger("master_pipeline")
 
 
@@ -439,6 +434,7 @@ def run_pipeline(stages: list[str]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--only", help=f"comma-separated stages to run; choose from {', '.join(STAGES)}")
     parser.add_argument("--skip", help="comma-separated stages to leave out")

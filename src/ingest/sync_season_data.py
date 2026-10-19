@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # works for `python3 src/...py` and `python -m`
-from src.config import DATA_DIR, ROOT as PROJECT_ROOT  # noqa: E402
+from src.config import DATA_DIR, ROOT as PROJECT_ROOT, DEFAULT_SEASON  # noqa: E402
 from src.pipeline.rebuild import rebuild_derived_data  # noqa: E402
 from src.ingest.fetch_season_data import (  # noqa: E402
     build_session,
@@ -385,7 +385,7 @@ def sync_season(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Incrementally sync a Premier League season.")
-    parser.add_argument("--season-name", default="2026_27", help="Local season label, e.g. 2026_27")
+    parser.add_argument("--season-name", default=DEFAULT_SEASON, help="Local season label, e.g. 2026_27 (default: current season)")
     parser.add_argument("--season-id", type=int, help="PulseLive compSeason ID (inferred from cached fixtures when omitted)")
     parser.add_argument("--comps", type=int, default=1)
     parser.add_argument("--delay", type=float, default=0.1, help="Pause between match-data requests")

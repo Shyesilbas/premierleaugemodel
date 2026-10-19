@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.config import DB_PATH
+from src.config import DB_PATH, DEFAULT_SEASON
 from src.ingest.import_thestatsapi_xg import (
     PROVIDER,
     TheStatsApiClient,
@@ -71,7 +71,7 @@ def init_odds_table(conn: sqlite3.Connection) -> None:
 
 def import_odds(
     api_key: str,
-    season: str = "2026_27",
+    season: str = DEFAULT_SEASON,
     competition_id: str = "comp_3039",
     only_played: bool = True,
     minimum_interval: float = 5.2,
@@ -288,7 +288,7 @@ def import_odds(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--api-key", default=os.environ.get("THESTATSAPI_API_KEY", ""))
-    parser.add_argument("--season", default="2026_27")
+    parser.add_argument("--season", default=DEFAULT_SEASON)
     parser.add_argument("--competition-id", default="comp_3039")
     parser.add_argument("--only-played", action="store_true", default=True)
     parser.add_argument("--minimum-interval", type=float, default=5.2)

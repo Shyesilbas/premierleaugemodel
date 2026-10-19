@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("player_ratings")
 
-from src.config import DATA_DIR, MATCHES_RAW_DIR, PROCESSED_DIR, ROOT
+from src.config import DATA_DIR, MATCHES_RAW_DIR, PROCESSED_DIR, ROOT, DEFAULT_SEASON
 
 # Global module caches
 _bookings_cache: Optional[Dict[int, Dict[int, Dict[str, int]]]] = None
@@ -469,7 +469,7 @@ def get_player_dynamic_rating(
 def get_team_starting_xi(
     team_id: int,
     match_id: Optional[int] = None,
-    season: str = "2026_27",
+    season: str = DEFAULT_SEASON,
 ) -> Tuple[bool, List[Dict[str, Any]]]:
     """
     Returns (is_official, starters_list).
@@ -567,7 +567,7 @@ def analyze_match_starting_xis(
     home_id: int,
     away_id: int,
     match_id: Optional[int] = None,
-    season: str = "2026_27",
+    season: str = DEFAULT_SEASON,
     referee_avg_cards: float = 4.15,
 ) -> Dict[str, Any]:
     """

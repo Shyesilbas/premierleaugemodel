@@ -22,13 +22,8 @@ import pandas as pd
 import numpy as np
 from src.features.draw_features import DrawFeatureState, add_draw_features
 from src.db.database import attach_statsapi_xg
-from src.config import DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MATCHES_SUMMARY_PATH
+from src.config import DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MATCHES_SUMMARY_PATH, DEFAULT_SEASON, configure_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger("build_features")
 
 ROLLING_WINDOWS = [3, 5, 10]
@@ -1254,7 +1249,7 @@ def build_prediction_row(
     using exactly the same feature definitions as the training dataset.
     """
     strength_state = advance_strength_state_to_season(strength_state, season)
-    s_str = str(season or strength_state.get("season") or "2026_27")
+    s_str = str(season or strength_state.get("season") or DEFAULT_SEASON)
     official_starters = load_official_match_starters(match_id) if (use_official_xi and match_id) else {}
     player_history = strength_state.get("player_history") or {}
 
@@ -1315,7 +1310,7 @@ def build_prediction_row(
     # Squad market values and dynamic Bayesian sample-size prior decay weights
     mv_map = get_team_market_values_map()
     default_median_mv = 600.0
-    s_val = str(season or "2026_27")
+    s_val = str(season or DEFAULT_SEASON)
     mv_h = mv_map.get((home_id, s_val), mv_map.get(home_id, default_median_mv))
     mv_a = mv_map.get((away_id, s_val), mv_map.get(away_id, default_median_mv))
     row["mv_home"] = mv_h
@@ -1380,6 +1375,7 @@ def build_feature_dataset(
 
 
 if __name__ == "__main__":
+    configure_logging()
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=str, default=str(MATCHES_SUMMARY_PATH))

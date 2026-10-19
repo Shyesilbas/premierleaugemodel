@@ -22,7 +22,7 @@ from src.models.model_utils import blend_log, apply_probability_calibrator
 
 logger = logging.getLogger(__name__)
 
-from src.config import DATA_DIR, DB_PATH, MODELS_DIR, PROCESSED_DIR, ROOT as BASE_DIR
+from src.config import DATA_DIR, DB_PATH, MODELS_DIR, PROCESSED_DIR, ROOT as BASE_DIR, DEFAULT_SEASON
 
 SUMMARY_JSON = PROCESSED_DIR / "model_audit_summary.json"
 
@@ -85,12 +85,12 @@ def init_audit_table(conn: sqlite3.Connection, season: Optional[str] = None) -> 
 
 
 def get_summary_json_path(season: str) -> Path:
-    if season == "2026_27":
+    if season == DEFAULT_SEASON:
         return DATA_DIR / "processed" / "model_audit_summary.json"
     return DATA_DIR / "processed" / f"model_audit_summary_{season}.json"
 
 
-def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict[str, Any]:
+def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) -> Dict[str, Any]:
     """Generates zero-leakage predictions for completed matches in the specified season
     and evaluates performance against final match results and market odds.
     """
@@ -443,7 +443,7 @@ def run_model_audit(season: str = "2026_27", force_recalc: bool = False) -> Dict
 
 if __name__ == "__main__":
     import sys
-    season_arg = sys.argv[1] if len(sys.argv) > 1 else "2026_27"
+    season_arg = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_SEASON
     res = run_model_audit(season=season_arg, force_recalc=True)
     print("Zero-leakage audit updated successfully!")
     print(f"Overall metrics for {season_arg}:", res["overall"])

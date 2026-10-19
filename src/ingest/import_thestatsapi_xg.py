@@ -24,7 +24,7 @@ from urllib.request import Request, urlopen
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
-from src.config import DB_PATH, ROOT as BASE_DIR  # noqa: E402
+from src.config import DB_PATH, ROOT as BASE_DIR, DEFAULT_SEASON  # noqa: E402
 
 API_BASE = "https://api.thestatsapi.com/api"
 PROVIDER = "TheStatsAPI"
@@ -247,7 +247,7 @@ def import_season(args: argparse.Namespace) -> dict[str, int]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--season", default="2026_27", help="Season label such as 2026_27")
+    parser.add_argument("--season", default=DEFAULT_SEASON, help="Season label such as 2026_27")
     parser.add_argument("--max-gameweek", type=int, default=6)
     parser.add_argument("--limit", type=int, default=None, help="Maximum number of new xG records to import")
     parser.add_argument("--competition-id", default="comp_3039")

@@ -15,16 +15,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger("fetch_tm_market_values")
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
-from src.config import DATA_DIR, DB_PATH, PROCESSED_DIR, ROOT as BASE_DIR  # noqa: E402
+from src.config import DATA_DIR, DB_PATH, PROCESSED_DIR, ROOT as BASE_DIR, configure_logging  # noqa: E402
 
 JSON_OUT_PATH = PROCESSED_DIR / "market_values_2026_27.json"
 
@@ -330,4 +325,5 @@ def run_pipeline() -> None:
 
 
 if __name__ == "__main__":
+    configure_logging()
     run_pipeline()

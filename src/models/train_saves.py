@@ -25,13 +25,8 @@ from src.models.model_utils import (
     incomplete_seasons,
     make_regression_pipeline,
 )
-from src.config import FEATURES_PATH, MODELS_DIR
+from src.config import FEATURES_PATH, MODELS_DIR, configure_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger("train_saves")
 
 CURATED_FEATURES = [
@@ -152,4 +147,5 @@ def train_saves_model(
 
 
 if __name__ == "__main__":
+    configure_logging()
     train_saves_model()
