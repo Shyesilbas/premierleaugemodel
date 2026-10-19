@@ -23,8 +23,8 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 
 | Dosya | Ne yapar |
 |---|---|
-| `start.py` | Backend (uvicorn, `:8000`, `--reload`) ve frontend'i (Vite, `:5173`) birlikte başlatır, Ctrl+C ile ikisini kapatır. Başlamadan önce portları boşaltır. |
-| `start.sh` | `start.py`'nin bash karşılığı, aynı işi yapar. |
+| `start.py` | Backend (uvicorn, `:8000`, `--reload`) ve frontend'i (Vite, `:5173`) birlikte başlatır, Ctrl+C ile ikisini kapatır. Başlamadan önce portlarda **bu projenin** eski sürecini kapatır; başka bir uygulama varsa dokunmadan durur (`--force` ile kapatır). |
+| `start.sh` | `start.py`'yi çağıran ince sarmalayıcı (`exec python3 start.py "$@"`). |
 | `run_full_pipeline.py` | Ana pipeline, **aşamalı**: `rebuild` (işleme → oyuncu dizini → özellikler → veritabanı), `audits`, `counts` (köşe, atış, kurtarış, kart, ofsayt), `outcome` (1X2), `goals` (değerlendirme + eğitim). `--only goals`, `--skip rebuild,audits`; geçersiz aşama çıkış 2, hatada çıkış 1. Sağlayıcıya bağlanmaz. |
 
 ## 1b. `src/pipeline/`
