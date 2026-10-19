@@ -50,3 +50,13 @@ lerna-debug.log*
 data/raw/matches/
 
 graphify-out/
+
+# Regenerable data and binaries (rebuilt by run_full_pipeline.py / sync_season_data.py)
+data/premier_league.db
+data/processed/*.parquet
+data/processed/player_match_logs.json
+data/processed/players_registry.json
+data/processed/model_audit_summary*.json
+data/processed/match_player_bookings_cache.json
+models/backup/
+models/production/*.backup_*.joblib
