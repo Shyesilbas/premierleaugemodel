@@ -43,3 +43,20 @@ def test_predict_returns_consistent_goal_markets_and_withholds_the_btts_label(cl
 
 def test_predict_rejects_a_team_against_itself(client):
     assert client.get("/api/predict", params={"home_id": 1, "away_id": 1}).status_code == 400
+
+
+def test_reload_rebinds_the_shared_state_and_routes_follow_it(client):
+    """Routes read ``state.<name>``; a reload rebinds those names, so a stale reference would keep old data."""
+    from src.api import state
+
+    teams = client.get("/api/teams").json()["teams"]
+    params = {"home_id": teams[0].get("id", teams[0].get("team_id")), "away_id": teams[1].get("id", teams[1].get("team_id"))}
+    before = client.get("/api/predict", params=params).json()
+    old_features, old_matches = state.df_features, state.df_matches
+
+    assert client.post("/api/admin/reload-models").status_code == 200  # reloads artifacts
+    state.reload_runtime_datasets()                                     # reloads and rebinds the dataframes
+
+    assert state.df_features is not old_features and state.df_matches is not old_matches
+    assert client.get("/api/predict", params=params).json() == before   # same data, read through the new objects
+    assert client.get("/api/data-version").json()["version"] == str(state._loaded_data_version)

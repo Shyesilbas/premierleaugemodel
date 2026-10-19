@@ -2,7 +2,7 @@
 
 Data paths follow ``PLM_DATA_DIR`` (default ``<repo>/data``), so a pipeline run can
 be pointed at an isolated copy of the data. Models follow ``PLM_MODELS_DIR`` and
-reports stay in ``docs/reports``. Importing this module has no side effects.
+``PLM_REPORTS_DIR`` moves the generated reports (default ``docs/reports``). Importing this module has no side effects.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ DB_PATH = DATA_DIR / "premier_league.db"
 MATCHES_SUMMARY_PATH = PROCESSED_DIR / "matches_summary_all.parquet"
 FEATURES_PATH = PROCESSED_DIR / "features_matches_all.parquet"
 MODELS_DIR = Path(os.environ.get("PLM_MODELS_DIR") or ROOT / "models" / "production").resolve()
-REPORTS_DIR = ROOT / "docs" / "reports"
+REPORTS_DIR = Path(os.environ.get("PLM_REPORTS_DIR") or ROOT / "docs" / "reports").resolve()
 
 
 def _fixture_seasons() -> list[str]:
@@ -45,3 +45,11 @@ LOCKED_SEASONS = {"2026_27"}
 def configure_logging(level: int = logging.INFO) -> None:
     """Configure the root logger once. Call from entry points only, never at import time."""
     logging.basicConfig(level=level, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+
+
+def display_path(path: Path) -> str:
+    """Repo-relative path for log lines when inside the repo, else the absolute path."""
+    try:
+        return str(Path(path).relative_to(ROOT))
+    except ValueError:
+        return str(path)

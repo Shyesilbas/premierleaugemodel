@@ -24,7 +24,7 @@ from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, roc_auc_
 from src.models.eval_utils import multiclass_report
 
 
-from src.config import FEATURES_PATH, MATCHES_SUMMARY_PATH as MATCHES_PATH, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR, ROOT as PROJECT_ROOT
+from src.config import FEATURES_PATH, MATCHES_SUMMARY_PATH as MATCHES_PATH, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR, ROOT as PROJECT_ROOT, display_path
 
 MODEL_PATH = MODELS_DIR / "outcome_models_v1.joblib"
 GOALS_MODEL_PATH = MODELS_DIR / "goals_models_v1.joblib"
@@ -64,9 +64,12 @@ def snapshot(horizon_days: int = 14) -> int:
     if not FEATURES_PATH.exists() or not MODEL_PATH.exists():
         raise FileNotFoundError("Features or production 1X2 artifact is missing")
 
-    # Import the same live prediction path used by the API so the saved forecast
-    # includes the API's feature construction and production calibrator.
-    from src.api.server import df_features, goals_artifact, predict_match
+    # Use the same live prediction path as the API so the saved forecast includes its feature
+    # construction and production calibrator. state and routes.predict need no FastAPI app.
+    from src.api import state
+    from src.api.routes.predict import predict_match
+
+    df_features, goals_artifact = state.df_features, state.goals_artifact
 
     if df_features.empty:
         raise ValueError("API loaded an empty feature dataset")
@@ -201,7 +204,7 @@ def snapshot(horizon_days: int = 14) -> int:
                 stream.write(json.dumps(row, ensure_ascii=False) + "\n")
     print(
         f"Saved {len(new_rows)} pre-kickoff forecasts within {horizon_days} days; "
-        f"log: {FORECAST_LOG.relative_to(PROJECT_ROOT)}; artifact: {artifact_hash[:12]}"
+        f"log: {FORECAST_LOG}; artifact: {artifact_hash[:12]}"
     )
     return len(new_rows)
 
@@ -392,7 +395,7 @@ def score() -> Dict[str, Any]:
                 f"n={metrics['matches']} LL={metrics['log_loss']:.4f} "
                 f"Brier={metrics['brier']:.4f} baseline_LL_delta={baseline_delta}"
             )
-    print(f"Scorecard: {SCORECARD_PATH.relative_to(PROJECT_ROOT)}")
+    print(f"Scorecard: {display_path(SCORECARD_PATH)}")
     return scorecard
 
 

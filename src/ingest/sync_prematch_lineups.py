@@ -533,7 +533,7 @@ def main() -> None:
 
     if parquet_updated:
         df_features.to_parquet(FEATURES_PATH, index=False)
-        print(f"💾 Resmi ilk 11 reytingleri '{FEATURES_PATH.relative_to(PROJECT_ROOT)}' tablosuna kaydedildi.")
+        print(f"💾 Resmi ilk 11 reytingleri '{FEATURES_PATH}' tablosuna kaydedildi.")
     print("SYNC_RESULT " + json.dumps({"matches": found_labels}, ensure_ascii=False))
 
 

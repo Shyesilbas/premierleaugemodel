@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 
-from src.config import MATCHES_RAW_DIR as RAW_MATCHES, REPORTS_DIR, ROOT
+from src.config import MATCHES_RAW_DIR as RAW_MATCHES, REPORTS_DIR, ROOT, display_path
 
 REPORT = REPORTS_DIR / "team_tactical_data_audit.md"
 
@@ -245,7 +245,7 @@ def build_report() -> str:
 def main() -> None:
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text(build_report(), encoding="utf-8")
-    print(f"Wrote {REPORT.relative_to(ROOT)}")
+    print(f"Wrote {display_path(REPORT)}")
 
 
 if __name__ == "__main__":

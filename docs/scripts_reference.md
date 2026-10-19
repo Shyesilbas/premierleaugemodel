@@ -12,6 +12,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 |---|---|
 | `PLM_DATA_DIR` | Veri dizinini (`raw/`, `processed/`, SQLite) değiştirir; pipeline'ı izole bir veri kopyasında çalıştırmak için. Varsayılan `<repo>/data`. |
 | `PLM_SEASON` | Betiklerin varsayılan sezonu. Verilmezse `data/raw/fixtures_*.json` içindeki en yeni sezon (`config.DEFAULT_SEASON`); tüm önbellek sezonları `config.SEASONS`. |
+| `PLM_REPORTS_DIR` | Üretilen raporların (`data_quality.md`, `prospective_1x2_scorecard.json` ...) yazıldığı dizin. Varsayılan `docs/reports`. İzole denemelerde gerçek raporları ezmemek için. |
 | `PLM_MODELS_DIR` | Model dizinini değiştirir. Varsayılan `<repo>/models/production`. |
 
 Örnek: `PLM_DATA_DIR=/tmp/veri python3 -m src.processing.process_season_data --season-name all`.
@@ -95,7 +96,14 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 
 | Dosya | Ne yapar |
 |---|---|
-| `server.py` (3430 satır) | FastAPI sunucusu. Tahmin motoru, fikstür, takım/oyuncu/hakem profilleri, model denetimi ve `/api/admin/sync-season` uç noktası. Bellekte veri tutar; veri değişince yeniden başlatılmalı (`reload_runtime_datasets`). |
+| `server.py` | İnce giriş noktası (~50 satır): `FastAPI` uygulaması, CORS, veri değişince yeniden yükleme ara katmanı, yönlendiricileri bağlar, `/` ve `__main__`. |
+| `state.py` | Yüklü veri çerçeveleri, model artifact'ları, önbellekler ve yeniden yükleme (`reload_runtime_datasets`). **İçe aktarılınca her şeyi yükler (~30 sn).** Veri yeniden yüklemede değişkenler yeniden bağlanır; diğer modüller bunları yalnızca `state.<ad>` olarak okur (`from src.api.state import <değişken>` yapmayın). |
+| `routes/meta.py` | `/api/data-version`, `/api/admin/*` (model yenileme, sezon senkronu). |
+| `routes/teams.py` | `/api/teams*`: kadro/teknik ekip, teknik direktör, profil, transfer, taktik, hücum liderleri, senaryolar. |
+| `routes/fixtures.py` | `/api/fixtures*`, `/api/standings`, `/api/referees*`, `/api/match/{id}/recent-form`. |
+| `routes/players.py` | `/api/players*`: arama, profil, piyasa değeri geçmişi, reyting. |
+| `routes/matches.py` | `/api/match/{id}/details` ve `/odds`. |
+| `routes/predict.py` | `/api/predict`, `/api/model-audit`, `/api/benchmarks`. `predict_match` doğrudan çağrılabilir (`prospective_1x2_benchmark` bunu kullanır; FastAPI uygulaması gerekmez). |
 
 ## 9. `tests/` — `pytest`
 

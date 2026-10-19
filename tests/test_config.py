@@ -10,6 +10,7 @@ from src import config
 def test_plm_data_dir_moves_every_data_path_but_not_models_or_reports():
     with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"PLM_DATA_DIR": tmp}):
         os.environ.pop("PLM_MODELS_DIR", None)
+        os.environ.pop("PLM_REPORTS_DIR", None)
         cfg = importlib.reload(config)
         root = Path(tmp).resolve()
         assert cfg.DATA_DIR == root
@@ -42,3 +43,8 @@ def test_default_season_follows_plm_season_then_newest_fixtures_file():
             with mock.patch.dict(os.environ, {"PLM_SEASON": "2025_26"}):
                 assert importlib.reload(config).DEFAULT_SEASON == "2025_26"
     importlib.reload(config)
+
+
+def test_display_path_is_relative_inside_the_repo_and_absolute_outside():
+    assert config.display_path(config.ROOT / "docs" / "x.md") == str(Path("docs") / "x.md")
+    assert config.display_path(Path("/somewhere/else.md")) == "/somewhere/else.md"

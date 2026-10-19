@@ -10,7 +10,7 @@ from src.analytics.team_scenarios import load_team_match_scenarios
 from src.analytics.team_tactics import load_team_match_rows
 
 
-from src.config import REPORTS_DIR, ROOT
+from src.config import REPORTS_DIR, ROOT, display_path
 
 REPORT = REPORTS_DIR / "team_scenario_validation.md"
 
@@ -98,7 +98,7 @@ def build_report() -> str:
 def main() -> None:
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text(build_report(), encoding="utf-8")
-    print(f"Wrote {REPORT.relative_to(ROOT)}")
+    print(f"Wrote {display_path(REPORT)}")
 
 
 if __name__ == "__main__":
