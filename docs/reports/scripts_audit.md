@@ -15,7 +15,7 @@ Kod tabanı işlevsel ve sızıntı kuralları (`shift(1)`, kilitli sezon) tutar
 4. **Test altyapısı eksik:** `pytest` bağımlılıklarda yok, CI ve lint yok, kritik modüllerin (gol değerlendirmesi, veritabanı, ingest, API rotaları) testi yok.
 5. **~4.200 satır tek seferlik kod** (`scratch/`, `audit/`) depoda; `audit/test_*.py` adları `pytest`'in toplamasıyla çakışıyor.
 
-Öneriler en sonda (§8), öncelik ve eforla.
+Öneriler en sonda (§8), öncelik ve eforla. Tüm scriptlerin **neyi çalıştırdığı, kim tarafından çalıştırıldığı ve hangi dış servislere dokunduğu** §10'da (koddan üretilen çalıştırma haritası).
 
 ## 1. Yöntem ve sınırlar
 
@@ -198,6 +198,7 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 | **B13** | D | 🔶 **KISMEN (loglama çözüldü, O2/aşama C):** **Kod stili:** 26 çıplak/geniş `except`, 63 `print` / 129 `logger`, 4 dosyada `sys.path` hack'i. | grep sayımları |
 | **B14** | D | **Belge sapması:** `scripts_reference.md` "server.py (3430 satır)" diyor, gerçek 3.503; içerikleri satır satır doğrulanmadığını kendisi belirtiyor. `lightgbm` 6 dosyada kullanılıyor ve listede; `xgboost` 1 dosyada (`scratch`) kullanılıyor ama listede yok; `pytest` listede yok. | Bu rapordaki taramalar |
 | **B15** | D | **Gizli bilgi taraması temiz:** izlenen dosyalarda anahtar/token bulunmadı, `.env` izlenmiyor. | `git ls-files` + desen taraması |
+| **B16** | O | **Zamanlanmış iş tüm API modülünü yükler.** `prospective_1x2_benchmark snapshot` (cron, günde bir) tek bir tahmin için `from src.api.server import df_features, goals_artifact, predict_match` yapıyor; bu, veri tablolarını ve tüm modelleri belleğe alır (~28 sn) ve sunucuyla aynı küresel durumu kurar. Tahmin mantığı API'nin içinde olduğu için cron işi API kodunun yan etkilerine bağlı. Bulgu çalıştırma haritası (§10) çıkarılırken ortaya çıktı. | `src/analytics/prospective_1x2_benchmark.py:69`; §10.5 |
 
 ## 7. Güçlü yönler (korunmalı)
 
@@ -232,6 +233,7 @@ Sıra: önce hata sinyali ve veri tutarlılığı, sonra test ve yapılandırma,
 | O4 | **Eksik testler:** `evaluate_goal_models` (null kapısı, KG kapısı, piyasa kıyası), `database.populate_db_from_sources` (geçici DB), `sync_season_data` (sahte sağlayıcı), `server` rotaları (`TestClient`). | B4 |
 | O5 | **Yinelenen yardımcıları birleştir:** `atomic_write_json` ortak modüle; `LOCKED_SEASONS` config'e; iki `evaluate_season_holdouts`'u adlandır/ortakla. | B12 |
 | O6 | **Ruff + `pre-commit`** (biçim + temel hatalar); çıplak `except`'leri daralt. | B13 |
+| O7 | **Tahmin mantığını API'den ayır:** `predict_match` ve ona bağlı küresel durumu (`df_features`, model artifact'ları) `src/serving/` altında bir modüle taşı; `server.py` ve `prospective_1x2_benchmark` aynı modülü çağırsın. U1 ile birlikte yapılabilir. | B16, B3 |
 
 ### 8.3 Büyük işler (3+ gün)
 
@@ -254,7 +256,176 @@ Sıra: önce hata sinyali ve veri tutarlılığı, sonra test ve yapılandırma,
 
 Frontend kodu (`frontend/src`), `docs/reports/*` içindeki otomatik raporların içeriği, modellerin istatistiksel sonuçları (bkz. `GOAL_MODELS_ANALYSIS.md` ve model raporları), dış servislerin kullanım koşulları.
 
-## 10. Uygulama günlüğü
+## 10. Çalıştırma haritası: hangi script neyi çalıştırır
+
+Bu bölüm koddan üretildi (AST ile içe aktarmalar, `subprocess` hedefleri ve `deploy/crontab`); elle yazılan kısım yalnızca kabuk/cron açıklamaları. Sütunlar:
+- **Nasıl çalışır:** scripti kim ve ne zaman başlatır (cron, haftalık pipeline aşaması, zincir adımı, elle).
+- **Çalıştırdığı / çağırdığı proje modülleri:** içe aktardığı veya alt süreç olarak başlattığı diğer proje dosyaları (`src.config` hariç, her dosya onu kullanır).
+- **Alt süreç olarak başlattığı:** ayrı yorumlayıcıda çalıştırdığı modüller.
+- **Dış servis:** koda gömülü adreslere göre; PulseLive, TheStatsAPI, Transfermarkt, PL foto CDN.
+- **Dokunduğu konumlar:** kullandığı `src.config` yolları (okuma ve yazma ayrımı yapılmaz).
+- **Kimler çağırır:** üretim kodundan (testler ve `research/` hariç) onu içe aktaran veya başlatan dosyalar.
+
+Sınırlar: dinamik içe aktarmalar ve komut satırı dizeleriyle kurulan çağrılar (örneğin `uvicorn src.api.server:app`) yalnızca bilinen kalıplarla yakalandı; `Dokunduğu konumlar` yol sabitlerinin kullanımına bakar, dosya adını doğrudan yazan kodu göstermez.
+
+#### 10.1 Kök
+
+| Script | Nasıl çalışır | Çalıştırdığı / çağırdığı proje modülleri | Alt süreç olarak başlattığı | Dış servis | Dokunduğu konumlar | Kimler çağırır |
+|---|---|---|---|---|---|---|
+| `run_full_pipeline.py` | cron Pazartesi 04:00 (`python run_full_pipeline.py`) | `analytics/audit_team_scenarios`, `analytics/data_quality_report`, `analytics/team_data_audit`, `db/database`, `models/evaluate_goal_models`, `models/train_cards`, `models/train_corners`, `models/train_goals`, `models/train_match_outcome`, `models/train_offsides`, `models/train_saves`, `models/train_throws`, `pipeline/rebuild` | - | - | ham JSON, işlenmiş tablolar, raporlar | - |
+| `start.py` | elle (`python3 start.py`) | `api/server` | `api/server` | - | - | - |
+
+#### 10.2 `src/ingest`
+
+| Script | Nasıl çalışır | Çalıştırdığı / çağırdığı proje modülleri | Alt süreç olarak başlattığı | Dış servis | Dokunduğu konumlar | Kimler çağırır |
+|---|---|---|---|---|---|---|
+| `src/ingest/fetch_season_data.py` | elle (`python -m`) | - | - | PulseLive | veri dizini | `ingest/fetch_team_staff`, `ingest/sync_prematch_lineups`, `ingest/sync_season_data` |
+| `src/ingest/fetch_team_staff.py` | elle (`python -m`) | `ingest/fetch_season_data` | - | - | ham JSON, işlenmiş tablolar | - |
+| `src/ingest/fetch_transfermarkt_market_values.py` | elle (`python -m`) | - | - | Transfermarkt | işlenmiş tablolar, SQLite, veri dizini | - |
+| `src/ingest/import_thestatsapi_odds.py` | elle (`python -m`) | `ingest/import_thestatsapi_xg` | - | TheStatsAPI | SQLite | `ingest/sync_prematch_lineups` |
+| `src/ingest/import_thestatsapi_xg.py` | elle (`python -m`) | - | - | TheStatsAPI | SQLite | `ingest/import_thestatsapi_odds` |
+| `src/ingest/sync_prematch_lineups.py` | cron her 5 dk (`-m … --hours-ahead 1`) | `analytics/player_ratings`, `features/build_features`, `ingest/fetch_season_data`, `ingest/import_thestatsapi_odds`, `models/dixon_coles`, `models/model_utils` | - | PulseLive, TheStatsAPI (yalnızca `--refresh-odds`) | ham JSON, işlenmiş tablolar, SQLite, veri dizini, modeller | `api/server` |
+| `src/ingest/sync_season_data.py` | cron her 30 dk (`-m`) | `ingest/fetch_season_data`, `pipeline/rebuild` | - | PulseLive | veri dizini | `api/server` |
+
+#### 10.3 `src/processing`, `src/pipeline`, `src/db`, `src/features`
+
+| Script | Nasıl çalışır | Çalıştırdığı / çağırdığı proje modülleri | Alt süreç olarak başlattığı | Dış servis | Dokunduğu konumlar | Kimler çağırır |
+|---|---|---|---|---|---|---|
+| `src/db/database.py` | zincir adımı `database` (cron sync + haftalık) | - | - | - | ham JSON, SQLite, veri dizini | `api/server`, `features/build_features`, `pipeline/rebuild`, `run_full_pipeline` |
+| `src/features/build_features.py` | zincir adımı `features` (cron sync + haftalık) | `analytics/player_ratings`, `db/database`, `features/draw_features` | - | - | ham JSON, işlenmiş tablolar, SQLite | `api/server`, `ingest/sync_prematch_lineups`, `pipeline/rebuild` |
+| `src/features/draw_features.py` | kütüphane (başka scriptler içe aktarır) | - | - | - | - | `api/server`, `features/build_features`, `models/train_match_outcome` |
+| `src/pipeline/rebuild.py` | kütüphane (başka scriptler içe aktarır) | `db/database`, `features/build_features`, `processing/build_player_index`, `processing/process_season_data` | `db/database`, `features/build_features`, `processing/build_player_index`, `processing/process_season_data` | - | - | `ingest/sync_season_data`, `run_full_pipeline` |
+| `src/processing/build_player_index.py` | zincir adımı `player_index` (cron sync + haftalık) | - | - | PL foto CDN | ham JSON, işlenmiş tablolar | `pipeline/rebuild` |
+| `src/processing/process_season_data.py` | zincir adımı `process` (cron sync + haftalık) | - | - | - | ham JSON, işlenmiş tablolar | `pipeline/rebuild` |
+
+#### 10.4 `src/models`
+
+| Script | Nasıl çalışır | Çalıştırdığı / çağırdığı proje modülleri | Alt süreç olarak başlattığı | Dış servis | Dokunduğu konumlar | Kimler çağırır |
+|---|---|---|---|---|---|---|
+| `src/models/dixon_coles.py` | kütüphane (başka scriptler içe aktarır) | - | - | - | - | `analytics/model_audit`, `api/server`, `ingest/sync_prematch_lineups`, `models/evaluate_goal_models`, `models/goals_model`, `models/train_goals`, `models/train_match_outcome` |
+| `src/models/eval_utils.py` | kütüphane (başka scriptler içe aktarır) | - | - | - | - | `analytics/lineup_feature_pilot`, `analytics/prospective_1x2_benchmark`, `models/evaluate_goal_models`, `models/train_goals`, `models/train_match_outcome` |
+| `src/models/evaluate_goal_models.py` | haftalık pipeline aşaması `goals` | `models/dixon_coles`, `models/eval_utils`, `models/goals_model`, `models/model_utils`, `models/train_goals`, `models/train_match_outcome` | - | - | işlenmiş tablolar, SQLite | `run_full_pipeline` |
+| `src/models/goals_model.py` | kütüphane (başka scriptler içe aktarır) | `models/dixon_coles` | - | - | - | `models/evaluate_goal_models`, `models/train_goals` |
+| `src/models/model_utils.py` | kütüphane (başka scriptler içe aktarır) | - | - | - | - | `analytics/lineup_feature_pilot`, `analytics/model_audit`, `api/server`, `ingest/sync_prematch_lineups`, `models/evaluate_goal_models`, `models/train_cards`, `models/train_corners`, `models/train_goals`, `models/train_match_outcome`, `models/train_offsides`, `models/train_saves`, `models/train_throws` |
+| `src/models/train_cards.py` | haftalık pipeline aşaması `counts` | `models/model_utils` | - | - | işlenmiş tablolar, modeller | `run_full_pipeline` |
+| `src/models/train_corners.py` | haftalık pipeline aşaması `counts` | `models/model_utils` | - | - | işlenmiş tablolar, modeller | `run_full_pipeline` |
+| `src/models/train_goals.py` | haftalık pipeline aşaması `goals` | `models/dixon_coles`, `models/eval_utils`, `models/goals_model`, `models/model_utils`, `models/train_match_outcome` | - | - | işlenmiş tablolar, modeller | `models/evaluate_goal_models`, `run_full_pipeline` |
+| `src/models/train_match_outcome.py` | haftalık pipeline aşaması `outcome` | `features/draw_features`, `models/dixon_coles`, `models/eval_utils`, `models/model_utils` | - | - | işlenmiş tablolar, modeller | `analytics/lineup_feature_pilot`, `models/evaluate_goal_models`, `models/train_goals`, `run_full_pipeline` |
+| `src/models/train_offsides.py` | haftalık pipeline aşaması `counts` | `models/model_utils` | - | - | işlenmiş tablolar, modeller | `run_full_pipeline` |
+| `src/models/train_saves.py` | haftalık pipeline aşaması `counts` | `models/model_utils` | - | - | işlenmiş tablolar, modeller | `run_full_pipeline` |
+| `src/models/train_throws.py` | haftalık pipeline aşaması `counts` | `models/model_utils` | - | - | işlenmiş tablolar, modeller | `run_full_pipeline` |
+
+#### 10.5 `src/analytics`
+
+| Script | Nasıl çalışır | Çalıştırdığı / çağırdığı proje modülleri | Alt süreç olarak başlattığı | Dış servis | Dokunduğu konumlar | Kimler çağırır |
+|---|---|---|---|---|---|---|
+| `src/analytics/audit_team_scenarios.py` | haftalık pipeline aşaması `audits` | `analytics/team_scenarios`, `analytics/team_tactics` | - | - | raporlar | `run_full_pipeline` |
+| `src/analytics/data_quality_report.py` | haftalık pipeline aşaması `audits` | - | - | - | ham JSON, işlenmiş tablolar, raporlar | `run_full_pipeline` |
+| `src/analytics/lineup_feature_pilot.py` | elle (`python -m`) | `models/eval_utils`, `models/model_utils`, `models/train_match_outcome` | - | - | ham JSON, işlenmiş tablolar, raporlar | - |
+| `src/analytics/model_audit.py` | elle (`python -m`) | `models/dixon_coles`, `models/model_utils` | - | - | işlenmiş tablolar, SQLite, veri dizini, modeller | `api/server` |
+| `src/analytics/pipeline_health.py` | elle (`python -m`) | - | - | - | ham JSON, işlenmiş tablolar, SQLite, modeller | - |
+| `src/analytics/player_ratings.py` | kütüphane (başka scriptler içe aktarır) | - | - | - | ham JSON, işlenmiş tablolar, veri dizini | `api/server`, `features/build_features`, `ingest/sync_prematch_lineups` |
+| `src/analytics/prospective_1x2_benchmark.py` | cron 06:30 `snapshot`, 23:15 `score` (`-m`) | `api/server`, `models/eval_utils` | - | - | işlenmiş tablolar, modeller, raporlar | - |
+| `src/analytics/team_attackers.py` | kütüphane (başka scriptler içe aktarır) | - | - | - | işlenmiş tablolar | `api/server` |
+| `src/analytics/team_data_audit.py` | haftalık pipeline aşaması `audits` | - | - | - | ham JSON, raporlar | `run_full_pipeline` |
+| `src/analytics/team_scenarios.py` | kütüphane (başka scriptler içe aktarır) | `analytics/team_tactics` | - | - | ham JSON | `analytics/audit_team_scenarios`, `api/server` |
+| `src/analytics/team_tactics.py` | kütüphane (başka scriptler içe aktarır) | - | - | - | ham JSON | `analytics/audit_team_scenarios`, `analytics/team_scenarios`, `api/server` |
+
+#### 10.6 `src/api`, `src/config.py`
+
+| Script | Nasıl çalışır | Çalıştırdığı / çağırdığı proje modülleri | Alt süreç olarak başlattığı | Dış servis | Dokunduğu konumlar | Kimler çağırır |
+|---|---|---|---|---|---|---|
+| `src/api/server.py` | systemd `plm-api` (`uvicorn`); geliştirmede `start.py` | `analytics/model_audit`, `analytics/player_ratings`, `analytics/team_attackers`, `analytics/team_scenarios`, `analytics/team_tactics`, `db/database`, `features/build_features`, `features/draw_features`, `ingest/sync_prematch_lineups`, `ingest/sync_season_data`, `models/dixon_coles`, `models/model_utils` | `ingest/sync_prematch_lineups`, `ingest/sync_season_data` | PL foto CDN, Transfermarkt | veri dizini, modeller | `analytics/prospective_1x2_benchmark`, `start` |
+| `src/config.py` | kütüphane (başka scriptler içe aktarır) | - | - | - | ham JSON, işlenmiş tablolar, SQLite, veri dizini, modeller, raporlar | - |
+
+#### 10.7 Kabuk, cron ve systemd dosyaları
+
+| Dosya | Ne çalıştırır |
+|---|---|
+| `start.py` | `lsof` ile 8000 ve 5173 portlarını kullanan süreçleri `SIGKILL` eder; `frontend/node_modules` yoksa `npm install`; `python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000 --reload` (Popen) ve `npm run dev` (Popen); Ctrl+C'de ikisini kapatır |
+| `start.sh` | `start.py` ile aynı işin bash sürümü: `lsof` + `kill -9`, `npm --prefix frontend install`, `python3 -m uvicorn src.api.server:app … --reload`, `npm --prefix frontend run dev` |
+| `deploy/job.sh <ad> <komut…>` | `flock -w 600 /tmp/plm.lock <komut…>` (tüm işler tek kilit altında), çıktıyı `logs/<ad>.log`'a ekler, hata kodunu `logs/failures.log`'a yazar ve döndürür; `data/premier_league.db` veya `features_matches_all.parquet` değiştiyse `systemctl restart plm-api` |
+| `deploy/setup.sh` | `apt-get` paketleri, `python3 -m venv` + `pip install -r requirements.txt`, `npm ci && npm run build` (frontend), `plm-api.service` ve `Caddyfile` kopyalar, `systemctl enable --now plm-api`, `crontab deploy/crontab`, `ufw`, Tailscale kurulumu |
+| `deploy/plm-api.service` | `/opt/plm/venv/bin/uvicorn src.api.server:app --host 127.0.0.1 --port 8000` (`Restart=always`, ortam `/opt/plm/.env`) |
+| `deploy/Caddyfile` | `:8080` (yalnızca localhost): `/api/*` → `127.0.0.1:8000`; diğer her şey `frontend/dist` |
+| `deploy/crontab` | Aşağıdaki 5 iş |
+
+**Zamanlanmış işler (`deploy/crontab`, hepsi `job.sh` ile):**
+
+| Zaman (UTC) | İş adı | Komut | Sonrasında tetiklediği |
+|---|---|---|---|
+| her 30 dk | `sync` | `python -m src.ingest.sync_season_data` | PulseLive'dan fikstür, hakem ve biten maç dosyaları; veri değiştiyse `rebuild_derived_data()` → `process` → `player_index` → `features` → `database` |
+| her 5 dk | `lineups` | `python -m src.ingest.sync_prematch_lineups --hours-ahead 1` | Önümüzdeki 1 saatteki maçların resmi ilk 11'i; ham detay dosyası ve ilk 11 özellikleri güncellenir |
+| Pazartesi 04:00 | `train` | `python run_full_pipeline.py` | `rebuild` → `audits` → `counts` → `outcome` → `goals` → `model_benchmarks.md` |
+| her gün 06:30 | `benchmark` | `python -m src.analytics.prospective_1x2_benchmark snapshot` | Maç öncesi 1X2 tahminini `1x2_forecast_log.jsonl`'a yazar |
+| her gün 23:15 | `benchmark` | `python -m src.analytics.prospective_1x2_benchmark score` | Biten maçları puanlar, `prospective_1x2_scorecard.json` |
+
+**API'nin kendi başlattığı süreçler** (`/api/admin/sync-season`, kimlik doğrulamasız): `sync_season_data.py --season-name <sezon>` (`matches`), aynısı `--referees-only` (`referees`), `python -m src.ingest.sync_prematch_lineups --season <sezon> --hours-ahead 2` (`lineups`).
+
+**Zincirler:**
+
+```
+rebuild_derived_data()  (src/pipeline/rebuild.py)
+  process_season_data --season-name all ─► matches_summary_*.parquet, shots_events_*.parquet
+  build_player_index ─────────────────────► players_registry.json, player_match_logs.json
+  build_features ─────────────────────────► features_matches_all.parquet   (xG tablosunu SQLite'tan okur)
+  src.db.database ────────────────────────► premier_league.db
+
+run_full_pipeline.py
+  rebuild  ─► rebuild_derived_data()
+  audits   ─► data_quality_report, team_data_audit, audit_team_scenarios
+  counts   ─► train_corners, train_throws, train_saves, train_cards, train_offsides
+  outcome  ─► train_match_outcome
+  goals    ─► evaluate_goal_models ─► train_goals
+  (counts + outcome ikisi de çalıştıysa) ─► docs/reports/model_benchmarks.md
+```
+
+#### 10.8 `tests/` (`pip install -r requirements-dev.txt && pytest`)
+
+| Test dosyası | Sınadığı proje modülleri |
+|---|---|
+| `tests/test_config.py` | `models/train_match_outcome` |
+| `tests/test_data_leakage.py` | `features/build_features` |
+| `tests/test_draw_features.py` | `features/draw_features` |
+| `tests/test_eval_utils.py` | `models/eval_utils` |
+| `tests/test_feature_engineering.py` | `features/build_features` |
+| `tests/test_goal_matrix.py` | `models/dixon_coles` |
+| `tests/test_goal_selection.py` | `models/train_goals` |
+| `tests/test_inference_logic.py` | `api/server` |
+| `tests/test_match_outcome_splits.py` | `models/model_utils`, `models/train_match_outcome` |
+| `tests/test_pipeline_health.py` | `analytics/pipeline_health` |
+| `tests/test_rebuild.py` | `run_full_pipeline` |
+| `tests/test_skill_gate.py` | `models/model_utils` |
+| `tests/test_team_tactics.py` | `analytics/team_tactics` |
+
+#### 10.9 `research/` (elle: `PYTHONPATH=. python3 research/…`; cron, pipeline ve pytest dışı)
+
+| Script | Çağırdığı proje modülleri |
+|---|---|
+| `research/audit/draw_calibration.py` | `api/server`, `models/model_utils` |
+| `research/audit/draw_recalibration.py` | - |
+| `research/audit/investigation_1.py` | `features/build_features` |
+| `research/audit/investigation_2.py` | `models/train_match_outcome` |
+| `research/audit/investigation_3.py` | - |
+| `research/audit/investigation_4.py` | - |
+| `research/audit/investigation_5.py` | `models/dixon_coles` |
+| `research/audit/investigation_6.py` | `models/eval_utils`, `models/model_utils`, `models/train_match_outcome` |
+| `research/audit/tune_blend.py` | `api/server`, `models/model_utils` |
+| `research/scratch/audit_multiple_testing_and_permutation_importance.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/deep_dive_p0_investigation.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/diagnose_segment10_and_test_xgboost.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/execute_deep_dive_audit_p0_p1.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/execute_p0_final_closure.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/execute_p0_final_tasks.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/execute_p1_final_verifications.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/extract_all_goal_metrics.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/key_passes_impact.py` | `models/dixon_coles`, `models/eval_utils`, `models/goals_model`, `models/train_match_outcome` |
+| `research/scratch/rigorous_p1c_evaluation.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/run_p1a_auc_segmentation.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/segment10_distribution_and_features.py` | `models/dixon_coles`, `models/goals_model` |
+| `research/scratch/tactical_pace_and_mv.py` | `models/dixon_coles`, `models/eval_utils`, `models/goals_model`, `models/train_match_outcome` |
+
+## 11. Uygulama günlüğü
 
 | Tarih | Madde | Yapılan | Doğrulama |
 |---|---|---|---|
@@ -266,3 +437,4 @@ Frontend kodu (`frontend/src`), `docs/reports/*` içindeki otomatik raporların 
 | 19 Ekim 2026 | **Bulgu:** `sync_season_data` `-m` ile çalışmıyordu | `from fetch_season_data import …` yalnızca script modunda çalışır; `deploy/crontab` `python -m src.ingest.sync_season_data` kullanıyor. `from src.ingest.fetch_season_data import …` olarak düzeltildi, iki mod da denendi | Orijinal kodda `ModuleNotFoundError` doğrulandı (stash ile) |
 | 19 Ekim 2026 | **O1 / aşama B** tek zincir | `src/pipeline/rebuild.py` (4 adım, ayrı süreç, ilk hatada durur). `sync_season_data` ve `run_full_pipeline` aynı fonksiyonu kullanır. `run_full_pipeline` aşamalı oldu (`--only`, `--skip`), hatada çıkış 1. **Davranış değişikliği:** haftalık eğitim artık oyuncu dizinini ve veritabanını da yeniden kurar | 5 yeni test. İzole dizinde `--only rebuild` çıktıları referansla birebir aynı; `--only goals` çalıştı ve aynı üretim ayarını seçti; üretim modeli md5'i değişmedi; `--only nonsense` çıkış 2 |
 | 19 Ekim 2026 | **O2 / aşama C** sezon ve loglama | `config.DEFAULT_SEASON` (env `PLM_SEASON`, yoksa en yeni `fixtures_*.json`) ve `config.SEASONS`; ~40 "2026_27" varsayılanı/karşılaştırması bunlara bağlandı (tarihsel/anlamsal olanlar bilerek kaldı: `lineup_feature_pilot`, Transfermarkt kayıtları, sıralama sözlüğü). Modül içe aktarılırken `logging.basicConfig` çağıran 12 dosya `configure_logging()`'e taşındı, yalnızca giriş noktalarında çağrılır | 39 test; 63 modülün içe aktarılması sessiz; izole `--only rebuild` çıktıları referansla birebir aynı (14 parquet, 2 JSON, 13 SQLite tablosu); API 4 rota 200 |
+| 19 Ekim 2026 | **Çalıştırma haritası** (§10) | Tüm 75 Python dosyası, kabuk/cron/systemd dosyaları, testler ve `research/` için "neyi çalıştırır, kim çalıştırır, hangi dış servise dokunur" tabloları koddan üretildi (AST + `subprocess` hedefleri + `deploy/crontab`) | Yeni bulgu B16: cron `snapshot` işi tüm API modülünü yüklüyor; öneri O7 eklendi |
