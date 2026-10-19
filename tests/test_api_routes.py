@@ -60,3 +60,22 @@ def test_reload_rebinds_the_shared_state_and_routes_follow_it(client):
     assert state.df_features is not old_features and state.df_matches is not old_matches
     assert client.get("/api/predict", params=params).json() == before   # same data, read through the new objects
     assert client.get("/api/data-version").json()["version"] == str(state._loaded_data_version)
+
+
+def test_admin_routes_need_the_token_when_one_is_configured(client):
+    import os
+    from unittest import mock
+
+    with mock.patch.dict(os.environ, {"PLM_ADMIN_TOKEN": "t0ken"}):
+        assert client.get("/api/admin/sync-season").status_code == 401
+        assert client.post("/api/admin/reload-models").status_code == 401  # rejected before any reload starts
+        assert client.post("/api/admin/sync-season", headers={"X-Admin-Token": "nope"}).status_code == 401
+        assert client.get("/api/admin/sync-season", headers={"X-Admin-Token": "t0ken"}).status_code == 200
+    assert client.get("/api/data-version").status_code == 200  # ordinary routes never need the token
+
+
+def test_cors_allows_the_local_frontend_only(client):
+    ask = lambda origin: client.options(
+        "/api/data-version", headers={"Origin": origin, "Access-Control-Request-Method": "GET"})
+    assert ask("http://localhost:5173").headers.get("access-control-allow-origin") == "http://localhost:5173"
+    assert "access-control-allow-origin" not in ask("https://evil.example").headers

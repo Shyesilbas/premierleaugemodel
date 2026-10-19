@@ -12,13 +12,14 @@ from src.config import configure_logging
 configure_logging()  # before the datasets load, so their progress is logged
 
 from src.api import state  # noqa: E402  (loads datasets and models on import)
+from src.api.security import cors_origins  # noqa: E402
 from src.api.routes import meta, teams, fixtures, players, matches, predict  # noqa: E402
 
 app = FastAPI(title="Premier League Model Engine API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

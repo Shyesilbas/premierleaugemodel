@@ -12,6 +12,8 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 |---|---|
 | `PLM_DATA_DIR` | Veri dizinini (`raw/`, `processed/`, SQLite) değiştirir; pipeline'ı izole bir veri kopyasında çalıştırmak için. Varsayılan `<repo>/data`. |
 | `PLM_SEASON` | Betiklerin varsayılan sezonu. Verilmezse `data/raw/fixtures_*.json` içindeki en yeni sezon (`config.DEFAULT_SEASON`); tüm önbellek sezonları `config.SEASONS`. |
+| `PLM_ADMIN_TOKEN` | Tanımlıysa `/api/admin/*` uçları (senkron başlat/durum, model yenile) `X-Admin-Token` başlığında bu değeri ister (ASCII, örn. `openssl rand -hex 24`); tanımsızsa uçlar açık kalır ve bir kez uyarı loglanır. **Sunucuda `/opt/plm/.env` içine ekleyin.** Arayüz jetonu `localStorage.setItem('plm_admin_token', '<jeton>')` ile okur. |
+| `PLM_CORS_ORIGINS` | API'yi tarayıcıdan çağırabilecek kökenler (virgülle). Varsayılan yerel geliştirme sunucuları (`localhost:5173`, `localhost:8080`); `*` artık varsayılan değil. Aynı kökenden gelen trafik (Vite proxy, Caddy) CORS gerektirmez. |
 | `PLM_REPORTS_DIR` | Üretilen raporların (`data_quality.md`, `prospective_1x2_scorecard.json` ...) yazıldığı dizin. Varsayılan `docs/reports`. İzole denemelerde gerçek raporları ezmemek için. |
 | `PLM_MODELS_DIR` | Model dizinini değiştirir. Varsayılan `<repo>/models/production`. |
 
@@ -98,7 +100,8 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 |---|---|
 | `server.py` | İnce giriş noktası (~50 satır): `FastAPI` uygulaması, CORS, veri değişince yeniden yükleme ara katmanı, yönlendiricileri bağlar, `/` ve `__main__`. |
 | `state.py` | Yüklü veri çerçeveleri, model artifact'ları, önbellekler ve yeniden yükleme (`reload_runtime_datasets`). **İçe aktarılınca her şeyi yükler (~30 sn).** Veri yeniden yüklemede değişkenler yeniden bağlanır; diğer modüller bunları yalnızca `state.<ad>` olarak okur (`from src.api.state import <değişken>` yapmayın). |
-| `routes/meta.py` | `/api/data-version`, `/api/admin/*` (model yenileme, sezon senkronu). |
+| `security.py` | Yönetim ucu jetonu (`require_admin_token`) ve CORS kökenleri (`cors_origins`). |
+| `routes/meta.py` | `/api/data-version`, `/api/admin/*` (model yenileme, sezon senkronu; `PLM_ADMIN_TOKEN` ile korunur). |
 | `routes/teams.py` | `/api/teams*`: kadro/teknik ekip, teknik direktör, profil, transfer, taktik, hücum liderleri, senaryolar. |
 | `routes/fixtures.py` | `/api/fixtures*`, `/api/standings`, `/api/referees*`, `/api/match/{id}/recent-form`. |
 | `routes/players.py` | `/api/players*`: arama, profil, piyasa değeri geçmişi, reyting. |

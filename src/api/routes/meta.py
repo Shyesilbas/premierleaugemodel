@@ -6,10 +6,11 @@ import subprocess
 import sys
 import threading
 import uuid
-from fastapi import HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 from src.config import DEFAULT_SEASON, ROOT as BASE_DIR, SEASONS
 from typing import Any, Dict, List
 from src.api import state
+from src.api.security import require_admin_token
 from fastapi import APIRouter
 
 router = APIRouter()
@@ -75,7 +76,7 @@ def _run_season_sync_job(job_id: str, season: str, kind: str = "matches") -> Non
                 _sync_job.update(status="failed", message=str(exc), output="")
 
 
-@router.post("/api/admin/sync-season")
+@router.post("/api/admin/sync-season", dependencies=[Depends(require_admin_token)])
 def start_season_sync(season: str = Query(DEFAULT_SEASON), kind: str = Query("matches")):
     """Start a background sync: matches (results + stats), referees, or lineups."""
     if kind not in {"matches", "referees", "lineups"}:
@@ -92,14 +93,14 @@ def start_season_sync(season: str = Query(DEFAULT_SEASON), kind: str = Query("ma
     return {**_sync_job, "already_running": False}
 
 
-@router.post("/api/admin/reload-models")
+@router.post("/api/admin/reload-models", dependencies=[Depends(require_admin_token)])
 def admin_reload_models():
     """Reload all runtime datasets and ML model artifacts."""
     state.reload_runtime_datasets()
     return {"status": "success", "message": "All models and feature datasets reloaded successfully"}
 
 
-@router.get("/api/admin/sync-season")
+@router.get("/api/admin/sync-season", dependencies=[Depends(require_admin_token)])
 def get_season_sync_status():
     with _sync_job_lock:
         return dict(_sync_job)
