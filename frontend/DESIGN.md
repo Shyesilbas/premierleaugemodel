@@ -2,25 +2,25 @@
 
 Read this before any UI change. Act as a senior frontend engineer at a premium consumer-product company (Apple / Spotify tier) in the era before generative AI: every screen is deliberate, quiet, consistent and fast. UI/UX quality is the first priority, ahead of speed of delivery.
 
-**Principle: restraint.** Hierarchy comes from type size, weight, spacing, alignment and hairline borders. Never from color, decoration or oversized shapes.
+**Principle: restraint & purposeful color.** Hierarchy primarily comes from type size, weight, spacing, alignment and hairline borders. Color is used deliberately where appropriate: rigid monochrome restrictions are replaced by thoughtful color choices suitable for the context (team identities, metrics, predictions), provided they remain restrained, balanced, and never exaggerated, loud, or tacky (abartı ve cıvık olmayan bir denge).
 
 ## Never (hard rules)
 - **No emojis**, anywhere: UI text, buttons, toasts, alerts, empty states, placeholders, seed copy. Use `lucide-react` icons or nothing.
-- **No colored bubbles:** no tinted circles/pills behind icons, no large colored badges, no rounded colored chips as decoration.
+- **No tacky / loud decoration:** no arbitrary neon bubbles, floating blobs, glowing rings, or chaotic rainbow chips. Subtle, purposeful contextual badges, tags, or pills are allowed.
 - **No big rounded shapes:** see the radius table. No `rounded-lg/xl/2xl/3xl`, no `rounded-[..]`, no pill-shaped buttons or cards.
-- **No tinted or colored card backgrounds**, no colored card borders. Cards are neutral.
-- No gradients, glassmorphism (`backdrop-blur`, translucent white), decorative blobs, glow, or heavy shadows.
-- No more than one accent: the `primary` token. No extra brand colors, no rainbow category colors.
-- No arbitrary values (`text-[13px]`, `p-[18px]`, `rounded-[2rem]`), no hex, no raw palette classes (`slate-*`, `gray-*`, `indigo-*`, `emerald-*`).
+- **No garish or screaming card backgrounds:** resting cards should remain clean and readable. Subtle contextual borders or gentle tinting for states/metrics/teams are allowed, but avoid loud, high-saturation fills.
+- No heavy gradients, glassmorphism (`backdrop-blur`, translucent white), decorative blobs, glow, or heavy shadows.
+- **Color usage:** Rigid single-accent / monochrome rules are lifted. Colors deemed appropriate by the model/context (e.g. contextual accents, team colors, data points, status indicators, subtle category tints) can be used freely, provided they remain restrained, cohesive, and mature—never noisy or flashy.
+- No arbitrary values (`text-[13px]`, `p-[18px]`, `rounded-[2rem]`). Prefer Tailwind scale and cohesive design tokens.
 - No `font-black` / `font-extrabold`, no all-caps micro labels with wide tracking used as decoration.
 - No bounce, scale-up hover lifts, or looping decorative animation.
 
-## Tokens (source: `src/common/theme/theme.js`, wired in `tailwind.config.js`)
+## Tokens (source: `tailwind.config.js`)
 - **Surfaces:** page `bg-background-secondary`, content surfaces `bg-background-primary`, subtle fills `bg-background-tertiary`. Separate with 1px borders (`border-border` for edges, `border-border-light` for inner dividers), not shadows.
 - **Text:** `text-text-primary` for content, `text-text-secondary` for supporting text, `text-text-tertiary` / `text-text-muted` for meta (never for essential info; check contrast).
-- **Accent:** `primary` (near-black slate) for the single primary action per view and for selected/active state. Hover `primary-hover`.
-- **Status:** `status-success|error|warning|info`. Use the `text`/`DEFAULT` color for a word, a 6px dot or an inline message. The `-bg` tints only appear inside the shared `Alert`, never on cards or sections.
-- **Price:** `text-price` / `highlight` exist for price emphasis; do not reuse them for decoration.
+- **Accent & Contextual Colors:** `primary` serves as the anchor primary action, but appropriate complementary accents (e.g. contextual indicators, metrics, team palettes, charts, tags) can be used where they enhance clarity and aesthetics without clutter.
+- **Status:** `status-success|error|warning|info`. Contextual status tags, dots, or subtle badges are supported when they communicate meaningful state.
+- **Metrics / Odds:** highlight tokens exist for emphasis; use purposefully where relevant.
 
 ### Radius (project scale is larger than Tailwind default)
 In this repo `rounded-sm`=6px, `rounded`=8px, `rounded-md`=12px, `rounded-lg`=16px, `rounded-xl`=24px, `rounded-2xl`=32px.
@@ -52,8 +52,8 @@ Font: Plus Jakarta Sans (already configured). Weights 400 / 500 / 600 only.
 - **Inputs:** visible label above, helper/error text below, 40px high, `rounded`, 1px `border-border`, focus ring 2px `border-border-focus`. Validate on blur/submit.
 - **Cards:** flat, white, 1px border, `rounded`, no resting shadow. Hover changes border to `card-border-hover` only; no lift, no scale.
 - **Lists / tables:** dense rows (`py-2` to `py-3`), dividers `border-border-light`, right-align numbers, paginate.
-- **Status:** a 6px dot plus text, not a filled pill.
-- **Icons:** `lucide-react`, 16 or 20px, stroke 1.5, `currentColor`. Never inside a colored circle.
+- **Status:** a dot, subtle tag or text badge, not an overly loud neon bubble.
+- **Icons:** `lucide-react`, 16 or 20px, stroke 1.5, `currentColor`. Avoid arbitrary neon bubbles or loud circular frames behind icons.
 - **Modals / drawers:** `bg-black/40` backdrop without blur, `rounded-md`, focus trapped, Esc closes, primary action on the right. Drawer for long forms. No nested modals.
 - **Images:** fixed aspect ratio placeholders so nothing shifts; `rounded` at most.
 
@@ -72,7 +72,7 @@ Contrast at least 4.5:1 for text, visible `focus-visible` states, labels on ever
 ## Before you finish a UI change
 Run from `frontend/` against the files you touched and fix every hit:
 ```bash
-grep -nE "rounded-(lg|xl|2xl|3xl)|rounded-\[|bg-gradient|backdrop-blur|font-(black|extrabold)|text-\[[0-9]|#[0-9a-fA-F]{3,6}\b|(bg|text|border)-(slate|gray|zinc|stone|indigo|violet|rose|emerald|teal|amber|blue|red|green)-[0-9]" <files>
+grep -nE "rounded-(lg|xl|2xl|3xl)|rounded-\[|bg-gradient|backdrop-blur|font-(black|extrabold)|text-\[[0-9]|#[0-9a-fA-F]{3,6}\b" <files>
 grep -nP "[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]" <files>   # emojis
 npm run lint
 ```

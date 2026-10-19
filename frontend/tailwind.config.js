@@ -8,6 +8,13 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Semantic tokens (see DESIGN.md)
+        primary: { DEFAULT: '#0f172a', hover: '#1e293b' },
+        background: { primary: '#ffffff', secondary: '#f8fafc', tertiary: '#f1f5f9' },
+        text: { primary: '#0f172a', secondary: '#475569', tertiary: '#64748b', muted: '#94a3b8' },
+        border: { DEFAULT: '#e2e8f0', light: '#f1f5f9', focus: '#0f172a' },
+        'card-border-hover': '#cbd5e1',
+        status: { success: '#047857', error: '#b91c1c', warning: '#b45309', info: '#1d4ed8' },
         pl: {
           dark: '#05070c',
           card: '#0c101a',

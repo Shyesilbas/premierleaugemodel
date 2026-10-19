@@ -24,7 +24,7 @@ export default function PlayerAvatar({
 
   // Size mapping
   const sizeMap = {
-    xs: 'w-6 h-6 text-[10px]',
+    xs: 'w-6 h-6 text-xs',
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-xs',
     lg: 'w-14 h-14 text-sm',
@@ -32,7 +32,7 @@ export default function PlayerAvatar({
     '2xl': 'w-20 h-20 text-lg',
   };
 
-  const shapeClass = shape === 'circle' ? 'rounded-full' : 'rounded-xl';
+  const shapeClass = shape === 'circle' ? 'rounded-full' : 'rounded';
   const sizeClass = sizeMap[size] || size;
 
   const hasPhoto = Boolean(resolvedPhoto && !imgError);
@@ -49,7 +49,7 @@ export default function PlayerAvatar({
 
   return (
     <div
-      className={`relative flex items-center justify-center shrink-0 overflow-hidden bg-slate-100 border border-slate-200/90 shadow-2xs select-none ${shapeClass} ${sizeClass} ${className}`}
+      className={`relative flex items-center justify-center shrink-0 overflow-hidden bg-background-tertiary border border-border select-none ${shapeClass} ${sizeClass} ${className}`}
     >
       {hasPhoto ? (
         <img
@@ -60,15 +60,15 @@ export default function PlayerAvatar({
           loading="lazy"
         />
       ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 font-mono font-black">
+        <div className="w-full h-full flex flex-col items-center justify-center bg-background-tertiary text-text-secondary font-mono font-medium">
           {fallback === 'shirt' && resolvedShirt ? (
             <span className="leading-none">#{resolvedShirt}</span>
           ) : initials ? (
-            <span className="leading-none font-sans font-bold text-slate-700 tracking-tight">{initials}</span>
+            <span className="leading-none font-sans font-semibold text-text-primary tracking-tight">{initials}</span>
           ) : resolvedShirt ? (
             <span className="leading-none">#{resolvedShirt}</span>
           ) : (
-            <User className="w-1/2 h-1/2 text-slate-400" />
+            <User className="w-1/2 h-1/2 text-text-muted" />
           )}
         </div>
       )}

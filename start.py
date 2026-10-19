@@ -69,7 +69,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 55)
-    print("   ⚽ PREMIER LEAGUE MODEL & DASHBOARD LAUNCHER")
+    print("   PREMIER LEAGUE MODEL & DASHBOARD LAUNCHER")
     print("=" * 55)
 
     if not shutil.which("npm"):
@@ -99,11 +99,11 @@ def main():
         cwd=str(FRONTEND_DIR),
     )
 
-    print("\n✔ SİSTEM HAZIR VE AKTİF!")
+    print("\n[OK] Sistem hazir ve aktif!")
     print("-" * 55)
-    print(" 🌐 Web Dashboard:            http://localhost:5173")
-    print(" ⚙️  Model API:                http://127.0.0.1:8000")
-    print(" 📖 Swagger Dokümantasyonu:    http://127.0.0.1:8000/docs")
+    print("  Web Dashboard:            http://localhost:5173")
+    print("  Model API:                http://127.0.0.1:8000")
+    print("  Swagger Dokümantasyonu:   http://127.0.0.1:8000/docs")
     print("-" * 55)
     print("Durdurmak için [CTRL + C] tuşlarına basın.\n")
 

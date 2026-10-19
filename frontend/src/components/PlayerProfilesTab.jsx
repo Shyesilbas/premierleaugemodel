@@ -8,7 +8,7 @@ import PlayerMatchHistory from './player-profile/PlayerMatchHistory';
 import { getPlayerProfile, searchPlayers } from '../services/playerService';
 
 function getPositionMeta(position) {
-  const neutralClass = 'bg-slate-100 text-slate-700 border-slate-200';
+  const neutralClass = 'bg-background-tertiary text-text-primary border-border';
   const labels = { F: 'Forvet', M: 'Orta Saha', D: 'Defans', G: 'Kaleci' };
   return { label: labels[position] || 'Oyuncu', class: neutralClass };
 }

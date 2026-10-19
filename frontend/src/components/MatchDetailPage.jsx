@@ -201,13 +201,13 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
   };
 
   const getPositionBadgeClass = (pos) => {
-    if (!pos) return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (!pos) return 'bg-background-tertiary text-text-primary border-border';
     const p = String(pos).toUpperCase();
-    if (['G', 'GK', 'GOALKEEPER'].includes(p)) return 'bg-amber-100 text-amber-900 border-amber-200';
-    if (['D', 'DEF', 'DEFENDER', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return 'bg-sky-100 text-sky-900 border-sky-200';
-    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'bg-purple-100 text-[#38003c] border-purple-200';
-    if (['F', 'FWD', 'FORWARD', 'ST', 'CF', 'RW', 'LW', 'ATT'].includes(p)) return 'bg-rose-100 text-rose-900 border-rose-200';
-    return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (['G', 'GK', 'GOALKEEPER'].includes(p)) return 'bg-background-tertiary text-status-warning border-status-warning';
+    if (['D', 'DEF', 'DEFENDER', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return 'bg-background-tertiary text-primary border-primary';
+    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'bg-background-tertiary text-primary border-primary';
+    if (['F', 'FWD', 'FORWARD', 'ST', 'CF', 'RW', 'LW', 'ATT'].includes(p)) return 'bg-background-tertiary text-status-error border-status-error';
+    return 'bg-background-tertiary text-text-primary border-border';
   };
 
   const calcBarWidths = (item) => {
@@ -313,17 +313,16 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
         onRefresh={() => setRefreshKey(key => key + 1)}
       />
 
-      {/* Modern Navigation Tabs: Zaman Akışı is FIRST, NO EMOJIS! */}
-      <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-xs">
+      <div role="tablist" aria-label="Maç detay sekmeleri" className="flex gap-1 overflow-x-auto border-b border-border">
         
         {/* Tab 1: Zaman Akışı (Main tab at the beginning) */}
         {isCompleted && (
           <button
             onClick={() => setActiveTab('timeline')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            role="tab" aria-selected={activeTab === 'timeline'} className={`px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
               activeTab === 'timeline'
-                ? 'bg-[#38003c] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'border-primary text-text-primary'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
             <Clock className="w-4 h-4" />
@@ -334,11 +333,11 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
         {/* Tab 2: Kadrolar & Diziliş */}
         <button
           onClick={() => setActiveTab('lineups')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'lineups'
-              ? 'bg-[#38003c] text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
+          role="tab" aria-selected={activeTab === 'lineups'} className={`px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
+              activeTab === 'lineups'
+                ? 'border-primary text-text-primary'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
+            }`}
         >
           <Users className="w-4 h-4" />
           <span>{isCompleted ? 'İlk 11 & Kadrolar' : 'Kadro Bilgisi'}</span>
@@ -348,10 +347,10 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
         {isCompleted && (
           <button
             onClick={() => setActiveTab('stats')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            role="tab" aria-selected={activeTab === 'stats'} className={`px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
               activeTab === 'stats'
-                ? 'bg-[#38003c] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'border-primary text-text-primary'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
             <BarChart3 className="w-4 h-4" />
@@ -363,10 +362,10 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
         {!isCompleted && isPredictable && (
           <button
             onClick={() => setActiveTab('prediction')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            role="tab" aria-selected={activeTab === 'prediction'} className={`px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
               activeTab === 'prediction'
-                ? 'bg-[#38003c] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'border-primary text-text-primary'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
             <Sparkles className="w-4 h-4" />
@@ -375,8 +374,8 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
         )}
 
         {!isCompleted && !isPredictable && (
-          <span className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4 text-amber-600" />
+          <span className="px-3 py-2.5 text-sm text-text-secondary flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
             <span>Tahminler {match.gameweek}. Haftada Aktifleşir</span>
           </span>
         )}
@@ -385,10 +384,10 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
         {isCompleted && events.length > 0 && (
           <button
             onClick={() => setActiveTab('events')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            role="tab" aria-selected={activeTab === 'events'} className={`px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
               activeTab === 'events'
-                ? 'bg-[#38003c] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'border-primary text-text-primary'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
             <Activity className="w-4 h-4" />
@@ -400,26 +399,24 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
         {oddsData.length > 0 && (
           <button
             onClick={() => setActiveTab('odds')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            role="tab" aria-selected={activeTab === 'odds'} className={`px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 cursor-pointer ${
               activeTab === 'odds'
-                ? 'bg-[#38003c] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'border-primary text-text-primary'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
+            <TrendingUp className="w-4 h-4" />
             <span>Piyasa Oranları ({oddsData.length})</span>
           </button>
         )}
       </div>
 
       {/* Main Tab Content Area */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
+      <div className="pt-2">
         
         {loading ? (
           <div className="py-24 text-center">
-            <div className="w-10 h-10 border-4 border-[#38003c] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-sm font-bold text-slate-800">Maç detayları yükleniyor...</p>
-            <p className="text-xs text-slate-500 mt-1">Premier League API ve Opta veri akışı senkronize ediliyor</p>
+            <p className="text-sm font-medium text-text-primary">Maç detayları yükleniyor...</p>
           </div>
         ) : activeTab === 'timeline' ? (
 
@@ -469,7 +466,7 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
           /* ================= EVENTS TAB (OPTA COMMENTARY) ================= */
           <div className="space-y-3">
             {events.length === 0 ? (
-              <div className="py-16 text-center text-sm text-slate-500 font-medium">
+              <div className="py-16 text-center text-sm text-text-secondary font-medium">
                 Bu karşılaşma için Opta olay akışı kaydı bulunamadı.
               </div>
             ) : (
@@ -479,16 +476,16 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
                 return (
                   <div
                     key={ev.id || idx}
-                    className="flex items-start gap-3.5 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors text-xs"
+                    className="flex items-start gap-3.5 p-3 rounded bg-background-tertiary hover:bg-background-tertiary border border-border transition-colors text-xs"
                   >
-                    <span className="font-mono font-bold text-slate-700 min-w-[36px] pt-0.5 text-xs">
+                    <span className="font-mono font-semibold text-text-primary min-w-[36px] pt-0.5 text-xs">
                       {min}'
                     </span>
                     <div className="flex-1">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-600 block mb-0.5">
+                      <span className="text-xs font-mono font-semibold uppercase tracking-wider text-text-secondary block mb-0.5">
                         {type}
                       </span>
-                      <p className="text-slate-800 font-medium leading-relaxed text-xs">
+                      <p className="text-text-primary font-medium leading-relaxed text-xs">
                         {ev.text}
                       </p>
                     </div>

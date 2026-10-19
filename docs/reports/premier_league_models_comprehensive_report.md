@@ -10,7 +10,7 @@
 - 🗄️ **Veritabanı & ETL Altyapısı:** `data/premier_league.db` (SQLite3, 12 tablo, 1.900 fikstür) & Parquet katmanı  
 **Değerlendirilen Maç Havuzu:** 1.140 İleri Holdout Maçı (2023/24, 2024/25, 2025/26) + 60 maçlık kilitli canlı test (2026/27, yalnızca raporlama).  
 > ⚠️ **17 Ekim 2026 Bağımsız Denetimi:** Önceki sürümdeki "1.200 maç" rakamları kilitli 2026/27 sezonunu da içeriyordu ve bazı metrikler (ECE %2.17, "Bivariate Poisson" adı, `POST /api/predict`) hatalıydı. Düzeltilmiş rakamlar ve tüm bulgular için bkz. **[Gol Model Raporu — Bölüm 11](models/goals_model.md#bölüm-11-bağımsız-denetim-17-ekim-2026--gol-modeli--api-bulguları)**.  
-**Dokümantasyon Ağı:** [Ana Sayfa (README)](../../README.md) · [Paper Trading Protokolü](paper_trading_protocol_2026_27.md) · [AI Context & Parametreler](../../AI_CONTEXT.md) · [API Entegrasyonu](../model_api_integration.md) · [Veri Kataloğu](../../VERI_VE_GOSTERIM_KATALOGU.md) · [Örnek Maç İncelemesi](../../LIVERPOOL_MANCHESTER_CITY_MAC_VE_VERI_DETAYI.md)
+**Dokümantasyon Ağı:** [Ana Sayfa (README)](../../README.md) · [Paper Trading Protokolü](paper_trading_protocol_2026_27.md) · [AI Context & Parametreler](../../AI_CONTEXT.md) · [API Entegrasyonu](../model_api_integration.md) · [Veri Kataloğu](../../VERI_VE_GOSTERIM_KATALOGU.md)
 
 ---
 

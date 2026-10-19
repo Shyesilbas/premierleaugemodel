@@ -7,20 +7,20 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                   
                   {/* 1. SECTION: Detailed Team Match Statistics (Sofascore Style) */}
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <div className="flex items-center justify-between pb-2 border-b border-border">
                       <div className="flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4 text-[#38003c]" />
-                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                        <BarChart3 className="w-4 h-4 text-primary" />
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-text-primary">
                           Takım Karşılaştırmalı İstatistikleri & Mikro-Metrikler
                         </h4>
                       </div>
-                      <span className="text-[11px] font-mono font-bold text-slate-500">
+                      <span className="text-xs font-mono font-semibold text-text-secondary">
                         Premier League Maç Verisi
                       </span>
                     </div>
 
                     {teamStats.length === 0 ? (
-                      <div className="py-8 text-center text-xs text-slate-500">
+                      <div className="py-8 text-center text-xs text-text-secondary">
                         Bu karşılaşma henüz oynanmadığı için takım istatistikleri bulunmamaktadır.
                       </div>
                     ) : (
@@ -28,11 +28,11 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                         {teamStats.map((cat, catIdx) => (
                           <div 
                             key={catIdx} 
-                            className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3"
+                            className="bg-background-tertiary border border-border rounded p-4 space-y-3"
                           >
-                            <h5 className="text-[11px] font-black uppercase tracking-wider text-slate-800 pb-1.5 border-b border-slate-200 flex items-center justify-between">
+                            <h5 className="text-xs font-semibold uppercase tracking-wider text-text-primary pb-1.5 border-b border-border flex items-center justify-between">
                               <span>{cat.category}</span>
-                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
+                              <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-background-tertiary text-text-primary">
                                 {cat.items.length} Metrik
                               </span>
                             </h5>
@@ -47,21 +47,21 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                 const isXg = Boolean(item.isXg || item.label?.includes('xG'));
 
                                 return (
-                                  <div key={itemIdx} className={`space-y-1 text-xs ${isXg ? 'bg-rose-50/40 p-2 rounded-xl border border-rose-100/60' : ''}`}>
-                                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
-                                      <span className={`font-mono min-w-[36px] ${isXg ? 'text-rose-700 font-black' : 'font-bold text-slate-900'}`}>
+                                  <div key={itemIdx} className={`space-y-1 text-xs ${isXg ? 'bg-background-tertiary p-2 rounded border border-status-error' : ''}`}>
+                                    <div className="flex items-center justify-between text-xs font-semibold text-text-primary">
+                                      <span className={`font-mono min-w-[36px] ${isXg ? 'text-status-error font-semibold' : 'font-semibold text-text-primary'}`}>
                                         {hVal === 'Not Found' ? (
-                                          <span className="text-slate-400 font-normal italic text-[10px]">Not Found</span>
+                                          <span className="text-text-tertiary font-normal italic text-xs">Not Found</span>
                                         ) : (
                                           `${hVal}${suffix}`
                                         )}
                                       </span>
-                                      <span className={`font-medium text-center truncate px-2 ${isXg ? 'text-rose-900 font-bold' : 'text-slate-600'}`}>
+                                      <span className={`font-medium text-center truncate px-2 ${isXg ? 'text-status-error font-semibold' : 'text-text-secondary'}`}>
                                         {item.label}
                                       </span>
-                                      <span className={`font-mono min-w-[36px] text-right ${isXg ? 'text-rose-700 font-black' : 'font-bold text-slate-900'}`}>
+                                      <span className={`font-mono min-w-[36px] text-right ${isXg ? 'text-status-error font-semibold' : 'font-semibold text-text-primary'}`}>
                                         {aVal === 'Not Found' ? (
-                                          <span className="text-slate-400 font-normal italic text-[10px]">Not Found</span>
+                                          <span className="text-text-tertiary font-normal italic text-xs">Not Found</span>
                                         ) : (
                                           `${aVal}${suffix}`
                                         )}
@@ -70,16 +70,16 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
 
                                     {/* Comparison Dual Bar */}
                                     {isNotFound ? (
-                                      <div className="h-1.5 rounded-full overflow-hidden bg-slate-100 border border-dashed border-slate-200" title="Veri Bulunamadı" />
+                                      <div className="h-1.5 rounded-full overflow-hidden bg-background-tertiary border border-dashed border-border" title="Veri Bulunamadı" />
                                     ) : (
-                                      <div className="h-1.5 rounded-full overflow-hidden flex bg-slate-200 gap-0.5">
+                                      <div className="h-1.5 rounded-full overflow-hidden flex bg-background-tertiary gap-0.5">
                                         <div 
                                           style={{ width: `${homePct}%` }}
-                                          className={`h-full transition-all duration-500 rounded-l-full ${isXg ? 'bg-rose-600' : 'bg-[#38003c]'}`}
+                                          className={`h-full transition-all duration-500 rounded-l-full bg-primary`}
                                         />
                                         <div 
                                           style={{ width: `${awayPct}%` }}
-                                          className={`h-full transition-all duration-500 rounded-r-full ${isXg ? 'bg-pink-600' : 'bg-emerald-600'}`}
+                                          className={`h-full transition-all duration-500 rounded-r-full bg-text-tertiary`}
                                         />
                                       </div>
                                     )}
@@ -94,23 +94,23 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                   </div>
 
                   {/* 2. SECTION: Player Match Scorecard Table */}
-                  <div className="space-y-4 pt-4 border-t border-slate-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border">
                       <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-[#38003c]" />
-                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                        <Users className="w-4 h-4 text-primary" />
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-text-primary">
                           Oyuncu Maç Performans Karnesi (Dakika, Şut, Faul, Ofsayt)
                         </h4>
                       </div>
 
                       {/* Home vs Away Player Selector */}
-                      <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
+                      <div className="flex items-center bg-background-tertiary p-1 rounded border border-border gap-1">
                         <button
                           onClick={() => setPlayerTabSide('home')}
-                          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all ${
                             playerTabSide === 'home'
-                              ? 'bg-[#38003c] text-white shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
                           <img src={homeTeam.badge} alt="" className="w-3.5 h-3.5 object-contain" />
@@ -118,10 +118,10 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                         </button>
                         <button
                           onClick={() => setPlayerTabSide('away')}
-                          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all ${
                             playerTabSide === 'away'
-                              ? 'bg-[#38003c] text-white shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
                           <img src={awayTeam.badge} alt="" className="w-3.5 h-3.5 object-contain" />
@@ -132,14 +132,14 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
 
                     {/* Player Table */}
                     {(!playerStats[playerTabSide] || playerStats[playerTabSide].length === 0) ? (
-                      <div className="py-8 text-center text-xs text-slate-500">
+                      <div className="py-8 text-center text-xs text-text-secondary">
                         Bu takım için oyuncu maç istatistiği bulunamadı.
                       </div>
                     ) : (
-                      <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+                      <div className="overflow-x-auto rounded border border-border shadow-sm">
                         <table className="w-full text-left text-xs font-medium border-collapse min-w-[700px]">
                           <thead>
-                            <tr className="bg-slate-100 text-slate-700 text-[11px] font-bold border-b border-slate-200">
+                            <tr className="bg-background-tertiary text-text-primary text-xs font-semibold border-b border-border">
                               <th className="py-2.5 px-3 text-center">#</th>
                               <th className="py-2.5 px-3">Oyuncu</th>
                               <th className="py-2.5 px-2 text-center">Mevki</th>
@@ -153,33 +153,33 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                               <th className="py-2.5 px-2 text-center">Kart</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
+                          <tbody className="divide-y divide-border-light bg-background-primary">
                             {playerStats[playerTabSide].map((p, idx) => (
-                              <tr key={p.id || idx} className="hover:bg-slate-50/80 transition-colors">
-                                <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-500">
+                              <tr key={p.id || idx} className="hover:bg-background-tertiary transition-colors">
+                                <td className="py-2.5 px-3 text-center font-mono font-semibold text-text-secondary">
                                   {p.shirt || '-'}
                                 </td>
-                                <td className="py-2.5 px-3 font-bold text-slate-900">
+                                <td className="py-2.5 px-3 font-semibold text-text-primary">
                                   <div className="flex items-center gap-2.5">
                                     <PlayerAvatar 
                                       photoUrl={p.photo_url} 
                                       name={p.name} 
                                       shirt={p.shirt} 
                                       fallback="initials" 
-                                      size="w-7 h-7 text-[10px]" 
+                                      size="w-7 h-7 text-xs" 
                                       className="shrink-0" 
                                     />
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1">
                                         <span className="truncate">{p.name}</span>
                                         {p.captain && (
-                                          <span className="text-[9px] font-black px-1 rounded bg-amber-200 text-amber-900 shrink-0">
+                                          <span className="text-xs font-semibold px-1 rounded bg-background-tertiary text-status-warning shrink-0">
                                             C
                                           </span>
                                         )}
                                       </div>
                                       {!p.is_starter && (
-                                        <span className="text-[9px] text-purple-700 font-mono block">
+                                        <span className="text-xs text-primary font-mono block">
                                           Yedek (Sonradan Girdi)
                                         </span>
                                       )}
@@ -187,63 +187,63 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                   </div>
                                 </td>
                                 <td className="py-2.5 px-2 text-center">
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getPositionBadgeClass(p.position)}`}>
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${getPositionBadgeClass(p.position)}`}>
                                     {formatPosition(p.position)}
                                   </span>
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-800">
+                                <td className="py-2.5 px-2 text-center font-mono font-semibold text-text-primary">
                                   {p.minutes}'
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-bold">
+                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
                                   {p.goals > 0 ? (
-                                    <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    <span className="text-status-success bg-background-tertiary px-1.5 py-0.5 rounded border border-status-success">
                                       {p.goals}
                                     </span>
                                   ) : (
-                                    <span className="text-slate-300">0</span>
+                                    <span className="text-text-tertiary">0</span>
                                   )}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-bold">
+                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
                                   {p.assists > 0 ? (
-                                    <span className="text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                                    <span className="text-primary bg-background-tertiary px-1.5 py-0.5 rounded border border-primary">
                                       {p.assists}
                                     </span>
                                   ) : (
-                                    <span className="text-slate-300">0</span>
+                                    <span className="text-text-tertiary">0</span>
                                   )}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-700">
-                                  {p.shots > 0 ? `${p.shots} (${p.shots_ontarget})` : <span className="text-slate-300">0</span>}
+                                <td className="py-2.5 px-2 text-center font-mono font-semibold text-text-primary">
+                                  {p.shots > 0 ? `${p.shots} (${p.shots_ontarget})` : <span className="text-text-tertiary">0</span>}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-bold">
+                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
                                   {p.fouls_committed > 0 ? (
-                                    <span className="text-rose-700">{p.fouls_committed}</span>
+                                    <span className="text-status-error">{p.fouls_committed}</span>
                                   ) : (
-                                    <span className="text-slate-300">0</span>
+                                    <span className="text-text-tertiary">0</span>
                                   )}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-bold">
+                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
                                   {p.fouls_won > 0 ? (
-                                    <span className="text-emerald-700">{p.fouls_won}</span>
+                                    <span className="text-status-success">{p.fouls_won}</span>
                                   ) : (
-                                    <span className="text-slate-300">0</span>
+                                    <span className="text-text-tertiary">0</span>
                                   )}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-bold">
+                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
                                   {p.offsides > 0 ? (
-                                    <span className="text-amber-700 font-black">{p.offsides}</span>
+                                    <span className="text-status-warning font-semibold">{p.offsides}</span>
                                   ) : (
-                                    <span className="text-slate-300">0</span>
+                                    <span className="text-text-tertiary">0</span>
                                   )}
                                 </td>
                                 <td className="py-2.5 px-2 text-center">
                                   {p.yellow_cards > 0 && (
-                                    <span className="inline-block w-2.5 h-3.5 bg-amber-400 rounded-[2px] shadow-xs mr-1 align-middle" title="Sarı Kart" />
+                                    <span className="inline-block w-2.5 h-3.5 bg-background-tertiary rounded  mr-1 align-middle" title="Sarı Kart" />
                                   )}
                                   {p.red_cards > 0 && (
-                                    <span className="inline-block w-2.5 h-3.5 bg-rose-600 rounded-[2px] shadow-xs mr-1 align-middle" title="Kırmızı Kart" />
+                                    <span className="inline-block w-2.5 h-3.5 bg-background-tertiary rounded  mr-1 align-middle" title="Kırmızı Kart" />
                                   )}
-                                  {p.yellow_cards === 0 && p.red_cards === 0 && <span className="text-slate-300">—</span>}
+                                  {p.yellow_cards === 0 && p.red_cards === 0 && <span className="text-text-tertiary">—</span>}
                                 </td>
                               </tr>
                             ))}

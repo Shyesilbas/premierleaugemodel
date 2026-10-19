@@ -6,23 +6,23 @@ import PlayerAvatar from '../PlayerAvatar';
 import { BallIcon, RedCardIcon, YellowCardIcon } from './eventIcons';
 
 const ratingClass = (r) =>
-  r == null ? 'bg-slate-700 text-slate-300'
-    : r >= 7.5 ? 'bg-emerald-500 text-white'
-    : r >= 6.5 ? 'bg-sky-500 text-white'
-    : r >= 5.5 ? 'bg-amber-500 text-white'
-    : 'bg-rose-500 text-white';
+  r == null ? 'bg-background-tertiary text-text-tertiary'
+    : r >= 7.5 ? 'bg-background-tertiary text-text-primary'
+    : r >= 6.5 ? 'bg-background-tertiary text-text-primary'
+    : r >= 5.5 ? 'bg-background-tertiary text-text-primary'
+    : 'bg-background-tertiary text-text-primary';
 
 function StatGroup({ title, rows, wide = false }) {
   const visible = rows.filter(Boolean);
   if (visible.length === 0) return null;
   return (
     <section className={wide ? 'col-span-2' : ''}>
-      <h4 className="px-1 mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{title}</h4>
-      <dl className="rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white">
+      <h4 className="px-1 mb-1 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{title}</h4>
+      <dl className="rounded border border-border divide-y divide-border-light bg-background-primary">
         {visible.map(([label, value, highlight]) => (
           <div key={label} className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs">
-            <dt className="text-slate-600 truncate">{label}</dt>
-            <dd className={`font-mono font-black ${highlight ? 'text-[#38003c]' : 'text-slate-900'}`}>{value}</dd>
+            <dt className="text-text-secondary truncate">{label}</dt>
+            <dd className={`font-mono font-semibold ${highlight ? 'text-primary' : 'text-text-primary'}`}>{value}</dd>
           </div>
         ))}
       </dl>
@@ -79,22 +79,22 @@ export default function PlayerMatchPanel({ selectedPlayer, onClose, isCompleted,
   return createPortal(
     <>
       {/* Mobile-only backdrop; on desktop the card is a popover beside the clicked player */}
-      <div className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-[2px] lg:hidden" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} />
 
       <aside
         ref={panelRef}
         style={coords ? { top: coords.top, left: coords.left } : undefined}
         role="dialog"
         aria-label={`${p.name} maç performansı`}
-        className="fixed z-50 inset-x-0 bottom-0 max-h-[85vh] rounded-t-3xl lg:absolute lg:inset-auto lg:max-h-[calc(100vh-1rem)] lg:w-[340px] lg:rounded-2xl bg-slate-50 shadow-2xl ring-1 ring-black/10 flex flex-col overflow-hidden animate-panelIn"
+        className="fixed z-50 inset-x-0 bottom-0 max-h-[85vh] rounded-t-3xl lg:absolute lg:inset-auto lg:max-h-[calc(100vh-1rem)] lg:w-[340px] lg:rounded bg-background-tertiary shadow-2xl ring-1 ring-black/10 flex flex-col overflow-hidden animate-panelIn"
       >
         {/* Header */}
-        <div className="relative shrink-0 bg-gradient-to-br from-[#38003c] to-[#1f0022] text-white px-4 pt-4 pb-3">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/25 lg:hidden" />
+        <div className="relative shrink-0 bg-background-tertiary text-text-primary border-b border-border px-4 pt-4 pb-3">
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-background-primary lg:hidden" />
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors"
+            className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-background-secondary text-text-secondary hover:text-text-primary transition-colors"
             title="Kapat (Esc)"
           >
             <X className="w-4 h-4" />
@@ -108,47 +108,47 @@ export default function PlayerMatchPanel({ selectedPlayer, onClose, isCompleted,
                 shirt={p.shirt}
                 fallback="initials"
                 size="w-12 h-12 text-sm"
-                className="!border-0 ring-2 ring-white/80 bg-white"
+                className="!border-0 ring-2 ring-white/80 bg-background-primary"
               />
               {p.captain && (
-                <span className="absolute -bottom-0.5 -left-0.5 w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] flex items-center justify-center ring-2 ring-[#38003c]" title="Kaptan">C</span>
+                <span className="absolute -bottom-0.5 -left-0.5 w-5 h-5 rounded-full bg-background-tertiary text-text-primary font-semibold text-xs flex items-center justify-center ring-2 ring-border" title="Kaptan">C</span>
               )}
             </div>
             <div className="min-w-0">
-              <h3 className="text-base font-black leading-tight truncate">{p.name}</h3>
-              <div className="mt-1 flex items-center gap-1.5 text-xs text-white/70">
+              <h3 className="text-base font-semibold leading-tight truncate">{p.name}</h3>
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-text-secondary">
                 <img src={team?.badge} alt="" className="w-4 h-4 object-contain" onError={handleTeamBadgeError} />
                 <span className="truncate">{team?.name}</span>
               </div>
-              <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-bold">
-                <span className="font-mono text-white/60">#{p.shirt ?? '-'}</span>
-                <span className="px-1.5 py-px rounded-md bg-white/10">{formatPosition(p.position)}</span>
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold">
+                <span className="font-mono text-text-secondary">#{p.shirt ?? '-'}</span>
+                <span className="px-1.5 py-px rounded-md bg-background-primary">{formatPosition(p.position)}</span>
                 {isCompleted && (
-                  <span className="px-1.5 py-px rounded-md bg-white/10 text-white/80">{s.is_starter ? 'İlk 11' : played ? 'Yedekten girdi' : 'Oynamadı'}</span>
+                  <span className="px-1.5 py-px rounded-md bg-background-primary text-text-secondary">{s.is_starter ? 'İlk 11' : played ? 'Yedekten girdi' : 'Oynamadı'}</span>
                 )}
               </div>
             </div>
           </div>
 
           <div className="mt-3 grid grid-cols-4 gap-1.5 text-center">
-            <div className={`rounded-lg py-1.5 ${ratingClass(rating)}`} title={isCompleted ? 'Maç notu' : '5 maçlık form puanı'}>
-              <div className="text-base font-black font-mono leading-none">{rating != null ? Number(rating).toFixed(1) : '—'}</div>
-              <div className="mt-0.5 text-[10px] font-bold opacity-80">{isCompleted ? 'Not' : 'Form'}</div>
+            <div className={`rounded py-1.5 ${ratingClass(rating)}`} title={isCompleted ? 'Maç notu' : '5 maçlık form puanı'}>
+              <div className="text-base font-semibold font-mono leading-none">{rating != null ? Number(rating).toFixed(1) : '—'}</div>
+              <div className="mt-0.5 text-xs font-semibold opacity-80">{isCompleted ? 'Not' : 'Form'}</div>
             </div>
             {isCompleted ? summary.map(([label, value]) => (
-              <div key={label} className="rounded-lg py-1.5 bg-white/10">
-                <div className="text-base font-black font-mono leading-none">{value}</div>
-                <div className="mt-0.5 text-[10px] font-bold text-white/60">{label}</div>
+              <div key={label} className="rounded py-1.5 bg-background-primary">
+                <div className="text-base font-semibold font-mono leading-none">{value}</div>
+                <div className="mt-0.5 text-xs font-semibold text-text-secondary">{label}</div>
               </div>
             )) : (
               <>
-                <div className="col-span-2 rounded-lg py-1.5 bg-white/10">
-                  <div className="text-sm font-black leading-5">{p.form_label || 'Normal'}</div>
-                  <div className="mt-0.5 text-[10px] font-bold text-white/60">Form durumu</div>
+                <div className="col-span-2 rounded py-1.5 bg-background-primary">
+                  <div className="text-sm font-semibold leading-5">{p.form_label || 'Normal'}</div>
+                  <div className="mt-0.5 text-xs font-semibold text-text-secondary">Form durumu</div>
                 </div>
-                <div className="rounded-lg py-1.5 bg-white/10">
-                  <div className="text-base font-black font-mono leading-none">{p.cards_risk ?? '—'}</div>
-                  <div className="mt-0.5 text-[10px] font-bold text-white/60">Kart riski</div>
+                <div className="rounded py-1.5 bg-background-primary">
+                  <div className="text-base font-semibold font-mono leading-none">{p.cards_risk ?? '—'}</div>
+                  <div className="mt-0.5 text-xs font-semibold text-text-secondary">Kart riski</div>
                 </div>
               </>
             )}
@@ -169,16 +169,16 @@ export default function PlayerMatchPanel({ selectedPlayer, onClose, isCompleted,
               ]}
             />
           ) : !played ? (
-            <p className="col-span-2 py-6 text-center text-sm text-slate-500">Bu oyuncu maçta forma giymedi.</p>
+            <p className="col-span-2 py-6 text-center text-sm text-text-secondary">Bu oyuncu maçta forma giymedi.</p>
           ) : (
             <>
               {(s.goals > 0 || s.assists > 0 || s.yellow_cards > 0 || s.red_cards > 0 || s.penalties_missed > 0) && (
                 <div className="col-span-2 flex flex-wrap gap-1.5">
-                  {s.goals > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-800"><BallIcon className="w-3.5 h-3.5" /> {s.goals} gol</span>}
-                  {s.assists > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-800"><span className="font-black text-[#38003c]">A</span> {s.assists} asist</span>}
-                  {s.yellow_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-800"><YellowCardIcon /> Sarı kart</span>}
-                  {s.red_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-800"><RedCardIcon /> Kırmızı kart</span>}
-                  {s.penalties_missed > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700">{s.penalties_missed} penaltı kaçırdı</span>}
+                  {s.goals > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-background-primary border border-border text-xs font-semibold text-text-primary"><BallIcon className="w-3.5 h-3.5" /> {s.goals} gol</span>}
+                  {s.assists > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-background-primary border border-border text-xs font-semibold text-text-primary"><span className="font-semibold text-primary">A</span> {s.assists} asist</span>}
+                  {s.yellow_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-primary border border-border text-xs font-semibold text-text-primary"><YellowCardIcon /> Sarı kart</span>}
+                  {s.red_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-primary border border-border text-xs font-semibold text-text-primary"><RedCardIcon /> Kırmızı kart</span>}
+                  {s.penalties_missed > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-background-tertiary border border-status-error text-xs font-semibold text-status-error">{s.penalties_missed} penaltı kaçırdı</span>}
                 </div>
               )}
 

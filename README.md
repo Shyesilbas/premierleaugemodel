@@ -1,98 +1,205 @@
 # Premier League Match Analysis & Predictive Modeling System
 
-Premier League maçları için uçtan uca bir tahmin platformu: ham maç verisinden maç öncesi özellikler (`shift(1)`, sızıntısız), bir gol skor matrisi modeli, bir 1X2 maç sonucu modeli, beş sayım modeli (korner, kart, kurtarış, ofsayt, taç), FastAPI backend ve React/Vite arayüzü.
+Premier League maçları için uçtan uca maç analizi ve tahmin platformu: ham maç verisinden maç öncesi özellikler (`shift(1)`, veri sızıntısız), gol skor matrisi modeli, 1X2 maç sonucu sınıflandırma modeli, beş sayım modeli (korner, kart, kurtarış, ofsayt, taç), FastAPI backend servisi ve React/Vite kullanıcı arayüzü.
 
-**Durum (17 Ekim 2026):** 5 sezon, 1.900 fikstür (1.580 oynanmış; 2026/27'de 60/380). Güncel durum ve bilinen sınırlar: [PROJECT_STATUS.md](PROJECT_STATUS.md).
-
----
-
-## 🚀 Hızlı Başlangıç
-
-```bash
-python3 start.py                 # Backend (:8000) + frontend (:5173) birlikte; bu portlardaki süreçleri kapatır
-python3 run_full_pipeline.py     # ETL → özellikler → değerlendirme → tüm modellerin eğitimi → otomatik raporlar
-pytest                           # Test paketi (22 test)
-```
-
-Ayrı ayrı çalıştırmak için:
-
-```bash
-uvicorn src.api.server:app --reload --host 127.0.0.1 --port 8000   # API, dokümantasyon: http://127.0.0.1:8000/docs
-cd frontend && npm ci && npm run dev                                # Arayüz (Vite 8: Node ^20.19.0 veya >=22.12.0)
-sqlite3 data/premier_league.db "SELECT ..."                        # Canlı veri sorgusu
-```
-
-- Pipeline yerel ham önbellekten çalışır; upstream veri indirmez ve SQLite'ı yeniden kurmaz. Yeni maç verisi arayüzdeki Fikstürler sayfasından artımlı senkronizasyonla gelir.
-- Pipeline'dan sonra API'yi yeniden başlatın; modeller açılışta yüklenir.
+**Veri ve Model Kapsamı:** 5 sezon, 1.900 fikstür (1.580 oynanmış maç; 2026/27 kilitli canlı sezon). Ayrıntılı durum için: [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ---
 
-## ⚽ Modeller
+## Kurulum ve Calistirma Rehberi
 
-| Model | Üretimdeki Hali | Durum | Rapor |
+Bu depoyu yeni klonlayan bir gelistiricinin projeyi yerel ortaminda calisir duruma getirmesi icin asagidaki adimlari izlemesi gerekmektedir.
+
+### Gereksinimler
+
+- **Python:** 3.12 (veya 3.11+)
+- **Node.js:** Node ^20.19.0 veya >=22.12.0 (Vite 8 destegi icin)
+- **Paket Yoneticisi:** `npm` (veya `pnpm` / `yarn`)
+- **Isletim Sistemi:** Linux, macOS veya WSL (Windows Subsystem for Linux)
+
+---
+
+### Adim 1: Depoyu Klonlayin
+
+```bash
+git clone https://github.com/Serhathy/premierLeaugeModelApp.git
+cd premierLeaugeModelApp
+```
+
+---
+
+### Adim 2: Python Sanal Ortamini Olusturun ve Bagimliliklari Yukleyin
+
+```bash
+# Sanal ortam olusturma
+python3 -m venv .venv
+
+# Sanal ortami etkinlestirme
+# macOS / Linux:
+source .venv/bin/activate
+# Windows (PowerShell):
+# .venv\Scripts\Activate.ps1
+
+# Temel calisma zamani bagimliliklarini yukleme
+pip install -r requirements.txt
+
+# Gelistirme, test ve linter bagimliliklarini yukleme (onerilen)
+pip install -r requirements-dev.txt
+```
+
+---
+
+### Adim 3: Frontend Bagimliliklarini Yukleyin
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+---
+
+### Adim 4: Uygulamayi Baslatin
+
+Uygulamayi hem FastAPI backend hem de Vite frontend servisleriyle birlikte tek komutla calistirabilirsiniz:
+
+```bash
+python3 start.py
+# veya
+./start.sh
+```
+
+Bu baslatici:
+- Gerekli portlari (FastAPI icin `8000`, Vite icin `5173`) kontrol eder ve eski surecleri temizler.
+- `frontend/node_modules` eksikse otomatik olarak yukler.
+- Her iki servisi paralel baslatir ve `Ctrl+C` ile her ikisini de duzenli sekilde kapatir.
+
+Baslatma sonrasi erisim noktalari:
+- **Web Arayuzu (Dashboard):** [http://localhost:5173](http://localhost:5173)
+- **Model API (FastAPI):** [http://127.0.0.1:8000](http://127.0.0.1:8000)
+- **Swagger API Dokumantasyonu:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+#### Alternatif: Servisleri Ayri Ayri Calistirma
+
+Gelistirme sirasinda servisleri ayri terminallerde calistirmak isterseniz:
+
+```bash
+# Terminal 1 - Backend API:
+uvicorn src.api.server:app --reload --host 127.0.0.1 --port 8000
+
+# Terminal 2 - Frontend Dashboard:
+cd frontend && npm run dev
+```
+
+---
+
+### Adim 5: Testleri ve Kod Kalitesini Dogrulayin
+
+Kod tabaninin dogrulugunu teyit etmek icin test paketini ve statik analiz araclarini calistirin:
+
+```bash
+# Python test paketini calistirma (90+ birim ve entegrasyon testi)
+pytest
+
+# Python linter kontrolu (Ruff)
+ruff check .
+
+# Frontend tip ve lint kontrolu
+cd frontend && npm run lint
+
+# Frontend production derleme kontrolu
+npm run build
+```
+
+---
+
+### Adim 6: (Opsiyonel) Veri ve Model Pipeline'ini Calistirin
+
+Depo icerisinde egitilmis uretim modelleri (`models/production/*.joblib`) ve islenmis yerel veritabani (`data/premier_league.db`) hazir olarak bulunmaktadir. Uygulamayi calistirmak icin pipeline'i tekrar kosturmaniz **gerekmez**.
+
+Eger ham veriden ozellik cikarimini, model egitimlerini ve otomatik benchmark raporlarini sifirdan yeniden uretmek isterseniz:
+
+```bash
+python3 run_full_pipeline.py
+```
+
+- Pipeline yerel ham onbellekten calisir; dis agdan veri cekmez ve SQLite semasini bozmaz.
+- Pipeline calistirildiktan sonra yeni modellerin bellege yuklenmesi icin API servisini yeniden baslatin.
+
+---
+
+## Modeller
+
+| Model | Uretimdeki Mimarisi | Performans & Durum | Rapor |
 | :--- | :--- | :--- | :--- |
-| **Gol (skor matrisi)** | 13×13 matris: bağımsız Poisson × Dixon-Coles τ, $\lambda = \lambda_{Feat}$ ($w_{dc}=0$), `full` 58 özellik, α=3; API'de 1X2'ye hizalanır | ⚠️ Skor dağılımı iyileşti (NLL 2.9786), 2.5 Üst'te prior'a karşı sınırda anlamlı (LL 0.6774, Δ −0.0074), lig ortalamasına karşı ve piyasaya karşı anlamlı beceri yok; KG etiketi kapalı | [goals_model.md](docs/reports/models/goals_model.md) |
-| **1X2 maç sonucu** | 77 özellikli L2 çok terimli lojistik + sıcaklık kalibrasyonu | 🏆 Prior'u anlamlı geçiyor (LL 1.026 vs 1.092); beraberlik ayrımı zayıf | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
-| **Korner** | `elastic_0.05_0.8`, 10 özellik | 🏆 Küçük kazanç (RMSE 3.200 vs 3.241) | [corners_model.md](docs/reports/models/corners_model.md) |
-| **Taç** | `poisson_10`, 14 özellik | 🏆 Dış sezon 3/3 (RMSE 7.022 vs 7.388) | [throws_model.md](docs/reports/models/throws_model.md) |
-| **Ofsayt** | `ridge_250`, 10 özellik | 🏆 Dış sezon 3/3 (RMSE 1.910 vs 2.024) | [offsides_model.md](docs/reports/models/offsides_model.md) |
-| **Kart** | Sabit ortalama (`training_mean`) | 🛡️ Özellikli aday dış sezon kapısını geçemedi (1/3) | [cards_model.md](docs/reports/models/cards_model.md) |
-| **Kurtarış** | Sabit ortalama (`training_mean`) | 🛡️ CV kapısı geçilemedi (2/4 kat) | [saves_model.md](docs/reports/models/saves_model.md) |
+| **Gol (Skor Matrisi)** | 13x13 matris: bagimsiz Poisson x Dixon-Coles tau, lambda = lambda_Feat (w_dc=0), full 58 ozellik, alpha=3; API'de 1X2 marjinaline hizalanir | [Uretimde] Skor dagilimi iyilesti (NLL 2.9786), 2.5 Ust'te prior'a karsi sinirda anlamli (LL 0.6774, Delta -0.0074), lig ortalamasina ve piyasaya karsi anlamli ustunluk henuz yok; KG etiketi kilitli | [goals_model.md](docs/reports/models/goals_model.md) |
+| **1X2 Mac Sonucu** | 77 ozellikli L2 duzenlilestirilmis cok terimli lojistik regresyon + sicaklik kalibrasyonu | [Uretimde] Sınıf prior'ini anlamli geciyor (LL 1.026 vs 1.092); beraberlik sinyali ayrımı gelistirme asamasinda | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
+| **Korner** | ElasticNet (l1_ratio=0.8, alpha=0.05), 10 ozellik | [Uretimde] Kucuk basarim kazanimi (RMSE 3.200 vs 3.241) | [corners_model.md](docs/reports/models/corners_model.md) |
+| **Tac** | PoissonRegressor (alpha=10.0), 14 ozellik | [Uretimde] Dis sezon 3/3 basarim (RMSE 7.022 vs 7.388) | [throws_model.md](docs/reports/models/throws_model.md) |
+| **Ofsayt** | Ridge (alpha=250.0), 10 ozellik | [Uretimde] Dis sezon 3/3 basarim (RMSE 1.910 vs 2.024) | [offsides_model.md](docs/reports/models/offsides_model.md) |
+| **Kart** | Sabit ortalama (`training_mean`) | [Baseline] Ozellikli aday dis sezon kapisini gecemedigi icin durust ortalama korundu | [cards_model.md](docs/reports/models/cards_model.md) |
+| **Kurtaris** | Sabit ortalama (`training_mean`) | [Baseline] Capraz dogrulama kapisi gecilemedigi icin durust ortalama korundu | [saves_model.md](docs/reports/models/saves_model.md) |
 
-Sayım modellerinde özellikli model ancak hem CV kapısını hem de iç içe dış sezon kapısını geçerse üretime girer. Geçemezse sabit ortalama kullanılır ve API `model_skill: "baseline"` döner; arayüz bunu "Veri ortalaması tabanlı tahmin" rozetiyle gösterir.
-
----
-
-## 🗺️ Dokümantasyon Haritası
-
-```
-README.md                      ← buradasınız: genel bakış ve hızlı başlangıç
-PROJECT_STATUS.md              ← güncel durum, bilinen sınırlar, sıradaki işler
-CLAUDE.md / AI_CONTEXT.md      ← ajanlar için talimatlar ve makine-okunur referans
-ARTIFACT_REGISTRY.md           ← veri ve model artefaktları: ne, nerede, kim üretiyor
-VERI_VE_GOSTERIM_KATALOGU.md   ← veri şeması, metrikler, arayüz gösterimleri
-docs/
-├── model_api_integration.md   ← model çıktıları → API alanları → React bileşenleri
-└── reports/
-    ├── README.md              ← rapor merkezi (tüm raporların dizini)
-    ├── premier_league_models_comprehensive_report.md  ← ana rapor: özet karne, veri/ETL, edge, anayasa
-    ├── models/                ← her modelin kendi raporu (yukarıdaki tablo)
-    ├── model_benchmarks.md, data_quality.md, team_*.md   ← pipeline'ın otomatik ürettiği raporlar
-    └── 1x2_model_audit.md, paper_trading_protocol_2026_27.md, repository_audit.md, ...  ← elle tutulan raporlar
-```
-
-| Ne arıyorsunuz? | Nereye bakın |
-| :--- | :--- |
-| Bir modelin nasıl çalıştığı, sonuçları, reddedilen deneyler | [docs/reports/models/](docs/reports/models/) |
-| Tüm modellerin tek tablo özeti, metodolojik anayasa | [Ana Rapor](docs/reports/premier_league_models_comprehensive_report.md) |
-| Güncel benchmark rakamları (pipeline üretir) | [Model Benchmarks](docs/reports/model_benchmarks.md) |
-| Veri kapsamı ve kalitesi | [Data Quality](docs/reports/data_quality.md) · [Veri Kataloğu](VERI_VE_GOSTERIM_KATALOGU.md) |
-| API alanlarının nereden geldiği | [Model API Entegrasyonu](docs/model_api_integration.md) |
-| Canlı sezon takibi ve bahis edge'i | [Paper Trading Protokolü](docs/reports/paper_trading_protocol_2026_27.md) |
-| Uçtan uca örnek maç | [Liverpool – Manchester City](LIVERPOOL_MANCHESTER_CITY_MAC_VE_VERI_DETAYI.md) |
-| Tüm raporların listesi | [Rapor Merkezi](docs/reports/README.md) |
-
-**Güncelleme kuralı:** Bir model değişince önce kendi raporu, sonra ana rapordaki özet karne, README'deki model tablosu, PROJECT_STATUS ve AI_CONTEXT güncellenir. Otomatik raporları (`model_benchmarks.md`, `data_quality.md`, `team_*.md`) elle düzenlemeyin; pipeline üzerine yazar.
+Sayim modellerinde ozellikli bir model ancak hem CV kapisini hem de kronolojik dis sezon test kapisini gecerse uretim modeline alinir. Gecemezse sabit ortalama kullanilir ve API `model_skill: "baseline"` degeri doner.
 
 ---
 
-## 📈 İleriye Dönük Ölçüm (Paper Trading)
+## Ileriye Donuk Olcum (Paper Trading)
+
+Canli 2026/27 sezonunda model tahminlerinin piyasaya karsi performansini ileriye donuk (out-of-sample forward test) olcmek icin:
 
 ```bash
-python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14   # Gelecek maçların tahminlerini dondur
-python3 -m src.analytics.prospective_1x2_benchmark score                       # Biten maçları puanla
+# Gelecek 14 gunun mac tahminlerini dondurarak log dosyasina ekle:
+python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14
+
+# Oynanmis ve sonuclanmis maclari puanla:
+python3 -m src.analytics.prospective_1x2_benchmark score
 ```
 
-Tahminler `data/processed/1x2_forecast_log.jsonl` dosyasına (yalnızca ekleme) yazılır, puan kartı `docs/reports/prospective_1x2_scorecard.json`'dır. Kurallar: [Paper Trading Protokolü](docs/reports/paper_trading_protocol_2026_27.md).
+Tahminler `data/processed/1x2_forecast_log.jsonl` dosyasina yalnizca ekleme (append-only) yontemiyle yazilir; puan karti `docs/reports/prospective_1x2_scorecard.json` uzerinden takip edilir. Protokol kurallari: [Paper Trading Protokolu](docs/reports/paper_trading_protocol_2026_27.md).
 
 ---
 
-## 🧪 Değerlendirme İlkeleri
+## Degerlendirme Ilkeleri (Sifir Sizinti / Zero Leakage)
 
-Tam liste: [Metodolojik Anayasa (Ana Rapor, Bölüm 8)](docs/reports/premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage).
+Metodolojik kurallarin tamami: [Metodolojik Anayasa (Ana Rapor, Bolum 8)](docs/reports/premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage).
 
-1. **Sızıntı yok:** Tüm maç öncesi rolling metrikler `shift(1)` ile hesaplanır; aynı başlama saatindeki maçlar bölünmez.
-2. **Kilitli sezon:** 2026/27 model seçiminde kullanılmaz, yalnızca raporlanır.
-3. **İç içe değerlendirme:** Hiperparametreler ve dağıtım kararları yalnızca eğitim sezonları içindeki ileri katlarla verilir; test havuzunda optimizasyon yapılmaz.
-4. **Sadelik:** Daha karmaşık bir seçenek, basit olanı kronolojik dış testte geçmedikçe reddedilir; reddedilenler ilgili model raporuna yazılır.
-5. **Küçük örneklem:** N < 500 alt gruplarda bootstrap güven aralığı ve çoklu test düzeltmesi (Bonferroni / BH-FDR) zorunludur.
+1. **Sifir Veri Sizintisi (Zero Leakage):** Tum mac oncesi metrikler `shift(1)` ile gecmis maclardan hesaplanir; ayni baslama saatindeki maclar birbirinden bagimsiz tutulur.
+2. **Kilitli Sezon:** 2026/27 sezonu model egitiminde veya hiperparametre seciminde kullanilmaz, yalnizca ileriye donuk raporlanir.
+3. **Ic Ice Gecmis Degerlendirme (Nested CV):** Model kararlari yalnizca egitim sezonlarindaki expanding-window katlariyla verilir; test setine sizma yapilmaz.
+4. **Sadelik Kapisi:** Karmasik model, basit referans modelini kronolojik dis testte anlamli derecede gecmedikce reddedilir; uretimde gereksiz karmasiklik barindirilmaz.
+5. **Istatistiki Belirsizlik:** Alt grup analizlerinde bootstrap guven araliklari (%95 CI) ve coklu hipotez duzeltmesi (BH-FDR) uygulanir.
+
+---
+
+## Dokumantasyon Haritasi
+
+```
+README.md                      <- Genel bakis ve kurulum rehberi
+PROJECT_STATUS.md              <- Guncel proje durumu, bilinen sinirlar, yol haritasi
+CLAUDE.md / AI_CONTEXT.md      <- Ajanlar icin talimatlar ve makine-okunur parametre referansi
+ARTIFACT_REGISTRY.md           <- Veri setleri ve model artefaktlari kayit defteri
+VERI_VE_GOSTERIM_KATALOGU.md   <- Veri semasi, taktik metrikler ve arayuz gosterimleri
+docs/
+├── model_api_integration.md   <- Model ciktilari -> FastAPI uclari -> React bilesenleri
+├── scripts_reference.md       <- Tum scriptlerin gorevleri ve kullanim referansi
+└── reports/
+    ├── README.md              <- Rapor dizini
+    ├── premier_league_models_comprehensive_report.md  <- Kapsamli model & benchmark ana raporu
+    ├── models/                <- Her model ailesinin ozel teknik raporu
+    ├── model_benchmarks.md    <- Pipeline tarafindan uretilen benchmark skorlari
+    ├── data_quality.md        <- Veri kalitesi ve eksik veri analiz raporu
+    └── paper_trading_protocol_2026_27.md  <- 2026/27 sezonu canli test protokolü
+```
+
+| Konu | Baglanti |
+| :--- | :--- |
+| Model Mimarileri, Sonuclar ve Deneyler | [docs/reports/models/](docs/reports/models/) |
+| Kapsamli Sistem Raporu & Anayasa | [Ana Rapor](docs/reports/premier_league_models_comprehensive_report.md) |
+| Guncel Model Benchmark Sonuclari | [Model Benchmarks](docs/reports/model_benchmarks.md) |
+| Veri Kalitesi ve Kapsam | [Data Quality](docs/reports/data_quality.md) |
+| Veri Semasi ve Taktik Alanlar | [Veri Kataloğu](VERI_VE_GOSTERIM_KATALOGU.md) |
+| API Alan Eslestirmeleri | [Model API Entegrasyonu](docs/model_api_integration.md) |
+| Canli Sezon Takibi (Paper Trading) | [Paper Trading Protokolu](docs/reports/paper_trading_protocol_2026_27.md) |
+| Script Referansi ve Envanteri | [Script Referansi](docs/scripts_reference.md) |
+| Rapor Merkezi | [Rapor Merkezi](docs/reports/README.md) |

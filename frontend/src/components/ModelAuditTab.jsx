@@ -2,21 +2,87 @@ import AuditMatchCard from './model-audit/AuditMatchCard';
 import { formatSeasonLabel } from '../utils/dateFormatters';
 import React, { useState, useEffect } from 'react';
 import { getModelAudit } from '../services/auditService';
-import { 
-  CheckCircle2, 
-  ShieldCheck, 
-  Zap, 
-  AlertCircle, 
-  Filter, 
-  RotateCw,
-} from 'lucide-react';
+import { AlertCircle, ChevronDown, RotateCw } from 'lucide-react';
+
+const SEASON_OPTIONS = [
+  { value: '2026_27', label: '2026/27 · Canlı' },
+  { value: '2025_26', label: '2025/26 · Tüm sezon' },
+  { value: '2024_25', label: '2024/25 · Tüm sezon' },
+];
+
+const fmt = (value, prefix = '') => (value === null || value === undefined ? '—' : `${prefix}${value}`);
+
+function StatusDot({ tone = 'muted' }) {
+  const tones = {
+    success: 'bg-status-success',
+    warning: 'bg-status-warning',
+    error: 'bg-status-error',
+    muted: 'bg-text-muted',
+  };
+  return <span aria-hidden="true" className={`inline-block w-1.5 h-1.5 rounded-full ${tones[tone]}`} />;
+}
+
+function KpiCard({ label, meta, value, secondary, footnote, className = '' }) {
+  return (
+    <div className={`bg-background-primary border border-border rounded p-4 flex flex-col gap-1 ${className}`}>
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span className="font-medium text-text-secondary">{label}</span>
+        {meta && <span className="text-xs text-text-tertiary tabular-nums">{meta}</span>}
+      </div>
+      <div className="text-2xl font-semibold text-text-primary tabular-nums">
+        {value}
+        {secondary && <span className="ml-1 text-sm font-normal text-text-tertiary">{secondary}</span>}
+      </div>
+      {footnote && <span className="text-xs text-text-tertiary">{footnote}</span>}
+    </div>
+  );
+}
+
+function FilterButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`h-9 px-3 rounded text-sm font-medium inline-flex items-center gap-2 shrink-0 border transition-colors duration-150 ease-out cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+        active
+          ? 'bg-primary border-primary text-white'
+          : 'bg-background-primary border-border text-text-secondary hover:text-text-primary hover:border-card-border-hover'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AuditSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 pb-12 animate-pulse motion-reduce:animate-none" aria-busy="true" aria-label="Yükleniyor">
+      <div className="bg-background-primary border border-border rounded p-5 flex flex-col gap-3">
+        <div className="h-4 w-48 bg-background-tertiary rounded-sm" />
+        <div className="h-7 w-80 max-w-full bg-background-tertiary rounded-sm" />
+        <div className="h-4 w-full max-w-xl bg-background-tertiary rounded-sm" />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="bg-background-primary border border-border rounded p-4 h-28" />
+        ))}
+      </div>
+      <div className="h-12 bg-background-primary border border-border rounded" />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="h-24 bg-background-primary border border-border rounded" />
+      ))}
+    </div>
+  );
+}
 
 export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatch }) {
   const [auditSeason, setAuditSeason] = useState(selectedSeason || '2026_27');
   const [auditData, setAuditData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [selectedGw, setSelectedGw] = useState('all'); // 'all' or gameweek number
-  const [marketFilter, setMarketFilter] = useState('all'); // 'all', '1x2', 'goals', 'stats', 'edge'
+  const [marketFilter, setMarketFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -29,6 +95,7 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
   const fetchAuditData = (force = false, targetSeason = auditSeason) => {
     if (force) setRefreshing(true);
     else setLoading(true);
+    setError(false);
 
     getModelAudit(targetSeason, force)
       .then(data => {
@@ -38,6 +105,7 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
       })
       .catch(err => {
         console.error('Error fetching model audit:', err);
+        setError(true);
         setLoading(false);
         setRefreshing(false);
       });
@@ -50,22 +118,32 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
     fetchAuditData(false, nextSeason);
   };
 
-  if (loading) {
+  if (loading) return <AuditSkeleton />;
+
+  if (error) {
     return (
-      <div className="py-24 text-center">
-        <div className="w-10 h-10 border-3 border-[#38003c] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <h3 className="text-base font-bold text-slate-800">Model Doğrulama Verileri Hesaplanıyor...</h3>
-        <p className="text-xs text-slate-500 mt-1">{formatSeasonLabel(auditSeason, '/')} sezonundaki tüm tamamlanmış maçlar analiz ediliyor.</p>
+      <div className="bg-background-primary border border-border rounded p-8 max-w-xl mx-auto my-12 flex flex-col items-center gap-3 text-center">
+        <AlertCircle className="w-5 h-5 text-status-error" strokeWidth={1.5} />
+        <h3 className="text-lg font-semibold text-text-primary">Doğrulama verisi yüklenemedi</h3>
+        <p className="text-sm text-text-secondary">Bağlantıyı kontrol edip tekrar deneyin.</p>
+        <button
+          type="button"
+          onClick={() => fetchAuditData(false, auditSeason)}
+          className="h-9 px-4 rounded bg-primary hover:bg-primary-hover text-white text-sm font-medium transition-colors duration-150 ease-out cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
+        >
+          Tekrar dene
+        </button>
       </div>
     );
   }
 
   if (!auditData || !auditData.matches || auditData.matches.length === 0) {
     return (
-      <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center max-w-xl mx-auto my-12 shadow-xs">
-        <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-        <h3 className="text-base font-bold text-slate-900">Doğrulama Verisi Bulunamadı</h3>
-        <p className="text-xs text-slate-500 mt-1">Bu sezon için henüz oynanmış veya denetlenmiş maç kaydı bulunmuyor.</p>
+      <div className="bg-background-primary border border-border rounded p-8 max-w-xl mx-auto my-12 flex flex-col items-center gap-2 text-center">
+        <h3 className="text-lg font-semibold text-text-primary">Doğrulama verisi bulunamadı</h3>
+        <p className="text-sm text-text-secondary">
+          {formatSeasonLabel(auditSeason, '/')} sezonu için henüz denetlenmiş maç kaydı yok.
+        </p>
       </div>
     );
   }
@@ -73,11 +151,11 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
   const { overall, gameweeks, matches } = auditData;
 
   // Filter matches
-  let filteredMatches = matches;
-  if (selectedGw !== 'all') {
-    filteredMatches = filteredMatches.filter(m => Number(m.gameweek) === Number(selectedGw));
-  }
+  const gwMatches = selectedGw === 'all'
+    ? matches
+    : matches.filter(m => Number(m.gameweek) === Number(selectedGw));
 
+  let filteredMatches = gwMatches;
   if (marketFilter === 'edge') {
     filteredMatches = filteredMatches.filter(m => m.highest_edge_side && m.edge_pct >= 3.0);
   } else if (marketFilter === 'value_edge_5') {
@@ -92,261 +170,186 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
     filteredMatches = filteredMatches.filter(m => !m.hit_1x2);
   }
 
-  const currentGwSummary = selectedGw === 'all' 
-    ? null 
+  const currentGwSummary = selectedGw === 'all'
+    ? null
     : gameweeks.find(g => Number(g.gameweek) === Number(selectedGw));
 
+  const isLive = auditSeason === '2026_27';
+
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
-      
-      {/* 1. Header & Title */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-              {auditSeason === '2026_27' ? 'Sıfır Sızıntı (Out-of-Sample)' : 'Tarihsel Doğrulama (Backtest)'}
-            </span>
-            <span className="text-xs font-semibold text-slate-500">• {formatSeasonLabel(auditSeason, '/')} Sezonu</span>
+    <div className="flex flex-col gap-6 pb-12">
+
+      {/* 1. Header */}
+      <header className="bg-background-primary border border-border rounded p-5 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex items-center gap-2 text-sm text-text-secondary">
+            <StatusDot tone="success" />
+            <span>{isLive ? 'Sıfır sızıntı (out-of-sample)' : 'Tarihsel doğrulama (backtest)'}</span>
+            <span className="text-text-muted">·</span>
+            <span className="tabular-nums">{formatSeasonLabel(auditSeason, '/')} sezonu</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Model Doğrulama & Performans Denetimi
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-3xl">
-            Modelimizin maçlar öncesinde ürettiği saf tahminlerin, gerçekleşen maç sonuçları ve kapanış piyasa oranları ile karşılaştırmalı karnesi.
+          <h2 className="text-2xl font-semibold text-text-primary">Model doğrulama ve performans denetimi</h2>
+          <p className="text-sm text-text-secondary max-w-3xl">
+            Maç öncesi üretilen tahminlerin gerçekleşen sonuçlar ve kapanış oranlarıyla karşılaştırması.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start md:self-center shrink-0">
-          <select
-            value={auditSeason}
-            onChange={handleSeasonChange}
-            className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs shadow-2xs outline-none cursor-pointer transition-all"
-          >
-            <option value="2026_27">2026/27 (Canlı • 60 Maç)</option>
-            <option value="2025_26">2025/26 (Tüm Sezon • 380 Maç)</option>
-            <option value="2024_25">2024/25 (Tüm Sezon • 380 Maç)</option>
-          </select>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="relative">
+            <label htmlFor="audit-season" className="sr-only">Sezon seç</label>
+            <select
+              id="audit-season"
+              value={auditSeason}
+              onChange={handleSeasonChange}
+              className="appearance-none h-10 pl-3 pr-9 rounded border border-border bg-background-primary text-sm font-medium text-text-primary cursor-pointer transition-colors duration-150 ease-out hover:border-card-border-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              {SEASON_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" strokeWidth={1.5} />
+          </div>
 
           <button
+            type="button"
             onClick={() => fetchAuditData(true, auditSeason)}
             disabled={refreshing}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
-            title="Verileri yeniden hesapla"
+            className="h-10 px-3 rounded border border-border bg-background-primary text-sm font-medium text-text-primary inline-flex items-center gap-2 transition-colors duration-150 ease-out hover:border-card-border-hover disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
-            <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-purple-700' : ''}`} />
-            <span>{refreshing ? 'Hesaplanıyor...' : 'Analizi Yenile'}</span>
+            <RotateCw className={`w-4 h-4 ${refreshing ? 'animate-spin motion-reduce:animate-none' : ''}`} strokeWidth={1.5} />
+            <span>{refreshing ? 'Hesaplanıyor' : 'Analizi yenile'}</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* 2. Top KPI Cards (Numbers First) */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-        
-        {/* KPI 1: Net Favoriler (High Confidence) */}
-        <div className="bg-gradient-to-br from-[#38003c] to-[#250028] p-4 sm:p-5 rounded-2xl shadow-xs space-y-1 text-white border border-purple-900/40">
-          <div className="flex items-center justify-between text-xs text-purple-200">
-            <span className="font-bold flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Net Favoriler
-            </span>
-            <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-bold">
-              {overall.high_confidence_count || 15} Maç
-            </span>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400">
-            %{overall.high_confidence_hit_rate || 80.0}
-          </div>
-          <span className="text-[11px] text-purple-200 font-medium block pt-0.5">
-            Yüksek Güvenli Seçimler
-          </span>
-        </div>
+      {/* 2. KPI Cards */}
+      <section aria-label="Performans özeti" className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <KpiCard
+          label="Net favoriler"
+          meta={overall.high_confidence_count != null ? `${overall.high_confidence_count} maç` : null}
+          value={fmt(overall.high_confidence_hit_rate, '%')}
+          footnote="Yüksek güvenli seçimler"
+        />
+        <KpiCard
+          label="Genel 1X2 isabeti"
+          meta={`${overall.hits_1x2}/${overall.total_audited_matches}`}
+          value={fmt(overall.hit_rate_1x2_pct, '%')}
+          footnote={overall.balanced_count != null ? `${overall.balanced_count} dengeli maç dahil` : null}
+        />
+        <KpiCard
+          label="2.5 gol alt/üst"
+          meta={`${overall.hits_over_25}/${overall.total_audited_matches}`}
+          value={fmt(overall.hit_rate_over_25_pct, '%')}
+          footnote="Poisson ve Dixon-Coles"
+        />
+        <KpiCard
+          label="KG var / yok"
+          meta={`${overall.hits_btts}/${overall.total_audited_matches}`}
+          value={fmt(overall.hit_rate_btts_pct, '%')}
+          footnote="Karşılıklı skor isabeti"
+        />
+        <KpiCard
+          className="col-span-2 lg:col-span-1"
+          label="Kart / korner MAE"
+          meta="Ortalama hata"
+          value={fmt(overall.card_mae, '±')}
+          secondary={`/ ${fmt(overall.corner_mae, '±')}`}
+          footnote="Disiplin ve maç akışı"
+        />
+      </section>
 
-        {/* KPI 2: Overall 1X2 Accuracy */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-bold text-slate-700">Genel 1X2 İsabeti</span>
-            <span className="text-[11px] bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
-              {overall.hits_1x2}/{overall.total_audited_matches}
-            </span>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900">
-            %{overall.hit_rate_1x2_pct}
-          </div>
-          <span className="text-[11px] text-slate-500 font-medium block pt-0.5">
-            {overall.balanced_count || 23} Dengeli Maç Dahil
-          </span>
-        </div>
-
-        {/* KPI 3: Over 2.5 Goals */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-bold text-slate-700">2.5 Gol Alt/Üst</span>
-            <span className="text-[11px] bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
-              {overall.hits_over_25}/{overall.total_audited_matches}
-            </span>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-600">
-            %{overall.hit_rate_over_25_pct}
-          </div>
-          <span className="text-[11px] text-slate-500 font-medium block pt-0.5">
-            Poisson & Dixon-Coles
-          </span>
-        </div>
-
-        {/* KPI 4: BTTS */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-bold text-slate-700">KG Var / Yok</span>
-            <span className="text-[11px] bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
-              {overall.hits_btts}/{overall.total_audited_matches}
-            </span>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900">
-            %{overall.hit_rate_btts_pct}
-          </div>
-          <span className="text-[11px] text-slate-500 font-medium block pt-0.5">
-            Karşılıklı Skor İsabeti
-          </span>
-        </div>
-
-        {/* KPI 5: Card & Corner MAE */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1 col-span-2 lg:col-span-1">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-bold text-slate-700">Kart / Korner MAE</span>
-            <span className="text-[11px] bg-slate-100 px-1.5 py-0.5 rounded font-mono">Hata</span>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900">
-            ±{overall.card_mae} <span className="text-xs font-normal text-slate-400">/ ±{overall.corner_mae}</span>
-          </div>
-          <span className="text-[11px] text-slate-500 font-medium block pt-0.5">
-            Disiplin & Maç Akışı
-          </span>
-        </div>
-
-      </div>
-
-      {/* 3. Gameweek Navigation Filter */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex items-center gap-1.5 overflow-x-auto">
+      {/* 3. Gameweek navigation */}
+      <nav aria-label="Hafta seçimi" className="bg-background-primary border border-border rounded p-2 flex items-center gap-1 overflow-x-auto">
         <button
+          type="button"
           onClick={() => setSelectedGw('all')}
-          className={`py-2 px-4 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+          aria-pressed={selectedGw === 'all'}
+          className={`h-9 px-3 rounded text-sm font-medium shrink-0 transition-colors duration-150 ease-out cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
             selectedGw === 'all'
-              ? 'bg-[#38003c] text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-primary text-white'
+              : 'text-text-secondary hover:text-text-primary hover:bg-background-tertiary'
           }`}
         >
-          Tüm Sezon ({overall.total_audited_matches} Maç)
+          Tüm sezon <span className="tabular-nums">({overall.total_audited_matches})</span>
         </button>
 
-        {gameweeks.map((g) => (
-          <button
-            key={g.gameweek}
-            onClick={() => setSelectedGw(g.gameweek)}
-            className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
-              Number(selectedGw) === Number(g.gameweek)
-                ? 'bg-[#38003c] text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <span>Hafta {g.gameweek}</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-              Number(selectedGw) === Number(g.gameweek) ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-            }`}>
-              %{g.hit_rate_1x2_pct}
-            </span>
-          </button>
-        ))}
-      </div>
+        {gameweeks.map((g) => {
+          const active = Number(selectedGw) === Number(g.gameweek);
+          return (
+            <button
+              key={g.gameweek}
+              type="button"
+              onClick={() => setSelectedGw(g.gameweek)}
+              aria-pressed={active}
+              className={`h-9 px-3 rounded text-sm font-medium shrink-0 inline-flex items-center gap-2 transition-colors duration-150 ease-out cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                active
+                  ? 'bg-primary text-white'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-background-tertiary'
+              }`}
+            >
+              <span>Hafta {g.gameweek}</span>
+              <span className={`text-xs tabular-nums ${active ? 'text-white/70' : 'text-text-tertiary'}`}>
+                %{g.hit_rate_1x2_pct}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
-      {/* Sub-Filters: Market Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
-          <span className="text-slate-400 font-bold mr-1 flex items-center gap-1 text-[11px]">
-            <Filter className="w-3.5 h-3.5" /> Filtre:
-          </span>
-          <button
-            onClick={() => setMarketFilter('all')}
-            className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-              marketFilter === 'all'
-                ? 'bg-slate-900 text-white'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Tümü ({selectedGw === 'all' ? matches.length : matches.filter(m => Number(m.gameweek) === Number(selectedGw)).length})
-          </button>
-          <button
-            onClick={() => setMarketFilter('high_conf')}
-            className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
-              marketFilter === 'high_conf'
-                ? 'bg-emerald-700 text-white'
-                : 'bg-white border border-slate-200 text-emerald-800 hover:bg-emerald-50'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Net Favoriler (%{overall.high_confidence_hit_rate || 80})</span>
-          </button>
-          <button
-            onClick={() => setMarketFilter('balanced')}
-            className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-              marketFilter === 'balanced'
-                ? 'bg-amber-600 text-white'
-                : 'bg-white border border-slate-200 text-amber-800 hover:bg-amber-50'
-            }`}
-          >
-            Dengeli Maçlar ({overall.balanced_count || 23})
-          </button>
-          <button
-            onClick={() => setMarketFilter('value_edge_5')}
-            className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
-              marketFilter === 'value_edge_5'
-                ? 'bg-purple-900 text-white'
-                : 'bg-white border border-slate-200 text-purple-800 hover:bg-purple-50'
-            }`}
-          >
-            <Zap className="w-3 h-3 text-amber-400" />
-            <span>Değer Bahisleri (+%5 Edge)</span>
-          </button>
-          <button
-            onClick={() => setMarketFilter('1x2_hits')}
-            className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-              marketFilter === '1x2_hits'
-                ? 'bg-slate-700 text-white'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            1X2 Tuttu
-          </button>
-          <button
-            onClick={() => setMarketFilter('1x2_misses')}
-            className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-              marketFilter === '1x2_misses'
-                ? 'bg-rose-700 text-white'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            1X2 Yanıldı
-          </button>
+      {/* Market filters */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto" role="group" aria-label="Maç filtresi">
+          <FilterButton active={marketFilter === 'all'} onClick={() => setMarketFilter('all')}>
+            Tümü <span className="tabular-nums opacity-70">{gwMatches.length}</span>
+          </FilterButton>
+          <FilterButton active={marketFilter === 'high_conf'} onClick={() => setMarketFilter('high_conf')}>
+            <StatusDot tone="success" /> Net favoriler
+          </FilterButton>
+          <FilterButton active={marketFilter === 'balanced'} onClick={() => setMarketFilter('balanced')}>
+            <StatusDot tone="warning" /> Dengeli maçlar
+          </FilterButton>
+          <FilterButton active={marketFilter === 'value_edge_5'} onClick={() => setMarketFilter('value_edge_5')}>
+            Değer bahisleri <span className="tabular-nums opacity-70">+%5</span>
+          </FilterButton>
+          <FilterButton active={marketFilter === '1x2_hits'} onClick={() => setMarketFilter('1x2_hits')}>
+            1X2 tuttu
+          </FilterButton>
+          <FilterButton active={marketFilter === '1x2_misses'} onClick={() => setMarketFilter('1x2_misses')}>
+            <StatusDot tone="error" /> 1X2 yanıldı
+          </FilterButton>
         </div>
 
         {currentGwSummary && (
-          <div className="text-xs text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-medium">
-            Hafta {currentGwSummary.gameweek} Karnesi: 1X2 <strong>%{currentGwSummary.hit_rate_1x2_pct}</strong> • 2.5 Üst <strong>%{currentGwSummary.hit_rate_over_25_pct}</strong> • Korner MAE: <strong>±{currentGwSummary.corner_mae}</strong>
-          </div>
+          <p className="text-sm text-text-secondary tabular-nums shrink-0">
+            Hafta {currentGwSummary.gameweek}:{' '}
+            1X2 <span className="font-medium text-text-primary">%{currentGwSummary.hit_rate_1x2_pct}</span>
+            <span className="text-text-muted"> · </span>
+            2.5 üst <span className="font-medium text-text-primary">%{currentGwSummary.hit_rate_over_25_pct}</span>
+            <span className="text-text-muted"> · </span>
+            Korner MAE <span className="font-medium text-text-primary">±{currentGwSummary.corner_mae}</span>
+          </p>
         )}
       </div>
 
-      {/* 4. Match Audit Cards List */}
-      <div className="space-y-3">
+      {/* 4. Match audit list */}
+      <section aria-label="Maç denetimleri" className="flex flex-col gap-3">
         {filteredMatches.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-xs text-slate-500 font-medium">
-            Seçilen filtre kriterlerine uygun maç bulunamadı.
+          <div className="bg-background-primary border border-border rounded p-8 flex flex-col items-center gap-3 text-center">
+            <p className="text-sm text-text-secondary">Seçilen filtrelere uygun maç yok.</p>
+            <button
+              type="button"
+              onClick={() => setMarketFilter('all')}
+              className="h-9 px-3 rounded border border-border text-sm font-medium text-text-primary hover:border-card-border-hover transition-colors duration-150 ease-out cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              Filtreyi temizle
+            </button>
           </div>
         ) : (
           filteredMatches.map((m) => (
             <AuditMatchCard key={m.match_id} match={m} onSelectMatch={onSelectMatch} />
           ))
         )}
-      </div>
+      </section>
 
     </div>
   );

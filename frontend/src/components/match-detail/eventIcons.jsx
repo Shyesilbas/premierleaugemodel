@@ -16,7 +16,7 @@ export function PenaltyBallIcon({ className = "w-4 h-4" }) {
   return (
     <div className="relative inline-flex items-center justify-center">
       <BallIcon className={className} />
-      <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-600 text-white text-[8px] font-black font-mono rounded-full flex items-center justify-center shadow-xs">
+      <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-background-tertiary text-text-primary text-xs font-semibold font-mono rounded-full flex items-center justify-center ">
         P
       </span>
     </div>
@@ -25,9 +25,9 @@ export function PenaltyBallIcon({ className = "w-4 h-4" }) {
 
 export function MissedPenaltyIcon({ className = "w-4 h-4" }) {
   return (
-    <div className="relative inline-flex items-center justify-center text-rose-600">
+    <div className="relative inline-flex items-center justify-center text-status-error">
       <BallIcon className={className} />
-      <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-rose-600 text-white text-[8px] font-black font-mono rounded-full flex items-center justify-center shadow-xs">
+      <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-background-tertiary text-text-primary text-xs font-semibold font-mono rounded-full flex items-center justify-center ">
         ✕
       </span>
     </div>
@@ -35,10 +35,10 @@ export function MissedPenaltyIcon({ className = "w-4 h-4" }) {
 }
 
 export function YellowCardIcon({ className = "w-2.5 h-3.5" }) {
-  return <span className={`${className} bg-amber-400 rounded-[2px] shadow-2xs inline-block`} title="Sarı Kart" />;
+  return <span className={`${className} bg-background-tertiary rounded  inline-block`} title="Sarı Kart" />;
 }
 
 export function RedCardIcon({ className = "w-2.5 h-3.5" }) {
-  return <span className={`${className} bg-rose-600 rounded-[2px] shadow-2xs inline-block`} title="Kırmızı Kart" />;
+  return <span className={`${className} bg-background-tertiary rounded  inline-block`} title="Kırmızı Kart" />;
 }
 
