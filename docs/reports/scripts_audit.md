@@ -5,7 +5,34 @@
 **Durum:** Yalnızca analiz. Kodda değişiklik yapılmadı.
 **Tamamlayıcı belgeler:** [`docs/scripts_reference.md`](../scripts_reference.md) (her scriptin ne yaptığı), [`repository_audit.md`](repository_audit.md) (14 Ekim kod tabanı ve model denetimi). Bu rapor onları yinelemez; **sınıflandırma, çalışma akışı, bağımlılık, test örtüsü ve riskleri** ekler.
 
-## Yönetici özeti
+## Çözüm durumu (19 Ekim 2026)
+
+Raporda 17 bulgu vardı; 15'i kapandı, 1'i kısmen kapandı, 1'i (B15) zaten olumlu bir bulguydu. Ayrıntı ve kanıtlar §11 uygulama günlüğünde. Aşağıdaki başlangıç tespiti (Yönetici özeti) raporun ilk hâlidir.
+
+| Bulgu | Önem | Durum | Çözüm |
+|---|:-:|:-:|---|
+| B1 iki farklı yeniden-kur zinciri | Y | ✅ | `src/pipeline/rebuild.py`, tek zincir |
+| B2 xG/oran cron'da yok | Y | ✅ | Cron'a 3 iş, importer'lar cron'a uygun; 7. hafta xG'si kapandı |
+| B3 `server.py` monolit | Y | ✅ | 3.503 → 50 satır; `state.py` + 6 yönlendirici |
+| B4 test/CI/lint boşluğu | Y | 🔶 | 31 → 76 test, CI, ruff; **açık:** `player_ratings`, `model_audit`, `process_season_data`, `build_player_index` ve `sync_season_data.sync_season` testleri |
+| B5 dağınık yapılandırma | O | ✅ | `src/config.py`, `PLM_*` ortam değişkenleri |
+| B6 kopya `train_*` | O | ✅ | `count_model.py`, 819 → 557 satır, çıktılar birebir aynı |
+| B7 `audit/` `scratch/` | O | ✅ | `research/` altına taşındı, pytest toplamıyor |
+| B8 yönetim ucu ve CORS | O | ✅ | `PLM_ADMIN_TOKEN`, `PLM_CORS_ORIGINS` |
+| B9 `kill -9` başlatıcılar | O | ✅ | Yalnızca projenin kendi süreci, `--force` |
+| B10 sessiz hatalar | O | ✅ | Çıkış kodları, `job.sh`, `pipeline_health` |
+| B11 repo hijyeni | O | ✅ | ~120 MB izlemeden çıktı |
+| B12 tekrarlanan yardımcılar | D | ✅ | Gerçek tekrar yalnızca `atomic_write_json` idi |
+| B13 kod stili | D | ✅ | ruff; `print` ve geniş `except Exception` bilerek kaldı |
+| B14 belge sapması | D | ✅ | `tests/test_docs.py` ile denetleniyor |
+| B16 cron API modülünü yüklüyor | O | ✅ | `state` + `routes.predict` |
+| B17 `GET /api/fixtures` 500 | O | ✅ | NaN serileştirme düzeltildi |
+
+**Kalan işler:** (1) B4'ün açık testleri. (2) `routes/matches.py` içindeki 819 satırlık `get_match_full_details` hâlâ tek işleyici. (3) `research/` altındaki eski betiklerin `server` içe aktarmaları güncel değil.
+
+**Sunucuda yapılacaklar** (kodla yapılamaz): `/opt/plm/.env` içine `PLM_ADMIN_TOKEN` (ASCII, örn. `openssl rand -hex 24`) ve `THESTATSAPI_API_KEY`; sohbette paylaşılan API anahtarını yenilemek; `git pull` öncesi `/opt/plm/data/premier_league.db` yedeği (veri dosyaları artık izlenmiyor); yeni cron işlerinin (`xg`, `odds`, `rebuild`) ilk çalışmasını `logs/failures.log` ile izlemek; daha önce `sync` işinin `-m` içe aktarma hatası nedeniyle düşüp düşmediğine `logs/sync.log` ile bakmak.
+
+## Başlangıç tespiti (Yönetici özeti)
 
 Kod tabanı işlevsel ve sızıntı kuralları (`shift(1)`, kilitli sezon) tutarlı uygulanmış. 27 testin tamamı geçiyor. Asıl sorunlar mimari ve operasyonel:
 
