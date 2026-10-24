@@ -19,26 +19,26 @@ export default function TeamFixturesSection({
     <>
       {/* TAB: FİKSTÜR & SONUÇLAR (DEFAULT) */}
       {activeTeamTab === 'fixtures' && (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/60">
+        <div className="bg-background-primary border border-border rounded  overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-light bg-background-tertiary/60">
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#38003c]" />
-              <h3 className="text-xs sm:text-sm font-black text-slate-900">
+              <Calendar className="w-4 h-4 text-text-primary" />
+              <h3 className="text-xs sm:text-sm font-semibold text-text-primary">
                 {currentMeta.name} — Sezon Lig Maçları ve Skor Önizlemeleri
               </h3>
             </div>
-            <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2.5 py-0.5 rounded-full border border-slate-200 shadow-2xs">
+            <span className="text-xs font-mono font-bold text-text-secondary bg-background-primary px-2.5 py-0.5 rounded-full border border-border shadow-2xs">
               {profile?.matches?.length || 0} Maç
             </span>
           </div>
 
           {loading ? (
             <div className="py-16 text-center">
-              <div className="w-7 h-7 border-3 border-[#38003c] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-xs font-bold text-slate-600">Takım maçları yükleniyor...</p>
+              <div className="w-7 h-7 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs font-bold text-text-secondary">Takım maçları yükleniyor...</p>
             </div>
           ) : !profile?.matches?.length ? (
-            <div className="py-12 text-center text-xs text-slate-500 font-medium">
+            <div className="py-12 text-center text-xs text-text-secondary font-medium">
               Bu sezon için kayıtlı maç bulunamadı.
             </div>
           ) : (
@@ -52,7 +52,7 @@ export default function TeamFixturesSection({
                 const resBadgeClass = isWin 
                   ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
                   : isDraw 
-                  ? 'bg-slate-100 text-slate-700 border-slate-300' 
+                  ? 'bg-background-tertiary text-text-secondary border-slate-300' 
                   : 'bg-rose-100 text-rose-800 border-rose-300';
 
                 const resLabel = isWin ? 'G' : isDraw ? 'B' : 'M';
@@ -104,22 +104,22 @@ export default function TeamFixturesSection({
                         setActiveModalMatch(modalMatchObj);
                       }
                     }}
-                    className="px-4 py-2.5 sm:px-6 sm:py-3 hover:bg-slate-50/90 transition-colors cursor-pointer group flex items-center justify-between gap-3 sm:gap-6 text-xs"
+                    className="px-4 py-2.5 sm:px-6 sm:py-3 hover:bg-background-tertiary/90 transition-colors cursor-pointer group flex items-center justify-between gap-3 sm:gap-6 text-xs"
                   >
                     {/* 1. Hafta Sayısı */}
                     <div className="w-10 sm:w-12 text-left shrink-0">
-                      <span className="font-mono font-bold text-slate-700 bg-slate-100 group-hover:bg-purple-100 group-hover:text-purple-900 group-hover:border-purple-200 px-2 py-0.5 rounded text-[11px] border border-slate-200 transition-colors">
+                      <span className="font-mono font-bold text-text-secondary bg-background-tertiary group-hover:bg-purple-100 group-hover:text-purple-900 group-hover:border-purple-200 px-2 py-0.5 rounded text-xs border border-border transition-colors">
                         H{Math.round(Number(m.gameweek) || 1)}
                       </span>
                     </div>
 
                     {/* 2. Tarih & Saat */}
                     <div className="min-w-[85px] sm:min-w-[115px] shrink-0 text-left">
-                      <span className="font-semibold text-slate-800 text-[11px] sm:text-xs block whitespace-nowrap">
+                      <span className="font-semibold text-text-primary text-xs sm:text-xs block whitespace-nowrap">
                         {kickoff.date}
                       </span>
                       {kickoff.time && (
-                        <span className="font-mono text-slate-400 text-[10px] block whitespace-nowrap">
+                        <span className="font-mono text-text-muted text-xs block whitespace-nowrap">
                           {kickoff.time}
                         </span>
                       )}
@@ -129,13 +129,13 @@ export default function TeamFixturesSection({
                     <div className="flex items-center justify-center gap-2 sm:gap-4 flex-1 min-w-0">
                       {/* Ev Sahibi */}
                       <div className="flex items-center gap-2 justify-end flex-1 min-w-0 text-right">
-                        <span className={`truncate text-xs sm:text-sm ${homeTeam.id === selectedTeamId ? 'font-black text-slate-900' : 'font-medium text-slate-600'}`}>
+                        <span className={`truncate text-xs sm:text-sm ${homeTeam.id === selectedTeamId ? 'font-semibold text-text-primary' : 'font-medium text-text-secondary'}`}>
                           {homeTeam.short || homeTeam.name}
                         </span>
                         {homeRedCards > 0 && (
                           <span className="inline-flex shrink-0 items-center gap-1" title={`${homeRedCards} kırmızı kart`} aria-label={`${homeRedCards} kırmızı kart`}>
-                            <span className="inline-block h-3.5 w-2.5 rounded-[2px] border border-rose-700 bg-rose-600 shadow-sm" />
-                            {homeRedCards > 1 && <span className="text-[10px] font-black text-rose-700">x{homeRedCards}</span>}
+                            <span className="inline-block h-3.5 w-2.5 rounded-xs border border-rose-700 bg-rose-600 " />
+                            {homeRedCards > 1 && <span className="text-xs font-semibold text-rose-700">x{homeRedCards}</span>}
                           </span>
                         )}
                         <img 
@@ -149,11 +149,11 @@ export default function TeamFixturesSection({
                       {/* Skor / Durum */}
                       <div className="shrink-0 flex items-center justify-center min-w-[55px] sm:min-w-[65px]">
                         {isPlayed ? (
-                          <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-mono font-black text-xs sm:text-sm tracking-wider shadow-2xs">
+                          <span className="px-2.5 py-1 rounded bg-slate-900 text-white font-mono font-semibold text-xs sm:text-sm tracking-wider shadow-2xs">
                             {homeScore} - {awayScore}
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-mono text-xs font-bold border border-slate-200">
+                          <span className="px-2.5 py-1 rounded bg-background-tertiary text-text-secondary font-mono text-xs font-bold border border-border">
                             {kickoff.time || 'vs'}
                           </span>
                         )}
@@ -167,13 +167,13 @@ export default function TeamFixturesSection({
                           className="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0"
                           onError={handleTeamBadgeError}
                         />
-                        <span className={`truncate text-xs sm:text-sm ${awayTeam.id === selectedTeamId ? 'font-black text-slate-900' : 'font-medium text-slate-600'}`}>
+                        <span className={`truncate text-xs sm:text-sm ${awayTeam.id === selectedTeamId ? 'font-semibold text-text-primary' : 'font-medium text-text-secondary'}`}>
                           {awayTeam.short || awayTeam.name}
                         </span>
                         {awayRedCards > 0 && (
                           <span className="inline-flex shrink-0 items-center gap-1" title={`${awayRedCards} kırmızı kart`} aria-label={`${awayRedCards} kırmızı kart`}>
-                            <span className="inline-block h-3.5 w-2.5 rounded-[2px] border border-rose-700 bg-rose-600 shadow-sm" />
-                            {awayRedCards > 1 && <span className="text-[10px] font-black text-rose-700">x{awayRedCards}</span>}
+                            <span className="inline-block h-3.5 w-2.5 rounded-xs border border-rose-700 bg-rose-600 " />
+                            {awayRedCards > 1 && <span className="text-xs font-semibold text-rose-700">x{awayRedCards}</span>}
                           </span>
                         )}
                       </div>
@@ -182,11 +182,11 @@ export default function TeamFixturesSection({
                     {/* 4. Sonuç Rozeti (G/B/M) & Ok */}
                     <div className="flex items-center gap-2 shrink-0 min-w-[45px] justify-end">
                       {isPlayed && (
-                        <span className={`w-6 h-6 flex items-center justify-center text-[10px] font-mono font-black rounded-lg border shadow-2xs ${resBadgeClass}`}>
+                        <span className={`w-6 h-6 flex items-center justify-center text-xs font-mono font-semibold rounded border shadow-2xs ${resBadgeClass}`}>
                           {resLabel}
                         </span>
                       )}
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#38003c] group-hover:translate-x-0.5 transition-all" />
+                      <ChevronRight className="w-3.5 h-3.5 text-text-muted group-hover:text-text-primary group-hover:translate-x-0.5 transition-all" />
                     </div>
 
                   </div>

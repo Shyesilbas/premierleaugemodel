@@ -84,26 +84,26 @@ export default function PredictorTab({ selectedSeason }) {
     <div className="space-y-6">
       
       {/* Matchup Header Card */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm relative overflow-hidden">
+      <div className="bg-background-primary border border-border rounded p-6 md:p-8  relative overflow-hidden">
         
         {/* Top Control Bar: Season indicator & Quick Derbies */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-border-light">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Hızlı seçim</span>
+            <span className="text-xs font-semibold text-text-secondary">Hızlı seçim</span>
             {derbies.map(d => (
               <button
                 key={d.name}
                 onClick={() => { setHomeId(d.h); setAwayId(d.a); }}
-                className="px-3 py-1 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all whitespace-nowrap"
+                className="px-3 py-1 text-xs font-bold rounded bg-background-tertiary hover:bg-slate-200 text-text-secondary border border-border transition-all whitespace-nowrap"
               >
                 {d.name}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+          <div className="flex items-center gap-1.5 text-xs text-text-secondary font-medium">
             <span>Sezon</span>
-            <strong className="text-slate-800 font-mono">{selectedSeason === 'all' ? 'Tüm sezonlar' : formatSeasonLabel(selectedSeason)}</strong>
+            <strong className="text-text-primary font-mono">{selectedSeason === 'all' ? 'Tüm sezonlar' : formatSeasonLabel(selectedSeason)}</strong>
           </div>
         </div>
 
@@ -113,15 +113,15 @@ export default function PredictorTab({ selectedSeason }) {
           {/* Home Team */}
           <div className="md:col-span-2 flex flex-col items-center md:items-end text-center md:text-right space-y-3">
             <div className="relative group">
-              <div className="w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-slate-50 p-4 border border-slate-200 flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shadow-inner">
+              <div className="w-24 h-24 md:w-28 md:h-28 rounded bg-background-tertiary p-4 border border-border flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shadow-inner">
                 <img 
                   src={homeTeam.badge} 
                   alt={homeTeam.name} 
-                  className="w-full h-full object-contain filter drop-shadow-sm"
+                  className="w-full h-full object-contain filter drop-"
                   onError={handleTeamBadgeError}
                 />
               </div>
-              <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300 shadow-sm">
+              <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-background-tertiary text-text-secondary border border-slate-300 ">
                 Ev Sahibi
               </span>
             </div>
@@ -130,7 +130,7 @@ export default function PredictorTab({ selectedSeason }) {
               <select
                 value={homeId}
                 onChange={(e) => setHomeId(Number(e.target.value))}
-                className="w-full bg-white border border-slate-200 text-slate-900 font-bold text-base md:text-lg rounded-xl px-4 py-2.5 outline-none focus:border-slate-400 transition-all cursor-pointer text-center md:text-right"
+                className="w-full bg-background-primary border border-border text-text-primary font-bold text-base md:text-lg rounded px-4 py-2.5 outline-none focus:border-slate-400 transition-all cursor-pointer text-center md:text-right"
               >
                 {availableTeams.map(t => (
                   <option key={t.id} value={t.id} disabled={t.id === awayId}>
@@ -138,24 +138,24 @@ export default function PredictorTab({ selectedSeason }) {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-slate-500 mt-1 font-medium">{homeTeam.stadium}</p>
+              <p className="text-xs text-text-secondary mt-1 font-medium">{homeTeam.stadium}</p>
             </div>
           </div>
 
           {/* Center VS & Swap */}
           <div className="md:col-span-1 flex flex-col items-center justify-center space-y-2">
-            <div className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center font-black text-xs text-slate-500">
+            <div className="w-12 h-12 rounded-full bg-background-primary border border-border flex items-center justify-center font-semibold text-xs text-text-secondary">
               VS
             </div>
             <button
               onClick={swapTeams}
               title="Ev sahibi / Deplasman değiştir"
-              className="p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 border border-slate-200 transition-all hover:rotate-180 duration-300"
+              className="p-2.5 rounded bg-background-primary hover:bg-background-tertiary text-text-secondary hover:text-text-primary border border-border transition-all hover:rotate-180 duration-300"
             >
               <ArrowRightLeft className="w-4 h-4" />
             </button>
             {loading && (
-              <span className="text-[11px] font-semibold text-slate-500 animate-pulse">
+              <span className="text-xs font-semibold text-text-secondary animate-pulse">
                 Hesaplanıyor...
               </span>
             )}
@@ -164,15 +164,15 @@ export default function PredictorTab({ selectedSeason }) {
           {/* Away Team */}
           <div className="md:col-span-2 flex flex-col items-center md:items-start text-center md:text-left space-y-3">
             <div className="relative group">
-              <div className="w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-slate-50 p-4 border border-slate-200 flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shadow-inner">
+              <div className="w-24 h-24 md:w-28 md:h-28 rounded bg-background-tertiary p-4 border border-border flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shadow-inner">
                 <img 
                   src={awayTeam.badge} 
                   alt={awayTeam.name} 
-                  className="w-full h-full object-contain filter drop-shadow-sm"
+                  className="w-full h-full object-contain filter drop-"
                   onError={handleTeamBadgeError}
                 />
               </div>
-              <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300 shadow-sm">
+              <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-background-tertiary text-text-secondary border border-slate-300 ">
                 Deplasman
               </span>
             </div>
@@ -181,7 +181,7 @@ export default function PredictorTab({ selectedSeason }) {
               <select
                 value={awayId}
                 onChange={(e) => setAwayId(Number(e.target.value))}
-                className="w-full bg-white border border-slate-200 text-slate-900 font-bold text-base md:text-lg rounded-xl px-4 py-2.5 outline-none focus:border-slate-400 transition-all cursor-pointer text-center md:text-left"
+                className="w-full bg-background-primary border border-border text-text-primary font-bold text-base md:text-lg rounded px-4 py-2.5 outline-none focus:border-slate-400 transition-all cursor-pointer text-center md:text-left"
               >
                 {availableTeams.map(t => (
                   <option key={t.id} value={t.id} disabled={t.id === homeId}>
@@ -189,7 +189,7 @@ export default function PredictorTab({ selectedSeason }) {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-slate-500 mt-1 font-medium">{awayTeam.stadium}</p>
+              <p className="text-xs text-text-secondary mt-1 font-medium">{awayTeam.stadium}</p>
             </div>
           </div>
 
@@ -197,21 +197,21 @@ export default function PredictorTab({ selectedSeason }) {
 
         {/* 1X2 Probabilities Bar */}
         {prediction && (
-          <div className="mt-8 pt-6 border-t border-slate-100 space-y-3">
+          <div className="mt-8 pt-6 border-t border-border-light space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                  <Trophy className="w-4 h-4 text-slate-400 shrink-0" />
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 truncate">
+                  <Trophy className="w-4 h-4 text-text-muted shrink-0" />
+                <span className="text-xs font-bold uppercase tracking-wider text-text-secondary truncate">
                   Maç sonucu olasılığı
                 </span>
               </div>
-              <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 shrink-0">
+              <span className="text-xs font-semibold text-text-secondary bg-background-tertiary px-3 py-1 rounded-full border border-border shrink-0">
                 {prediction.favorite_label}
               </span>
             </div>
 
             {/* Segmented Trio Bar */}
-            <div className="h-4 rounded-full overflow-hidden flex bg-slate-100 p-0.5 border border-slate-200 gap-0.5">
+            <div className="h-4 rounded-full overflow-hidden flex bg-background-tertiary p-0.5 border border-border gap-0.5">
               <div 
                 style={{ width: `${prediction.outcome.home_win_pct}%` }}
                 className="h-full bg-slate-800 transition-all duration-700 rounded-l-full"
@@ -228,36 +228,36 @@ export default function PredictorTab({ selectedSeason }) {
 
             {/* Odds / Percent Labels */}
             <div className="grid grid-cols-3 text-center pt-2 font-mono gap-2 sm:gap-3">
-              <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col items-center">
-                <span className="text-[11px] text-slate-500 font-sans font-medium truncate max-w-full">
+              <div className="bg-background-primary border border-border rounded p-2.5 flex flex-col items-center">
+                <span className="text-xs text-text-secondary font-sans font-medium truncate max-w-full">
                   1 ({homeTeam.abbr || homeTeam.short || 'EV'})
                 </span>
-                <span className="text-base sm:text-lg font-black text-slate-900 font-mono">
+                <span className="text-base sm:text-lg font-semibold text-text-primary font-mono">
                   %{prediction.outcome.home_win_pct}
                 </span>
-                <span className="text-[10px] text-slate-400 font-sans font-medium">
+                <span className="text-xs text-text-muted font-sans font-medium">
                   Oran: {(100 / Math.max(1, prediction.outcome.home_win_pct)).toFixed(2)}
                 </span>
               </div>
-              <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col items-center">
-                <span className="text-[11px] text-slate-500 font-sans font-medium truncate max-w-full">
+              <div className="bg-background-primary border border-border rounded p-2.5 flex flex-col items-center">
+                <span className="text-xs text-text-secondary font-sans font-medium truncate max-w-full">
                   X (Beraberlik)
                 </span>
-                <span className="text-base sm:text-lg font-black text-slate-700 font-mono">
+                <span className="text-base sm:text-lg font-semibold text-text-secondary font-mono">
                   %{prediction.outcome.draw_pct}
                 </span>
-                <span className="text-[10px] text-slate-400 font-sans font-medium">
+                <span className="text-xs text-text-muted font-sans font-medium">
                   Oran: {(100 / Math.max(1, prediction.outcome.draw_pct)).toFixed(2)}
                 </span>
               </div>
-              <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col items-center">
-                <span className="text-[11px] text-slate-500 font-sans font-medium truncate max-w-full">
+              <div className="bg-background-primary border border-border rounded p-2.5 flex flex-col items-center">
+                <span className="text-xs text-text-secondary font-sans font-medium truncate max-w-full">
                   2 ({awayTeam.abbr || awayTeam.short || 'DEP'})
                 </span>
-                <span className="text-base sm:text-lg font-black text-slate-500 font-mono">
+                <span className="text-base sm:text-lg font-semibold text-text-secondary font-mono">
                   %{prediction.outcome.away_win_pct}
                 </span>
-                <span className="text-[10px] text-slate-400 font-sans font-medium">
+                <span className="text-xs text-text-muted font-sans font-medium">
                   Oran: {(100 / Math.max(1, prediction.outcome.away_win_pct)).toFixed(2)}
                 </span>
               </div>
@@ -265,16 +265,16 @@ export default function PredictorTab({ selectedSeason }) {
 
             {/* Dynamic Lineup Impact Strip */}
             {prediction.lineup_analysis && (
-              <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="pt-3 border-t border-border-light flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#00ff87]" />
-                  <span className="font-bold text-slate-800">
+                  <span className="w-2 h-2 rounded-full bg-status-success" />
+                  <span className="font-bold text-text-primary">
                     İlk 11 Formu: {homeTeam.abbr || 'EV'} ({prediction.lineup_analysis.home_xi?.team_overall}) vs {awayTeam.abbr || 'DEP'} ({prediction.lineup_analysis.away_xi?.team_overall})
                   </span>
-                  <span className="text-[10px] text-slate-500 font-medium">({prediction.lineup_analysis.status_label})</span>
+                  <span className="text-xs text-text-secondary font-medium">({prediction.lineup_analysis.status_label})</span>
                 </div>
                 {prediction.lineup_analysis.lineup_impact?.summary_text && (
-                  <span className="text-[11px] font-mono text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                  <span className="text-xs font-mono text-text-secondary bg-background-tertiary border border-border px-2.5 py-0.5 rounded-full">
                     {prediction.lineup_analysis.lineup_impact.summary_text}
                   </span>
                 )}

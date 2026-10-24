@@ -22,6 +22,14 @@ function StatusDot({ tone }) {
 }
 
 function HitStatus({ hit }) {
+  if (hit === null || hit === undefined) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-sm text-text-secondary whitespace-nowrap">
+        <StatusDot tone="muted" />
+        Bekleniyor
+      </span>
+    );
+  }
   return (
     <span className={`inline-flex items-center gap-1.5 text-sm font-medium whitespace-nowrap ${hit ? 'text-status-success' : 'text-status-error'}`}>
       <StatusDot tone={hit ? 'success' : 'error'} />
@@ -99,6 +107,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
   const awayT = getTeam(m.away_id, m.away_name);
   const modelOverPick = m.prob_over_25 >= 50.0 ? '2.5 üst' : '2.5 alt';
   const modelOverProb = m.prob_over_25 >= 50.0 ? m.prob_over_25 : (100 - m.prob_over_25).toFixed(1);
+  const played = m.is_played !== false;
   const actualTotalGoals = m.home_score + m.away_score;
   const actualOverResult = actualTotalGoals > 2.5 ? 'üst' : 'alt';
   const bttsThreshold = m.btts_threshold || 56.6;
@@ -115,8 +124,8 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
       match_id: m.match_id,
       home_id: m.home_id,
       away_id: m.away_id,
-      status: 'COMPLETED',
-      is_played: true,
+      status: played ? 'COMPLETED' : 'UPCOMING',
+      is_played: played,
     }, m.gameweek);
   };
 
@@ -137,7 +146,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
       ),
       market: (
         <ThreeWay
-          highlight={m.actual_result}
+          highlight={played ? m.actual_result : null}
           items={[
             { key: 'home', label: '1', value: odds(m.market_home_odds) },
             { key: 'draw', label: 'X', value: odds(m.market_draw_odds) },
@@ -145,7 +154,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
           ]}
         />
       ),
-      actual: <ValueLine primary={actualWinnerLabel} secondary={m.score} />,
+      actual: played ? <ValueLine primary={actualWinnerLabel} secondary={m.score} /> : <ValueLine primary="—" />,
       status: <HitStatus hit={m.hit_1x2} />,
     },
     {
@@ -154,7 +163,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
       sub: <>Beklenen xG: <span className="tabular-nums text-text-primary">{m.expected_goals}</span></>,
       model: <ValueLine primary={modelOverPick} secondary={`%${modelOverProb}`} meta={`Adil ${fairOdds(modelOverProb)}`} />,
       market: <ValueLine primary={odds(m.market_over_25_odds)} meta="Üst kapanış" />,
-      actual: <ValueLine primary={`${actualTotalGoals} gol`} secondary={actualOverResult} />,
+      actual: played ? <ValueLine primary={`${actualTotalGoals} gol`} secondary={actualOverResult} /> : <ValueLine primary="—" />,
       status: <HitStatus hit={m.hit_over_25} />,
     },
     {
@@ -163,7 +172,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
       sub: 'İki takım da atar mı',
       model: <ValueLine primary={modelBttsPick} secondary={`%${modelBttsProb}`} meta={`Adil ${fairOdds(modelBttsProb)}`} />,
       market: <ValueLine primary={odds(m.market_btts_odds)} meta="KG var kapanış" />,
-      actual: <ValueLine primary={actualBttsResult} />,
+      actual: played ? <ValueLine primary={actualBttsResult} /> : <ValueLine primary="—" />,
       status: <HitStatus hit={m.hit_btts} />,
     },
     {
@@ -217,9 +226,9 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
 
       {/* Score line */}
       <div className="flex items-center justify-between gap-3">
-        <TeamName team={homeT} name={m.home_name} isWinner={m.home_score > m.away_score} />
-        <span className="text-2xl font-semibold text-text-primary tabular-nums shrink-0 px-2">{m.score}</span>
-        <TeamName team={awayT} name={m.away_name} isWinner={m.away_score > m.home_score} align="right" />
+        <TeamName team={homeT} name={m.home_name} isWinner={played && m.home_score > m.away_score} />
+        <span className="text-2xl font-semibold text-text-primary tabular-nums shrink-0 px-2">{played ? m.score : 'vs'}</span>
+        <TeamName team={awayT} name={m.away_name} isWinner={played && m.away_score > m.home_score} align="right" />
       </div>
 
       {/* Market x (Model | Market | Actual) matrix */}
@@ -230,7 +239,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
               <th scope="col" className="py-2 px-3 font-medium w-1/5">Pazar</th>
               <th scope="col" className="py-2 px-3 font-medium w-1/4">Model (adil oran)</th>
               <th scope="col" className="py-2 px-3 font-medium w-1/5">Piyasa ({m.bookmaker || 'Bet365'})</th>
-              <th scope="col" className="py-2 px-3 font-medium">Gerçekleşen</th>
+              <th scope="col" className="py-2 px-3 font-medium">{played ? 'Gerçekleşen' : 'Sonuç yok'}</th>
               <th scope="col" className="py-2 px-3 font-medium text-right">Sonuç</th>
             </tr>
           </thead>

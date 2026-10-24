@@ -474,6 +474,7 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
         setTeamSearchQuery={setTeamSearchQuery}
         filteredClubs={filteredClubs}
         teamSelectorRef={teamSelectorRef}
+        setShowMarketValueModal={setShowMarketValueModal}
       />
 
       <TeamProfileNavigation

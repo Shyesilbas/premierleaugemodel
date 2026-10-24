@@ -46,41 +46,39 @@ export default function MarketValueHistoryModal({ isOpen, onClose, profile, sele
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-md sm:p-6 animate-fadeIn"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-3  sm:p-6 animate-fadeIn"
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-label="Kadro piyasa değeri değişim grafiği"
-        className="w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-3xl bg-white shadow-2xl border border-slate-200"
+        className="w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-md bg-background-primary shadow-md border border-border"
       >
         {/* Header */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-[#38003c] via-[#240027] to-[#120014] px-6 py-6 text-white sm:px-8 sm:py-7">
-          <div className="absolute -right-8 -top-16 h-48 w-48 rounded-full bg-amber-400/20 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
-          
-          <div className="relative flex items-start justify-between gap-4">
+        <div className="border-b border-border p-5 sm:p-6 bg-background-primary">
+          <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-white/10 p-2 border border-white/15 backdrop-blur-sm shrink-0 flex items-center justify-center">
-                <img src={teamBadge} alt={teamName} className="w-full h-full object-contain drop-shadow" />
+              <div className="w-12 h-12 rounded-md bg-background-secondary p-2 border border-border shrink-0 flex items-center justify-center">
+                <img src={teamBadge} alt={teamName} className="w-full h-full object-contain" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1">
-                    <Coins className="w-3 h-3 text-amber-300" /> Transfermarkt Verileri
+                  <span className="text-xs font-medium uppercase tracking-wider text-text-secondary flex items-center gap-1">
+                    <Coins className="w-3 h-3 text-text-muted" /> Transfermarkt Verileri
                   </span>
-                  <span className="text-xs text-purple-200">• 5 Yıllık Trend</span>
+                  <span className="text-xs text-text-muted">· 5 Yıllık Trend</span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate mt-0.5">
+                <h3 className="text-lg sm:text-xl font-semibold text-text-primary tracking-tight truncate mt-0.5">
                   {teamName} Kadro Piyasa Değeri
                 </h3>
               </div>
             </div>
 
             <button
+              type="button"
               onClick={onClose}
-              className="rounded-xl border border-white/15 bg-white/10 hover:bg-white/20 p-2 text-white transition cursor-pointer"
+              className="rounded-md border border-border bg-background-secondary hover:bg-background-tertiary p-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -92,66 +90,66 @@ export default function MarketValueHistoryModal({ isOpen, onClose, profile, sele
           
           {/* Top KPI row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 block">
+            <div className="bg-amber-50/70 border border-amber-200/80 rounded-md p-3.5 space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-amber-800 block">
                 Mevcut Değer ({formatSeasonLabel(mv.season, '/')})
               </span>
-              <strong className="text-xl sm:text-2xl font-black font-mono text-amber-950 block">
+              <strong className="text-xl sm:text-2xl font-semibold font-mono text-amber-950 block">
                 {mv.formatted}
               </strong>
-              <span className="text-[11px] text-amber-800/80 font-mono font-medium block">
+              <span className="text-xs text-amber-800/80 font-mono font-medium block">
                 Ort. {mv.avg_formatted || '-'}
               </span>
             </div>
 
-            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">
+            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-md p-3.5 space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800 block">
                 5 Yıllık Büyüme
               </span>
               <div className="flex items-baseline gap-1 text-emerald-700">
-                <strong className="text-xl sm:text-2xl font-black font-mono">
+                <strong className="text-xl sm:text-2xl font-semibold font-mono">
                   {totalChangePct ? (Number(totalChangePct) >= 0 ? `+${totalChangePct}%` : `${totalChangePct}%`) : '-'}
                 </strong>
                 <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0 self-center" />
               </div>
-              <span className="text-[11px] text-emerald-800/80 font-mono font-medium block">
+              <span className="text-xs text-emerald-800/80 font-mono font-medium block">
                 {totalChangeDiff ? (Number(totalChangeDiff) >= 0 ? `+€${totalChangeDiff}M` : `€${totalChangeDiff}M`) : '-'}
               </span>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
+            <div className="bg-background-tertiary border border-border rounded-md p-3.5 space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary block">
                 Kadro Genişliği
               </span>
-              <strong className="text-xl sm:text-2xl font-black font-mono text-slate-900 block">
+              <strong className="text-xl sm:text-2xl font-semibold font-mono text-text-primary block">
                 {mv.squad_size ? `${mv.squad_size} Oyuncu` : '-'}
               </strong>
-              <span className="text-[11px] text-slate-500 font-medium block">
+              <span className="text-xs text-text-secondary font-medium block">
                 Kayıtlı Roster
               </span>
             </div>
 
-            <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-800 block">
+            <div className="bg-purple-50/70 border border-purple-200/80 rounded-md p-3.5 space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-purple-800 block">
                 İlk Sezon ({firstSeason?.season_label})
               </span>
-              <strong className="text-xl sm:text-2xl font-black font-mono text-purple-950 block">
+              <strong className="text-xl sm:text-2xl font-semibold font-mono text-purple-950 block">
                 {firstSeason?.formatted || '-'}
               </strong>
-              <span className="text-[11px] text-purple-700 font-medium block">
+              <span className="text-xs text-purple-700 font-medium block">
                 Referans Bazı
               </span>
             </div>
           </div>
 
           {/* SVG Chart */}
-          <div className="bg-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-800 text-white shadow-inner space-y-3">
+          <div className="bg-slate-900 rounded-md p-4 sm:p-6 border border-slate-800 text-white shadow-inner space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-300 flex items-center gap-1.5">
                 <Coins className="w-3.5 h-3.5 text-amber-400" />
                 Sezonluk Piyasa Değeri Eğrisi (€ Milyar)
               </span>
-              <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded font-mono">
+              <span className="text-xs text-text-muted bg-slate-800 px-2 py-0.5 rounded font-mono">
                 Transfermarkt Doğrulanmış
               </span>
             </div>
@@ -261,12 +259,12 @@ export default function MarketValueHistoryModal({ isOpen, onClose, profile, sele
 
           {/* Breakdown Table */}
           <div className="space-y-2">
-            <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
               Sezon Bazlı Değişim Detayları
             </h4>
-            <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xs">
+            <div className="overflow-hidden rounded-md border border-border shadow-2xs">
               <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                <thead className="bg-background-tertiary text-xs font-bold uppercase tracking-wider text-text-secondary border-b border-border">
                   <tr>
                     <th className="py-2.5 px-3">Sezon</th>
                     <th className="py-2.5 px-3 text-right">Kadro Değeri</th>
@@ -284,27 +282,27 @@ export default function MarketValueHistoryModal({ isOpen, onClose, profile, sele
                     const isSelected = row.season === selectedSeason;
 
                     return (
-                      <tr key={row.season} className={isSelected ? 'bg-amber-50/70 font-semibold' : 'hover:bg-slate-50/70'}>
-                        <td className="py-2.5 px-3 font-bold text-slate-800 flex items-center gap-1.5">
+                      <tr key={row.season} className={isSelected ? 'bg-amber-50/70 font-semibold' : 'hover:bg-background-tertiary/70'}>
+                        <td className="py-2.5 px-3 font-bold text-text-primary flex items-center gap-1.5">
                           {row.season_label}
                           {isSelected && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 font-sans font-bold">
+                            <span className="text-xs px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 font-sans font-bold">
                               Seçili Sezon
                             </span>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-text-primary">
                           {row.formatted}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                        <td className="py-2.5 px-3 text-right font-mono text-text-secondary">
                           {row.avg_formatted}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                        <td className="py-2.5 px-3 text-right font-mono text-text-secondary">
                           {row.squad_size}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono">
                           {diffPct === null ? (
-                            <span className="text-slate-400">-</span>
+                            <span className="text-text-muted">-</span>
                           ) : Number(diffPct) > 0 ? (
                             <span className="text-emerald-700 font-bold bg-emerald-100/70 px-1.5 py-0.5 rounded">
                               +{diffPct}%
@@ -314,7 +312,7 @@ export default function MarketValueHistoryModal({ isOpen, onClose, profile, sele
                               {diffPct}%
                             </span>
                           ) : (
-                            <span className="text-slate-500">0.0%</span>
+                            <span className="text-text-secondary">0.0%</span>
                           )}
                         </td>
                       </tr>

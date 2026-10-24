@@ -8587,7 +8587,8 @@
           "teamType": "FIRST",
           "shortName": "Spurs",
           "id": 21.0
-        }
+        },
+        "score": 3.0
       },
       {
         "team": {
@@ -8601,7 +8602,8 @@
           "teamType": "FIRST",
           "shortName": "Coventry",
           "id": 5.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -8612,23 +8614,66 @@
       "id": 3921.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 60913.0,
+    "clock": {
+      "secs": 5940.0,
+      "label": "90+9'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 8456.0,
+        "assistId": 51364.0,
+        "clock": {
+          "secs": 840.0,
+          "label": "14'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 66304.0,
+        "assistId": 19694.0,
+        "clock": {
+          "secs": 2940.0,
+          "label": "49'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 76216.0,
+        "assistId": 10458.0,
+        "clock": {
+          "secs": 3480.0,
+          "label": "58'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 4408.0,
+        "assistId": 10443.0,
+        "clock": {
+          "secs": 5760.0,
+          "label": "90+6'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128992.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Andy Madley"
-        }
-      }
-    ]
+    "id": 128992.0
   },
   {
     "gameweek": {
@@ -8679,7 +8724,8 @@
           "teamType": "FIRST",
           "shortName": "Ipswich",
           "id": 8.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -8693,7 +8739,8 @@
           "teamType": "FIRST",
           "shortName": "Nott'm Forest",
           "id": 15.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -8704,12 +8751,40 @@
       "id": 9568.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "D",
+    "attendance": 29198.0,
+    "clock": {
+      "secs": 5940.0,
+      "label": "90+9'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 23811.0,
+        "assistId": 76353.0,
+        "clock": {
+          "secs": 780.0,
+          "label": "13'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 125827.0,
+        "clock": {
+          "secs": 2460.0,
+          "label": "41'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 128999.0
@@ -8763,7 +8838,8 @@
           "teamType": "FIRST",
           "shortName": "Aston Villa",
           "id": 2.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -8777,7 +8853,8 @@
           "teamType": "FIRST",
           "shortName": "Man City",
           "id": 11.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -8788,12 +8865,52 @@
       "id": 9518.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 36743.0,
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 110526.0,
+        "assistId": 51423.0,
+        "clock": {
+          "secs": 360.0,
+          "label": "06'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 65970.0,
+        "assistId": 31936.0,
+        "clock": {
+          "secs": 3120.0,
+          "label": "52'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 110526.0,
+        "assistId": 142138.0,
+        "clock": {
+          "secs": 3600.0,
+          "label": "60'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 128994.0
@@ -8847,7 +8964,8 @@
           "teamType": "FIRST",
           "shortName": "Arsenal",
           "id": 1.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -8861,7 +8979,8 @@
           "teamType": "FIRST",
           "shortName": "Everton",
           "id": 7.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -8872,12 +8991,41 @@
       "id": 9523.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 60207.0,
+    "clock": {
+      "secs": 5940.0,
+      "label": "90+9'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 13274.0,
+        "assistId": 32728.0,
+        "clock": {
+          "secs": 420.0,
+          "label": "07'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 50234.0,
+        "assistId": 14548.0,
+        "clock": {
+          "secs": 4080.0,
+          "label": "68'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 128993.0
@@ -8931,7 +9079,8 @@
           "teamType": "FIRST",
           "shortName": "Coventry",
           "id": 5.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -8945,7 +9094,8 @@
           "teamType": "FIRST",
           "shortName": "Fulham",
           "id": 34.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -8956,12 +9106,30 @@
       "id": 9570.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "attendance": 31449.0,
+    "clock": {
+      "secs": 5760.0,
+      "label": "90+6'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 66657.0,
+        "assistId": 128976.0,
+        "clock": {
+          "secs": 4800.0,
+          "label": "80'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 128996.0
@@ -9015,7 +9183,8 @@
           "teamType": "FIRST",
           "shortName": "Chelsea",
           "id": 4.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -9029,7 +9198,8 @@
           "teamType": "FIRST",
           "shortName": "Spurs",
           "id": 21.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -9042,13 +9212,25 @@
     "neutralGround": false,
     "status": "U",
     "phase": "0",
+    "clock": {
+      "secs": 0.0,
+      "label": "00'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128995.0
+    "id": 128995.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Chris Kavanagh"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -9130,7 +9312,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128997.0
+    "id": 128997.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Paul Tierney"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -9212,7 +9402,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128998.0
+    "id": 128998.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Robert Jones"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -9294,7 +9492,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129000.0
+    "id": 129000.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Samuel Barrott"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -9376,7 +9582,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129001.0
+    "id": 129001.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Jarred Gillett"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -9458,7 +9672,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129002.0
+    "id": 129002.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Stuart Attwell"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -12766,341 +12988,13 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796155200000.0,
+      "label": "Tue 1 Dec 2026, 20:00 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Aston Villa",
-          "club": {
-            "name": "Aston Villa",
-            "shortName": "Aston Villa",
-            "abbr": "AVL",
-            "id": 2.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Aston Villa",
-          "id": 2.0
-        }
-      },
-      {
-        "team": {
-          "name": "Everton",
-          "club": {
-            "name": "Everton",
-            "shortName": "Everton",
-            "abbr": "EVE",
-            "id": 7.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Everton",
-          "id": 7.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Villa Park",
-      "city": "Birmingham",
-      "source": "OPTA",
-      "id": 9518.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129043.0
-  },
-  {
-    "gameweek": {
-      "id": 19773.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 13.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Bournemouth",
-          "club": {
-            "name": "Bournemouth",
-            "shortName": "Bournemouth",
-            "abbr": "BOU",
-            "id": 127.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Bournemouth",
-          "id": 127.0
-        }
-      },
-      {
-        "team": {
-          "name": "Brighton & Hove Albion",
-          "club": {
-            "name": "Brighton and Hove Albion",
-            "shortName": "Brighton",
-            "abbr": "BHA",
-            "id": 131.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Brighton",
-          "id": 131.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Vitality Stadium",
-      "city": "Bournemouth",
-      "source": "OPTA",
-      "id": 9522.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129044.0
-  },
-  {
-    "gameweek": {
-      "id": 19773.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 13.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Brentford",
-          "club": {
-            "name": "Brentford",
-            "shortName": "Brentford",
-            "abbr": "BRE",
-            "id": 130.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Brentford",
-          "id": 130.0
-        }
-      },
-      {
-        "team": {
-          "name": "Arsenal",
-          "club": {
-            "name": "Arsenal",
-            "shortName": "Arsenal",
-            "abbr": "ARS",
-            "id": 1.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Arsenal",
-          "id": 1.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Gtech Community Stadium",
-      "city": "Brentford",
-      "source": "OPTA",
-      "id": 4003.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129045.0
-  },
-  {
-    "gameweek": {
-      "id": 19773.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 13.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Chelsea",
-          "club": {
-            "name": "Chelsea",
-            "shortName": "Chelsea",
-            "abbr": "CHE",
-            "id": 4.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Chelsea",
-          "id": 4.0
-        }
-      },
-      {
-        "team": {
-          "name": "Crystal Palace",
-          "club": {
-            "name": "Crystal Palace",
-            "shortName": "Crystal Palace",
-            "abbr": "CRY",
-            "id": 6.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Crystal Palace",
-          "id": 6.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Stamford Bridge",
-      "city": "London",
-      "source": "OPTA",
-      "id": 9519.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129046.0
-  },
-  {
-    "gameweek": {
-      "id": 19773.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 13.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796155200000.0,
+      "label": "Tue 1 Dec 2026, 20:00 GMT"
     },
     "teams": [
       {
@@ -13176,13 +13070,95 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796239800000.0,
+      "label": "Wed 2 Dec 2026, 19:30 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796239800000.0,
+      "label": "Wed 2 Dec 2026, 19:30 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Chelsea",
+          "club": {
+            "name": "Chelsea",
+            "shortName": "Chelsea",
+            "abbr": "CHE",
+            "id": 4.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Chelsea",
+          "id": 4.0
+        }
+      },
+      {
+        "team": {
+          "name": "Crystal Palace",
+          "club": {
+            "name": "Crystal Palace",
+            "shortName": "Crystal Palace",
+            "abbr": "CRY",
+            "id": 6.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Crystal Palace",
+          "id": 6.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Stamford Bridge",
+      "city": "London",
+      "source": "OPTA",
+      "id": 9519.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129046.0
+  },
+  {
+    "gameweek": {
+      "id": 19773.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 13.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1796239800000.0,
+      "label": "Wed 2 Dec 2026, 19:30 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1796239800000.0,
+      "label": "Wed 2 Dec 2026, 19:30 GMT"
     },
     "teams": [
       {
@@ -13258,13 +13234,13 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796239800000.0,
+      "label": "Wed 2 Dec 2026, 19:30 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796239800000.0,
+      "label": "Wed 2 Dec 2026, 19:30 GMT"
     },
     "teams": [
       {
@@ -13340,13 +13316,13 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796239800000.0,
+      "label": "Wed 2 Dec 2026, 19:30 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796239800000.0,
+      "label": "Wed 2 Dec 2026, 19:30 GMT"
     },
     "teams": [
       {
@@ -13422,13 +13398,259 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796242500000.0,
+      "label": "Wed 2 Dec 2026, 20:15 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796242500000.0,
+      "label": "Wed 2 Dec 2026, 20:15 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Aston Villa",
+          "club": {
+            "name": "Aston Villa",
+            "shortName": "Aston Villa",
+            "abbr": "AVL",
+            "id": 2.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Aston Villa",
+          "id": 2.0
+        }
+      },
+      {
+        "team": {
+          "name": "Everton",
+          "club": {
+            "name": "Everton",
+            "shortName": "Everton",
+            "abbr": "EVE",
+            "id": 7.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Everton",
+          "id": 7.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Villa Park",
+      "city": "Birmingham",
+      "source": "OPTA",
+      "id": 9518.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129043.0
+  },
+  {
+    "gameweek": {
+      "id": 19773.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 13.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1796242500000.0,
+      "label": "Wed 2 Dec 2026, 20:15 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1796242500000.0,
+      "label": "Wed 2 Dec 2026, 20:15 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Bournemouth",
+          "club": {
+            "name": "Bournemouth",
+            "shortName": "Bournemouth",
+            "abbr": "BOU",
+            "id": 127.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Bournemouth",
+          "id": 127.0
+        }
+      },
+      {
+        "team": {
+          "name": "Brighton & Hove Albion",
+          "club": {
+            "name": "Brighton and Hove Albion",
+            "shortName": "Brighton",
+            "abbr": "BHA",
+            "id": 131.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Brighton",
+          "id": 131.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Vitality Stadium",
+      "city": "Bournemouth",
+      "source": "OPTA",
+      "id": 9522.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129044.0
+  },
+  {
+    "gameweek": {
+      "id": 19773.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 13.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1796242500000.0,
+      "label": "Wed 2 Dec 2026, 20:15 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1796242500000.0,
+      "label": "Wed 2 Dec 2026, 20:15 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Brentford",
+          "club": {
+            "name": "Brentford",
+            "shortName": "Brentford",
+            "abbr": "BRE",
+            "id": 130.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Brentford",
+          "id": 130.0
+        }
+      },
+      {
+        "team": {
+          "name": "Arsenal",
+          "club": {
+            "name": "Arsenal",
+            "shortName": "Arsenal",
+            "abbr": "ARS",
+            "id": 1.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Arsenal",
+          "id": 1.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Gtech Community Stadium",
+      "city": "Brentford",
+      "source": "OPTA",
+      "id": 4003.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129045.0
+  },
+  {
+    "gameweek": {
+      "id": 19773.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 13.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1796242500000.0,
+      "label": "Wed 2 Dec 2026, 20:15 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1796242500000.0,
+      "label": "Wed 2 Dec 2026, 20:15 GMT"
     },
     "teams": [
       {
@@ -13504,13 +13726,13 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796328000000.0,
+      "label": "Thu 3 Dec 2026, 20:00 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1796241600000.0,
-      "label": "Wed 2 Dec 2026, 20:00 GMT"
+      "millis": 1796328000000.0,
+      "label": "Thu 3 Dec 2026, 20:00 GMT"
     },
     "teams": [
       {
@@ -13559,6 +13781,88 @@
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129052.0
+  },
+  {
+    "gameweek": {
+      "id": 19774.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 14.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1796473800000.0,
+      "label": "Sat 5 Dec 2026, 12:30 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1796473800000.0,
+      "label": "Sat 5 Dec 2026, 12:30 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Chelsea",
+          "club": {
+            "name": "Chelsea",
+            "shortName": "Chelsea",
+            "abbr": "CHE",
+            "id": 4.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Chelsea",
+          "id": 4.0
+        }
+      },
+      {
+        "team": {
+          "name": "Liverpool",
+          "club": {
+            "name": "Liverpool",
+            "shortName": "Liverpool",
+            "abbr": "LIV",
+            "id": 10.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Liverpool",
+          "id": 10.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Stamford Bridge",
+      "city": "London",
+      "source": "OPTA",
+      "id": 9519.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129056.0
   },
   {
     "gameweek": {
@@ -13761,252 +14065,6 @@
     "teams": [
       {
         "team": {
-          "name": "Brentford",
-          "club": {
-            "name": "Brentford",
-            "shortName": "Brentford",
-            "abbr": "BRE",
-            "id": 130.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Brentford",
-          "id": 130.0
-        }
-      },
-      {
-        "team": {
-          "name": "Manchester City",
-          "club": {
-            "name": "Manchester City",
-            "shortName": "Man City",
-            "abbr": "MCI",
-            "id": 11.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Man City",
-          "id": 11.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Gtech Community Stadium",
-      "city": "Brentford",
-      "source": "OPTA",
-      "id": 4003.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129055.0
-  },
-  {
-    "gameweek": {
-      "id": 19774.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 14.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Chelsea",
-          "club": {
-            "name": "Chelsea",
-            "shortName": "Chelsea",
-            "abbr": "CHE",
-            "id": 4.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Chelsea",
-          "id": 4.0
-        }
-      },
-      {
-        "team": {
-          "name": "Liverpool",
-          "club": {
-            "name": "Liverpool",
-            "shortName": "Liverpool",
-            "abbr": "LIV",
-            "id": 10.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Liverpool",
-          "id": 10.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Stamford Bridge",
-      "city": "London",
-      "source": "OPTA",
-      "id": 9519.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129056.0
-  },
-  {
-    "gameweek": {
-      "id": 19774.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 14.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Everton",
-          "club": {
-            "name": "Everton",
-            "shortName": "Everton",
-            "abbr": "EVE",
-            "id": 7.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Everton",
-          "id": 7.0
-        }
-      },
-      {
-        "team": {
-          "name": "Fulham",
-          "club": {
-            "name": "Fulham",
-            "shortName": "Fulham",
-            "abbr": "FUL",
-            "id": 34.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Fulham",
-          "id": 34.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Hill Dickinson Stadium",
-      "city": "Liverpool",
-      "source": "OPTA",
-      "id": 9308.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129057.0
-  },
-  {
-    "gameweek": {
-      "id": 19774.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 14.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
           "name": "Leeds United",
           "club": {
             "name": "Leeds United",
@@ -14160,95 +14218,13 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
+      "millis": 1796491800000.0,
+      "label": "Sat 5 Dec 2026, 17:30 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Newcastle United",
-          "club": {
-            "name": "Newcastle United",
-            "shortName": "Newcastle",
-            "abbr": "NEW",
-            "id": 23.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Newcastle",
-          "id": 23.0
-        }
-      },
-      {
-        "team": {
-          "name": "Sunderland",
-          "club": {
-            "name": "Sunderland",
-            "shortName": "Sunderland",
-            "abbr": "SUN",
-            "id": 29.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Sunderland",
-          "id": 29.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "St. James' Park",
-      "city": "Newcastle",
-      "source": "OPTA",
-      "id": 9517.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129060.0
-  },
-  {
-    "gameweek": {
-      "id": 19774.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 14.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
+      "millis": 1796491800000.0,
+      "label": "Sat 5 Dec 2026, 17:30 GMT"
     },
     "teams": [
       {
@@ -14324,13 +14300,259 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
+      "millis": 1796500800000.0,
+      "label": "Sat 5 Dec 2026, 20:00 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1796482800000.0,
-      "label": "Sat 5 Dec 2026, 15:00 GMT"
+      "millis": 1796500800000.0,
+      "label": "Sat 5 Dec 2026, 20:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Brentford",
+          "club": {
+            "name": "Brentford",
+            "shortName": "Brentford",
+            "abbr": "BRE",
+            "id": 130.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Brentford",
+          "id": 130.0
+        }
+      },
+      {
+        "team": {
+          "name": "Manchester City",
+          "club": {
+            "name": "Manchester City",
+            "shortName": "Man City",
+            "abbr": "MCI",
+            "id": 11.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Man City",
+          "id": 11.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Gtech Community Stadium",
+      "city": "Brentford",
+      "source": "OPTA",
+      "id": 4003.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129055.0
+  },
+  {
+    "gameweek": {
+      "id": 19774.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 14.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1796565600000.0,
+      "label": "Sun 6 Dec 2026, 14:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1796565600000.0,
+      "label": "Sun 6 Dec 2026, 14:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Everton",
+          "club": {
+            "name": "Everton",
+            "shortName": "Everton",
+            "abbr": "EVE",
+            "id": 7.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Everton",
+          "id": 7.0
+        }
+      },
+      {
+        "team": {
+          "name": "Fulham",
+          "club": {
+            "name": "Fulham",
+            "shortName": "Fulham",
+            "abbr": "FUL",
+            "id": 34.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Fulham",
+          "id": 34.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Hill Dickinson Stadium",
+      "city": "Liverpool",
+      "source": "OPTA",
+      "id": 9308.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129057.0
+  },
+  {
+    "gameweek": {
+      "id": 19774.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 14.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1796565600000.0,
+      "label": "Sun 6 Dec 2026, 14:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1796565600000.0,
+      "label": "Sun 6 Dec 2026, 14:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Newcastle United",
+          "club": {
+            "name": "Newcastle United",
+            "shortName": "Newcastle",
+            "abbr": "NEW",
+            "id": 23.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Newcastle",
+          "id": 23.0
+        }
+      },
+      {
+        "team": {
+          "name": "Sunderland",
+          "club": {
+            "name": "Sunderland",
+            "shortName": "Sunderland",
+            "abbr": "SUN",
+            "id": 29.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Sunderland",
+          "id": 29.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "St. James' Park",
+      "city": "Newcastle",
+      "source": "OPTA",
+      "id": 9517.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129060.0
+  },
+  {
+    "gameweek": {
+      "id": 19774.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 14.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1796574600000.0,
+      "label": "Sun 6 Dec 2026, 16:30 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1796574600000.0,
+      "label": "Sun 6 Dec 2026, 16:30 GMT"
     },
     "teams": [
       {
@@ -14417,334 +14639,6 @@
     "teams": [
       {
         "team": {
-          "name": "Arsenal",
-          "club": {
-            "name": "Arsenal",
-            "shortName": "Arsenal",
-            "abbr": "ARS",
-            "id": 1.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Arsenal",
-          "id": 1.0
-        }
-      },
-      {
-        "team": {
-          "name": "Bournemouth",
-          "club": {
-            "name": "Bournemouth",
-            "shortName": "Bournemouth",
-            "abbr": "BOU",
-            "id": 127.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Bournemouth",
-          "id": 127.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Emirates Stadium",
-      "city": "London",
-      "source": "OPTA",
-      "id": 9523.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129063.0
-  },
-  {
-    "gameweek": {
-      "id": 19775.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 15.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Brighton & Hove Albion",
-          "club": {
-            "name": "Brighton and Hove Albion",
-            "shortName": "Brighton",
-            "abbr": "BHA",
-            "id": 131.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Brighton",
-          "id": 131.0
-        }
-      },
-      {
-        "team": {
-          "name": "Everton",
-          "club": {
-            "name": "Everton",
-            "shortName": "Everton",
-            "abbr": "EVE",
-            "id": 7.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Everton",
-          "id": 7.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "American Express Stadium",
-      "city": "Falmer",
-      "source": "OPTA",
-      "id": 9524.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129064.0
-  },
-  {
-    "gameweek": {
-      "id": 19775.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 15.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Coventry City",
-          "club": {
-            "name": "Coventry City",
-            "shortName": "Coventry",
-            "abbr": "COV",
-            "id": 5.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Coventry",
-          "id": 5.0
-        }
-      },
-      {
-        "team": {
-          "name": "Aston Villa",
-          "club": {
-            "name": "Aston Villa",
-            "shortName": "Aston Villa",
-            "abbr": "AVL",
-            "id": 2.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Aston Villa",
-          "id": 2.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Coventry Building Society Arena",
-      "city": "Coventry",
-      "source": "OPTA",
-      "id": 9570.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129065.0
-  },
-  {
-    "gameweek": {
-      "id": 19775.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 15.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Crystal Palace",
-          "club": {
-            "name": "Crystal Palace",
-            "shortName": "Crystal Palace",
-            "abbr": "CRY",
-            "id": 6.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Crystal Palace",
-          "id": 6.0
-        }
-      },
-      {
-        "team": {
-          "name": "Manchester United",
-          "club": {
-            "name": "Manchester United",
-            "shortName": "Man Utd",
-            "abbr": "MUN",
-            "id": 12.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Man Utd",
-          "id": 12.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Selhurst Park",
-      "city": "London",
-      "source": "OPTA",
-      "id": 9431.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129066.0
-  },
-  {
-    "gameweek": {
-      "id": 19775.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 15.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
           "name": "Fulham",
           "club": {
             "name": "Fulham",
@@ -14789,88 +14683,6 @@
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129067.0
-  },
-  {
-    "gameweek": {
-      "id": 19775.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 15.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Hull City",
-          "club": {
-            "name": "Hull City",
-            "shortName": "Hull",
-            "abbr": "HUL",
-            "id": 41.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Hull",
-          "id": 41.0
-        }
-      },
-      {
-        "team": {
-          "name": "Tottenham Hotspur",
-          "club": {
-            "name": "Tottenham Hotspur",
-            "shortName": "Spurs",
-            "abbr": "TOT",
-            "id": 21.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Spurs",
-          "id": 21.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "The MKM Stadium",
-      "city": "Hull",
-      "source": "OPTA",
-      "id": 9569.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129068.0
   },
   {
     "gameweek": {
@@ -15062,13 +14874,13 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
+      "millis": 1797096600000.0,
+      "label": "Sat 12 Dec 2026, 17:30 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
+      "millis": 1797096600000.0,
+      "label": "Sat 12 Dec 2026, 17:30 GMT"
     },
     "teams": [
       {
@@ -15144,13 +14956,177 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
+      "millis": 1797170400000.0,
+      "label": "Sun 13 Dec 2026, 14:00 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1797087600000.0,
-      "label": "Sat 12 Dec 2026, 15:00 GMT"
+      "millis": 1797170400000.0,
+      "label": "Sun 13 Dec 2026, 14:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Arsenal",
+          "club": {
+            "name": "Arsenal",
+            "shortName": "Arsenal",
+            "abbr": "ARS",
+            "id": 1.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Arsenal",
+          "id": 1.0
+        }
+      },
+      {
+        "team": {
+          "name": "Bournemouth",
+          "club": {
+            "name": "Bournemouth",
+            "shortName": "Bournemouth",
+            "abbr": "BOU",
+            "id": 127.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Bournemouth",
+          "id": 127.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Emirates Stadium",
+      "city": "London",
+      "source": "OPTA",
+      "id": 9523.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129063.0
+  },
+  {
+    "gameweek": {
+      "id": 19775.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 15.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797170400000.0,
+      "label": "Sun 13 Dec 2026, 14:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797170400000.0,
+      "label": "Sun 13 Dec 2026, 14:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Brighton & Hove Albion",
+          "club": {
+            "name": "Brighton and Hove Albion",
+            "shortName": "Brighton",
+            "abbr": "BHA",
+            "id": 131.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Brighton",
+          "id": 131.0
+        }
+      },
+      {
+        "team": {
+          "name": "Everton",
+          "club": {
+            "name": "Everton",
+            "shortName": "Everton",
+            "abbr": "EVE",
+            "id": 7.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Everton",
+          "id": 7.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "American Express Stadium",
+      "city": "Falmer",
+      "source": "OPTA",
+      "id": 9524.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129064.0
+  },
+  {
+    "gameweek": {
+      "id": 19775.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 15.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797170400000.0,
+      "label": "Sun 13 Dec 2026, 14:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797170400000.0,
+      "label": "Sun 13 Dec 2026, 14:00 GMT"
     },
     "teams": [
       {
@@ -15202,6 +15178,252 @@
   },
   {
     "gameweek": {
+      "id": 19775.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 15.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797179400000.0,
+      "label": "Sun 13 Dec 2026, 16:30 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797179400000.0,
+      "label": "Sun 13 Dec 2026, 16:30 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Coventry City",
+          "club": {
+            "name": "Coventry City",
+            "shortName": "Coventry",
+            "abbr": "COV",
+            "id": 5.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Coventry",
+          "id": 5.0
+        }
+      },
+      {
+        "team": {
+          "name": "Aston Villa",
+          "club": {
+            "name": "Aston Villa",
+            "shortName": "Aston Villa",
+            "abbr": "AVL",
+            "id": 2.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Aston Villa",
+          "id": 2.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Coventry Building Society Arena",
+      "city": "Coventry",
+      "source": "OPTA",
+      "id": 9570.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129065.0
+  },
+  {
+    "gameweek": {
+      "id": 19775.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 15.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797188400000.0,
+      "label": "Sun 13 Dec 2026, 19:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797188400000.0,
+      "label": "Sun 13 Dec 2026, 19:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Crystal Palace",
+          "club": {
+            "name": "Crystal Palace",
+            "shortName": "Crystal Palace",
+            "abbr": "CRY",
+            "id": 6.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Crystal Palace",
+          "id": 6.0
+        }
+      },
+      {
+        "team": {
+          "name": "Manchester United",
+          "club": {
+            "name": "Manchester United",
+            "shortName": "Man Utd",
+            "abbr": "MUN",
+            "id": 12.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Man Utd",
+          "id": 12.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Selhurst Park",
+      "city": "London",
+      "source": "OPTA",
+      "id": 9431.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129066.0
+  },
+  {
+    "gameweek": {
+      "id": 19775.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 15.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797278400000.0,
+      "label": "Mon 14 Dec 2026, 20:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797278400000.0,
+      "label": "Mon 14 Dec 2026, 20:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Hull City",
+          "club": {
+            "name": "Hull City",
+            "shortName": "Hull",
+            "abbr": "HUL",
+            "id": 41.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Hull",
+          "id": 41.0
+        }
+      },
+      {
+        "team": {
+          "name": "Tottenham Hotspur",
+          "club": {
+            "name": "Tottenham Hotspur",
+            "shortName": "Spurs",
+            "abbr": "TOT",
+            "id": 21.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Spurs",
+          "id": 21.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "The MKM Stadium",
+      "city": "Hull",
+      "source": "OPTA",
+      "id": 9569.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129068.0
+  },
+  {
+    "gameweek": {
       "id": 19776.0,
       "compSeason": {
         "label": "English Premier League Season 2026/2027",
@@ -15226,50 +15448,50 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
+      "millis": 1797683400000.0,
+      "label": "Sat 19 Dec 2026, 12:30 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
+      "millis": 1797683400000.0,
+      "label": "Sat 19 Dec 2026, 12:30 GMT"
     },
     "teams": [
       {
         "team": {
-          "name": "Arsenal",
+          "name": "Brentford",
           "club": {
-            "name": "Arsenal",
-            "shortName": "Arsenal",
-            "abbr": "ARS",
-            "id": 1.0
+            "name": "Brentford",
+            "shortName": "Brentford",
+            "abbr": "BRE",
+            "id": 130.0
           },
           "teamType": "FIRST",
-          "shortName": "Arsenal",
-          "id": 1.0
+          "shortName": "Brentford",
+          "id": 130.0
         }
       },
       {
         "team": {
-          "name": "Manchester United",
+          "name": "Newcastle United",
           "club": {
-            "name": "Manchester United",
-            "shortName": "Man Utd",
-            "abbr": "MUN",
-            "id": 12.0
+            "name": "Newcastle United",
+            "shortName": "Newcastle",
+            "abbr": "NEW",
+            "id": 23.0
           },
           "teamType": "FIRST",
-          "shortName": "Man Utd",
-          "id": 12.0
+          "shortName": "Newcastle",
+          "id": 23.0
         }
       }
     ],
     "replay": false,
     "ground": {
-      "name": "Emirates Stadium",
-      "city": "London",
+      "name": "Gtech Community Stadium",
+      "city": "Brentford",
       "source": "OPTA",
-      "id": 9523.0
+      "id": 4003.0
     },
     "neutralGround": false,
     "status": "U",
@@ -15280,7 +15502,7 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129073.0
+    "id": 129075.0
   },
   {
     "gameweek": {
@@ -15401,252 +15623,6 @@
     "teams": [
       {
         "team": {
-          "name": "Brentford",
-          "club": {
-            "name": "Brentford",
-            "shortName": "Brentford",
-            "abbr": "BRE",
-            "id": 130.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Brentford",
-          "id": 130.0
-        }
-      },
-      {
-        "team": {
-          "name": "Newcastle United",
-          "club": {
-            "name": "Newcastle United",
-            "shortName": "Newcastle",
-            "abbr": "NEW",
-            "id": 23.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Newcastle",
-          "id": 23.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Gtech Community Stadium",
-      "city": "Brentford",
-      "source": "OPTA",
-      "id": 4003.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129075.0
-  },
-  {
-    "gameweek": {
-      "id": 19776.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 16.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Brighton & Hove Albion",
-          "club": {
-            "name": "Brighton and Hove Albion",
-            "shortName": "Brighton",
-            "abbr": "BHA",
-            "id": 131.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Brighton",
-          "id": 131.0
-        }
-      },
-      {
-        "team": {
-          "name": "Ipswich Town",
-          "club": {
-            "name": "Ipswich Town",
-            "shortName": "Ipswich",
-            "abbr": "IPS",
-            "id": 8.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Ipswich",
-          "id": 8.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "American Express Stadium",
-      "city": "Falmer",
-      "source": "OPTA",
-      "id": 9524.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129076.0
-  },
-  {
-    "gameweek": {
-      "id": 19776.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 16.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Chelsea",
-          "club": {
-            "name": "Chelsea",
-            "shortName": "Chelsea",
-            "abbr": "CHE",
-            "id": 4.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Chelsea",
-          "id": 4.0
-        }
-      },
-      {
-        "team": {
-          "name": "Aston Villa",
-          "club": {
-            "name": "Aston Villa",
-            "shortName": "Aston Villa",
-            "abbr": "AVL",
-            "id": 2.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Aston Villa",
-          "id": 2.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Stamford Bridge",
-      "city": "London",
-      "source": "OPTA",
-      "id": 9519.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129077.0
-  },
-  {
-    "gameweek": {
-      "id": 19776.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 16.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
           "name": "Leeds United",
           "club": {
             "name": "Leeds United",
@@ -15691,88 +15667,6 @@
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129078.0
-  },
-  {
-    "gameweek": {
-      "id": 19776.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 16.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Liverpool",
-          "club": {
-            "name": "Liverpool",
-            "shortName": "Liverpool",
-            "abbr": "LIV",
-            "id": 10.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Liverpool",
-          "id": 10.0
-        }
-      },
-      {
-        "team": {
-          "name": "Tottenham Hotspur",
-          "club": {
-            "name": "Tottenham Hotspur",
-            "shortName": "Spurs",
-            "abbr": "TOT",
-            "id": 21.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Spurs",
-          "id": 21.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "Anfield",
-      "city": "Liverpool",
-      "source": "OPTA",
-      "id": 7305.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129079.0
   },
   {
     "gameweek": {
@@ -15964,13 +15858,177 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
+      "millis": 1797701400000.0,
+      "label": "Sat 19 Dec 2026, 17:30 GMT"
     },
     "provisionalKickoff": {
       "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
+      "millis": 1797701400000.0,
+      "label": "Sat 19 Dec 2026, 17:30 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Liverpool",
+          "club": {
+            "name": "Liverpool",
+            "shortName": "Liverpool",
+            "abbr": "LIV",
+            "id": 10.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Liverpool",
+          "id": 10.0
+        }
+      },
+      {
+        "team": {
+          "name": "Tottenham Hotspur",
+          "club": {
+            "name": "Tottenham Hotspur",
+            "shortName": "Spurs",
+            "abbr": "TOT",
+            "id": 21.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Spurs",
+          "id": 21.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Anfield",
+      "city": "Liverpool",
+      "source": "OPTA",
+      "id": 7305.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129079.0
+  },
+  {
+    "gameweek": {
+      "id": 19776.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 16.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797775200000.0,
+      "label": "Sun 20 Dec 2026, 14:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797775200000.0,
+      "label": "Sun 20 Dec 2026, 14:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Brighton & Hove Albion",
+          "club": {
+            "name": "Brighton and Hove Albion",
+            "shortName": "Brighton",
+            "abbr": "BHA",
+            "id": 131.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Brighton",
+          "id": 131.0
+        }
+      },
+      {
+        "team": {
+          "name": "Ipswich Town",
+          "club": {
+            "name": "Ipswich Town",
+            "shortName": "Ipswich",
+            "abbr": "IPS",
+            "id": 8.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Ipswich",
+          "id": 8.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "American Express Stadium",
+      "city": "Falmer",
+      "source": "OPTA",
+      "id": 9524.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129076.0
+  },
+  {
+    "gameweek": {
+      "id": 19776.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 16.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797775200000.0,
+      "label": "Sun 20 Dec 2026, 14:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797775200000.0,
+      "label": "Sun 20 Dec 2026, 14:00 GMT"
     },
     "teams": [
       {
@@ -16019,6 +16077,170 @@
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129082.0
+  },
+  {
+    "gameweek": {
+      "id": 19776.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 16.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797784200000.0,
+      "label": "Sun 20 Dec 2026, 16:30 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797784200000.0,
+      "label": "Sun 20 Dec 2026, 16:30 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Arsenal",
+          "club": {
+            "name": "Arsenal",
+            "shortName": "Arsenal",
+            "abbr": "ARS",
+            "id": 1.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Arsenal",
+          "id": 1.0
+        }
+      },
+      {
+        "team": {
+          "name": "Manchester United",
+          "club": {
+            "name": "Manchester United",
+            "shortName": "Man Utd",
+            "abbr": "MUN",
+            "id": 12.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Man Utd",
+          "id": 12.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Emirates Stadium",
+      "city": "London",
+      "source": "OPTA",
+      "id": 9523.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129073.0
+  },
+  {
+    "gameweek": {
+      "id": 19776.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 16.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797883200000.0,
+      "label": "Mon 21 Dec 2026, 20:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797883200000.0,
+      "label": "Mon 21 Dec 2026, 20:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Chelsea",
+          "club": {
+            "name": "Chelsea",
+            "shortName": "Chelsea",
+            "abbr": "CHE",
+            "id": 4.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Chelsea",
+          "id": 4.0
+        }
+      },
+      {
+        "team": {
+          "name": "Aston Villa",
+          "club": {
+            "name": "Aston Villa",
+            "shortName": "Aston Villa",
+            "abbr": "AVL",
+            "id": 2.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Aston Villa",
+          "id": 2.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "Stamford Bridge",
+      "city": "London",
+      "source": "OPTA",
+      "id": 9519.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129077.0
   },
   {
     "gameweek": {

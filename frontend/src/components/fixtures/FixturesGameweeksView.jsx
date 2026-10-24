@@ -7,16 +7,19 @@ export default function FixturesGameweeksView({ loading, filteredGameweeks, disp
   return (
     <>
       {loading ? (
-              <div className="py-20 text-center bg-white border border-slate-200 rounded-2xl shadow-sm">
-                <div className="w-8 h-8 border-3 border-[#38003c] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-xs font-bold text-slate-700">Fikstür ve maç verileri yükleniyor...</p>
-              </div>
-            ) : filteredGameweeks.length === 0 ? (
-              <div className="py-16 text-center bg-white border border-slate-200 rounded-2xl shadow-sm">
-                <p className="text-sm font-bold text-slate-800">Aramanızla eşleşen maç bulunamadı.</p>
-                <p className="text-xs text-slate-500 mt-1">Filtreleri temizleyip tekrar deneyin.</p>
-              </div>
-            ) : (
+        <div className="space-y-4">
+          <div className="h-6 w-36 bg-background-tertiary animate-pulse rounded" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="h-44 bg-background-primary border border-border rounded animate-pulse" />
+            <div className="h-44 bg-background-primary border border-border rounded animate-pulse" />
+          </div>
+        </div>
+      ) : filteredGameweeks.length === 0 ? (
+        <div className="py-12 text-center bg-background-primary border border-border rounded">
+          <p className="text-sm font-semibold text-text-primary">Aramanızla eşleşen maç bulunamadı.</p>
+          <p className="text-xs text-text-secondary mt-1">Filtreleri temizleyip tekrar deneyin.</p>
+        </div>
+      ) : (
               <div className="space-y-8">
                 {filteredGameweeks.map(gwObj => (
                   <div key={gwObj.gameweek} className="space-y-4">
@@ -27,14 +30,14 @@ export default function FixturesGameweeksView({ loading, filteredGameweeks, disp
                         <div key={dayIdx} className="space-y-2.5">
                           
                           {/* Day Subheader */}
-                          <div className="flex items-center gap-2 text-xs font-bold text-slate-700 px-1">
-                            <Calendar className="w-3.5 h-3.5 text-[#38003c]" />
+                          <div className="flex items-center gap-2 text-xs font-semibold text-text-secondary px-1">
+                            <Calendar className="w-3.5 h-3.5 text-text-primary" />
                             <span>{dayObj.day}</span>
                           </div>
 
                           {/* Matches List or Grid for that Day */}
                           {displayMode === 'list' ? (
-                            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white shadow-2xs overflow-hidden">
+                            <div className="border border-border rounded divide-y divide-border-light bg-background-primary overflow-hidden">
                               {dayObj.matches.map(m => {
                                 const home = getTeam(m.home_id, m.home_name);
                                 const away = getTeam(m.away_id, m.away_name);

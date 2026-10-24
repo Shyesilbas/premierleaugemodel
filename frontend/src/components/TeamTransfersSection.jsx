@@ -76,9 +76,9 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
 
   if (loading) {
     return (
-      <section className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-xs">
-        <Loader2 className="w-7 h-7 animate-spin text-slate-400 mx-auto mb-3" />
-        <p className="text-sm font-semibold text-slate-600">
+      <section className="bg-background-primary border border-border rounded p-12 text-center ">
+        <Loader2 className="w-7 h-7 animate-spin text-text-muted mx-auto mb-3" />
+        <p className="text-sm font-semibold text-text-secondary">
           {teamName || 'Takım'} için Transfermarkt transfer geçmişi yükleniyor...
         </p>
       </section>
@@ -87,15 +87,15 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
 
   if (error) {
     return (
-      <section className="bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-xs">
-        <p className="text-sm font-bold text-slate-700 mb-2">{error}</p>
+      <section className="bg-background-primary border border-border rounded p-8 text-center ">
+        <p className="text-sm font-bold text-text-secondary mb-2">{error}</p>
         <button
           onClick={() => {
             setData(null);
             setError(null);
             setLoading(true);
           }}
-          className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition cursor-pointer"
+          className="px-4 py-2 bg-slate-900 text-white rounded text-xs font-bold hover:bg-slate-800 transition cursor-pointer"
         >
           Yeniden Dene
         </button>
@@ -107,72 +107,72 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
     <div className="space-y-4">
       {/* Clean unified KPI strip */}
       {summary && (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <section className="overflow-hidden rounded border border-border bg-background-primary ">
           <div className="grid grid-cols-2 divide-y divide-slate-100 sm:grid-cols-4 sm:divide-y-0 sm:divide-x">
             {/* Toplam Harcama */}
             <div className="p-4 sm:p-5">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="block text-xs font-bold uppercase tracking-wider text-text-muted">
                 Toplam Harcama
               </span>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <strong className="text-xl sm:text-2xl font-black font-mono text-slate-900">
+                <strong className="text-xl sm:text-2xl font-semibold font-mono text-text-primary">
                   {summary.total_spent_formatted}
                 </strong>
               </div>
-              <span className="mt-0.5 block text-xs text-slate-500 font-medium">
+              <span className="mt-0.5 block text-xs text-text-secondary font-medium">
                 {summary.arrivals_count} Gelen Oyuncu
               </span>
             </div>
 
             {/* Toplam Gelir */}
             <div className="p-4 sm:p-5">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="block text-xs font-bold uppercase tracking-wider text-text-muted">
                 Toplam Gelir
               </span>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <strong className="text-xl sm:text-2xl font-black font-mono text-slate-900">
+                <strong className="text-xl sm:text-2xl font-semibold font-mono text-text-primary">
                   {summary.total_income_formatted}
                 </strong>
               </div>
-              <span className="mt-0.5 block text-xs text-slate-500 font-medium">
+              <span className="mt-0.5 block text-xs text-text-secondary font-medium">
                 {summary.departures_count} Giden Oyuncu
               </span>
             </div>
 
             {/* Net Bilanço */}
             <div className="p-4 sm:p-5">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="block text-xs font-bold uppercase tracking-wider text-text-muted">
                 Net Bilanço
               </span>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <strong className={`text-xl sm:text-2xl font-black font-mono ${
-                  summary.net_balance_eur >= 0 ? 'text-emerald-700' : 'text-slate-900'
+                <strong className={`text-xl sm:text-2xl font-semibold font-mono ${
+                  summary.net_balance_eur >= 0 ? 'text-emerald-700' : 'text-text-primary'
                 }`}>
                   {summary.net_balance_formatted}
                 </strong>
                 {summary.net_balance_eur >= 0 ? (
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-600 shrink-0 self-center" />
                 ) : (
-                  <TrendingDown className="w-3.5 h-3.5 text-slate-400 shrink-0 self-center" />
+                  <TrendingDown className="w-3.5 h-3.5 text-text-muted shrink-0 self-center" />
                 )}
               </div>
-              <span className="mt-0.5 block text-xs text-slate-500 font-medium">
+              <span className="mt-0.5 block text-xs text-text-secondary font-medium">
                 {summary.net_balance_eur >= 0 ? 'Pozitif Bakiye (Kâr)' : 'Yatırım Dengesi'}
               </span>
             </div>
 
             {/* Transfer Hacmi */}
             <div className="p-4 sm:p-5">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="block text-xs font-bold uppercase tracking-wider text-text-muted">
                 Transfer Hacmi
               </span>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <strong className="text-xl sm:text-2xl font-black font-mono text-slate-900">
+                <strong className="text-xl sm:text-2xl font-semibold font-mono text-text-primary">
                   {summary.arrivals_count + summary.departures_count}
                 </strong>
-                <span className="text-xs text-slate-500 font-medium">Hareket</span>
+                <span className="text-xs text-text-secondary font-medium">Hareket</span>
               </div>
-              <span className="mt-0.5 block text-xs text-slate-500 font-medium">
+              <span className="mt-0.5 block text-xs text-text-secondary font-medium">
                 {season && season !== 'all' ? `${formatSeasonLabel(season)} Sezonu` : 'Transfermarkt Arşivi'}
               </span>
             </div>
@@ -181,19 +181,19 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
       )}
 
       {/* Main Table Card */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+      <section className="overflow-hidden rounded border border-border bg-background-primary ">
         {/* Controls Bar */}
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex flex-col gap-3 border-b border-border-light p-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           
           {/* Segmented Control for Direction (Tümü, Gelenler, Gidenler) */}
-          <div className="inline-flex rounded-xl bg-slate-100 p-1">
+          <div className="inline-flex rounded bg-background-tertiary p-1">
             <button
               type="button"
               onClick={() => setDirectionFilter('all')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              className={`rounded px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                 directionFilter === 'all'
-                  ? 'bg-white text-slate-950 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-background-primary text-slate-950 shadow-2xs'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               Tümü ({allTransfers.length})
@@ -201,10 +201,10 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
             <button
               type="button"
               onClick={() => setDirectionFilter('in')}
-              className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                 directionFilter === 'in'
-                  ? 'bg-white text-slate-950 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-background-primary text-slate-950 shadow-2xs'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               <ArrowDownLeft className="w-3 h-3 text-emerald-600" />
@@ -213,13 +213,13 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
             <button
               type="button"
               onClick={() => setDirectionFilter('out')}
-              className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                 directionFilter === 'out'
-                  ? 'bg-white text-slate-950 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-background-primary text-slate-950 shadow-2xs'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
-              <ArrowUpRight className="w-3 h-3 text-slate-500" />
+              <ArrowUpRight className="w-3 h-3 text-text-secondary" />
               <span>Gidenler ({departures.length})</span>
             </button>
           </div>
@@ -229,7 +229,7 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-slate-400 cursor-pointer shadow-2xs"
+              className="rounded border border-border bg-background-primary px-3 py-1.5 text-xs font-semibold text-text-secondary outline-none focus:border-slate-400 cursor-pointer shadow-2xs"
             >
               <option value="all">Tüm Transfer Türleri</option>
               <option value="Bonservis">Bonservisli Transferler</option>
@@ -240,13 +240,13 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
             </select>
 
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
               <input
                 type="text"
                 placeholder="Oyuncu veya kulüp..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-40 sm:w-48 rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-slate-400 shadow-2xs"
+                className="w-40 sm:w-48 rounded border border-border bg-background-primary pl-8 pr-3 py-1.5 text-xs text-text-primary placeholder-slate-400 outline-none focus:border-slate-400 shadow-2xs"
               />
             </div>
           </div>
@@ -255,7 +255,7 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
         {/* Clean Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-100 bg-slate-50/60 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <thead className="border-b border-border-light bg-background-tertiary/60 text-xs font-bold uppercase tracking-wider text-text-muted">
               <tr>
                 <th className="py-2.5 px-4">Tarih</th>
                 <th className="py-2.5 px-4">Oyuncu</th>
@@ -274,12 +274,12 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
                   return (
                     <tr
                       key={item.id || idx}
-                      className="transition hover:bg-slate-50/70"
+                      className="transition hover:bg-background-tertiary/70"
                     >
                       {/* Tarih */}
-                      <td className="py-3 px-4 whitespace-nowrap text-slate-600">
-                        <span className="font-semibold text-slate-900 block">{item.date_formatted}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">{item.season}</span>
+                      <td className="py-3 px-4 whitespace-nowrap text-text-secondary">
+                        <span className="font-semibold text-text-primary block">{item.date_formatted}</span>
+                        <span className="text-xs text-text-muted font-mono">{item.season}</span>
                       </td>
 
                       {/* Oyuncu Adı + Avatar */}
@@ -290,7 +290,7 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
                             size="sm"
                             shape="rounded"
                             fallback="initials"
-                            className="bg-slate-100 border border-slate-200/80 shadow-2xs shrink-0"
+                            className="bg-background-tertiary border border-border/80 shadow-2xs shrink-0"
                           />
                           <div className="min-w-0">
                             <button
@@ -301,12 +301,12 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
                                 name: item.player_name,
                               })}
                               title={`${item.player_name} kariyer piyasa değeri grafiğini görüntüle`}
-                              className="font-bold text-slate-900 hover:text-slate-600 transition cursor-pointer text-left truncate block max-w-[180px] group"
+                              className="font-bold text-text-primary hover:text-text-secondary transition cursor-pointer text-left truncate block max-w-[180px] group"
                             >
                               <span className="group-hover:underline">{item.player_name}</span>
                             </button>
                             {item.player_id && (
-                              <span className="text-[10px] text-slate-400 font-mono block">
+                              <span className="text-xs text-text-muted font-mono block">
                                 #{item.player_id}
                               </span>
                             )}
@@ -315,27 +315,27 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
                       </td>
 
                       {/* Yaş */}
-                      <td className="py-3 px-2 text-center font-mono text-slate-600">
+                      <td className="py-3 px-2 text-center font-mono text-text-secondary">
                         {item.age || '—'}
                       </td>
 
                       {/* Yön & Karşı Takım */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center gap-1 text-[11px] font-semibold shrink-0 ${
-                            isArrival ? 'text-emerald-700' : 'text-slate-500'
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ${
+                            isArrival ? 'text-emerald-700' : 'text-text-secondary'
                           }`}>
                             {isArrival ? (
                               <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
                             ) : (
-                              <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+                              <ArrowUpRight className="w-3.5 h-3.5 text-text-muted" />
                             )}
                             {isArrival ? 'Gelen' : 'Giden'}
                           </span>
 
                           <span className="text-slate-300">·</span>
 
-                          <span className="font-semibold text-slate-800 truncate max-w-[170px]">
+                          <span className="font-semibold text-text-primary truncate max-w-[170px]">
                             {item.counterpart_club_name}
                           </span>
                         </div>
@@ -343,19 +343,19 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
 
                       {/* Transfer Türü (Minimalist rozet) */}
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200/80">
+                        <span className="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-background-tertiary text-text-secondary border border-border/80">
                           {item.transfer_type}
                         </span>
                       </td>
 
                       {/* Piyasa Değeri */}
-                      <td className="py-3 px-4 text-right font-mono text-xs text-slate-500 whitespace-nowrap">
+                      <td className="py-3 px-4 text-right font-mono text-xs text-text-secondary whitespace-nowrap">
                         {item.market_value_formatted}
                       </td>
 
                       {/* Bonservis Bedeli */}
                       <td className="py-3 px-4 text-right font-mono whitespace-nowrap">
-                        <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                        <span className="font-bold text-text-primary text-xs sm:text-sm">
                           {item.fee_formatted}
                         </span>
                       </td>
@@ -364,7 +364,7 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="py-10 text-center text-slate-400 text-xs">
+                  <td colSpan="7" className="py-10 text-center text-text-muted text-xs">
                     Seçilen filtre kriterlerine uygun transfer kaydı bulunamadı.
                   </td>
                 </tr>
@@ -374,7 +374,7 @@ export default function TeamTransfersSection({ teamId, teamName, season = '2026_
         </div>
 
         {/* Clean Footer */}
-        <div className="border-t border-slate-100 bg-slate-50/40 px-4 py-2.5 text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2">
+        <div className="border-t border-border-light bg-background-tertiary/40 px-4 py-2.5 text-xs text-text-muted flex flex-wrap items-center justify-between gap-2">
           <span>Transfermarkt resmi veritabanı kayıtları</span>
           <span className="font-mono">{filteredTransfers.length} kayıt</span>
         </div>

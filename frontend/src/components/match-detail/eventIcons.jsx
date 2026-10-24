@@ -27,8 +27,8 @@ export function MissedPenaltyIcon({ className = "w-4 h-4" }) {
   return (
     <div className="relative inline-flex items-center justify-center text-status-error">
       <BallIcon className={className} />
-      <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-background-tertiary text-text-primary text-xs font-semibold font-mono rounded-full flex items-center justify-center ">
-        ✕
+      <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-background-tertiary text-text-primary text-xs font-semibold font-mono rounded-full flex items-center justify-center">
+        X
       </span>
     </div>
   );

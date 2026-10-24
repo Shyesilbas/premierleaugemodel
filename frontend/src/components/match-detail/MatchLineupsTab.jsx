@@ -237,12 +237,12 @@ export default function MatchLineupsTab({
                                       )}
                                       {pStat?.goals > 0 && (
                                         <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success shrink-0">
-                                          ⚽ {pStat.goals}
+                                          G: {pStat.goals}
                                         </span>
                                       )}
                                       {pStat?.assists > 0 && (
                                         <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary shrink-0">
-                                          🎯 {pStat.assists}
+                                          A: {pStat.assists}
                                         </span>
                                       )}
                                       {pStat?.red_cards > 0 ? (
@@ -316,8 +316,8 @@ export default function MatchLineupsTab({
                                 />
                                 <span className="font-mono text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
                                 <span className="font-medium text-text-primary truncate">{sub.name}</span>
-                                {pStat?.goals > 0 && <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success">⚽ {pStat.goals}</span>}
-                                {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary">🎯 {pStat.assists}</span>}
+                                {pStat?.goals > 0 && <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success">G: {pStat.goals}</span>}
+                                {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary">A: {pStat.assists}</span>}
                                 {pStat?.red_cards > 0 ? <RedCardIcon /> : pStat?.yellow_cards > 0 ? <YellowCardIcon /> : null}
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
@@ -413,12 +413,12 @@ export default function MatchLineupsTab({
                                       )}
                                       {pStat?.goals > 0 && (
                                         <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success shrink-0">
-                                          ⚽ {pStat.goals}
+                                          G: {pStat.goals}
                                         </span>
                                       )}
                                       {pStat?.assists > 0 && (
                                         <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary shrink-0">
-                                          🎯 {pStat.assists}
+                                          A: {pStat.assists}
                                         </span>
                                       )}
                                       {pStat?.red_cards > 0 ? (
@@ -492,8 +492,8 @@ export default function MatchLineupsTab({
                                 />
                                 <span className="font-mono text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
                                 <span className="font-medium text-text-primary truncate">{sub.name}</span>
-                                {pStat?.goals > 0 && <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success">⚽ {pStat.goals}</span>}
-                                {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary">🎯 {pStat.assists}</span>}
+                                {pStat?.goals > 0 && <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success">G: {pStat.goals}</span>}
+                                {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary">A: {pStat.assists}</span>}
                                 {pStat?.red_cards > 0 ? <RedCardIcon /> : pStat?.yellow_cards > 0 ? <YellowCardIcon /> : null}
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">

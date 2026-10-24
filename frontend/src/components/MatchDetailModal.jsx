@@ -129,13 +129,13 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
       case 'attempt saved':
         return <Shield className="w-3.5 h-3.5 text-purple-600" />;
       case 'miss':
-        return <Activity className="w-3.5 h-3.5 text-slate-400" />;
+        return <Activity className="w-3.5 h-3.5 text-text-muted" />;
       case 'attempt blocked':
-        return <Shield className="w-3.5 h-3.5 text-slate-500" />;
+        return <Shield className="w-3.5 h-3.5 text-text-secondary" />;
       case 'yellow card':
-        return <span className="w-2.5 h-3.5 bg-amber-400 rounded-xs inline-block shadow-xs" title="Sarı Kart" />;
+        return <span className="w-2.5 h-3.5 bg-amber-400 rounded-xs inline-block " title="Sarı Kart" />;
       case 'red card':
-        return <span className="w-2.5 h-3.5 bg-rose-600 rounded-xs inline-block shadow-xs" title="Kırmızı Kart" />;
+        return <span className="w-2.5 h-3.5 bg-rose-600 rounded-xs inline-block " title="Kırmızı Kart" />;
       case 'substitution':
         return <RefreshCw className="w-3.5 h-3.5 text-blue-600" />;
       default:
@@ -163,13 +163,13 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
   };
 
   const getPositionBadgeClass = (pos) => {
-    if (!pos) return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (!pos) return 'bg-background-tertiary text-text-secondary border-border';
     const p = String(pos).toUpperCase();
     if (['G', 'GK', 'GOALKEEPER'].includes(p)) return 'bg-amber-100 text-amber-900 border-amber-200';
     if (['D', 'DEF', 'DEFENDER', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return 'bg-sky-100 text-sky-900 border-sky-200';
-    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'bg-purple-100 text-[#38003c] border-purple-200';
+    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'bg-purple-100 text-text-primary border-purple-200';
     if (['F', 'FWD', 'FORWARD', 'ST', 'CF', 'RW', 'LW', 'ATT'].includes(p)) return 'bg-rose-100 text-rose-900 border-rose-200';
-    return 'bg-slate-100 text-slate-700 border-slate-200';
+    return 'bg-background-tertiary text-text-secondary border-border';
   };
 
   // Helper to calculate comparison bar percentage
@@ -190,27 +190,27 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/40  animate-fadeIn"
       onClick={onClose}
     >
       <div 
-        className="bg-white border border-slate-200 rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden relative"
+        className="bg-background-primary border border-border rounded-md max-w-4xl w-full max-h-[92vh] flex flex-col shadow-md overflow-hidden relative"
         onClick={e => e.stopPropagation()}
       >
         
         {/* Header & Scoreboard (Compact & Sleek) */}
-        <div className="py-3 px-4 sm:px-6 border-b border-slate-200 bg-slate-50/70 relative shrink-0">
+        <div className="py-3 px-4 sm:px-6 border-b border-border bg-background-tertiary/70 relative shrink-0">
           <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
             <button
               onClick={() => setRefreshKey(k => k + 1)}
               title="Maç verisini sunucudan tazele"
-              className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors shadow-2xs"
+              className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors shadow-2xs"
             >
               <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors shadow-2xs"
+              className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors shadow-2xs"
             >
               <X className="w-4 h-4" />
             </button>
@@ -226,10 +226,10 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
                 onError={handleTeamBadgeError}
               />
               <div className="min-w-0">
-                <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-tight truncate">
+                <h3 className="font-bold text-sm sm:text-base text-text-primary leading-tight truncate">
                   {homeTeam.name}
                 </h3>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Ev Sahibi
                 </span>
               </div>
@@ -237,20 +237,20 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
 
             {/* Score Center */}
             <div className="text-center px-3 shrink-0">
-              <div className="font-mono text-xl sm:text-2xl font-black text-slate-900 px-3 py-1 rounded-xl bg-white border border-slate-200 shadow-2xs inline-block">
+              <div className="font-mono text-xl sm:text-2xl font-semibold text-text-primary px-3 py-1 rounded bg-background-primary border border-border shadow-2xs inline-block">
                 {match.home_score !== null && match.home_score !== undefined
                   ? `${match.home_score} - ${match.away_score}`
                   : 'VS'}
               </div>
               {meta.halfTimeScore && (
-                <span className="text-[10px] font-mono text-slate-500 block mt-0.5">
+                <span className="text-xs font-mono text-text-secondary block mt-0.5">
                   İY: {meta.halfTimeScore.homeScore} - {meta.halfTimeScore.awayScore}
                 </span>
               )}
               {isCompleted && ((match.home_xg ?? meta.home_xg) != null || (match.away_xg ?? meta.away_xg) != null) && (
                 <div className="mt-0.5 flex items-center justify-center">
-                  <span className="text-[9px] font-mono font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded shadow-2xs inline-flex items-center gap-1">
-                    <span className="text-slate-400">xG:</span>
+                  <span className="text-xs font-mono font-bold text-text-secondary bg-background-primary border border-border px-2 py-0.5 rounded shadow-2xs inline-flex items-center gap-1">
+                    <span className="text-text-muted">xG:</span>
                     {(match.home_xg ?? meta.home_xg) != null ? Number(match.home_xg ?? meta.home_xg).toFixed(2) : '-'} - {(match.away_xg ?? meta.away_xg) != null ? Number(match.away_xg ?? meta.away_xg).toFixed(2) : '-'}
                   </span>
                 </div>
@@ -260,10 +260,10 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {/* Away Team */}
             <div className="flex items-center gap-2.5 flex-1 justify-end text-right min-w-0">
               <div className="min-w-0">
-                <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-tight truncate">
+                <h3 className="font-bold text-sm sm:text-base text-text-primary leading-tight truncate">
                   {awayTeam.name}
                 </h3>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Deplasman
                 </span>
               </div>
@@ -276,7 +276,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             </div>
           </div>
 
-          <div className="text-center text-[11px] text-slate-500 mt-2 font-medium flex items-center justify-center gap-2">
+          <div className="text-center text-xs text-text-secondary mt-2 font-medium flex items-center justify-center gap-2">
             <span>{match.kickoff_label || meta.kickoff_label}</span>
             <span>•</span>
             <span className="truncate max-w-[200px]">{match.ground_name || meta.ground || 'Premier League Stadı'}</span>
@@ -289,14 +289,14 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
           </div>
 
           {/* Sub-tab Navigation */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mt-4 pt-3 border-t border-slate-100">
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-4 pt-3 border-t border-border-light">
             {isCompleted && (
               <button
                 onClick={() => setActiveTab('stats')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
                   activeTab === 'stats'
-                    ? 'bg-[#38003c] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                    ? 'bg-primary text-white '
+                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
                 }`}
               >
                 <BarChart3 className="w-3.5 h-3.5" />
@@ -307,19 +307,19 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {!isCompleted && isPredictable && (
               <button
                 onClick={() => setActiveTab('prediction')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
                   activeTab === 'prediction'
-                    ? 'bg-[#38003c] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                    ? 'bg-primary text-white '
+                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#00ff87]" />
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
                 <span>Model Tahminleri</span>
               </button>
             )}
 
             {!isCompleted && !isPredictable && (
-              <span className="px-3 py-1 rounded-xl text-[11px] font-bold bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-1.5" title="Model tahminleri takım formu ve sakatlık güncelliği için yalnızca mevcut haftanın maçlarında aktiftir">
+              <span className="px-3 py-1 rounded text-xs font-bold bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-1.5" title="Model tahminleri takım formu ve sakatlık güncelliği için yalnızca mevcut haftanın maçlarında aktiftir">
                 <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
                 <span>Tahminler {match.gameweek}. Haftada Açılacak</span>
               </span>
@@ -327,10 +327,10 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
 
             <button
               onClick={() => setActiveTab('lineups')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === 'lineups'
-                  ? 'bg-[#38003c] text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                  ? 'bg-primary text-white '
+                  : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -340,10 +340,10 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {isCompleted && timeline.length > 0 && (
               <button
                 onClick={() => setActiveTab('timeline')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
                   activeTab === 'timeline'
-                    ? 'bg-[#38003c] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                    ? 'bg-primary text-white '
+                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
                 }`}
               >
                 <Zap className="w-3.5 h-3.5 text-amber-500" />
@@ -354,10 +354,10 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {isCompleted && events.length > 0 && (
               <button
                 onClick={() => setActiveTab('events')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
                   activeTab === 'events'
-                    ? 'bg-[#38003c] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                    ? 'bg-primary text-white '
+                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" />
@@ -369,10 +369,10 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {oddsData.length > 0 && (
               <button
                 onClick={() => setActiveTab('odds')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
                   activeTab === 'odds'
-                    ? 'bg-[#38003c] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                    ? 'bg-primary text-white '
+                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
@@ -388,8 +388,8 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
           
           {loading ? (
             <div className="py-20 text-center">
-              <div className="w-8 h-8 border-3 border-[#38003c] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-xs font-bold text-slate-700">İstatistikler ve maç verileri yükleniyor...</p>
+              <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-xs font-bold text-text-secondary">İstatistikler ve maç verileri yükleniyor...</p>
             </div>
           ) : activeTab === 'stats' ? (
             <MatchModalStatsTab
@@ -438,7 +438,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             /* EVENTS TAB */
             <div className="space-y-2.5">
               {events.length === 0 ? (
-                <div className="py-12 text-center text-xs text-slate-500">
+                <div className="py-12 text-center text-xs text-text-secondary">
                   Bu karşılaşma için canlı olay kaydı bulunamadı.
                 </div>
               ) : (
@@ -448,19 +448,19 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
                   return (
                     <div
                       key={ev.id || idx}
-                      className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200 transition-colors text-xs"
+                      className="flex items-start gap-3 p-3 rounded bg-background-tertiary hover:bg-background-tertiary/80 border border-border transition-colors text-xs"
                     >
-                      <span className="font-mono font-black text-[#38003c] min-w-[32px] pt-0.5">
+                      <span className="font-mono font-semibold text-text-primary min-w-[32px] pt-0.5">
                         {min}'
                       </span>
-                      <div className="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                      <div className="w-6 h-6 rounded bg-background-primary border border-border flex items-center justify-center shrink-0">
                         {renderEventIcon(type)}
                       </div>
                       <div className="flex-1">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-700 block mb-0.5">
+                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-purple-700 block mb-0.5">
                           {type}
                         </span>
-                        <p className="text-slate-800 font-medium leading-relaxed">
+                        <p className="text-text-primary font-medium leading-relaxed">
                           {ev.text}
                         </p>
                       </div>

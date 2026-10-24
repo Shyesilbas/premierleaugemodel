@@ -55,7 +55,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] text-slate-900 flex">
+    <div className="min-h-screen bg-background-secondary text-text-primary flex">
       
       {/* Left Vertical Sticky Sidebar */}
       <Sidebar 

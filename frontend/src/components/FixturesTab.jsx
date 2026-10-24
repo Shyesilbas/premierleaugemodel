@@ -13,7 +13,8 @@ import {
   AlertCircle,
   List,
   LayoutGrid,
-  ChevronDown
+  ChevronDown,
+  X
 } from 'lucide-react';
 import MatchDetailModal from './MatchDetailModal';
 import { getCachedTeamData, setCachedTeamData, clearAllCaches, calculateTeamExpiry, syncDataVersion } from '../utils/teamProfileCache';
@@ -251,22 +252,22 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
   return (
     <div className="space-y-6">
       
-      {/* Consolidated Ultra-Compact Control Bar */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-sm">
+      {/* Consolidated Control Bar */}
+      <div className="bg-background-primary border border-border rounded p-3">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
           
           {/* Left: View Tabs (Fikstür / Puan Tablosu) + Gameweek Stepper */}
           <div className="flex flex-wrap items-center gap-2">
             
             {/* View Mode: Fikstür vs Puan Tablosu */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+            <div className="flex items-center bg-background-tertiary p-0.5 rounded border border-border shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveView('fixtures')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium transition-colors ${
                   activeView === 'fixtures'
-                    ? 'bg-[#38003c] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-primary text-white'
+                    : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5" />
@@ -275,20 +276,20 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
               <button
                 type="button"
                 onClick={() => setActiveView('table')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium transition-colors ${
                   activeView === 'table'
-                    ? 'bg-[#38003c] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-primary text-white'
+                    : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                <Trophy className="w-3.5 h-3.5" />
                 <span>Puan Tablosu</span>
               </button>
             </div>
 
             {/* Gameweek Stepper (Only in fixtures view) */}
             {activeView === 'fixtures' && (
-              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 p-0.5 rounded-xl shrink-0">
+              <div className="flex items-center gap-1 bg-background-tertiary border border-border p-0.5 rounded shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -297,7 +298,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                     setSelectedGameweek(String(prev));
                   }}
                   disabled={selectedGameweek !== 'all' && Number(selectedGameweek) <= 1}
-                  className="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="p-1 rounded text-text-secondary hover:text-text-primary hover:bg-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   title="Önceki Hafta"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -308,23 +309,23 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                   <button
                     type="button"
                     onClick={() => setIsGameweekMenuOpen(open => !open)}
-                    className="flex items-center gap-1 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 hover:text-[#38003c] transition-colors"
+                    className="flex items-center gap-1 px-2 py-0.5 text-xs font-mono font-medium text-text-primary transition-colors"
                   >
                     <span>{selectedGameweek === 'all' ? 'Tüm Haftalar' : `Hafta ${selectedGameweek}`}</span>
                     {String(selectedGameweek) === String(currentGameweek) && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Mevcut Hafta" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-status-success" title="Mevcut Hafta" />
                     )}
-                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isGameweekMenuOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 text-text-muted transition-transform ${isGameweekMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {/* Dropdown Menu */}
                   {isGameweekMenuOpen && (
-                    <div className="absolute left-0 top-full z-50 mt-1.5 max-h-64 w-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl scrollbar-thin">
+                    <div className="absolute left-0 top-full z-50 mt-1.5 max-h-64 w-48 overflow-y-auto rounded border border-border bg-background-primary p-1 shadow-md">
                       <button
                         type="button"
                         onClick={() => { setSelectedGameweek('all'); setIsGameweekMenuOpen(false); }}
-                        className={`w-full rounded-lg px-2.5 py-1.5 text-left text-xs font-bold transition-all ${
-                          selectedGameweek === 'all' ? 'bg-[#38003c] text-white' : 'text-slate-700 hover:bg-slate-100'
+                        className={`w-full rounded-sm px-2.5 py-1.5 text-left text-xs font-medium transition-colors ${
+                          selectedGameweek === 'all' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-background-tertiary'
                         }`}
                       >
                         Tüm Haftalar
@@ -337,14 +338,14 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                             key={gw}
                             type="button"
                             onClick={() => { setSelectedGameweek(String(gw)); setIsGameweekMenuOpen(false); }}
-                            className={`mt-0.5 flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-bold transition-all ${
-                              isSelected ? 'bg-[#38003c] text-white' : 'text-slate-700 hover:bg-slate-100'
+                            className={`mt-0.5 flex w-full items-center justify-between rounded-sm px-2.5 py-1.5 text-left text-xs font-medium transition-colors ${
+                              isSelected ? 'bg-primary text-white' : 'text-text-secondary hover:bg-background-tertiary'
                             }`}
                           >
                             <span>Hafta {gw}</span>
                             {isCurrent && (
-                              <span className={`rounded px-1.5 py-0.2 text-[9px] uppercase font-sans font-black ${
-                                isSelected ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800'
+                              <span className={`rounded-sm px-1.5 py-0.5 text-xs uppercase font-sans font-medium ${
+                                isSelected ? 'bg-status-success text-white' : 'bg-background-tertiary text-status-success'
                               }`}>
                                 Mevcut
                               </span>
@@ -365,7 +366,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                     setSelectedGameweek(String(next));
                   }}
                   disabled={selectedGameweek !== 'all' && Number(selectedGameweek) >= (allGwNumbers.length ? Math.max(...allGwNumbers) : 38)}
-                  className="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="p-1 rounded text-text-secondary hover:text-text-primary hover:bg-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   title="Sonraki Hafta"
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -378,26 +379,26 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
               <button
                 type="button"
                 onClick={() => setSelectedGameweek(String(currentGameweek))}
-                className="px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-all flex items-center gap-1 shrink-0"
+                className="px-2 py-1 rounded text-xs font-medium bg-background-tertiary text-text-primary border border-border hover:bg-border-light transition-colors flex items-center gap-1 shrink-0"
                 title="Şu anki haftaya dön"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-status-success" />
                 <span>H{currentGameweek}'e Dön</span>
               </button>
             )}
 
             {activeView === 'table' && (
-              <div className="flex items-center gap-2.5 text-[11px] font-medium text-slate-500 ml-1">
+              <div className="flex items-center gap-2.5 text-xs font-medium text-text-secondary ml-1">
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-xs bg-blue-500" />
+                  <span className="w-2 h-2 rounded-xs bg-status-info" />
                   <span>UCL (1-4)</span>
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-xs bg-orange-500" />
+                  <span className="w-2 h-2 rounded-xs bg-status-warning" />
                   <span>UEL (5)</span>
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-xs bg-rose-500" />
+                  <span className="w-2 h-2 rounded-xs bg-status-error" />
                   <span>Düşme (18-20)</span>
                 </span>
               </div>
@@ -410,22 +411,22 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
             {/* Search Input (Only for fixtures view) */}
             {activeView === 'fixtures' && (
               <div className="relative min-w-[170px] sm:min-w-[210px] flex-1 sm:flex-initial">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Takım / stadyum ara..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-7 py-1.5 text-xs font-medium text-slate-900 placeholder-slate-400 outline-none focus:border-[#38003c] focus:bg-white transition-all"
+                  placeholder="Takım veya stadyum ara..."
+                  className="w-full bg-background-primary border border-border rounded pl-8 pr-7 py-1.5 text-xs font-medium text-text-primary placeholder-text-muted outline-none focus:border-border-focus transition-colors"
                 />
                 {search && (
                   <button
                     type="button"
                     onClick={() => setSearch('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold px-1"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary text-xs p-1"
                     title="Aramayı temizle"
                   >
-                    ✕
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
@@ -433,14 +434,14 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
 
             {/* View Mode Toggle: List ↔ Cards */}
             {activeView === 'fixtures' && (
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+              <div className="flex items-center bg-background-tertiary p-0.5 rounded border border-border shrink-0">
                 <button
                   type="button"
                   onClick={() => handleDisplayModeChange('list')}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-sm text-xs font-medium transition-colors ${
                     displayMode === 'list'
-                      ? 'bg-[#38003c] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-primary text-white'
+                      : 'text-text-secondary hover:text-text-primary'
                   }`}
                   title="Kompakt Liste"
                 >
@@ -450,10 +451,10 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                 <button
                   type="button"
                   onClick={() => handleDisplayModeChange('cards')}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-sm text-xs font-medium transition-colors ${
                     displayMode === 'cards'
-                      ? 'bg-[#38003c] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-primary text-white'
+                      : 'text-text-secondary hover:text-text-primary'
                   }`}
                   title="Detaylı Kartlar"
                 >
@@ -470,7 +471,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                 id="fixtures-season-select"
                 value={selectedSeason}
                 onChange={(event) => setSelectedSeason(event.target.value)}
-                className="appearance-none rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-2.5 pr-7 text-xs font-bold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#38003c]/30 cursor-pointer"
+                className="appearance-none rounded border border-border bg-background-primary py-1.5 pl-2.5 pr-7 text-xs font-medium text-text-primary hover:bg-background-tertiary focus:outline-none focus:border-border-focus cursor-pointer"
               >
                 {['2026_27', '2025_26', '2024_25', '2023_24', '2022_23'].map(season => (
                   <option key={season} value={season}>
@@ -478,7 +479,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
             </div>
 
             {/* Sync Dropdown */}
@@ -491,7 +492,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                     onClick={() => setIsSyncMenuOpen(open => !open)}
                     disabled={busy}
                     title={busy ? 'Veriler eşitleniyor' : 'Veri güncelle'}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-violet-200 bg-violet-50 text-violet-800 text-xs font-bold hover:bg-violet-100 transition-all disabled:opacity-50"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-border bg-background-tertiary text-text-primary text-xs font-medium hover:bg-border transition-colors disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isSyncMenuOpen ? 'rotate-180' : ''}`} />
@@ -499,7 +500,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                   {isSyncMenuOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsSyncMenuOpen(false)} />
-                      <div className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                      <div className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded border border-border bg-background-primary p-1 shadow-md">
                         {[
                           { kind: 'referees', label: 'Hakemler', hint: 'Atanan hakemleri çek' },
                           { kind: 'lineups', label: 'Kadrolar', hint: 'Önümüzdeki 2 saatteki maçların resmi kadroları' },
@@ -509,10 +510,10 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                             key={kind}
                             type="button"
                             onClick={() => { setIsSyncMenuOpen(false); triggerSeasonSync(kind); }}
-                            className="block w-full rounded-lg px-2.5 py-1.5 text-left transition-all hover:bg-slate-100"
+                            className="block w-full rounded-sm px-2.5 py-1.5 text-left transition-colors hover:bg-background-tertiary"
                           >
-                            <span className="block text-xs font-bold text-slate-800">{label}</span>
-                            <span className="block text-[10px] text-slate-500">{hint}</span>
+                            <span className="block text-xs font-medium text-text-primary">{label}</span>
+                            <span className="block text-xs text-text-muted">{hint}</span>
                           </button>
                         ))}
                       </div>
@@ -527,14 +528,14 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
 
         {/* Sync message if active */}
         {syncMessage && (
-          <p className={`flex items-center gap-1 text-[10px] font-semibold ${syncStatus === 'failed' ? 'text-rose-700' : syncStatus === 'completed' ? 'text-emerald-700' : 'text-slate-500'}`}>
-            {syncStatus === 'completed' && <CheckCircle2 className="h-3 w-3" />}
-            {syncStatus === 'failed' && <AlertCircle className="h-3 w-3" />}
+          <p className={`flex items-center gap-1 text-xs font-medium mt-2 ${syncStatus === 'failed' ? 'text-status-error' : syncStatus === 'completed' ? 'text-status-success' : 'text-text-muted'}`}>
+            {syncStatus === 'completed' && <CheckCircle2 className="h-3.5 w-3.5" />}
+            {syncStatus === 'failed' && <AlertCircle className="h-3.5 w-3.5" />}
             <span>{syncMessage}</span>
           </p>
         )}
         {syncStatus === 'completed' && syncMatches.length > 0 && (
-          <ul className="text-[10px] font-semibold text-slate-600 space-y-0.5">
+          <ul className="text-xs text-text-secondary space-y-0.5 mt-1">
             {syncMatches.map(name => <li key={name}>• {name}</li>)}
           </ul>
         )}

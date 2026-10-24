@@ -75,11 +75,11 @@ function TeamHeader({ team, lineup, label, align = 'left' }) {
     <div className={`flex items-center gap-3 min-w-0 ${isRight ? 'flex-row-reverse text-right' : ''}`}>
       <img src={team?.badge} alt="" className="w-9 h-9 sm:w-10 sm:h-10 object-contain shrink-0 drop-shadow" />
       <div className="min-w-0">
-        <div className="text-sm sm:text-base font-black leading-tight truncate">{team?.name}</div>
-        <div className={`flex items-center gap-1.5 mt-0.5 text-[11px] text-white/60 font-semibold ${isRight ? 'justify-end' : ''}`}>
+        <div className="text-sm sm:text-base font-semibold leading-tight truncate">{team?.name}</div>
+        <div className={`flex items-center gap-1.5 mt-0.5 text-xs text-white/60 font-semibold ${isRight ? 'justify-end' : ''}`}>
           <span className="uppercase tracking-wider">{label}</span>
           {lineup?.formation && (
-            <span className="font-mono font-black text-[#00ff87] bg-white/10 rounded-md px-1.5 py-px">{lineup.formation}</span>
+            <span className="font-mono font-semibold text-status-success bg-background-primary/10 rounded-md px-1.5 py-px">{lineup.formation}</span>
           )}
           {lineup?.team_ratings?.overall != null && (
             <span className="hidden sm:inline" title={ratingLabel}>
@@ -122,7 +122,7 @@ export default function PitchLineup({
         key={player.id || player.shirt}
         onClick={(e) => onPlayerClick && onPlayerClick(player, side, e)}
         title={`${player.name} (#${player.shirt ?? '-'}) · Detaylar için tıklayın`}
-        className="group relative flex flex-col items-center w-16 sm:w-20 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00ff87]"
+        className="group relative flex flex-col items-center w-16 sm:w-20 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00ff87]"
       >
         <div className="relative transition-transform duration-200 group-hover:-translate-y-0.5">
           <PlayerAvatar
@@ -130,13 +130,13 @@ export default function PitchLineup({
             name={player.name}
             shirt={player.shirt}
             fallback="initials"
-            size="w-9 h-9 sm:w-12 sm:h-12 text-[10px]"
-            className="!border-0 ring-2 ring-white/90 shadow-lg shadow-black/30 group-hover:ring-[#00ff87] transition-all"
+            size="w-9 h-9 sm:w-12 sm:h-12 text-xs"
+            className="!border-0 ring-2 ring-white/90 shadow-lg shadow-black/30 group-hover:ring-primary transition-all"
           />
 
           {rating != null && (
             <span
-              className={`absolute -top-1.5 -right-3 min-w-[26px] text-center px-1 rounded-md font-mono font-black text-[10px] leading-4 shadow-md ring-1 ring-black/10 ${ratingClass(rating)}`}
+              className={`absolute -top-1.5 -right-3 min-w-[26px] text-center px-1 rounded-md font-mono font-semibold text-xs leading-4 shadow-md ring-1 ring-black/10 ${ratingClass(rating)}`}
               title={isMatchRating
                 ? `Maç Performans Notu: ${Number(rating).toFixed(1)}/10`
                 : `5 Maçlık Form Puanı: ${Number(rating).toFixed(1)}/10 · ${player.form_label || 'Normal'} · Kart Riski: ${player.cards_risk ?? '-'}/10`}
@@ -146,7 +146,7 @@ export default function PitchLineup({
           )}
 
           {player.captain && (
-            <span className="absolute -top-1 -left-1.5 w-4 h-4 rounded-full bg-amber-400 text-slate-950 font-black text-[9px] flex items-center justify-center ring-2 ring-white shadow" title="Kaptan">
+            <span className="absolute -top-1 -left-1.5 w-4 h-4 rounded-full bg-amber-400 text-slate-950 font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow" title="Kaptan">
               C
             </span>
           )}
@@ -154,22 +154,22 @@ export default function PitchLineup({
           {(goals > 0 || assists > 0 || stats.yellow_cards > 0 || stats.red_cards > 0 || subOffMinute || (!isMatchRating && player.cards_risk >= 7)) && (
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-0.5 whitespace-nowrap">
               {Array.from({ length: goals }).map((_, i) => (
-                <span key={`g${i}`} className="w-4 h-4 rounded-full bg-white text-slate-900 flex items-center justify-center shadow" title="Gol">
+                <span key={`g${i}`} className="w-4 h-4 rounded-full bg-background-primary text-text-primary flex items-center justify-center shadow" title="Gol">
                   <BallIcon className="w-3 h-3" />
                 </span>
               ))}
               {assists > 0 && (
-                <span className="h-4 px-1 rounded-full bg-[#38003c] text-white text-[9px] font-black flex items-center shadow ring-1 ring-white/60" title={`${assists} Asist`}>
+                <span className="h-4 px-1 rounded-full bg-primary text-white text-xs font-semibold flex items-center shadow ring-1 ring-white/60" title={`${assists} Asist`}>
                   A{assists > 1 ? assists : ''}
                 </span>
               )}
               {stats.red_cards > 0 ? <RedCardIcon className="w-2.5 h-3.5 ring-1 ring-white" />
                 : stats.yellow_cards > 0 ? <YellowCardIcon className="w-2.5 h-3.5 ring-1 ring-white" />
                 : (!isMatchRating && player.cards_risk >= 7) ? (
-                  <span className="w-2.5 h-3.5 rounded-[2px] border border-dashed border-amber-300 bg-amber-400/40" title={`Yüksek Kart Riski: ${player.cards_risk}/10`} />
+                  <span className="w-2.5 h-3.5 rounded-xs border border-dashed border-amber-300 bg-amber-400/40" title={`Yüksek Kart Riski: ${player.cards_risk}/10`} />
                 ) : null}
               {subOffMinute && (
-                <span className="h-4 pl-0.5 pr-1 rounded-full bg-white text-rose-600 text-[9px] font-black font-mono flex items-center shadow" title={`${subOffMinute}' oyundan çıktı`}>
+                <span className="h-4 pl-0.5 pr-1 rounded-full bg-background-primary text-rose-600 text-xs font-semibold font-mono flex items-center shadow" title={`${subOffMinute}' oyundan çıktı`}>
                   <ArrowDown className="w-2.5 h-2.5" strokeWidth={3} />{subOffMinute}'
                 </span>
               )}
@@ -177,7 +177,7 @@ export default function PitchLineup({
           )}
         </div>
 
-        <span className="mt-2.5 max-w-full truncate text-[10px] sm:text-xs font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.8)] group-hover:text-[#00ff87] transition-colors">
+        <span className="mt-2.5 max-w-full truncate text-xs font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.8)] group-hover:text-status-success transition-colors">
           <span className="font-mono text-white/60 mr-0.5">{player.shirt}</span>{shortName}
         </span>
       </button>
@@ -200,13 +200,13 @@ export default function PitchLineup({
     const hasStats = (playerStats?.[side] || []).length > 0;
     return (
       <div className="min-w-0">
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-100">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-background-tertiary border-b border-border-light">
           <img src={team?.badge} alt="" className="w-5 h-5 object-contain" />
-          <span className="text-xs font-black text-slate-900 truncate">{team?.name}</span>
-          <span className="ml-auto text-[10px] font-bold text-slate-400">{subs.length} oyuncu</span>
+          <span className="text-xs font-semibold text-text-primary truncate">{team?.name}</span>
+          <span className="ml-auto text-xs font-bold text-text-muted">{subs.length} oyuncu</span>
         </div>
         {subs.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-6">Kayıtlı yedek oyuncu yok.</p>
+          <p className="text-xs text-text-muted text-center py-6">Kayıtlı yedek oyuncu yok.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {subs.map((sub, idx) => {
@@ -219,27 +219,27 @@ export default function PitchLineup({
                     type="button"
                     onClick={(e) => onPlayerClick && onPlayerClick(sub, side, e)}
                     title={`${sub.name} maç performansını görüntüle`}
-                    className={`w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 transition-colors group ${hasStats && !played ? 'opacity-55 hover:opacity-100' : ''}`}
+                    className={`w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-background-tertiary transition-colors group ${hasStats && !played ? 'opacity-55 hover:opacity-100' : ''}`}
                   >
-                    <span className="w-5 text-right font-mono text-[11px] font-bold text-slate-400">{sub.shirt ?? '-'}</span>
-                    <PlayerAvatar photoUrl={sub.photo_url} name={sub.name} shirt={sub.shirt} fallback="initials" size="w-8 h-8 text-[10px]" />
+                    <span className="w-5 text-right font-mono text-xs font-bold text-text-muted">{sub.shirt ?? '-'}</span>
+                    <PlayerAvatar photoUrl={sub.photo_url} name={sub.name} shirt={sub.shirt} fallback="initials" size="w-8 h-8 text-xs" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs sm:text-sm font-bold text-slate-800 truncate group-hover:text-[#38003c] transition-colors">{sub.name}</div>
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
+                      <div className="text-xs sm:text-sm font-bold text-text-primary truncate group-hover:text-text-primary transition-colors">{sub.name}</div>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-text-muted">
                         <span>{POSITION_LABEL[sub.position] || sub.position || '-'}</span>
                         {played && (
                           // shortcut: entry minute inferred as 90 - minutes played, off by stoppage time
-                          <span className="inline-flex items-center text-emerald-600 font-mono font-black" title="Oyuna girdi">
+                          <span className="inline-flex items-center text-emerald-600 font-mono font-semibold" title="Oyuna girdi">
                             <ArrowUp className="w-2.5 h-2.5" strokeWidth={3} />{Math.max(1, 90 - stats.minutes)}'
                           </span>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {Array.from({ length: stats.goals || 0 }).map((_, i) => <BallIcon key={i} className="w-3.5 h-3.5 text-slate-700" />)}
+                      {Array.from({ length: stats.goals || 0 }).map((_, i) => <BallIcon key={i} className="w-3.5 h-3.5 text-text-secondary" />)}
                       {stats.red_cards > 0 ? <RedCardIcon /> : stats.yellow_cards > 0 ? <YellowCardIcon /> : null}
                       {rating != null && (
-                        <span className={`min-w-[30px] text-center px-1 rounded-md font-mono font-black text-[10px] leading-5 ${ratingClass(rating)}`}>
+                        <span className={`min-w-[30px] text-center px-1 rounded-md font-mono font-semibold text-xs leading-5 ${ratingClass(rating)}`}>
                           {Number(rating).toFixed(1)}
                         </span>
                       )}
@@ -256,16 +256,16 @@ export default function PitchLineup({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-3xl overflow-hidden bg-[#1f0022] shadow-xl ring-1 ring-black/5">
-        <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-3.5 text-white bg-gradient-to-r from-[#38003c] via-[#2a002e] to-[#38003c]">
+      <div className="rounded overflow-hidden bg-primary shadow-xl ring-1 ring-black/5">
+        <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-3.5 text-white bg-primary">
           <TeamHeader team={homeTeam} lineup={homeLineup} label="Ev" />
           <TeamHeader team={awayTeam} lineup={awayLineup} label="Dep" align="right" />
         </div>
 
-        <div className="relative w-full aspect-[72/109] min-h-[620px] sm:min-h-0 xl:aspect-[109/72] bg-[#1d6b3a] select-none">
+        <div className="relative w-full aspect-[3/4] min-h-[620px] sm:min-h-0 xl:aspect-[4/3] bg-[#1d6b3a] select-none">
           <div className="absolute inset-0 flex flex-col xl:flex-row pointer-events-none">
             {[...Array(14)].map((_, i) => (
-              <div key={i} className={`flex-1 ${i % 2 === 0 ? 'bg-white/[0.035]' : 'bg-black/[0.06]'}`} />
+              <div key={i} className={`flex-1 ${i % 2 === 0 ? 'bg-background-primary/[0.035]' : 'bg-black/[0.06]'}`} />
             ))}
           </div>
           <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.25))]" />
@@ -283,10 +283,10 @@ export default function PitchLineup({
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <h4 className="text-sm font-black text-slate-900">Yedek Kulübesi</h4>
-          <span className="text-[10px] text-slate-400 font-medium">Detay için oyuncuya tıklayın</span>
+      <div className="bg-background-primary border border-border rounded  overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h4 className="text-sm font-semibold text-text-primary">Yedek Kulübesi</h4>
+          <span className="text-xs text-text-muted font-medium">Detay için oyuncuya tıklayın</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 md:divide-x divide-slate-200">
           {renderBench(homeLineup, homeTeam, 'home')}

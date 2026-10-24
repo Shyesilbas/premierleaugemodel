@@ -8,7 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Semantic tokens (see DESIGN.md)
+        // Semantic tokens (see .agents/skills/restrained-ui-design-standard/SKILL.md)
         primary: { DEFAULT: '#0f172a', hover: '#1e293b' },
         background: { primary: '#ffffff', secondary: '#f8fafc', tertiary: '#f1f5f9' },
         text: { primary: '#0f172a', secondary: '#475569', tertiary: '#64748b', muted: '#94a3b8' },

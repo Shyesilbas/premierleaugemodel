@@ -91,11 +91,22 @@ def get_summary_json_path(season: str) -> Path:
 
 
 def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) -> Dict[str, Any]:
-    """Generates zero-leakage predictions for completed matches in the specified season
-    and evaluates performance against final match results and market odds.
+    """Generates zero-leakage predictions for every match of the season.
+
+    Completed matches are scored against final results and market odds. Unplayed
+    fixtures get the same pre-match prediction (rolling features are shift(1) based,
+    so only matches already played feed them) and are listed as pending, limited to
+    the current gameweek and the next one; they never
+    enter the hit-rate / MAE metrics or the SQLite audit table.
     """
     summary_path = get_summary_json_path(season)
-    if not force_recalc and summary_path.exists():
+    features_path = DATA_DIR / "processed" / "features_matches_all.parquet"
+    cache_fresh = (
+        summary_path.exists()
+        and features_path.exists()
+        and summary_path.stat().st_mtime >= features_path.stat().st_mtime
+    )
+    if not force_recalc and cache_fresh:
         try:
             with open(summary_path, "r", encoding="utf-8") as f:
                 cached = json.load(f)
@@ -104,7 +115,6 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
         except Exception as e:
             logger.warning(f"Failed to read cached audit summary: {e}")
 
-    features_path = DATA_DIR / "processed" / "features_matches_all.parquet"
     if not features_path.exists():
         return {"error": "Features parquet file not found."}
 
@@ -115,9 +125,15 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
     cards_art = joblib.load(MODELS_DIR / "cards_model_v1.joblib")
 
     df_all = pd.read_parquet(features_path)
-    matches_df = df_all[(df_all["season"] == season) & (df_all["is_played"])].sort_values(
+    matches_df = df_all[df_all["season"] == season].sort_values(
         ["gameweek", "match_date"]
     ).copy()
+
+    # Unplayed fixtures: predict only the current gameweek (last one with a played
+    # match) and the one right after it.
+    played_gws = matches_df.loc[matches_df["is_played"], "gameweek"]
+    cur_gw = played_gws.max() if not played_gws.empty else matches_df["gameweek"].min() - 1
+    matches_df = matches_df[matches_df["is_played"] | matches_df["gameweek"].isin([cur_gw, cur_gw + 1])]
 
     if matches_df.empty:
         return {"season": season, "overall": {}, "gameweeks": {}, "matches": []}
@@ -146,6 +162,7 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
 
     audited_matches = []
     gw_stats: Dict[int, Dict[str, Any]] = {}
+    upcoming_gws: Dict[int, int] = {}
     audit_now_utc = datetime.now(timezone.utc).isoformat()
 
     for _, row in matches_df.iterrows():
@@ -155,9 +172,13 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
         a_name = str(row["away_name"])
         m_date = str(row["match_date"])[:10] if pd.notnull(row["match_date"]) else ""
 
-        h_score = int(row["home_score"])
-        a_score = int(row["away_score"])
-        actual_res = "home" if h_score > a_score else ("away" if a_score > h_score else "draw")
+        played = bool(row["is_played"])
+        if played:
+            h_score = int(row["home_score"])
+            a_score = int(row["away_score"])
+            actual_res = "home" if h_score > a_score else ("away" if a_score > h_score else "draw")
+        else:
+            h_score = a_score = actual_res = None
 
         # 1X2 Prediction with Full Calibration
         X1 = pd.DataFrame([row]).reindex(columns=o_feats, fill_value=np.nan)
@@ -204,7 +225,7 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
             fav_name = h_name if pred_winner == "home" else (a_name if pred_winner == "away" else "Beraberlik")
             fav_label = f"{fav_name} Favori"
 
-        hit_1x2 = bool(pred_winner == actual_res)
+        hit_1x2 = bool(pred_winner == actual_res) if played else None
 
         # Goals Prediction
         # Same scoring path as /api/predict: matrix aligned to the 1X2 model, then stored calibrators.
@@ -220,21 +241,23 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
         p_over25 = round(raw_o25 * 100, 1)
         p_btts = round(raw_btts * 100, 1)
 
-        actual_tot_goals = h_score + a_score
-        hit_over25 = bool((p_over25 >= 50.0) == (actual_tot_goals > 2.5))
         btts_threshold = 50.0
-        hit_btts = bool((p_btts >= btts_threshold) == (h_score > 0 and a_score > 0))
+        if played:
+            hit_over25 = bool((p_over25 >= 50.0) == (h_score + a_score > 2.5))
+            hit_btts = bool((p_btts >= btts_threshold) == (h_score > 0 and a_score > 0))
+        else:
+            hit_over25 = hit_btts = None
 
         # Corners
         Xc = pd.DataFrame([row]).reindex(columns=c_feats, fill_value=np.nan)
         exp_corners = round(float(corner_art["model"].predict(Xc)[0]), 1)
-        act_corners = float(row["total_corners"]) if pd.notnull(row.get("total_corners")) else None
+        act_corners = float(row["total_corners"]) if played and pd.notnull(row.get("total_corners")) else None
         corner_err = round(abs(act_corners - exp_corners), 1) if act_corners is not None else None
 
         # Cards
         Xcard = pd.DataFrame([row]).reindex(columns=card_feats, fill_value=0.0)
         exp_cards = round(float(cards_art["model"].predict(Xcard)[0]), 1)
-        act_cards = float(row["total_cards"]) if pd.notnull(row.get("total_cards")) else None
+        act_cards = float(row["total_cards"]) if played and pd.notnull(row.get("total_cards")) else None
         card_err = round(abs(act_cards - exp_cards), 1) if act_cards is not None else None
 
         # Market Odds (Bet365 / Pinnacle / Fallback)
@@ -285,9 +308,9 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
             "away_id": a_id,
             "home_name": h_name,
             "away_name": a_name,
-            "status": "COMPLETED",
-            "is_played": True,
-            "score": f"{h_score} - {a_score}",
+            "status": "COMPLETED" if played else "UPCOMING",
+            "is_played": played,
+            "score": f"{h_score} - {a_score}" if played else None,
             "home_score": h_score,
             "away_score": a_score,
             "actual_result": actual_res,
@@ -325,6 +348,9 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
             "is_value_bet": is_val_bet,
         }
         audited_matches.append(item)
+        if not played:
+            upcoming_gws[gw] = upcoming_gws.get(gw, 0) + 1
+            continue
 
         # Insert to SQLite
         conn.execute("""
@@ -389,6 +415,7 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
         gw_summary_list.append({
             "gameweek": g,
             "matches_count": total_g,
+            "upcoming_count": upcoming_gws.get(g, 0),
             "hit_rate_1x2_pct": round(s["hits_1x2"] / total_g * 100, 1),
             "hit_rate_over_25_pct": round(s["hits_over_25"] / total_g * 100, 1),
             "hit_rate_btts_pct": round(s["hits_btts"] / total_g * 100, 1),
@@ -396,21 +423,32 @@ def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) ->
             "card_mae": round(float(np.mean(s["card_errors"])), 2) if s["card_errors"] else None,
         })
 
-    total_m = len(audited_matches)
-    tot_hits_1x2 = sum(1 for m in audited_matches if m["hit_1x2"])
-    tot_hits_o25 = sum(1 for m in audited_matches if m["hit_over_25"])
-    tot_hits_btts = sum(1 for m in audited_matches if m["hit_btts"])
-    all_c_errs = [m["corner_error"] for m in audited_matches if m["corner_error"] is not None]
-    all_card_errs = [m["card_error"] for m in audited_matches if m["card_error"] is not None]
+    for g, n in sorted(upcoming_gws.items()):
+        if g not in gw_stats:
+            gw_summary_list.append({
+                "gameweek": g, "matches_count": 0, "upcoming_count": n,
+                "hit_rate_1x2_pct": None, "hit_rate_over_25_pct": None,
+                "hit_rate_btts_pct": None, "corner_mae": None, "card_mae": None,
+            })
+
+    # Metrics are computed on completed matches only.
+    played_matches = [m for m in audited_matches if m["is_played"]]
+    total_m = len(played_matches)
+    tot_hits_1x2 = sum(1 for m in played_matches if m["hit_1x2"])
+    tot_hits_o25 = sum(1 for m in played_matches if m["hit_over_25"])
+    tot_hits_btts = sum(1 for m in played_matches if m["hit_btts"])
+    all_c_errs = [m["corner_error"] for m in played_matches if m["corner_error"] is not None]
+    all_card_errs = [m["card_error"] for m in played_matches if m["card_error"] is not None]
 
     # Tier statistics
-    high_matches = [m for m in audited_matches if m["confidence_tier"] == "high"]
+    high_matches = [m for m in played_matches if m["confidence_tier"] == "high"]
     high_hits = sum(1 for m in high_matches if m["hit_1x2"])
-    balanced_matches = [m for m in audited_matches if m["is_balanced"]]
-    val_bets = [m for m in audited_matches if m["is_value_bet"]]
+    balanced_matches = [m for m in played_matches if m["is_balanced"]]
+    val_bets = [m for m in played_matches if m["is_value_bet"]]
 
     overall_metrics = {
         "total_audited_matches": total_m,
+        "upcoming_predicted_matches": len(audited_matches) - total_m,
         "hit_rate_1x2_pct": round(tot_hits_1x2 / total_m * 100, 1) if total_m else 0,
         "hits_1x2": tot_hits_1x2,
         "hit_rate_over_25_pct": round(tot_hits_o25 / total_m * 100, 1) if total_m else 0,

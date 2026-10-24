@@ -210,22 +210,7 @@ count_and_dynamics_models:
 
 ---
 
-## 5. Universal Quantitative Guardrails
-
-```yaml
-quant_guardrails:
-  zero_snooping: "Calibrators, shrinkage weights, and hyperparams fitted strictly on train/OOF folds."
-  small_sample_ci: "All metrics with N < 500 must report 10,000-iteration Bootstrap 95% CIs."
-  multiple_testing: "Bonferroni or Benjamini-Hochberg FDR correction mandatory when testing k > 1 subsets."
-  temporal_integrity:
-    shift_1_rule: "All rolling and EWMA features shift by 1 match; simultaneous kickoff matches partitioned."
-    locked_seasons: ["2026_27"]
-  reproducibility: "Bitwise deterministic; random_state=42 everywhere."
-```
-
----
-
-## 6. API and System Endpoint Mapping
+## 5. API and System Endpoint Mapping
 
 ```yaml
 api_endpoints:

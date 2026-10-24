@@ -165,9 +165,11 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
   } else if (marketFilter === 'balanced') {
     filteredMatches = filteredMatches.filter(m => m.is_balanced);
   } else if (marketFilter === '1x2_hits') {
-    filteredMatches = filteredMatches.filter(m => m.hit_1x2);
+    filteredMatches = filteredMatches.filter(m => m.hit_1x2 === true);
   } else if (marketFilter === '1x2_misses') {
-    filteredMatches = filteredMatches.filter(m => !m.hit_1x2);
+    filteredMatches = filteredMatches.filter(m => m.hit_1x2 === false);
+  } else if (marketFilter === 'upcoming') {
+    filteredMatches = filteredMatches.filter(m => m.is_played === false);
   }
 
   const currentGwSummary = selectedGw === 'all'
@@ -270,7 +272,7 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
               : 'text-text-secondary hover:text-text-primary hover:bg-background-tertiary'
           }`}
         >
-          Tüm sezon <span className="tabular-nums">({overall.total_audited_matches})</span>
+          Tüm sezon <span className="tabular-nums">({matches.length})</span>
         </button>
 
         {gameweeks.map((g) => {
@@ -289,7 +291,7 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
             >
               <span>Hafta {g.gameweek}</span>
               <span className={`text-xs tabular-nums ${active ? 'text-white/70' : 'text-text-tertiary'}`}>
-                %{g.hit_rate_1x2_pct}
+                {g.hit_rate_1x2_pct != null ? `%${g.hit_rate_1x2_pct}` : `${g.upcoming_count} bekliyor`}
               </span>
             </button>
           );
@@ -311,6 +313,9 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
           <FilterButton active={marketFilter === 'value_edge_5'} onClick={() => setMarketFilter('value_edge_5')}>
             Değer bahisleri <span className="tabular-nums opacity-70">+%5</span>
           </FilterButton>
+          <FilterButton active={marketFilter === 'upcoming'} onClick={() => setMarketFilter('upcoming')}>
+            Oynanmamış <span className="tabular-nums opacity-70">{gwMatches.filter(m => m.is_played === false).length}</span>
+          </FilterButton>
           <FilterButton active={marketFilter === '1x2_hits'} onClick={() => setMarketFilter('1x2_hits')}>
             1X2 tuttu
           </FilterButton>
@@ -319,7 +324,7 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
           </FilterButton>
         </div>
 
-        {currentGwSummary && (
+        {currentGwSummary && currentGwSummary.matches_count > 0 && (
           <p className="text-sm text-text-secondary tabular-nums shrink-0">
             Hafta {currentGwSummary.gameweek}:{' '}
             1X2 <span className="font-medium text-text-primary">%{currentGwSummary.hit_rate_1x2_pct}</span>

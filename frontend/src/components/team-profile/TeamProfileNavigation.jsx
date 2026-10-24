@@ -4,88 +4,88 @@ export default function TeamProfileNavigation({ profile, activeTeamTab, setActiv
   if (!profile) return null;
 
   return (
-    <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 rounded-2xl border border-slate-200 overflow-x-auto scrollbar-none">
-              <button
-                type="button"
-                onClick={() => setActiveTeamTab('fixtures')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                  activeTeamTab === 'fixtures'
-                    ? 'bg-[#38003c] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                }`}
-              >
-                <Calendar className="w-4 h-4" />
-                <span>Fikstür & Sonuçlar</span>
-                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
-                  activeTeamTab === 'fixtures' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
-                }`}>
-                  {profile?.matches?.length || 0}
-                </span>
-              </button>
+    <div className="flex items-center gap-1.5 p-1 bg-background-tertiary rounded border border-border overflow-x-auto">
+      <button
+        type="button"
+        onClick={() => setActiveTeamTab('fixtures')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-sm text-xs font-medium transition-colors whitespace-nowrap ${
+          activeTeamTab === 'fixtures'
+            ? 'bg-primary text-white'
+            : 'text-text-secondary hover:text-text-primary hover:bg-border-light'
+        }`}
+      >
+        <Calendar className="w-3.5 h-3.5" />
+        <span>Fikstür & Sonuçlar</span>
+        <span className={`text-xs font-mono font-medium px-1.5 py-0.2 rounded-sm tabular-nums ${
+          activeTeamTab === 'fixtures' ? 'bg-white/20 text-white' : 'bg-background-primary text-text-secondary border border-border'
+        }`}>
+          {profile?.matches?.length || 0}
+        </span>
+      </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTeamTab('profile')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                  activeTeamTab === 'profile'
-                    ? 'bg-[#38003c] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                }`}
-              >
-                <Activity className="w-4 h-4" />
-                <span>Oyun Profili & Analiz</span>
-              </button>
+      <button
+        type="button"
+        onClick={() => setActiveTeamTab('profile')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-sm text-xs font-medium transition-colors whitespace-nowrap ${
+          activeTeamTab === 'profile'
+            ? 'bg-primary text-white'
+            : 'text-text-secondary hover:text-text-primary hover:bg-border-light'
+        }`}
+      >
+        <Activity className="w-3.5 h-3.5" />
+        <span>Oyun Profili & Analiz</span>
+      </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTeamTab('squad')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                  activeTeamTab === 'squad'
-                    ? 'bg-[#38003c] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                <span>Kadro Listesi</span>
-                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
-                  activeTeamTab === 'squad' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
-                }`}>
-                  {displayedSquad.length}
-                </span>
-              </button>
+      <button
+        type="button"
+        onClick={() => setActiveTeamTab('squad')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-sm text-xs font-medium transition-colors whitespace-nowrap ${
+          activeTeamTab === 'squad'
+            ? 'bg-primary text-white'
+            : 'text-text-secondary hover:text-text-primary hover:bg-border-light'
+        }`}
+      >
+        <Users className="w-3.5 h-3.5" />
+        <span>Kadro Listesi</span>
+        <span className={`text-xs font-mono font-medium px-1.5 py-0.2 rounded-sm tabular-nums ${
+          activeTeamTab === 'squad' ? 'bg-white/20 text-white' : 'bg-background-primary text-text-secondary border border-border'
+        }`}>
+          {displayedSquad.length}
+        </span>
+      </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTeamTab('managers')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                  activeTeamTab === 'managers'
-                    ? 'bg-[#38003c] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                }`}
-              >
-                <Shield className="w-4 h-4" />
-                <span>Teknik Direktörler</span>
-                {managerChanges.length > 0 && (
-                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
-                    activeTeamTab === 'managers' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
-                  }`}>
-                    {managerChanges.length}
-                  </span>
-                )}
-              </button>
+      <button
+        type="button"
+        onClick={() => setActiveTeamTab('managers')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-sm text-xs font-medium transition-colors whitespace-nowrap ${
+          activeTeamTab === 'managers'
+            ? 'bg-primary text-white'
+            : 'text-text-secondary hover:text-text-primary hover:bg-border-light'
+        }`}
+      >
+        <Shield className="w-3.5 h-3.5" />
+        <span>Teknik Direktörler</span>
+        {managerChanges.length > 0 && (
+          <span className={`text-xs font-mono font-medium px-1.5 py-0.2 rounded-sm tabular-nums ${
+            activeTeamTab === 'managers' ? 'bg-white/20 text-white' : 'bg-background-primary text-text-secondary border border-border'
+          }`}>
+            {managerChanges.length}
+          </span>
+        )}
+      </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTeamTab('transfers')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                  activeTeamTab === 'transfers'
-                    ? 'bg-[#38003c] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                }`}
-              >
-                <Coins className="w-4 h-4 text-amber-500" />
-                <span>Transfer Geçmişi</span>
-              </button>
-            </div>
+      <button
+        type="button"
+        onClick={() => setActiveTeamTab('transfers')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-sm text-xs font-medium transition-colors whitespace-nowrap ${
+          activeTeamTab === 'transfers'
+            ? 'bg-primary text-white'
+            : 'text-text-secondary hover:text-text-primary hover:bg-border-light'
+        }`}
+      >
+        <Coins className="w-3.5 h-3.5" />
+        <span>Transfer Geçmişi</span>
+      </button>
+    </div>
   );
 }
