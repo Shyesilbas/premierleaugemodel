@@ -6,12 +6,14 @@ import PlayerProfilesTab from './components/PlayerProfilesTab';
 import RefereesTab from './components/RefereesTab';
 import MatchDetailPage from './components/MatchDetailPage';
 import ModelAuditTab from './components/ModelAuditTab';
+import StatsTab from './components/StatsTab';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('fixtures'); // Default to fixtures per user request
   const [selectedSeason, setSelectedSeason] = useState('2026_27'); // Default to current season
   const [selectedTeamId, setSelectedTeamId] = useState(1);
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentGameweek, setCurrentGameweek] = useState(6);
 
   const handleSelectMatch = (match, gw = null) => {
@@ -58,15 +60,17 @@ export default function App() {
     <div className="min-h-screen bg-background-secondary text-text-primary flex">
       
       {/* Left Vertical Sticky Sidebar */}
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={handleTabChange} 
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={handleTabChange}
         selectedSeason={selectedSeason}
         setSelectedSeason={setSelectedSeason}
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col justify-between min-h-screen lg:pl-72 w-full">
+      <div className={`flex-1 flex flex-col justify-between min-h-screen w-full transition-all duration-200 ease-out ${sidebarCollapsed ? 'lg:pl-0' : 'lg:pl-72'}`}>
         
         {/* Main Content Body */}
         <main className="p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 max-w-7xl w-full mx-auto space-y-6">
@@ -112,6 +116,14 @@ export default function App() {
               {activeTab === 'referees' && (
                 <RefereesTab 
                   selectedSeason={selectedSeason} 
+                  onSelectMatch={handleSelectMatch}
+                />
+              )}
+
+              {activeTab === 'stats' && (
+                <StatsTab
+                  selectedSeason={selectedSeason}
+                  setSelectedSeason={setSelectedSeason}
                   onSelectMatch={handleSelectMatch}
                 />
               )}

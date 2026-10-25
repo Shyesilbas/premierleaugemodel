@@ -13,7 +13,7 @@ configure_logging()  # before the datasets load, so their progress is logged
 
 from src.api import state  # noqa: E402  (loads datasets and models on import)
 from src.api.security import cors_origins  # noqa: E402
-from src.api.routes import meta, teams, fixtures, players, matches, predict  # noqa: E402
+from src.api.routes import meta, teams, fixtures, players, matches, predict, stats  # noqa: E402
 
 app = FastAPI(title="Premier League Model Engine API", version="1.0.0")
 
@@ -34,7 +34,7 @@ async def reload_changed_data(request: Request, call_next):
         await run_in_threadpool(state._reload_if_data_changed)
     return await call_next(request)
 
-for _module in (meta, teams, fixtures, players, matches, predict):
+for _module in (meta, teams, fixtures, players, matches, predict, stats):
     app.include_router(_module.router)
 
 @app.get("/")

@@ -91,10 +91,10 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `audit_team_scenarios.py` | Skor durumu ve köşe olayları doğrulama raporu. |
 | `team_scenarios.py` | Olay akışından skor durumuna göre şut ve köşe oranları. |
 | `team_tactics.py` | Ham maç istatistiklerinden takım taktik profili (API tarafından kullanılır). |
+| `league_stats.py` | İstatistikler sayfasının hesapları: haftanın/sezonun kadrosu, hücum-defans, gol-asist krallığı, disiplin, kaleciler, form ve sıralama hareketi, ev-deplasman tabloları, gol dakikaları, hakem ve genç oyuncu sıralamaları. Saf fonksiyon (`build_league_stats`). |
 | `team_attackers.py` | Takımın sezon hücum liderleri (oyuncu kayıtları ve şut olaylarından). |
 | `player_ratings.py` | 0-10 oyuncu reytingi (genel, hücum, savunma, kart riski): son 5 maç EWMA %70 + sezon tabanı %30. Tahmini ve resmi ilk 11 toplulaştırması. |
 | `pipeline_health.py` | **Sağlık kontrolü** (yalnızca okur): sezon başına xG ve oran kapsamı, eksik ham dosyalar, özellik/veritabanı uyumsuzluğu, bayat model dosyaları. `python3 -m src.analytics.pipeline_health [--strict] [--json]`; FAIL varsa çıkış kodu 1. |
-| `lineup_feature_pilot.py` | İlk 11 sürekliliği özelliği 1X2'ye sinyal katıyor mu, üretimi değiştirmeden dener. |
 
 ## 8. `src/api/`
 
@@ -102,12 +102,14 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 |---|---|
 | `server.py` | İnce giriş noktası (~50 satır): `FastAPI` uygulaması, CORS, veri değişince yeniden yükleme ara katmanı, yönlendiricileri bağlar, `/` ve `__main__`. |
 | `state.py` | Yüklü veri çerçeveleri, model artifact'ları, önbellekler ve yeniden yükleme (`reload_runtime_datasets`). **İçe aktarılınca her şeyi yükler (~30 sn).** Veri yeniden yüklemede değişkenler yeniden bağlanır; diğer modüller bunları yalnızca `state.<ad>` olarak okur (`from src.api.state import <değişken>` yapmayın). |
+| `prediction_service.py` | Ortak tahmin servisi: 1X2 (kalibrasyon ve kapılı ensemble), 1X2'ye hizalı skor matrisi ve O/U/KG kalibratörleri, 5 sayım modeli (`fill_value=np.nan`), ev/deplasman pay hesabı. `/api/predict`, `/api/fixtures/grouped`, `sync_prematch_lineups` ve `model_audit` tek bir tahmin akışını paylaşır. |
 | `security.py` | Yönetim ucu jetonu (`require_admin_token`) ve CORS kökenleri (`cors_origins`). |
 | `routes/meta.py` | `/api/data-version`, `/api/admin/*` (model yenileme, sezon senkronu; `PLM_ADMIN_TOKEN` ile korunur). |
 | `routes/teams.py` | `/api/teams*`: kadro/teknik ekip, teknik direktör, profil, transfer, taktik, hücum liderleri, senaryolar. |
 | `routes/fixtures.py` | `/api/fixtures*`, `/api/standings`, `/api/referees*`, `/api/match/{id}/recent-form`. |
-| `routes/players.py` | `/api/players*`: arama, profil, piyasa değeri geçmişi, reyting. |
+| `routes/players.py` | `/api/players*`: arama, profil ve piyasa değeri geçmişi. |
 | `routes/matches.py` | `/api/match/{id}/details` ve `/odds`. |
+| `routes/stats.py` | `/api/stats`: hafta veya sezon kapsamında lig istatistikleri (`league_stats.py` çıktısı, veri sürümüne göre önbellekli). |
 | `routes/predict.py` | `/api/predict`, `/api/model-audit`, `/api/benchmarks`. `predict_match` doğrudan çağrılabilir (`prospective_1x2_benchmark` bunu kullanır; FastAPI uygulaması gerekmez). |
 
 ## 9. `tests/` — `pytest`
@@ -123,6 +125,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `test_skill_gate.py` | Sayım modeli CV ve dış sezon kapıları. |
 | `test_eval_utils.py` | Bootstrap. |
 | `test_inference_logic.py` | Çıkarım mantığı ve ev/deplasman payı. |
+| `test_league_stats.py` | İstatistikler hesapları (dört takımlık sentetik lig üzerinde). |
 | `test_team_tactics.py` | Takım taktik özetleri. |
 | `test_pipeline_health.py` | Sağlık kontrolü (xG boşluğu, eksik ham dosya) ve `fetch_season_data` çıkış kodu. |
 | `test_config.py`, `test_rebuild.py` | Yapılandırma (`PLM_DATA_DIR`, `PLM_SEASON`) ve tek yeniden-kur zinciri, aşama seçimi. |
@@ -136,6 +139,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `test_count_models.py` | Beş sayım eğiticisinin ortak yardımcıları ve her eğiticinin sentetik veriyle uçtan uca çalışması. |
 | `test_ingest_files.py` | `atomic_write_json`. |
 | `test_start.py` | `start.py` port mantığı: yalnızca projenin kendi süreci kapatılır, `--force`. |
+| `test_train_serve_parity.py` | Eğitim ve çıkarım özelliklerinin (ilk 11 hücum/savunma farkları dahil) birebir eşleşmesi, koşullu NB2 dispersiyonu ve dış sezon kapı izolasyonu. |
 | `test_docs.py` | Bu belgenin gerçeğe uyması: her `src/` ve `tests/` dosyası burada geçer, burada geçen her dosya vardır. |
 | `conftest.py` | `needs_data` işareti: yerel veri ve model yoksa o testler atlanır. |
 
@@ -172,6 +176,7 @@ Tek seferlik analizler; üretim pipeline'ında kullanılmaz. Çoğu 1.200 maçl�
 | `key_passes_impact.py` | Key pass özelliklerinin gol modellerine etkisi (A/B). |
 | `tactical_pace_and_mv.py` | Piyasa değeri ağırlığı düşürme, tempo ve savunma hattı özellikleri (A/B). |
 | `extract_all_goal_metrics.py` | `goals_models_v1.joblib` için tüm metrikleri toplu çıkarır. |
+| `lineup_feature_pilot.py` | İlk 11 sürekliliği özelliği 1X2'ye sinyal katıyor mu, üretimi değiştirmeden dener (`research/` altında). |
 
 ## 12. `deploy/` — sunucu dosyaları (yeni)
 

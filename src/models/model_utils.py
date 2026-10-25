@@ -23,7 +23,7 @@ CV_SPLITS = 4
 def safe_feature_frame(
     frame: pd.DataFrame,
     features: list[str],
-    fill_value: float = 0.0,
+    fill_value: float = np.nan,
 ) -> pd.DataFrame:
     """Build a model input frame and apply the caller's missing-value policy."""
     selected = pd.DataFrame(
@@ -40,9 +40,27 @@ def safe_feature_frame(
     return selected.fillna(fill_value)
 
 
-def estimate_count_dispersion(y: pd.Series) -> float:
-    """Estimate NB2 overdispersion alpha from the training targets only."""
-    values = pd.to_numeric(y, errors="coerce").dropna().to_numpy(dtype=float)
+def estimate_count_dispersion(
+    y: pd.Series,
+    predicted_means: np.ndarray | pd.Series | None = None,
+) -> float:
+    """Estimate NB2 overdispersion alpha from conditional model residuals (or target mean if none)."""
+    y_series = pd.to_numeric(y, errors="coerce")
+    if predicted_means is not None:
+        y_arr = y_series.to_numpy(dtype=float)
+        mu_arr = np.asarray(predicted_means, dtype=float)
+        if len(y_arr) == len(mu_arr):
+            mask = np.isfinite(y_arr) & np.isfinite(mu_arr) & (mu_arr > 0)
+            n = int(mask.sum())
+            if n >= 2:
+                y_valid = y_arr[mask]
+                mu_valid = mu_arr[mask]
+                denom = float(np.mean(mu_valid ** 2))
+                if denom > 0:
+                    numer = float(np.sum((y_valid - mu_valid) ** 2 - mu_valid) / max(1, n - 1))
+                    return max(0.0, numer / denom)
+
+    values = y_series.dropna().to_numpy(dtype=float)
     if len(values) < 2:
         return 0.0
     mean = float(values.mean())
@@ -337,13 +355,31 @@ def chronological_regression_evaluation(
     raw_selected_name = skill_gate["raw_selected_model"]
     season_holdouts = None
     if seasons is not None:
-        season_holdouts = evaluate_season_holdouts(
-            X, y, seasons.reset_index(drop=True), candidates, partial_seasons
+        seasons_reset = seasons.reset_index(drop=True)
+        seasons_dev = seasons_reset.iloc[:split_idx]
+        dev_counts = seasons_dev.astype(str).value_counts()
+        dev_partial = set(partial_seasons or set()) | {
+            str(s) for s, count in dev_counts.items() if int(count) < 300
+        }
+        dev_season_holdouts = evaluate_season_holdouts(
+            X_dev, y_dev, seasons_dev, candidates, dev_partial
         )
-        selected_name, skill_gate = apply_outer_season_gate(season_holdouts, selected_name, skill_gate)
+        selected_name, skill_gate = apply_outer_season_gate(
+            dev_season_holdouts, selected_name, skill_gate
+        )
+        season_holdouts = evaluate_season_holdouts(
+            X, y, seasons_reset, candidates, partial_seasons
+        )
     holdout_model = clone(candidates[selected_name])
     holdout_model.fit(X_dev, y_dev)
     test_pred = np.asarray(holdout_model.predict(X_test), dtype=float)
+
+    oof_dev_preds = np.full(len(X_dev), np.nan, dtype=float)
+    splitter = TimeSeriesSplit(n_splits=CV_SPLITS)
+    for tr_idx, va_idx in splitter.split(X_dev):
+        fold_model = clone(candidates[selected_name]).fit(X_dev.iloc[tr_idx], y_dev.iloc[tr_idx])
+        oof_dev_preds[va_idx] = np.asarray(fold_model.predict(X_dev.iloc[va_idx]), dtype=float)
+    alpha_dev = estimate_count_dispersion(y_dev, oof_dev_preds)
 
     baseline_mean = float(y_dev.mean())
     baseline_pred = np.full(len(y_test), baseline_mean, dtype=float)
@@ -377,7 +413,7 @@ def chronological_regression_evaluation(
         "beats_baseline_rmse": bool(test_rmse < baseline_rmse),
         "beats_baseline_mae": bool(test_mae < baseline_mae),
         "n_features": int(X.shape[1]),
-        "count_dispersion_alpha_dev": round(estimate_count_dispersion(y_dev), 6),
+        "count_dispersion_alpha_dev": round(alpha_dev, 6),
     }
     if season_holdouts is not None:
         metrics["season_holdouts"] = season_holdouts

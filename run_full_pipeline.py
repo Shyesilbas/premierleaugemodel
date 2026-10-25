@@ -196,6 +196,8 @@ def generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offs
         "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for key, label in (("model_1x2", "1X2 result"), ("model_over_2_5", "Over 2.5 goals")):
+        if key not in outcome_res:
+            continue
         m = outcome_res[key]
         lines.append(
             f"| {label} | `{m['selected_model']}` | {m['development_samples']} | {m['test_samples']} | "
@@ -220,6 +222,8 @@ def generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offs
         ("model_1x2", "1X2 result", "draw_expected_calibration_error"),
         ("model_over_2_5", "Over 2.5 goals", "expected_calibration_error"),
     ):
+        if key not in outcome_res:
+            continue
         metrics = outcome_res[key]
         bootstrap = metrics["bootstrap_vs_prior"]
         lines.append(
@@ -228,10 +232,11 @@ def generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offs
             f"{metrics[ece_key]:.4f} |"
         )
 
-    reliability_tables = (
-        ("Over 2.5 event probability", outcome_res["model_over_2_5"]["reliability"]),
+    reliability_tables = [
         ("1X2 draw probability", outcome_res["model_1x2"]["reliability_draw"]),
-    )
+    ]
+    if "model_over_2_5" in outcome_res:
+        reliability_tables.insert(0, ("Over 2.5 event probability", outcome_res["model_over_2_5"]["reliability"]))
     for title, reliability in reliability_tables:
         lines.extend([
             "",
@@ -296,6 +301,8 @@ def generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offs
         "|---|---|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for key, label in (("model_1x2", "1X2 result"), ("model_over_2_5", "Over 2.5 goals")):
+        if key not in outcome_res:
+            continue
         for result in outcome_res[key].get("season_holdouts", []):
             season_label = result["season"] + (" (partial)" if result["partial_season"] else "")
             lines.append(
@@ -368,7 +375,9 @@ def generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offs
         "",
         "## Production artifacts",
         "",
-        f"The API loads the current `.joblib` files from `models/production/`. Holdout metrics use a development-only calibrator. Production calibrators use forward OOF predictions from all eligible training matches (1X2: {outcome_res['model_1x2']['production_calibration_oof_samples']}/{outcome_res['model_1x2']['n_train_final']}; Over 2.5: {outcome_res['model_over_2_5']['production_calibration_oof_samples']}/{outcome_res['model_over_2_5']['n_train_final']}). Run the full pipeline after data changes to rebuild features, retrain models, and refresh this report.",
+        f"The API loads the current `.joblib` files from `models/production/`. Holdout metrics use a development-only calibrator. Production calibrators use forward OOF predictions from all eligible training matches (1X2: {outcome_res['model_1x2']['production_calibration_oof_samples']}/{outcome_res['model_1x2']['n_train_final']}"
+        + (f"; Over 2.5: {outcome_res['model_over_2_5']['production_calibration_oof_samples']}/{outcome_res['model_over_2_5']['n_train_final']}" if "model_over_2_5" in outcome_res else "")
+        + "). Run the full pipeline after data changes to rebuild features, retrain models, and refresh this report.",
         "",
     ])
 

@@ -10,11 +10,11 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                     <div className="flex items-center justify-between pb-2 border-b border-border">
                       <div className="flex items-center gap-2">
                         <BarChart3 className="w-4 h-4 text-primary" />
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-text-primary">
+                        <h4 className="text-xs font-semibold text-text-primary">
                           Takım Karşılaştırmalı İstatistikleri & Mikro-Metrikler
                         </h4>
                       </div>
-                      <span className="text-xs font-mono font-semibold text-text-secondary">
+                      <span className="text-xs tabular-nums font-semibold text-text-secondary">
                         Premier League Maç Verisi
                       </span>
                     </div>
@@ -30,9 +30,9 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                             key={catIdx} 
                             className="bg-background-tertiary border border-border rounded p-4 space-y-3"
                           >
-                            <h5 className="text-xs font-semibold uppercase tracking-wider text-text-primary pb-1.5 border-b border-border flex items-center justify-between">
+                            <h5 className="text-xs font-semibold text-text-primary pb-1.5 border-b border-border flex items-center justify-between">
                               <span>{cat.category}</span>
-                              <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-background-tertiary text-text-primary">
+                              <span className="text-xs tabular-nums px-1.5 py-0.5 rounded bg-background-tertiary text-text-primary">
                                 {cat.items.length} Metrik
                               </span>
                             </h5>
@@ -43,15 +43,15 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                 const hVal = item.home !== undefined ? item.home : '-';
                                 const aVal = item.away !== undefined ? item.away : '-';
                                 const suffix = item.suffix || '';
-                                const isNotFound = (hVal === 'Not Found' && aVal === 'Not Found') || Boolean(item.notFound);
+                                const isNotFound = (hVal === 'Veri yok' && aVal === 'Veri yok') || Boolean(item.notFound);
                                 const isXg = Boolean(item.isXg || item.label?.includes('xG'));
 
                                 return (
                                   <div key={itemIdx} className={`space-y-1 text-xs ${isXg ? 'bg-background-tertiary p-2 rounded border border-status-error' : ''}`}>
                                     <div className="flex items-center justify-between text-xs font-semibold text-text-primary">
-                                      <span className={`font-mono min-w-[36px] ${isXg ? 'text-status-error font-semibold' : 'font-semibold text-text-primary'}`}>
-                                        {hVal === 'Not Found' ? (
-                                          <span className="text-text-tertiary font-normal italic text-xs">Not Found</span>
+                                      <span className={`tabular-nums min-w-9 ${isXg ? 'text-status-error font-semibold' : 'font-semibold text-text-primary'}`}>
+                                        {hVal === 'Veri yok' ? (
+                                          <span className="text-text-tertiary font-normal text-xs">Veri yok</span>
                                         ) : (
                                           `${hVal}${suffix}`
                                         )}
@@ -59,9 +59,9 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                       <span className={`font-medium text-center truncate px-2 ${isXg ? 'text-status-error font-semibold' : 'text-text-secondary'}`}>
                                         {item.label}
                                       </span>
-                                      <span className={`font-mono min-w-[36px] text-right ${isXg ? 'text-status-error font-semibold' : 'font-semibold text-text-primary'}`}>
-                                        {aVal === 'Not Found' ? (
-                                          <span className="text-text-tertiary font-normal italic text-xs">Not Found</span>
+                                      <span className={`tabular-nums min-w-9 text-right ${isXg ? 'text-status-error font-semibold' : 'font-semibold text-text-primary'}`}>
+                                        {aVal === 'Veri yok' ? (
+                                          <span className="text-text-tertiary font-normal text-xs">Veri yok</span>
                                         ) : (
                                           `${aVal}${suffix}`
                                         )}
@@ -70,9 +70,9 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
 
                                     {/* Comparison Dual Bar */}
                                     {isNotFound ? (
-                                      <div className="h-1.5 rounded-full overflow-hidden bg-background-tertiary border border-dashed border-border" title="Veri Bulunamadı" />
+                                      <div className="h-1.5 rounded-sm overflow-hidden bg-background-tertiary border border-dashed border-border" title="Veri Bulunamadı" />
                                     ) : (
-                                      <div className="h-1.5 rounded-full overflow-hidden flex bg-background-tertiary gap-0.5">
+                                      <div className="h-1.5 rounded-sm overflow-hidden flex bg-background-tertiary gap-0.5">
                                         <div 
                                           style={{ width: `${homePct}%` }}
                                           className={`h-full transition-all duration-500 rounded-l-full bg-primary`}
@@ -98,7 +98,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border">
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-primary" />
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-text-primary">
+                        <h4 className="text-xs font-semibold text-text-primary">
                           Oyuncu Maç Performans Karnesi (Dakika, Şut, Faul, Ofsayt)
                         </h4>
                       </div>
@@ -109,7 +109,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                           onClick={() => setPlayerTabSide('home')}
                           className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all ${
                             playerTabSide === 'home'
-                              ? 'bg-primary text-white shadow-sm'
+                              ? 'bg-primary text-white'
                               : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
@@ -120,7 +120,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                           onClick={() => setPlayerTabSide('away')}
                           className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all ${
                             playerTabSide === 'away'
-                              ? 'bg-primary text-white shadow-sm'
+                              ? 'bg-primary text-white'
                               : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
@@ -136,8 +136,8 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                         Bu takım için oyuncu maç istatistiği bulunamadı.
                       </div>
                     ) : (
-                      <div className="overflow-x-auto rounded border border-border shadow-sm">
-                        <table className="w-full text-left text-xs font-medium border-collapse min-w-[700px]">
+                      <div className="overflow-x-auto rounded border border-border">
+                        <table className="w-full text-left text-xs font-medium border-collapse min-w-max">
                           <thead>
                             <tr className="bg-background-tertiary text-text-primary text-xs font-semibold border-b border-border">
                               <th className="py-2.5 px-3 text-center">#</th>
@@ -156,7 +156,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                           <tbody className="divide-y divide-border-light bg-background-primary">
                             {playerStats[playerTabSide].map((p, idx) => (
                               <tr key={p.id || idx} className="hover:bg-background-tertiary transition-colors">
-                                <td className="py-2.5 px-3 text-center font-mono font-semibold text-text-secondary">
+                                <td className="py-2.5 px-3 text-center tabular-nums font-semibold text-text-secondary">
                                   {p.shirt || '-'}
                                 </td>
                                 <td className="py-2.5 px-3 font-semibold text-text-primary">
@@ -179,7 +179,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                         )}
                                       </div>
                                       {!p.is_starter && (
-                                        <span className="text-xs text-primary font-mono block">
+                                        <span className="text-xs text-primary tabular-nums block">
                                           Yedek (Sonradan Girdi)
                                         </span>
                                       )}
@@ -187,14 +187,14 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                   </div>
                                 </td>
                                 <td className="py-2.5 px-2 text-center">
-                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${getPositionBadgeClass(p.position)}`}>
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-sm border ${getPositionBadgeClass(p.position)}`}>
                                     {formatPosition(p.position)}
                                   </span>
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-semibold text-text-primary">
+                                <td className="py-2.5 px-2 text-center tabular-nums font-semibold text-text-primary">
                                   {p.minutes}'
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
+                                <td className="py-2.5 px-2 text-center tabular-nums font-semibold">
                                   {p.goals > 0 ? (
                                     <span className="text-status-success bg-background-tertiary px-1.5 py-0.5 rounded border border-status-success">
                                       {p.goals}
@@ -203,7 +203,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                     <span className="text-text-tertiary">0</span>
                                   )}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
+                                <td className="py-2.5 px-2 text-center tabular-nums font-semibold">
                                   {p.assists > 0 ? (
                                     <span className="text-primary bg-background-tertiary px-1.5 py-0.5 rounded border border-primary">
                                       {p.assists}
@@ -212,24 +212,24 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                     <span className="text-text-tertiary">0</span>
                                   )}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-semibold text-text-primary">
+                                <td className="py-2.5 px-2 text-center tabular-nums font-semibold text-text-primary">
                                   {p.shots > 0 ? `${p.shots} (${p.shots_ontarget})` : <span className="text-text-tertiary">0</span>}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
+                                <td className="py-2.5 px-2 text-center tabular-nums font-semibold">
                                   {p.fouls_committed > 0 ? (
                                     <span className="text-status-error">{p.fouls_committed}</span>
                                   ) : (
                                     <span className="text-text-tertiary">0</span>
                                   )}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
+                                <td className="py-2.5 px-2 text-center tabular-nums font-semibold">
                                   {p.fouls_won > 0 ? (
                                     <span className="text-status-success">{p.fouls_won}</span>
                                   ) : (
                                     <span className="text-text-tertiary">0</span>
                                   )}
                                 </td>
-                                <td className="py-2.5 px-2 text-center font-mono font-semibold">
+                                <td className="py-2.5 px-2 text-center tabular-nums font-semibold">
                                   {p.offsides > 0 ? (
                                     <span className="text-status-warning font-semibold">{p.offsides}</span>
                                   ) : (
@@ -238,10 +238,10 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                 </td>
                                 <td className="py-2.5 px-2 text-center">
                                   {p.yellow_cards > 0 && (
-                                    <span className="inline-block w-2.5 h-3.5 bg-background-tertiary rounded  mr-1 align-middle" title="Sarı Kart" />
+                                    <span className="inline-block w-2.5 h-3.5 bg-background-tertiary rounded mr-1 align-middle" title="Sarı Kart" />
                                   )}
                                   {p.red_cards > 0 && (
-                                    <span className="inline-block w-2.5 h-3.5 bg-background-tertiary rounded  mr-1 align-middle" title="Kırmızı Kart" />
+                                    <span className="inline-block w-2.5 h-3.5 bg-background-tertiary rounded mr-1 align-middle" title="Kırmızı Kart" />
                                   )}
                                   {p.yellow_cards === 0 && p.red_cards === 0 && <span className="text-text-tertiary">—</span>}
                                 </td>

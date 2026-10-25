@@ -17,6 +17,41 @@ from src.models.dixon_coles import DixonColesModel, matrix_from_lambdas, outcome
 RHO_GRID = np.linspace(-0.15, 0.15, 31)
 
 
+def fit_rho_from_lambdas(
+    home_rate: np.ndarray,
+    away_rate: np.ndarray,
+    home_goals: np.ndarray,
+    away_goals: np.ndarray,
+    sample_weight: np.ndarray | None = None,
+) -> float:
+    """Estimate the Dixon-Coles low-score dependency parameter rho from goal rates."""
+    hr = np.asarray(home_rate, dtype=float)
+    ar = np.asarray(away_rate, dtype=float)
+    hg = np.asarray(home_goals, dtype=int)
+    ag = np.asarray(away_goals, dtype=int)
+    weights = None if sample_weight is None else np.asarray(sample_weight, dtype=float)
+
+    best_rho, best_log_likelihood = 0.0, -np.inf
+    zero_zero = (hg == 0) & (ag == 0)
+    zero_one = (hg == 0) & (ag == 1)
+    one_zero = (hg == 1) & (ag == 0)
+    one_one = (hg == 1) & (ag == 1)
+
+    for rho in RHO_GRID:
+        tau = np.ones(len(hg), dtype=float)
+        tau[zero_zero] = 1 - hr[zero_zero] * ar[zero_zero] * rho
+        tau[zero_one] = 1 + hr[zero_one] * rho
+        tau[one_zero] = 1 + ar[one_zero] * rho
+        tau[one_one] = 1 - rho
+        if np.any(tau <= 1e-8):
+            continue
+        log_tau = np.log(tau)
+        log_likelihood = float(np.sum(weights * log_tau) if weights is not None else np.sum(log_tau))
+        if log_likelihood > best_log_likelihood:
+            best_rho, best_log_likelihood = float(rho), log_likelihood
+    return best_rho
+
+
 class FeatureGoalModel:
     """Two Poisson regressions plus a Dixon–Coles low-score correction."""
 
@@ -76,7 +111,7 @@ class FeatureGoalModel:
         self.home_ = self._pipe().fit(X, home_goals, **fit_kwargs)
         self.away_ = self._pipe().fit(X, away_goals, **fit_kwargs)
         self.fitted_ = True
-        self.rho_ = self._fit_rho(df)
+        self.rho_ = self._fit_rho(df, weights)
         return self
 
     def lambdas(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
@@ -87,28 +122,53 @@ class FeatureGoalModel:
         away_rate = np.clip(self.away_.predict(X), 0.05, 6.0)
         return home_rate, away_rate
 
-    def _fit_rho(self, df: pd.DataFrame) -> float:
-        home_rate, away_rate = self.lambdas(df)
-        home_goals = df["home_score"].to_numpy(dtype=int)
-        away_goals = df["away_score"].to_numpy(dtype=int)
-        best_rho, best_log_likelihood = 0.0, -np.inf
+    def _fit_rho(self, df: pd.DataFrame, sample_weight: np.ndarray | None = None) -> float:
+        X = self._features(df)
+        home_goals = df["home_score"].to_numpy(dtype=float)
+        away_goals = df["away_score"].to_numpy(dtype=float)
+        n = len(df)
+        if n >= 20:
+            n_splits = 4
+            fold_size = n // (n_splits + 1)
+            if fold_size >= 4:
+                oof_hr: list[np.ndarray] = []
+                oof_ar: list[np.ndarray] = []
+                oof_hg: list[np.ndarray] = []
+                oof_ag: list[np.ndarray] = []
+                oof_w: list[np.ndarray] = []
+                for split_idx in range(1, n_splits + 1):
+                    tr_end = split_idx * fold_size
+                    va_end = n if split_idx == n_splits else (split_idx + 1) * fold_size
+                    X_tr, X_va = X.iloc[:tr_end], X.iloc[tr_end:va_end]
+                    fit_kwargs = (
+                        {}
+                        if sample_weight is None
+                        else {"poissonregressor__sample_weight": sample_weight[:tr_end]}
+                    )
+                    h_pipe = self._pipe().fit(X_tr, home_goals[:tr_end], **fit_kwargs)
+                    a_pipe = self._pipe().fit(X_tr, away_goals[:tr_end], **fit_kwargs)
+                    oof_hr.append(np.clip(h_pipe.predict(X_va), 0.05, 6.0))
+                    oof_ar.append(np.clip(a_pipe.predict(X_va), 0.05, 6.0))
+                    oof_hg.append(home_goals[tr_end:va_end].astype(int))
+                    oof_ag.append(away_goals[tr_end:va_end].astype(int))
+                    if sample_weight is not None:
+                        oof_w.append(sample_weight[tr_end:va_end])
+                return fit_rho_from_lambdas(
+                    np.concatenate(oof_hr),
+                    np.concatenate(oof_ar),
+                    np.concatenate(oof_hg),
+                    np.concatenate(oof_ag),
+                    np.concatenate(oof_w) if oof_w else None,
+                )
 
-        for rho in RHO_GRID:
-            tau = np.ones(len(df), dtype=float)
-            zero_zero = (home_goals == 0) & (away_goals == 0)
-            zero_one = (home_goals == 0) & (away_goals == 1)
-            one_zero = (home_goals == 1) & (away_goals == 0)
-            one_one = (home_goals == 1) & (away_goals == 1)
-            tau[zero_zero] = 1 - home_rate[zero_zero] * away_rate[zero_zero] * rho
-            tau[zero_one] = 1 + home_rate[zero_one] * rho
-            tau[one_zero] = 1 + away_rate[one_zero] * rho
-            tau[one_one] = 1 - rho
-            if np.any(tau <= 1e-8):
-                continue
-            log_likelihood = float(np.log(tau).sum())
-            if log_likelihood > best_log_likelihood:
-                best_rho, best_log_likelihood = float(rho), log_likelihood
-        return best_rho
+        home_rate, away_rate = self.lambdas(df)
+        return fit_rho_from_lambdas(
+            home_rate,
+            away_rate,
+            home_goals.astype(int),
+            away_goals.astype(int),
+            sample_weight,
+        )
 
     def predict_matrices(self, df: pd.DataFrame) -> np.ndarray:
         home_rate, away_rate = self.lambdas(df)
@@ -152,26 +212,37 @@ class BlendedGoalModel:
         self.fitted_ = False
 
     def fit(self, df: pd.DataFrame) -> "BlendedGoalModel":
-        self.dc_model_ = DixonColesModel(
-            half_life_days=self.dc_half_life_days,
-            max_goals=self.max_goals,
-        ).fit(df)
-        if not self.dc_model_.fit_ok_:
-            raise RuntimeError("Dixon-Coles optimizer did not converge; refusing to blend")
+        if self.dc_weight > 0.0:
+            self.dc_model_: DixonColesModel | None = DixonColesModel(
+                half_life_days=self.dc_half_life_days,
+                max_goals=self.max_goals,
+            ).fit(df)
+            if not self.dc_model_.fit_ok_:
+                raise RuntimeError("Dixon-Coles optimizer did not converge; refusing to blend")
+        else:
+            self.dc_model_ = None
         self.feature_model_ = FeatureGoalModel(
             self.features,
             alpha=self.feature_alpha,
             max_goals=self.max_goals,
         ).fit(df)
-        self.rho_ = 0.5 * (self.dc_model_.rho_ + self.feature_model_.rho_)
         self.fitted_ = True
+        blend_home, blend_away = self.lambdas(df)
+        self.rho_ = fit_rho_from_lambdas(
+            blend_home,
+            blend_away,
+            df["home_score"].to_numpy(dtype=int),
+            df["away_score"].to_numpy(dtype=int),
+        )
         return self
 
     def lambdas(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         if not self.fitted_:
             raise RuntimeError("BlendedGoalModel must be fitted before prediction")
-        dc_home, dc_away = self.dc_model_.lambdas(df)
         feature_home, feature_away = self.feature_model_.lambdas(df)
+        if self.dc_weight <= 0.0 or self.dc_model_ is None:
+            return feature_home, feature_away
+        dc_home, dc_away = self.dc_model_.lambdas(df)
         return (
             blend_lambdas(dc_home, feature_home, self.dc_weight),
             blend_lambdas(dc_away, feature_away, self.dc_weight),

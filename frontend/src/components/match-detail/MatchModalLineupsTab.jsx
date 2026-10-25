@@ -18,14 +18,14 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                             <h4 className="font-semibold text-xs text-text-primary">{homeTeam.name}</h4>
                           </div>
                           {homeLineup?.formation && (
-                            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-background-tertiary text-primary">
+                            <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded bg-background-tertiary text-primary">
                               Diziliş: {homeLineup.formation}
                             </span>
                           )}
                         </div>
 
                         <div className="space-y-1.5">
-                          <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary block">
+                          <span className="text-xs font-semibold text-text-secondary block">
                             Başlangıç 11'i ({homeLineup?.starters?.length || 0}) • Pozisyon Sıralı
                           </span>
                           {homeLineup?.starters?.map((p, idx) => (
@@ -42,7 +42,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                                   size="w-7 h-7 text-xs" 
                                   className="shrink-0" 
                                 />
-                                <span className="w-5 h-5 rounded-full bg-background-tertiary border border-border flex items-center justify-center font-mono font-semibold text-xs text-text-primary shrink-0">
+                                <span className="w-5 h-5 rounded-full bg-background-tertiary border border-border flex items-center justify-center tabular-nums font-semibold text-xs text-text-primary shrink-0">
                                   {p.shirt || idx + 1}
                                 </span>
                                 <span className="font-semibold text-text-primary truncate">{p.name}</span>
@@ -52,7 +52,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                                   </span>
                                 )}
                               </div>
-                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border shrink-0 ${getPositionBadgeClass(p.position)}`}>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-sm border shrink-0 ${getPositionBadgeClass(p.position)}`}>
                                 {formatPosition(p.position)}
                               </span>
                             </div>
@@ -61,7 +61,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
 
                         {homeLineup?.substitutes?.length > 0 && (
                           <div className="pt-2 border-t border-border space-y-1.5">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary block">
+                            <span className="text-xs font-semibold text-text-secondary block">
                               Yedekler ({homeLineup.substitutes.length})
                             </span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -79,7 +79,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                                       size="w-6 h-6 text-xs" 
                                       className="shrink-0" 
                                     />
-                                    <span className="font-mono text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
+                                    <span className="tabular-nums text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
                                     <span className="font-medium text-text-primary truncate">{sub.name}</span>
                                   </div>
                                   <span className={`text-xs font-semibold px-1.5 py-0.5 rounded border shrink-0 ${getPositionBadgeClass(sub.position)}`}>
@@ -100,14 +100,14 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                             <h4 className="font-semibold text-xs text-text-primary">{awayTeam.name}</h4>
                           </div>
                           {awayLineup?.formation && (
-                            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-background-tertiary text-primary">
+                            <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded bg-background-tertiary text-primary">
                               Diziliş: {awayLineup.formation}
                             </span>
                           )}
                         </div>
 
                         <div className="space-y-1.5">
-                          <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary block">
+                          <span className="text-xs font-semibold text-text-secondary block">
                             Başlangıç 11'i ({awayLineup?.starters?.length || 0}) • Pozisyon Sıralı
                           </span>
                           {awayLineup?.starters?.map((p, idx) => (
@@ -124,7 +124,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                                   size="w-7 h-7 text-xs" 
                                   className="shrink-0" 
                                 />
-                                <span className="w-5 h-5 rounded-full bg-background-tertiary border border-border flex items-center justify-center font-mono font-semibold text-xs text-text-primary shrink-0">
+                                <span className="w-5 h-5 rounded-full bg-background-tertiary border border-border flex items-center justify-center tabular-nums font-semibold text-xs text-text-primary shrink-0">
                                   {p.shirt || idx + 1}
                                 </span>
                                 <span className="font-semibold text-text-primary truncate">{p.name}</span>
@@ -134,7 +134,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                                   </span>
                                 )}
                               </div>
-                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border shrink-0 ${getPositionBadgeClass(p.position)}`}>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-sm border shrink-0 ${getPositionBadgeClass(p.position)}`}>
                                 {formatPosition(p.position)}
                               </span>
                             </div>
@@ -143,7 +143,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
 
                         {awayLineup?.substitutes?.length > 0 && (
                           <div className="pt-2 border-t border-border space-y-1.5">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary block">
+                            <span className="text-xs font-semibold text-text-secondary block">
                               Yedekler ({awayLineup.substitutes.length})
                             </span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -161,7 +161,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                                       size="w-6 h-6 text-xs" 
                                       className="shrink-0" 
                                     />
-                                    <span className="font-mono text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
+                                    <span className="tabular-nums text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
                                     <span className="font-medium text-text-primary truncate">{sub.name}</span>
                                   </div>
                                   <span className={`text-xs font-semibold px-1.5 py-0.5 rounded border shrink-0 ${getPositionBadgeClass(sub.position)}`}>

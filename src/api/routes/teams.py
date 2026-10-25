@@ -16,7 +16,7 @@ from src.analytics.team_attackers import get_team_attacking_leaders
 from src.analytics.team_scenarios import get_team_scenario_profile
 from src.analytics.team_tactics import get_team_tactical_profile
 from src.config import DATA_DIR, DEFAULT_SEASON
-from src.db.database import get_all_grouped_fixtures
+from src.db.database import get_all_grouped_fixtures, get_db
 from typing import Any, Dict, List, Optional, Tuple
 from src.api import state
 from fastapi import APIRouter
@@ -310,35 +310,23 @@ def get_manager_performance(team_id: int, manager_name: str, season: str = "all"
             "opponents": sorted(summary.values(), key=lambda item: item["opponent"].casefold())}
 
 
-@router.get("/api/teams/profile")
-def get_team_profile(team_id: int, season: Optional[str] = "all"):
-    """
-    Returns team profile with match previews, W/D/L record, and squad roster.
-    """
-    team_meta = state.teams_dict.get(team_id)
-    if not team_meta:
-        # Fallback search in all_players
-        p_team = next((p for p in state.all_players if p.get("teamId") == team_id), None)
-        if p_team:
-            team_meta = {"id": team_id, "name": p_team.get("teamName", ""), "abbr": ""}
-        else:
-            raise HTTPException(status_code=404, detail="Team not found")
-
+def _build_team_match_history(
+    team_id: int,
+    season: Optional[str],
+) -> Tuple[List[Dict[str, Any]], Dict[str, int], Optional[Dict[str, Any]]]:
     df = state.df_matches.copy()
     if season and season != "all" and "season" in df.columns:
         df = df[df["season"] == season]
 
-    # Filter team matches
     team_matches_df = df[(df["home_id"] == team_id) | (df["away_id"] == team_id)].copy()
     if "kickoff_millis" in team_matches_df.columns:
         team_matches_df = team_matches_df.sort_values(by="kickoff_millis")
 
-    matches_list = []
-    wins, draws, losses = 0, 0, 0
-    gf, ga = 0, 0
+    matches_list: List[Dict[str, Any]] = []
+    wins = draws = losses = gf = ga = 0
 
     for _, r in team_matches_df.iterrows():
-        is_home = (int(r["home_id"]) == team_id)
+        is_home = int(r["home_id"]) == team_id
         opp_id = int(r["away_id"]) if is_home else int(r["home_id"])
         opp_name = str(r["away_name"]) if is_home else str(r["home_name"])
         t_score = r["home_score"] if is_home else r["away_score"]
@@ -346,8 +334,7 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
 
         res = "-"
         if pd.notnull(t_score) and pd.notnull(o_score):
-            t_score_int = int(t_score)
-            o_score_int = int(o_score)
+            t_score_int, o_score_int = int(t_score), int(o_score)
             gf += t_score_int
             ga += o_score_int
             if t_score_int > o_score_int:
@@ -359,11 +346,9 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
             else:
                 res = "D"
                 draws += 1
-            t_score = t_score_int
-            o_score = o_score_int
+            t_score, o_score = t_score_int, o_score_int
         else:
-            t_score = None
-            o_score = None
+            t_score = o_score = None
 
         kickoff_ms = None
         if "kickoff_millis" in r and pd.notnull(r["kickoff_millis"]):
@@ -391,7 +376,6 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
             "total_saves": int(r["total_saves"]) if pd.notnull(r.get("total_saves")) else None,
         })
 
-    # Find the next upcoming unplayed match
     next_match = None
     for m in matches_list:
         if m["status"] == "UNPLAYED":
@@ -406,14 +390,100 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
             }
             break
 
-    # Squad list with season-accurate statistics
+    record = {
+        "wins": wins,
+        "draws": draws,
+        "losses": losses,
+        "played": len(matches_list),
+        "gf": gf,
+        "ga": ga,
+    }
+    return matches_list, record, next_match
+
+
+def _load_team_market_values(team_id: int, season: Optional[str]) -> Tuple[Optional[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    tm_team_data = None
+    player_values_map: Dict[str, Dict[str, Any]] = {}
+    try:
+        conn = get_db()
+        try:
+            t_row = conn.execute(
+                "SELECT season, market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ? AND season = ?",
+                (team_id, season),
+            ).fetchone()
+            if not t_row:
+                t_row = conn.execute(
+                    "SELECT season, market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ? ORDER BY season DESC LIMIT 1",
+                    (team_id,),
+                ).fetchone()
+
+            hist_rows = conn.execute(
+                "SELECT season, market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ? ORDER BY season ASC",
+                (team_id,),
+            ).fetchall()
+
+            history_list = []
+            for hr in hist_rows:
+                s_val = hr["season"]
+                mv_val = hr["market_value_eur"]
+                avg_val = hr["avg_market_value_eur"]
+                history_list.append({
+                    "season": s_val,
+                    "season_label": s_val.replace("_", "/"),
+                    "market_value_eur": mv_val,
+                    "avg_market_value_eur": avg_val,
+                    "squad_size": hr["squad_size"],
+                    "formatted": f"€{mv_val/1000:.2f}B" if mv_val >= 1000 else f"€{mv_val:,.1f}M",
+                    "avg_formatted": f"€{avg_val:.2f}M" if avg_val else "-",
+                })
+
+            if t_row:
+                mv_eur = t_row["market_value_eur"]
+                tm_team_data = {
+                    "season": t_row["season"],
+                    "market_value_eur": mv_eur,
+                    "avg_market_value_eur": t_row["avg_market_value_eur"],
+                    "squad_size": t_row["squad_size"],
+                    "formatted": f"€{mv_eur/1000:.2f}B" if mv_eur >= 1000 else f"€{mv_eur:,.1f}M",
+                    "avg_formatted": f"€{t_row['avg_market_value_eur']:.2f}M",
+                    "history": history_list,
+                }
+
+            p_rows = conn.execute(
+                "SELECT player_id, name, market_value_eur FROM player_market_values WHERE team_id = ? AND season = ?",
+                (team_id, season),
+            ).fetchall()
+            if not p_rows:
+                p_rows = conn.execute(
+                    "SELECT player_id, name, market_value_eur FROM player_market_values WHERE team_id = ? ORDER BY season DESC",
+                    (team_id,),
+                ).fetchall()
+
+            for pr in p_rows:
+                norm_name = pr["name"].lower().strip()
+                val_obj = {"eur": pr["market_value_eur"], "tm_id": pr["player_id"]}
+                player_values_map[norm_name] = val_obj
+                parts = norm_name.split()
+                if len(parts) > 1:
+                    player_values_map[parts[-1]] = val_obj
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning(f"Could not load market values for team {team_id}: {e}")
+    return tm_team_data, player_values_map
+
+
+def _build_team_squad(
+    team_id: int,
+    season: Optional[str],
+    player_values_map: Dict[str, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
     all_logs = state._player_logs_dict or {}
     if not all_logs and state.players_logs_file.exists():
         state.get_player_match_logs(0)
         all_logs = state._player_logs_dict or {}
     cards_dict = state.get_player_cards_dict()
 
-    # Identify players who played for this team in this season (or any season if season == 'all')
     pids_season = set()
     for pid_str, plist in all_logs.items():
         for l in plist:
@@ -423,7 +493,6 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
                 except (ValueError, TypeError):
                     pass
 
-    # If 2026_27, use the official verified 2026_27 roster from team_staff.json
     roster_players = []
     if season == DEFAULT_SEASON:
         staff_path = DATA_DIR / "processed" / "team_staff.json"
@@ -438,80 +507,8 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
         all_team_pids = roster_pids.union(pids_season)
     else:
         all_team_pids = pids_season
-    # Fetch Transfermarkt market values
-    tm_team_data = None
-    player_values_map = {}
-    try:
-        conn = sqlite3.connect(DATA_DIR / "premier_league.db")
-        conn.row_factory = sqlite3.Row
-        
-        # 1. Team market value for requested season (fallback to latest available)
-        t_row = conn.execute(
-            "SELECT season, market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ? AND season = ?",
-            (team_id, season)
-        ).fetchone()
-        if not t_row:
-            t_row = conn.execute(
-                "SELECT season, market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ? ORDER BY season DESC LIMIT 1",
-                (team_id,)
-            ).fetchone()
 
-        # 2. Complete 5-year historical market value evolution for this team
-        hist_rows = conn.execute(
-            "SELECT season, market_value_eur, avg_market_value_eur, squad_size FROM team_market_values WHERE team_id = ? ORDER BY season ASC",
-            (team_id,)
-        ).fetchall()
-        
-        history_list = []
-        for hr in hist_rows:
-            s_val = hr["season"]
-            mv_val = hr["market_value_eur"]
-            avg_val = hr["avg_market_value_eur"]
-            history_list.append({
-                "season": s_val,
-                "season_label": s_val.replace("_", "/"),
-                "market_value_eur": mv_val,
-                "avg_market_value_eur": avg_val,
-                "squad_size": hr["squad_size"],
-                "formatted": f"€{mv_val/1000:.2f}B" if mv_val >= 1000 else f"€{mv_val:,.1f}M",
-                "avg_formatted": f"€{avg_val:.2f}M" if avg_val else "-",
-            })
-
-        if t_row:
-            mv_eur = t_row["market_value_eur"]
-            tm_team_data = {
-                "season": t_row["season"],
-                "market_value_eur": mv_eur,
-                "avg_market_value_eur": t_row["avg_market_value_eur"],
-                "squad_size": t_row["squad_size"],
-                "formatted": f"€{mv_eur/1000:.2f}B" if mv_eur >= 1000 else f"€{mv_eur:,.1f}M",
-                "avg_formatted": f"€{t_row['avg_market_value_eur']:.2f}M",
-                "history": history_list,
-            }
-        
-        # 3. Player market values for requested season (fallback to latest season)
-        p_rows = conn.execute(
-            "SELECT player_id, name, market_value_eur FROM player_market_values WHERE team_id = ? AND season = ?",
-            (team_id, season)
-        ).fetchall()
-        if not p_rows:
-            p_rows = conn.execute(
-                "SELECT player_id, name, market_value_eur FROM player_market_values WHERE team_id = ? ORDER BY season DESC",
-                (team_id,)
-            ).fetchall()
-
-        for pr in p_rows:
-            norm_name = pr["name"].lower().strip()
-            val_obj = {"eur": pr["market_value_eur"], "tm_id": pr["player_id"]}
-            player_values_map[norm_name] = val_obj
-            parts = norm_name.split()
-            if len(parts) > 1:
-                player_values_map[parts[-1]] = val_obj
-        conn.close()
-    except Exception as e:
-        logger.warning(f"Could not load market values for team {team_id}: {e}")
-
-    squad = []
+    squad: List[Dict[str, Any]] = []
     for pid in all_team_pids:
         p = state.player_registry_map.get(pid)
         if not p:
@@ -546,13 +543,10 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
         goals = sum(int(l.get("goals") or 0) for l in team_logs)
         assists = sum(int(l.get("assists") or 0) for l in team_logs)
 
-        # For historical seasons, don't include players with 0 appearances for this team in this season
         if season != "all" and season != DEFAULT_SEASON and apps == 0:
             continue
 
         photo_url = state.resolve_player_photo(pid, p)
-
-        # Match player market value
         p_name_lower = (p.get("name") or "").lower().strip()
         last_name = p_name_lower.split()[-1] if p_name_lower else ""
         p_val_entry = player_values_map.get(p_name_lower) or player_values_map.get(last_name)
@@ -583,15 +577,31 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
             "market_value_formatted": p_mv_fmt,
         })
 
-    # Sort squad: by position order, then by market value desc, then by appearances desc
     pos_order = {"G": 0, "GK": 0, "D": 1, "DF": 1, "M": 2, "MF": 2, "F": 3, "FW": 3}
     squad.sort(key=lambda x: (
         pos_order.get(x.get("position", ""), 4),
         -(x.get("market_value_eur") or 0),
         -(x.get("appearances") or 0),
         -(x.get("goals") or 0),
-        x.get("shirt") if x.get("shirt") is not None else 999
+        x.get("shirt") if x.get("shirt") is not None else 999,
     ))
+    return squad
+
+
+@router.get("/api/teams/profile")
+def get_team_profile(team_id: int, season: Optional[str] = "all"):
+    """Returns team profile with match previews, W/D/L record, and squad roster."""
+    team_meta = state.teams_dict.get(team_id)
+    if not team_meta:
+        p_team = next((p for p in state.all_players if p.get("teamId") == team_id), None)
+        if p_team:
+            team_meta = {"id": team_id, "name": p_team.get("teamName", ""), "abbr": ""}
+        else:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+    matches_list, record, next_match = _build_team_match_history(team_id, season)
+    tm_team_data, player_values_map = _load_team_market_values(team_id, season)
+    squad = _build_team_squad(team_id, season, player_values_map)
 
     team_resp = dict(team_meta)
     team_resp["market_value"] = tm_team_data
@@ -599,7 +609,7 @@ def get_team_profile(team_id: int, season: Optional[str] = "all"):
     return {
         "team": team_resp,
         "season": season,
-        "record": {"wins": wins, "draws": draws, "losses": losses, "played": len(matches_list), "gf": gf, "ga": ga},
+        "record": record,
         "market_value": tm_team_data,
         "matches": matches_list,
         "next_match": next_match,
@@ -696,8 +706,7 @@ def fetch_club_transfers_from_tm(tm_club_id: int, season_year: int, team_id: int
     arrivals, departures = [], []
     season_str = f"{str(season_year)[2:]}/{str(season_year+1)[2:]}"
 
-    conn = sqlite3.connect(DATA_DIR / "premier_league.db")
-    conn.row_factory = sqlite3.Row
+    conn = get_db()
 
     if soup:
         for b in soup.select(".box"):
@@ -823,13 +832,12 @@ def fetch_club_transfers_from_tm(tm_club_id: int, season_year: int, team_id: int
 
 
 @router.get("/api/teams/{team_id}/transfers")
-async def get_team_transfers(team_id: int, season: Optional[str] = None):
+def get_team_transfers(team_id: int, season: Optional[str] = None):
     """
     Returns verified Transfermarkt transfer history (arrivals and departures)
     with fees, loan types, and counterparty clubs for the requested season.
     """
-    conn = sqlite3.connect(DATA_DIR / "premier_league.db")
-    conn.row_factory = sqlite3.Row
+    conn = get_db()
     try:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS team_season_transfers_cache (

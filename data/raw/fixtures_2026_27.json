@@ -9199,7 +9199,7 @@
           "shortName": "Spurs",
           "id": 21.0
         },
-        "score": 0.0
+        "score": 2.0
       }
     ],
     "replay": false,
@@ -9210,27 +9210,41 @@
       "id": 9519.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
     "clock": {
-      "secs": 0.0,
-      "label": "00'00"
+      "secs": 5880.0,
+      "label": "90+8'00"
     },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 121704.0,
+        "clock": {
+          "secs": 4620.0,
+          "label": "77'00"
+        },
+        "phase": "2",
+        "type": "O",
+        "description": "O"
+      },
+      {
+        "personId": 76614.0,
+        "clock": {
+          "secs": 5220.0,
+          "label": "87'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128995.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Chris Kavanagh"
-        }
-      }
-    ]
+    "id": 128995.0
   },
   {
     "gameweek": {

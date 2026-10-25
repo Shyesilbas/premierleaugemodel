@@ -178,20 +178,6 @@ def snapshot(horizon_days: int = 14) -> int:
                 row["goal_artifact_sha256"] = goals_artifact_hash
                 if goal_markets:
                     row["goal_markets"] = goal_markets
-            ensemble = outcome.get("ensemble_probabilities_pct")
-            if ensemble is not None:
-                ensemble_probabilities = np.asarray(ensemble, dtype=float) / 100.0
-                if (
-                    ensemble_probabilities.shape != (3,)
-                    or not np.isfinite(ensemble_probabilities).all()
-                    or (ensemble_probabilities < 0).any()
-                    or ensemble_probabilities.sum() <= 0
-                ):
-                    raise ValueError("API returned invalid 1X2 ensemble probabilities")
-                ensemble_probabilities /= ensemble_probabilities.sum()
-                row["ensemble_probabilities"] = [
-                    round(float(value), 6) for value in ensemble_probabilities
-                ]
             new_rows.append(row)
             already_saved_today.add(daily_key)
         except Exception:

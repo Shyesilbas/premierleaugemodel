@@ -123,23 +123,23 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
   const renderEventIcon = (type) => {
     switch (type) {
       case 'goal':
-        return <Target className="w-3.5 h-3.5 text-emerald-600" />;
+        return <Target className="w-3.5 h-3.5 text-status-success" />;
       case 'corner':
-        return <Flag className="w-3.5 h-3.5 text-sky-600" />;
+        return <Flag className="w-3.5 h-3.5 text-status-info" />;
       case 'attempt saved':
-        return <Shield className="w-3.5 h-3.5 text-purple-600" />;
+        return <Shield className="w-3.5 h-3.5 text-text-primary" />;
       case 'miss':
         return <Activity className="w-3.5 h-3.5 text-text-muted" />;
       case 'attempt blocked':
         return <Shield className="w-3.5 h-3.5 text-text-secondary" />;
       case 'yellow card':
-        return <span className="w-2.5 h-3.5 bg-amber-400 rounded-xs inline-block " title="Sarı Kart" />;
+        return <span className="w-2.5 h-3.5 bg-status-warning rounded-sm inline-block" title="Sarı Kart" />;
       case 'red card':
-        return <span className="w-2.5 h-3.5 bg-rose-600 rounded-xs inline-block " title="Kırmızı Kart" />;
+        return <span className="w-2.5 h-3.5 bg-status-error rounded-sm inline-block" title="Kırmızı Kart" />;
       case 'substitution':
-        return <RefreshCw className="w-3.5 h-3.5 text-blue-600" />;
+        return <RefreshCw className="w-3.5 h-3.5 text-status-info" />;
       default:
-        return <Zap className="w-3.5 h-3.5 text-amber-500" />;
+        return <Zap className="w-3.5 h-3.5 text-status-warning" />;
     }
   };
 
@@ -165,10 +165,10 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
   const getPositionBadgeClass = (pos) => {
     if (!pos) return 'bg-background-tertiary text-text-secondary border-border';
     const p = String(pos).toUpperCase();
-    if (['G', 'GK', 'GOALKEEPER'].includes(p)) return 'bg-amber-100 text-amber-900 border-amber-200';
-    if (['D', 'DEF', 'DEFENDER', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return 'bg-sky-100 text-sky-900 border-sky-200';
-    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'bg-purple-100 text-text-primary border-purple-200';
-    if (['F', 'FWD', 'FORWARD', 'ST', 'CF', 'RW', 'LW', 'ATT'].includes(p)) return 'bg-rose-100 text-rose-900 border-rose-200';
+    if (['G', 'GK', 'GOALKEEPER'].includes(p)) return 'bg-background-tertiary text-status-warning border-border';
+    if (['D', 'DEF', 'DEFENDER', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return 'bg-background-tertiary text-status-info border-border';
+    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'bg-background-tertiary text-text-primary border-border';
+    if (['F', 'FWD', 'FORWARD', 'ST', 'CF', 'RW', 'LW', 'ATT'].includes(p)) return 'bg-background-tertiary text-status-error border-border';
     return 'bg-background-tertiary text-text-secondary border-border';
   };
 
@@ -190,11 +190,11 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/40  animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/40 animate-fadeIn"
       onClick={onClose}
     >
       <div 
-        className="bg-background-primary border border-border rounded-md max-w-4xl w-full max-h-[92vh] flex flex-col shadow-md overflow-hidden relative"
+        className="bg-background-primary border border-border rounded-md max-w-4xl w-full max-h-screen flex flex-col shadow-md overflow-hidden relative"
         onClick={e => e.stopPropagation()}
       >
         
@@ -204,13 +204,13 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             <button
               onClick={() => setRefreshKey(k => k + 1)}
               title="Maç verisini sunucudan tazele"
-              className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors shadow-2xs"
+              className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-status-success' : ''}`} />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors shadow-2xs"
+              className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -226,10 +226,10 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
                 onError={handleTeamBadgeError}
               />
               <div className="min-w-0">
-                <h3 className="font-bold text-sm sm:text-base text-text-primary leading-tight truncate">
+                <h3 className="font-semibold text-sm sm:text-base text-text-primary leading-tight truncate">
                   {homeTeam.name}
                 </h3>
-                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <span className="text-xs font-semibold text-text-secondary">
                   Ev Sahibi
                 </span>
               </div>
@@ -237,19 +237,19 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
 
             {/* Score Center */}
             <div className="text-center px-3 shrink-0">
-              <div className="font-mono text-xl sm:text-2xl font-semibold text-text-primary px-3 py-1 rounded bg-background-primary border border-border shadow-2xs inline-block">
+              <div className="tabular-nums text-xl sm:text-2xl font-semibold text-text-primary px-3 py-1 rounded bg-background-primary border border-border inline-block">
                 {match.home_score !== null && match.home_score !== undefined
                   ? `${match.home_score} - ${match.away_score}`
                   : 'VS'}
               </div>
               {meta.halfTimeScore && (
-                <span className="text-xs font-mono text-text-secondary block mt-0.5">
+                <span className="text-xs tabular-nums text-text-secondary block mt-0.5">
                   İY: {meta.halfTimeScore.homeScore} - {meta.halfTimeScore.awayScore}
                 </span>
               )}
               {isCompleted && ((match.home_xg ?? meta.home_xg) != null || (match.away_xg ?? meta.away_xg) != null) && (
                 <div className="mt-0.5 flex items-center justify-center">
-                  <span className="text-xs font-mono font-bold text-text-secondary bg-background-primary border border-border px-2 py-0.5 rounded shadow-2xs inline-flex items-center gap-1">
+                  <span className="text-xs tabular-nums font-semibold text-text-secondary bg-background-primary border border-border px-2 py-0.5 rounded inline-flex items-center gap-1">
                     <span className="text-text-muted">xG:</span>
                     {(match.home_xg ?? meta.home_xg) != null ? Number(match.home_xg ?? meta.home_xg).toFixed(2) : '-'} - {(match.away_xg ?? meta.away_xg) != null ? Number(match.away_xg ?? meta.away_xg).toFixed(2) : '-'}
                   </span>
@@ -260,10 +260,10 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {/* Away Team */}
             <div className="flex items-center gap-2.5 flex-1 justify-end text-right min-w-0">
               <div className="min-w-0">
-                <h3 className="font-bold text-sm sm:text-base text-text-primary leading-tight truncate">
+                <h3 className="font-semibold text-sm sm:text-base text-text-primary leading-tight truncate">
                   {awayTeam.name}
                 </h3>
-                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <span className="text-xs font-semibold text-text-secondary">
                   Deplasman
                 </span>
               </div>
@@ -279,7 +279,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
           <div className="text-center text-xs text-text-secondary mt-2 font-medium flex items-center justify-center gap-2">
             <span>{match.kickoff_label || meta.kickoff_label}</span>
             <span>•</span>
-            <span className="truncate max-w-[200px]">{match.ground_name || meta.ground || 'Premier League Stadı'}</span>
+            <span className="truncate max-w-48">{match.ground_name || meta.ground || 'Premier League Stadı'}</span>
             {meta.attendance && (
               <>
                 <span>•</span>
@@ -293,7 +293,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {isCompleted && (
               <button
                 onClick={() => setActiveTab('stats')}
-                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   activeTab === 'stats'
                     ? 'bg-primary text-white '
                     : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
@@ -307,7 +307,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {!isCompleted && isPredictable && (
               <button
                 onClick={() => setActiveTab('prediction')}
-                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   activeTab === 'prediction'
                     ? 'bg-primary text-white '
                     : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
@@ -319,15 +319,15 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             )}
 
             {!isCompleted && !isPredictable && (
-              <span className="px-3 py-1 rounded text-xs font-bold bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-1.5" title="Model tahminleri takım formu ve sakatlık güncelliği için yalnızca mevcut haftanın maçlarında aktiftir">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+              <span className="px-3 py-1 rounded text-xs font-semibold bg-background-tertiary border border-border text-status-warning flex items-center gap-1.5" title="Model tahminleri takım formu ve sakatlık güncelliği için yalnızca mevcut haftanın maçlarında aktiftir">
+                <AlertCircle className="w-3.5 h-3.5 text-status-warning" />
                 <span>Tahminler {match.gameweek}. Haftada Açılacak</span>
               </span>
             )}
 
             <button
               onClick={() => setActiveTab('lineups')}
-              className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'lineups'
                   ? 'bg-primary text-white '
                   : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
@@ -340,13 +340,13 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {isCompleted && timeline.length > 0 && (
               <button
                 onClick={() => setActiveTab('timeline')}
-                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   activeTab === 'timeline'
                     ? 'bg-primary text-white '
                     : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                <Zap className="w-3.5 h-3.5 text-status-warning" />
                 <span>Maç Zaman Akışı ({timeline.length})</span>
               </button>
             )}
@@ -354,7 +354,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {isCompleted && events.length > 0 && (
               <button
                 onClick={() => setActiveTab('events')}
-                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   activeTab === 'events'
                     ? 'bg-primary text-white '
                     : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
@@ -369,13 +369,13 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
             {oddsData.length > 0 && (
               <button
                 onClick={() => setActiveTab('odds')}
-                className={`px-3.5 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   activeTab === 'odds'
                     ? 'bg-primary text-white '
                     : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                <TrendingUp className="w-3.5 h-3.5 text-status-success" />
                 <span>Piyasa Oranları ({oddsData.length})</span>
               </button>
             )}
@@ -389,7 +389,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
           {loading ? (
             <div className="py-20 text-center">
               <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-xs font-bold text-text-secondary">İstatistikler ve maç verileri yükleniyor...</p>
+              <p className="text-xs font-semibold text-text-secondary">İstatistikler ve maç verileri yükleniyor...</p>
             </div>
           ) : activeTab === 'stats' ? (
             <MatchModalStatsTab
@@ -450,14 +450,14 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
                       key={ev.id || idx}
                       className="flex items-start gap-3 p-3 rounded bg-background-tertiary hover:bg-background-tertiary/80 border border-border transition-colors text-xs"
                     >
-                      <span className="font-mono font-semibold text-text-primary min-w-[32px] pt-0.5">
+                      <span className="tabular-nums font-semibold text-text-primary min-w-8 pt-0.5">
                         {min}'
                       </span>
                       <div className="w-6 h-6 rounded bg-background-primary border border-border flex items-center justify-center shrink-0">
                         {renderEventIcon(type)}
                       </div>
                       <div className="flex-1">
-                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-purple-700 block mb-0.5">
+                        <span className="text-xs tabular-nums font-semibold text-text-primary block mb-0.5">
                           {type}
                         </span>
                         <p className="text-text-primary font-medium leading-relaxed">

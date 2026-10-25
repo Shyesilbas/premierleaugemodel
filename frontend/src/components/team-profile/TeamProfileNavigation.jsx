@@ -16,7 +16,7 @@ export default function TeamProfileNavigation({ profile, activeTeamTab, setActiv
       >
         <Calendar className="w-3.5 h-3.5" />
         <span>Fikstür & Sonuçlar</span>
-        <span className={`text-xs font-mono font-medium px-1.5 py-0.2 rounded-sm tabular-nums ${
+        <span className={`text-xs tabular-nums font-medium px-1.5 py-0.2 rounded-sm tabular-nums ${
           activeTeamTab === 'fixtures' ? 'bg-white/20 text-white' : 'bg-background-primary text-text-secondary border border-border'
         }`}>
           {profile?.matches?.length || 0}
@@ -47,7 +47,7 @@ export default function TeamProfileNavigation({ profile, activeTeamTab, setActiv
       >
         <Users className="w-3.5 h-3.5" />
         <span>Kadro Listesi</span>
-        <span className={`text-xs font-mono font-medium px-1.5 py-0.2 rounded-sm tabular-nums ${
+        <span className={`text-xs tabular-nums font-medium px-1.5 py-0.2 rounded-sm tabular-nums ${
           activeTeamTab === 'squad' ? 'bg-white/20 text-white' : 'bg-background-primary text-text-secondary border border-border'
         }`}>
           {displayedSquad.length}
@@ -66,7 +66,7 @@ export default function TeamProfileNavigation({ profile, activeTeamTab, setActiv
         <Shield className="w-3.5 h-3.5" />
         <span>Teknik Direktörler</span>
         {managerChanges.length > 0 && (
-          <span className={`text-xs font-mono font-medium px-1.5 py-0.2 rounded-sm tabular-nums ${
+          <span className={`text-xs tabular-nums font-medium px-1.5 py-0.2 rounded-sm tabular-nums ${
             activeTeamTab === 'managers' ? 'bg-white/20 text-white' : 'bg-background-primary text-text-secondary border border-border'
           }`}>
             {managerChanges.length}

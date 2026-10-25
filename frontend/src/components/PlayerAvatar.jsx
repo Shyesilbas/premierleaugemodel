@@ -60,7 +60,7 @@ export default function PlayerAvatar({
           loading="lazy"
         />
       ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-background-tertiary text-text-secondary font-mono font-medium">
+        <div className="w-full h-full flex flex-col items-center justify-center bg-background-tertiary text-text-secondary tabular-nums font-medium">
           {fallback === 'shirt' && resolvedShirt ? (
             <span className="leading-none">#{resolvedShirt}</span>
           ) : initials ? (

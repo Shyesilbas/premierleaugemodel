@@ -1,6 +1,6 @@
 # Data Quality and Coverage
 
-Snapshot generated 2026-10-14 from the local fixture cache and processed tables.
+Snapshot generated 2026-10-24 from the local fixture cache and processed tables.
 Run `python3 -m src.analytics.data_quality_report` to refresh this report.
 
 ## Match and source coverage
@@ -8,15 +8,15 @@ Run `python3 -m src.analytics.data_quality_report` to refresh this report.
 | Season | Fixtures | Completed | Upcoming | Stats files | Event streams | Details files |
 |---|---:|---:|---:|---:|---:|---:|
 | 2022-23 | 380 | 380 | 0 | 380/380 | 380/380 | 380/380 |
-| 2023-24 | 380 | 380 | 0 | 380/380 | 380/380 | 379/380 |
+| 2023-24 | 380 | 380 | 0 | 380/380 | 380/380 | 380/380 |
 | 2024-25 | 380 | 380 | 0 | 380/380 | 380/380 | 380/380 |
 | 2025-26 | 380 | 380 | 0 | 380/380 | 380/380 | 380/380 |
-| 2026-27 | 380 | 60 | 320 | 60/60 | 60/60 | 60/60 |
+| 2026-27 | 380 | 75 | 305 | 75/75 | 75/75 | 75/75 |
 
-- Combined match table: 1,900 rows; 1,580 rows have both final scores.
+- Combined match table: 1,900 rows; 1,595 rows have both final scores.
 - Combined feature table: 1,900 rows.
 - Duplicate fixture IDs across the 5 season files: 0.
-- Completed matches with referee name `Unknown`: 1/1580.
+- Completed matches with referee name `Unknown`: 0/1595.
 
 ## Raw provider field coverage
 
@@ -24,17 +24,17 @@ Coverage counts team-match rows where the raw stats response contains a non-null
 
 | Raw metric | Present team-match rows | Coverage |
 |---|---:|---:|
-| `won_corners` (corners) | 3093/3160 | 97.9% |
-| `total_throws` (throw-ins) | 3160/3160 | 100.0% |
-| `saves` (saves) | 2946/3160 | 93.2% |
-| `total_yel_card` (yellow cards) | 2704/3160 | 85.6% |
-| `total_red_card` (red cards) | 187/3160 | 5.9% |
-| `total_offside` (offsides) | 2475/3160 | 78.3% |
-| `total_scoring_att` (shots) | 3160/3160 | 100.0% |
-| `possession_percentage` (possession) | 3160/3160 | 100.0% |
-| `att_ibox_target` (xG proxy: inside-box shots on target) | 2718/3160 | 86.0% |
-| `att_obox_target` (xG proxy: outside-box shots on target) | 1869/3160 | 59.1% |
-| `big_chance_created` (xG proxy: big chances) | 2494/3160 | 78.9% |
+| `won_corners` (corners) | 3122/3190 | 97.9% |
+| `total_throws` (throw-ins) | 3190/3190 | 100.0% |
+| `saves` (saves) | 2971/3190 | 93.1% |
+| `total_yel_card` (yellow cards) | 2733/3190 | 85.7% |
+| `total_red_card` (red cards) | 191/3190 | 6.0% |
+| `total_offside` (offsides) | 2503/3190 | 78.5% |
+| `total_scoring_att` (shots) | 3190/3190 | 100.0% |
+| `possession_percentage` (possession) | 3190/3190 | 100.0% |
+| `att_ibox_target` (xG proxy: inside-box shots on target) | 2742/3190 | 86.0% |
+| `att_obox_target` (xG proxy: outside-box shots on target) | 1887/3190 | 59.2% |
+| `big_chance_created` (xG proxy: big chances) | 2513/3190 | 78.8% |
 
 ## Event-based label recovery
 
@@ -42,21 +42,21 @@ The PulseLive match event stream contains team-attributed corner, yellow-card, r
 
 | Target | Stats API complete match labels | Reconstructed team values | Usable match labels |
 |---|---:|---:|---:|
-| Saves | 1371 | 214 | 1580 |
-| Corners | 1513 | 67 | 1580 |
-| Cards | 1180 | 3429 | 1580 |
-| Offsides | 967 | 685 | 1580 |
+| Saves | 1381 | 219 | 1595 |
+| Corners | 1527 | 68 | 1595 |
+| Cards | 1194 | 3456 | 1595 |
+| Offsides | 980 | 687 | 1595 |
 
 ## Current target distributions
 
 | Target | Complete-label rows | Mean | Variance / mean |
 |---|---:|---:|---:|
-| `total_corners` | 1580 | 10.279 | 1.118 |
-| `total_throws` | 1580 | 35.528 | 1.942 |
-| `total_saves` | 1580 | 6.035 | 1.077 |
-| `total_cards` | 1580 | 4.041 | 1.116 |
-| `total_offsides` | 1580 | 3.431 | 1.261 |
-| `total_goals` | 1580 | 2.954 | 0.953 |
+| `total_corners` | 1595 | 10.276 | 1.116 |
+| `total_throws` | 1595 | 35.485 | 1.939 |
+| `total_saves` | 1595 | 6.024 | 1.076 |
+| `total_cards` | 1595 | 4.048 | 1.115 |
+| `total_offsides` | 1595 | 3.436 | 1.255 |
+| `total_goals` | 1595 | 2.949 | 0.952 |
 
 ## Missing-stat selection audit
 
@@ -68,38 +68,38 @@ For each target, complete and incomplete match samples are compared by season an
 | Corners | 2023-24 | 380 | 362 | 18 | 4.7% |
 | Corners | 2024-25 | 380 | 356 | 24 | 6.3% |
 | Corners | 2025-26 | 380 | 369 | 11 | 2.9% |
-| Corners | 2026-27 | 60 | 59 | 1 | 1.7% |
+| Corners | 2026-27 | 75 | 73 | 2 | 2.7% |
 | Throw-ins | 2022-23 | 380 | 380 | 0 | 0.0% |
 | Throw-ins | 2023-24 | 380 | 380 | 0 | 0.0% |
 | Throw-ins | 2024-25 | 380 | 380 | 0 | 0.0% |
 | Throw-ins | 2025-26 | 380 | 380 | 0 | 0.0% |
-| Throw-ins | 2026-27 | 60 | 60 | 0 | 0.0% |
+| Throw-ins | 2026-27 | 75 | 75 | 0 | 0.0% |
 | Saves | 2022-23 | 380 | 380 | 0 | 0.0% |
 | Saves | 2023-24 | 380 | 380 | 0 | 0.0% |
 | Saves | 2024-25 | 380 | 380 | 0 | 0.0% |
 | Saves | 2025-26 | 380 | 380 | 0 | 0.0% |
-| Saves | 2026-27 | 60 | 60 | 0 | 0.0% |
+| Saves | 2026-27 | 75 | 75 | 0 | 0.0% |
 | Cards | 2022-23 | 380 | 380 | 0 | 0.0% |
 | Cards | 2023-24 | 380 | 380 | 0 | 0.0% |
 | Cards | 2024-25 | 380 | 380 | 0 | 0.0% |
 | Cards | 2025-26 | 380 | 380 | 0 | 0.0% |
-| Cards | 2026-27 | 60 | 60 | 0 | 0.0% |
+| Cards | 2026-27 | 75 | 75 | 0 | 0.0% |
 | Offsides | 2022-23 | 380 | 380 | 0 | 0.0% |
 | Offsides | 2023-24 | 380 | 380 | 0 | 0.0% |
 | Offsides | 2024-25 | 380 | 380 | 0 | 0.0% |
 | Offsides | 2025-26 | 380 | 380 | 0 | 0.0% |
-| Offsides | 2026-27 | 60 | 60 | 0 | 0.0% |
+| Offsides | 2026-27 | 75 | 75 | 0 | 0.0% |
 
 ### Missingness versus match outcome
 
 | Target | Usable label coverage | Sample | Home win | Draw | Away win | Mean total goals |
 |---|---:|---|---:|---:|---:|---:|
-| Corners | 95.8% | Complete (1513) | 44.0% | 24.6% | 31.5% | 2.960 |
-| Corners | 95.8% | Missing (67) | 50.7% | 19.4% | 29.9% | 2.806 |
-| Throw-ins | 100.0% | Complete (1580) | 44.2% | 24.4% | 31.4% | 2.954 |
-| Saves | 100.0% | Complete (1580) | 44.2% | 24.4% | 31.4% | 2.954 |
-| Cards | 100.0% | Complete (1580) | 44.2% | 24.4% | 31.4% | 2.954 |
-| Offsides | 100.0% | Complete (1580) | 44.2% | 24.4% | 31.4% | 2.954 |
+| Corners | 95.7% | Complete (1527) | 44.0% | 24.4% | 31.6% | 2.955 |
+| Corners | 95.7% | Missing (68) | 50.0% | 20.6% | 29.4% | 2.794 |
+| Throw-ins | 100.0% | Complete (1595) | 44.3% | 24.3% | 31.5% | 2.949 |
+| Saves | 100.0% | Complete (1595) | 44.3% | 24.3% | 31.5% | 2.949 |
+| Cards | 100.0% | Complete (1595) | 44.3% | 24.3% | 31.5% | 2.949 |
+| Offsides | 100.0% | Complete (1595) | 44.3% | 24.3% | 31.5% | 2.949 |
 
 ### Teams with the highest missing rates
 
@@ -108,8 +108,8 @@ For each target, complete and incomplete match samples are compared by season an
 | Corners | Leicester City | 76 | 4 | 5.3% |
 | Corners | Southampton | 76 | 4 | 5.3% |
 | Corners | Wolverhampton Wanderers | 152 | 7 | 4.6% |
-| Corners | Aston Villa | 158 | 6 | 3.8% |
-| Corners | Newcastle United | 158 | 6 | 3.8% |
+| Corners | Ipswich Town | 46 | 2 | 4.3% |
+| Corners | Newcastle United | 159 | 6 | 3.8% |
 
 ## Known data limits
 

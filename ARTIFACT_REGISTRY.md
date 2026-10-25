@@ -23,7 +23,7 @@ This file describes the artifact ownership and refresh path. Snapshot counts and
 
 | Artifact | Targets | Training source |
 |---|---|---|
-| `models/production/outcome_models_v1.joblib` | 1X2 result and over 2.5 goals | `src/models/train_match_outcome.py` |
+| `models/production/outcome_models_v1.joblib` | 1X2 result (logistic classifier, temperature calibrator, and gated ensemble metadata) | `src/models/train_match_outcome.py` |
 | `models/production/goals_models_v1.joblib` | `blend_dc_feat` score matrix, Over 1.5/2.5/3.5 and BTTS probabilities, expected team goals, calibrators, model-vs-baseline gates, and unlocked-season baseline rates (including BTTS) | `python3 -m src.models.evaluate_goal_models` followed by `python3 -m src.models.train_goals` |
 | `models/production/corner_model_v1.joblib` | Total corners | `src/models/train_corners.py` |
 | `models/production/throws_model_v1.joblib` | Total throw-ins | `src/models/train_throws.py` |
@@ -31,7 +31,7 @@ This file describes the artifact ownership and refresh path. Snapshot counts and
 | `models/production/cards_model_v1.joblib` | Total cards | `src/models/train_cards.py` |
 | `models/production/offside_model_v1.joblib` | Total offsides | `src/models/train_offsides.py` |
 
-The API loads these files from `models/production/`. Each artifact contains the fitted estimator and its required feature names. Count-model artifacts also store their fitted dispersion parameter; the outcome artifact stores its probability calibrators. The goal-matrix artifact is fit on completed matches in `features_matches_all.parquet` (currently 1,580 rows across 2022/23–2026/27), while its nested calibration and baseline rates use 1,520 unlocked matches and exclude the locked 2026/27 season. Its outer-season evaluation is saved in `data/processed/goal_model_outer_eval.json`; the selected O2.5 score-matrix candidate cleared the evaluation gate. Count-model artifacts record both deployment gates in `metrics["skill_gate"]` (CV gate plus the nested outer-season gate, `outer_season_wins` / `outer_season_count`); when either fails, `model` is a fitted `training_mean` pipeline and the API reports `model_skill: "baseline"`. Run `python3 run_full_pipeline.py` after updating the local raw cache to rebuild processed data, retrain the models, and refresh the benchmark and data reports. That command does not fetch upstream data or rebuild SQLite.
+The API loads these files from `models/production/`. Each artifact contains the fitted estimator and its required feature names. Count-model artifacts also store their fitted conditional dispersion parameter; the outcome artifact stores its probability calibrators. The goal-matrix artifact is fit on completed matches in `features_matches_all.parquet` (currently 1,595 rows across 2022/23–2026/27), while its nested calibration and baseline rates use 1,520 unlocked matches and exclude the locked 2026/27 season. Its outer-season evaluation is saved in `data/processed/goal_model_outer_eval.json`; the selected O2.5 score-matrix candidate cleared the evaluation gate. Count-model artifacts record both deployment gates in `metrics["skill_gate"]` (CV gate plus the development-only nested outer-season gate, `outer_season_wins` / `outer_season_count`); when either fails, `model` is a fitted `training_mean` pipeline and the API reports `model_skill: "baseline"`. Run `python3 run_full_pipeline.py` after updating the local raw cache to rebuild processed data, retrain the models, and refresh the benchmark and data reports.
 
 ## Canonical reports
 

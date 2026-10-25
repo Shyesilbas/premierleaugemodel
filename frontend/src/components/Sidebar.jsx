@@ -6,17 +6,21 @@ import {
   Menu, 
   X, 
   ChevronDown,
+  ChevronLeft,
   Database,
   Trophy,
   Scale,
-  ShieldCheck
+  ShieldCheck,
+  BarChart3
 } from 'lucide-react';
 
-export default function Sidebar({ 
-  activeTab, 
-  setActiveTab, 
-  selectedSeason, 
-  setSelectedSeason 
+export default function Sidebar({
+  activeTab,
+  setActiveTab,
+  selectedSeason,
+  setSelectedSeason,
+  collapsed,
+  setCollapsed
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -25,6 +29,7 @@ export default function Sidebar({
     { id: 'teams', label: 'Takım Profilleri', icon: Shield },
     { id: 'players', label: 'Oyuncu Profilleri', icon: User },
     { id: 'referees', label: 'Hakem Profilleri', icon: Scale },
+    { id: 'stats', label: 'İstatistikler', icon: BarChart3 },
     { id: 'audit', label: 'Model Doğrulama', icon: ShieldCheck },
   ];
 
@@ -72,27 +77,47 @@ export default function Sidebar({
         />
       )}
 
+      {/* Desktop Reopen Button (visible only when collapsed) */}
+      {collapsed && (
+        <button
+          onClick={() => setCollapsed(false)}
+          className="hidden lg:flex fixed top-4 left-4 z-40 p-2 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary transition-colors"
+          aria-label="Show sidebar"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
+
       {/* Main Sidebar (Desktop fixed left, mobile drawer) */}
-      <aside 
-        className={`fixed top-0 bottom-0 left-0 w-72 bg-background-primary border-r border-border z-50 flex flex-col justify-between transition-transform duration-200 ease-out lg:translate-x-0 ${
+      <aside
+        className={`fixed top-0 bottom-0 left-0 w-72 bg-background-primary border-r border-border z-50 flex flex-col justify-between transition-transform duration-200 ease-out ${
+          collapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'
+        } ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="p-5 flex flex-col h-full overflow-y-auto">
-          
+
           {/* Logo & Branding */}
           <div className="flex items-center gap-3.5 pb-6 border-b border-border-light">
             <div className="w-9 h-9 rounded bg-primary text-white flex items-center justify-center">
               <Trophy className="w-4 h-4 text-white" />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="font-semibold text-base tracking-tight text-text-primary">Premier League</h1>
             </div>
+            <button
+              onClick={() => setCollapsed(true)}
+              className="hidden lg:flex p-2 rounded hover:bg-background-tertiary text-text-secondary transition-colors"
+              aria-label="Hide sidebar"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Season Selector */}
           <div className="py-5 border-b border-border-light">
-            <label className="text-xs font-semibold uppercase tracking-wider text-text-secondary block mb-2 flex items-center justify-between">
+            <label className="text-xs font-semibold text-text-secondary block mb-2 flex items-center justify-between">
               <span>Sezon Filtresi</span>
               <Database className="w-3.5 h-3.5 text-text-muted" />
             </label>
@@ -110,17 +135,11 @@ export default function Sidebar({
               </select>
               <ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
-            <div className="flex items-center justify-between text-xs text-text-secondary mt-2 px-1">
-              <span>Aktif Veri Kümesi:</span>
-              <span className="font-mono font-medium text-text-primary tabular-nums">
-                {selectedSeason === '2026_27' ? '380 Fikstür' : selectedSeason === 'all' ? '1,140 Maç' : '380 Maç'}
-              </span>
-            </div>
           </div>
 
           {/* Navigation Links */}
           <div className="py-5 flex-1">
-            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary block mb-3 px-2">
+            <span className="text-xs font-semibold text-text-secondary block mb-3 px-2">
               Ana Menü
             </span>
             <nav className="space-y-1">

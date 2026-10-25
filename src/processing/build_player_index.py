@@ -20,7 +20,7 @@ from typing import Dict, Any, List
 from tqdm import tqdm
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
-from src.config import PROCESSED_DIR, RAW_DIR, SEASONS, configure_logging  # noqa: E402
+from src.config import PROCESSED_DIR, RAW_DIR, SEASON_ORDER, SEASONS, configure_logging  # noqa: E402
 
 logger = logging.getLogger("build_player_index")
 
@@ -207,6 +207,7 @@ def parse_player_data():
                     "team_score": team_score,
                     "opp_score": opp_score,
                     "started": True,
+                    "position": p.get("matchPosition") or (p.get("info") or {}).get("position", "M"),
                     "minutes_played": mins,
                     "goals": g,
                     "assists": a,
@@ -275,17 +276,17 @@ def parse_player_data():
                         "team_score": team_score,
                         "opp_score": opp_score,
                         "started": False,
+                        "position": p.get("matchPosition") or (p.get("info") or {}).get("position", "M"),
                         "minutes_played": mins,
                         "goals": g,
                         "assists": a,
                     })
 
     # Sort player logs chronologically and set latest team
-    season_order = {'2022_23': -1, '2023_24': 0, '2024_25': 1, '2025_26': 2, '2026_27': 3}
     for pid in player_logs:
         player_logs[pid] = sorted(
             player_logs[pid], 
-            key=lambda x: (season_order.get(x.get("season", ""), 0), float(x.get("gameweek") or 0))
+            key=lambda x: (SEASON_ORDER.get(x.get("season", ""), 0), float(x.get("gameweek") or 0))
         )
         if player_logs[pid] and pid in players:
             latest = player_logs[pid][-1]

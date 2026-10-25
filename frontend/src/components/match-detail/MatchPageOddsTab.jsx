@@ -1,19 +1,18 @@
 import { TrendingUp } from 'lucide-react';
+import EmptyState from '../common/EmptyState';
+import Skeleton from '../common/Skeleton';
 
 export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookmaker, setSelectedBookmaker, homeTeam, awayTeam }) {
   return (
     <div className="space-y-4 max-w-2xl mx-auto py-2">
                 {loadingOdds ? (
-                  <div className="py-12 text-center">
-                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-xs font-semibold text-text-primary">Piyasa oranları yükleniyor...</p>
+                  <div className="space-y-3" role="status" aria-label="Yükleniyor">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-24 w-full" />
                   </div>
                 ) : oddsData.length === 0 ? (
-                  <div className="py-12 text-center bg-background-tertiary border border-border rounded p-6">
-                    <TrendingUp className="w-8 h-8 text-text-tertiary mx-auto mb-2" />
-                    <p className="text-xs font-semibold text-text-primary">Bu karşılaşma için kaydedilmiş bahis piyasası oranı bulunmuyor.</p>
-                    <p className="text-xs text-text-secondary mt-1">Oranlar şu anda 2026/27 sezonunda tamamlanan maçlar için aktiftir.</p>
-                  </div>
+                  <EmptyState icon={TrendingUp}>Bu karşılaşma için kaydedilmiş bahis piyasası oranı bulunmuyor. Oranlar şu anda 2026/27 sezonunda tamamlanan maçlar için aktiftir.</EmptyState>
                 ) : (
                   <>
                     {/* Bookmaker Selector Tabs */}
@@ -22,7 +21,7 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
                         <button
                           key={bm.bookmaker}
                           onClick={() => setSelectedBookmaker(bm.bookmaker)}
-                          className={`flex-1 min-w-[100px] py-1.5 px-3 text-xs font-semibold rounded transition-all text-center ${
+                          className={`flex-1 min-w-24 py-1.5 px-3 text-xs font-semibold rounded transition-all text-center ${
                             selectedBookmaker === bm.bookmaker
                               ? 'bg-background-primary text-text-primary  border border-border'
                               : 'text-text-secondary hover:text-text-primary'
@@ -40,18 +39,18 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
                       return (
                         <div className="space-y-3">
                           {/* 1X2 Kapanış Oranları */}
-                          <div className="bg-background-tertiary border border-border rounded p-4 space-y-3">
+                          <div className="bg-background-primary border border-border rounded p-4 space-y-3">
                             <div className="flex items-center justify-between pb-2 border-b border-border text-xs">
                               <span className="font-semibold text-text-primary">1X2 Maç Sonucu (Kapanış Oranları)</span>
-                              <span className="font-semibold text-text-secondary bg-background-primary px-2 py-0.5 rounded border border-border">
+                              <span className="font-semibold text-text-secondary bg-background-tertiary px-2 py-0.5 rounded">
                                 {currentBm.bookmaker}
                               </span>
                             </div>
 
                             <div className="grid grid-cols-3 gap-3 pt-1 text-center">
-                              <div className="bg-background-primary p-3 rounded border border-border">
+                              <div className="bg-background-tertiary p-3 rounded">
                                 <span className="text-xs font-semibold text-text-secondary truncate block">{homeTeam.name}</span>
-                                <div className="text-2xl font-semibold font-mono text-text-primary my-1">
+                                <div className="text-2xl font-semibold tabular-nums text-text-primary my-1">
                                   {currentBm.home_last_seen ? currentBm.home_last_seen.toFixed(2) : '-'}
                                 </div>
                                 <span className="text-xs text-text-tertiary">1 (Ev Sahibi)</span>
@@ -60,9 +59,9 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
                                 )}
                               </div>
 
-                              <div className="bg-background-primary p-3 rounded border border-border">
+                              <div className="bg-background-tertiary p-3 rounded">
                                 <span className="text-xs font-semibold text-text-secondary block">Beraberlik</span>
-                                <div className="text-2xl font-semibold font-mono text-text-primary my-1">
+                                <div className="text-2xl font-semibold tabular-nums text-text-primary my-1">
                                   {currentBm.draw_last_seen ? currentBm.draw_last_seen.toFixed(2) : '-'}
                                 </div>
                                 <span className="text-xs text-text-tertiary">X (Eşitlik)</span>
@@ -71,9 +70,9 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
                                 )}
                               </div>
 
-                              <div className="bg-background-primary p-3 rounded border border-border">
+                              <div className="bg-background-tertiary p-3 rounded">
                                 <span className="text-xs font-semibold text-text-secondary truncate block">{awayTeam.name}</span>
-                                <div className="text-2xl font-semibold font-mono text-text-primary my-1">
+                                <div className="text-2xl font-semibold tabular-nums text-text-primary my-1">
                                   {currentBm.away_last_seen ? currentBm.away_last_seen.toFixed(2) : '-'}
                                 </div>
                                 <span className="text-xs text-text-tertiary">2 (Deplasman)</span>
@@ -85,16 +84,16 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
                           </div>
 
                           {/* Gol & KG Piyasaları */}
-                          <div className="bg-background-tertiary border border-border rounded p-4 space-y-3">
+                          <div className="bg-background-primary border border-border rounded p-4 space-y-3">
                             <div className="flex items-center justify-between pb-2 border-b border-border text-xs">
                               <span className="font-semibold text-text-primary">Gol & Karşılıklı Skor Oranları</span>
                               <span className="text-xs text-text-secondary">Piyasa Kapanışı</span>
                             </div>
 
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
-                              <div className="bg-background-primary p-2.5 rounded border border-border">
+                              <div className="bg-background-tertiary p-2.5 rounded">
                                 <span className="text-xs text-text-secondary block">2.5 Gol Üst</span>
-                                <strong className="text-lg font-semibold font-mono text-text-primary">
+                                <strong className="text-lg font-semibold tabular-nums text-text-primary">
                                   {currentBm.over_25_last_seen ? currentBm.over_25_last_seen.toFixed(2) : '-'}
                                 </strong>
                                 {currentBm.over_25_open && (
@@ -102,9 +101,9 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
                                 )}
                               </div>
 
-                              <div className="bg-background-primary p-2.5 rounded border border-border">
+                              <div className="bg-background-tertiary p-2.5 rounded">
                                 <span className="text-xs text-text-secondary block">2.5 Gol Alt</span>
-                                <strong className="text-lg font-semibold font-mono text-text-primary">
+                                <strong className="text-lg font-semibold tabular-nums text-text-primary">
                                   {currentBm.under_25_last_seen ? currentBm.under_25_last_seen.toFixed(2) : '-'}
                                 </strong>
                                 {currentBm.under_25_open && (
@@ -112,9 +111,9 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
                                 )}
                               </div>
 
-                              <div className="bg-background-primary p-2.5 rounded border border-border">
+                              <div className="bg-background-tertiary p-2.5 rounded">
                                 <span className="text-xs text-text-secondary block">KG Var (Evet)</span>
-                                <strong className="text-lg font-semibold font-mono text-text-primary">
+                                <strong className="text-lg font-semibold tabular-nums text-text-primary">
                                   {currentBm.btts_yes_last_seen ? currentBm.btts_yes_last_seen.toFixed(2) : '-'}
                                 </strong>
                                 {currentBm.btts_yes_open && (
@@ -122,9 +121,9 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
                                 )}
                               </div>
 
-                              <div className="bg-background-primary p-2.5 rounded border border-border">
+                              <div className="bg-background-tertiary p-2.5 rounded">
                                 <span className="text-xs text-text-secondary block">KG Yok (Hayır)</span>
-                                <strong className="text-lg font-semibold font-mono text-text-primary">
+                                <strong className="text-lg font-semibold tabular-nums text-text-primary">
                                   {currentBm.btts_no_last_seen ? currentBm.btts_no_last_seen.toFixed(2) : '-'}
                                 </strong>
                                 {currentBm.btts_no_open && (
@@ -136,7 +135,7 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
 
                           {/* Korner & Kart Piyasaları (Varsa) */}
                           {(currentBm.corners_over_last_seen || currentBm.cards_over_last_seen) && (
-                            <div className="bg-background-tertiary border border-border rounded p-4 space-y-3">
+                            <div className="bg-background-primary border border-border rounded p-4 space-y-3">
                               <div className="flex items-center justify-between pb-2 border-b border-border text-xs">
                                 <span className="font-semibold text-text-primary">Özel Bahis Pazarları (Korner & Kart)</span>
                                 <span className="text-xs text-text-secondary">Piyasa Çizgileri</span>
@@ -144,30 +143,30 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
 
                               <div className="grid grid-cols-2 gap-3 pt-1">
                                 {currentBm.corners_over_last_seen && (
-                                  <div className="bg-background-primary p-3 rounded border border-border flex items-center justify-between">
+                                  <div className="bg-background-tertiary p-3 rounded flex items-center justify-between">
                                     <div>
                                       <span className="text-xs font-semibold text-text-primary block">9.5 Korner</span>
                                       <span className="text-xs text-text-secondary">Kapanış Çizgisi</span>
                                     </div>
                                     <div className="text-right">
-                                      <span className="text-xs font-mono font-semibold text-text-primary block">Üst: {currentBm.corners_over_last_seen.toFixed(2)}</span>
+                                      <span className="text-xs tabular-nums font-semibold text-text-primary block">Üst: {currentBm.corners_over_last_seen.toFixed(2)}</span>
                                       {currentBm.corners_under_last_seen && (
-                                        <span className="text-xs font-mono text-text-secondary block">Alt: {currentBm.corners_under_last_seen.toFixed(2)}</span>
+                                        <span className="text-xs tabular-nums text-text-secondary block">Alt: {currentBm.corners_under_last_seen.toFixed(2)}</span>
                                       )}
                                     </div>
                                   </div>
                                 )}
 
                                 {currentBm.cards_over_last_seen && (
-                                  <div className="bg-background-primary p-3 rounded border border-border flex items-center justify-between">
+                                  <div className="bg-background-tertiary p-3 rounded flex items-center justify-between">
                                     <div>
                                       <span className="text-xs font-semibold text-text-primary block">4.5 Kart</span>
                                       <span className="text-xs text-text-secondary">Disiplin Pazarı</span>
                                     </div>
                                     <div className="text-right">
-                                      <span className="text-xs font-mono font-semibold text-text-primary block">Üst: {currentBm.cards_over_last_seen.toFixed(2)}</span>
+                                      <span className="text-xs tabular-nums font-semibold text-text-primary block">Üst: {currentBm.cards_over_last_seen.toFixed(2)}</span>
                                       {currentBm.cards_under_last_seen && (
-                                        <span className="text-xs font-mono text-text-secondary block">Alt: {currentBm.cards_under_last_seen.toFixed(2)}</span>
+                                        <span className="text-xs tabular-nums text-text-secondary block">Alt: {currentBm.cards_under_last_seen.toFixed(2)}</span>
                                       )}
                                     </div>
                                   </div>
@@ -194,7 +193,7 @@ export default function MatchPageOddsTab({ loadingOdds, oddsData, selectedBookma
                                     <th className="py-2 px-3 font-semibold text-center">KG Var</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-border-light font-mono">
+                                <tbody className="divide-y divide-border-light tabular-nums">
                                   {oddsData.map(b => (
                                     <tr key={b.bookmaker} className={b.bookmaker === selectedBookmaker ? 'bg-background-tertiary font-semibold' : 'hover:bg-background-tertiary'}>
                                       <td className="py-2 px-3 font-sans font-medium text-text-primary">{b.bookmaker}</td>

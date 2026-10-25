@@ -17,12 +17,12 @@ function StatGroup({ title, rows, wide = false }) {
   if (visible.length === 0) return null;
   return (
     <section className={wide ? 'col-span-2' : ''}>
-      <h4 className="px-1 mb-1 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{title}</h4>
+      <h4 className="px-1 mb-1 text-xs font-semibold text-text-tertiary">{title}</h4>
       <dl className="rounded border border-border divide-y divide-border-light bg-background-primary">
         {visible.map(([label, value, highlight]) => (
           <div key={label} className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs">
             <dt className="text-text-secondary truncate">{label}</dt>
-            <dd className={`font-mono font-semibold ${highlight ? 'text-primary' : 'text-text-primary'}`}>{value}</dd>
+            <dd className={`tabular-nums font-semibold ${highlight ? 'text-primary' : 'text-text-primary'}`}>{value}</dd>
           </div>
         ))}
       </dl>
@@ -86,7 +86,7 @@ export default function PlayerMatchPanel({ selectedPlayer, onClose, isCompleted,
         style={coords ? { top: coords.top, left: coords.left } : undefined}
         role="dialog"
         aria-label={`${p.name} maç performansı`}
-        className="fixed z-50 inset-x-0 bottom-0 max-h-[85vh] rounded-t-3xl lg:absolute lg:inset-auto lg:max-h-[calc(100vh-1rem)] lg:w-[340px] lg:rounded bg-background-tertiary shadow-2xl ring-1 ring-black/10 flex flex-col overflow-hidden animate-panelIn"
+        className="fixed z-50 inset-x-0 bottom-0 max-h-screen rounded-t-md lg:absolute lg:inset-auto lg:max-h-screen lg:w-80 lg:rounded bg-background-tertiary ring-1 ring-black/10 flex flex-col overflow-hidden animate-panelIn"
       >
         {/* Header */}
         <div className="relative shrink-0 bg-background-tertiary text-text-primary border-b border-border px-4 pt-4 pb-3">
@@ -121,10 +121,10 @@ export default function PlayerMatchPanel({ selectedPlayer, onClose, isCompleted,
                 <span className="truncate">{team?.name}</span>
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold">
-                <span className="font-mono text-text-secondary">#{p.shirt ?? '-'}</span>
-                <span className="px-1.5 py-px rounded-md bg-background-primary">{formatPosition(p.position)}</span>
+                <span className="tabular-nums text-text-secondary">#{p.shirt ?? '-'}</span>
+                <span className="px-1.5 py-px rounded-sm bg-background-primary">{formatPosition(p.position)}</span>
                 {isCompleted && (
-                  <span className="px-1.5 py-px rounded-md bg-background-primary text-text-secondary">{s.is_starter ? 'İlk 11' : played ? 'Yedekten girdi' : 'Oynamadı'}</span>
+                  <span className="px-1.5 py-px rounded-sm bg-background-primary text-text-secondary">{s.is_starter ? 'İlk 11' : played ? 'Yedekten girdi' : 'Oynamadı'}</span>
                 )}
               </div>
             </div>
@@ -132,12 +132,12 @@ export default function PlayerMatchPanel({ selectedPlayer, onClose, isCompleted,
 
           <div className="mt-3 grid grid-cols-4 gap-1.5 text-center">
             <div className={`rounded py-1.5 ${ratingClass(rating)}`} title={isCompleted ? 'Maç notu' : '5 maçlık form puanı'}>
-              <div className="text-base font-semibold font-mono leading-none">{rating != null ? Number(rating).toFixed(1) : '—'}</div>
+              <div className="text-base font-semibold tabular-nums leading-none">{rating != null ? Number(rating).toFixed(1) : '—'}</div>
               <div className="mt-0.5 text-xs font-semibold opacity-80">{isCompleted ? 'Not' : 'Form'}</div>
             </div>
             {isCompleted ? summary.map(([label, value]) => (
               <div key={label} className="rounded py-1.5 bg-background-primary">
-                <div className="text-base font-semibold font-mono leading-none">{value}</div>
+                <div className="text-base font-semibold tabular-nums leading-none">{value}</div>
                 <div className="mt-0.5 text-xs font-semibold text-text-secondary">{label}</div>
               </div>
             )) : (
@@ -147,7 +147,7 @@ export default function PlayerMatchPanel({ selectedPlayer, onClose, isCompleted,
                   <div className="mt-0.5 text-xs font-semibold text-text-secondary">Form durumu</div>
                 </div>
                 <div className="rounded py-1.5 bg-background-primary">
-                  <div className="text-base font-semibold font-mono leading-none">{p.cards_risk ?? '—'}</div>
+                  <div className="text-base font-semibold tabular-nums leading-none">{p.cards_risk ?? '—'}</div>
                   <div className="mt-0.5 text-xs font-semibold text-text-secondary">Kart riski</div>
                 </div>
               </>
@@ -174,11 +174,11 @@ export default function PlayerMatchPanel({ selectedPlayer, onClose, isCompleted,
             <>
               {(s.goals > 0 || s.assists > 0 || s.yellow_cards > 0 || s.red_cards > 0 || s.penalties_missed > 0) && (
                 <div className="col-span-2 flex flex-wrap gap-1.5">
-                  {s.goals > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-background-primary border border-border text-xs font-semibold text-text-primary"><BallIcon className="w-3.5 h-3.5" /> {s.goals} gol</span>}
-                  {s.assists > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-background-primary border border-border text-xs font-semibold text-text-primary"><span className="font-semibold text-primary">A</span> {s.assists} asist</span>}
-                  {s.yellow_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-primary border border-border text-xs font-semibold text-text-primary"><YellowCardIcon /> Sarı kart</span>}
-                  {s.red_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-primary border border-border text-xs font-semibold text-text-primary"><RedCardIcon /> Kırmızı kart</span>}
-                  {s.penalties_missed > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-background-tertiary border border-status-error text-xs font-semibold text-status-error">{s.penalties_missed} penaltı kaçırdı</span>}
+                  {s.goals > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm bg-background-primary border border-border text-xs font-semibold text-text-primary"><BallIcon className="w-3.5 h-3.5" /> {s.goals} gol</span>}
+                  {s.assists > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm bg-background-primary border border-border text-xs font-semibold text-text-primary"><span className="font-semibold text-primary">A</span> {s.assists} asist</span>}
+                  {s.yellow_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-background-primary border border-border text-xs font-semibold text-text-primary"><YellowCardIcon /> Sarı kart</span>}
+                  {s.red_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-background-primary border border-border text-xs font-semibold text-text-primary"><RedCardIcon /> Kırmızı kart</span>}
+                  {s.penalties_missed > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm bg-background-tertiary border border-status-error text-xs font-semibold text-status-error">{s.penalties_missed} penaltı kaçırdı</span>}
                 </div>
               )}
 

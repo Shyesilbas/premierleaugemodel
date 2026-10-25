@@ -2,47 +2,33 @@
 
 import json
 import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+from fastapi import APIRouter
+
 from src.analytics.player_ratings import calculate_detailed_match_score, get_player_dynamic_rating
+from src.api import state
 from src.config import DATA_DIR
 from src.db.database import get_db
-from typing import Any, Dict, List
-from src.api import state
-from fastapi import APIRouter
 
 router = APIRouter()
 logger = logging.getLogger("api_server")
 
-@router.get("/api/match/{match_id}/details")
-def get_match_full_details(match_id: int):
-    """
-    Returns full match lineup rosters, substitutes, tactical formations,
-    and play-by-play events.
-    """
-    if match_id in state._completed_match_details_cache:
-        return state._completed_match_details_cache[match_id]
 
-    raw_details = DATA_DIR / "raw" / "matches" / f"{match_id}_details.json"
-    raw_stream = DATA_DIR / "raw" / "matches" / f"{match_id}_stream.json"
-
-    raw_stats = DATA_DIR / "raw" / "matches" / f"{match_id}_stats.json"
-
-    lineups = []
-    metadata = {}
-    team_stats = []
-    player_stats = {"home": [], "away": []}
-
-    # Query DB for match xG and score stats if available
-    h_xg = None
-    a_xg = None
-    tot_xg = None
-    xg_source = None
-    xg_quality = None
+def _fetch_match_xg_info(
+    match_id: int,
+) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[str], Optional[str]]:
+    """Query SQLite for match xG and quality metadata if available."""
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("""SELECT x.provider, x.home_xg, x.away_xg, x.xg_quality
-                          FROM matches m LEFT JOIN external_match_xg x ON x.match_id = m.match_id
-                          WHERE m.match_id = ?""", (match_id,))
+        cursor.execute(
+            """SELECT x.provider, x.home_xg, x.away_xg, x.xg_quality
+               FROM matches m LEFT JOIN external_match_xg x ON x.match_id = m.match_id
+               WHERE m.match_id = ?""",
+            (match_id,),
+        )
         db_match = cursor.fetchone()
         conn.close()
         if db_match:
@@ -51,319 +37,339 @@ def get_match_full_details(match_id: int):
             tot_xg = round(h_xg + a_xg, 2) if h_xg is not None and a_xg is not None else None
             xg_source = db_match["provider"] if h_xg is not None and a_xg is not None else None
             xg_quality = db_match["xg_quality"]
+            return h_xg, a_xg, tot_xg, xg_source, xg_quality
     except Exception as e:
         logger.warning(f"Error fetching match {match_id} from SQLite: {e}")
+    return None, None, None, None, None
 
-    d = {}
-    if raw_details.exists():
-        with open(raw_details, "r", encoding="utf-8") as f:
-            d = json.load(f)
 
-        metadata = {
-            "match_id": match_id,
-            "kickoff_label": d.get("kickoff", {}).get("label"),
-            "ground": d.get("ground", {}).get("name"),
-            "attendance": d.get("attendance"),
-            "referee": d.get("matchOfficials", [{}])[0].get("matchOfficial", {}).get("name", {}).get("display") if d.get("matchOfficials") else None,
-            "halfTimeScore": d.get("halfTimeScore"),
-            "home_xg": h_xg,
-            "away_xg": a_xg,
-            "total_xg": tot_xg,
-            "xg_source": xg_source,
-            "xg_quality": xg_quality,
-        }
-
-        # Parse match events (goals, assists, cards, subs) from details
-        det_events = d.get("events", [])
-        sub_on = {}
-        sub_off = {}
-        goals = {}
-        assists = {}
-        yc = {}
-        rc = {}
-        for ev in det_events:
-            etype = ev.get("type")
-            pid = ev.get("personId")
-            clk = ev.get("clock", {}).get("label", "")
-            min_v = 0
-            if clk:
-                try:
-                    min_v = int(clk.split("'")[0].split("+")[0])
-                except Exception:
-                    pass
-            if etype == "G" and pid:
-                goals[pid] = goals.get(pid, 0) + 1
-            elif etype == "AS" and pid:
-                assists[pid] = assists.get(pid, 0) + 1
-            elif etype == "S" and pid:
-                if ev.get("description") == "ON":
-                    sub_on[pid] = min_v
-                elif ev.get("description") == "OFF":
-                    sub_off[pid] = min_v
-            elif etype == "B" and pid:
-                if ev.get("description") == "Y":
-                    yc[pid] = yc.get(pid, 0) + 1
-                elif ev.get("description") == "R":
-                    rc[pid] = rc.get(pid, 0) + 1
-
-        # Parse detailed stream events (shots, fouls, penalties, offsides, saves)
-        fouls_lost = {}
-        fouls_won = {}
-        shots = {}
-        shots_ot = {}
-        offsides = {}
-        pens_won = {}
-        pens_conceded = {}
-        pens_missed = {}
-        saves = {}
-
-        stream_events = []
-        if raw_stream.exists():
+def _parse_detail_events(det_events: List[Dict[str, Any]]) -> Dict[str, Dict[int, int]]:
+    """Parse match events (goals, assists, cards, subs) from details JSON."""
+    sub_on: Dict[int, int] = {}
+    sub_off: Dict[int, int] = {}
+    goals: Dict[int, int] = {}
+    assists: Dict[int, int] = {}
+    yc: Dict[int, int] = {}
+    rc: Dict[int, int] = {}
+    for ev in det_events:
+        etype = ev.get("type")
+        pid = ev.get("personId")
+        clk = ev.get("clock", {}).get("label", "")
+        min_v = 0
+        if clk:
             try:
-                with open(raw_stream, "r", encoding="utf-8") as f:
-                    st = json.load(f)
-                    stream_events = st.get("events", {}).get("content", [])
+                min_v = int(clk.split("'")[0].split("+")[0])
             except Exception:
-                stream_events = []
-        events = stream_events
+                pass
+        if etype == "G" and pid:
+            goals[pid] = goals.get(pid, 0) + 1
+        elif etype == "AS" and pid:
+            assists[pid] = assists.get(pid, 0) + 1
+        elif etype == "S" and pid:
+            if ev.get("description") == "ON":
+                sub_on[pid] = min_v
+            elif ev.get("description") == "OFF":
+                sub_off[pid] = min_v
+        elif etype == "B" and pid:
+            if ev.get("description") == "Y":
+                yc[pid] = yc.get(pid, 0) + 1
+            elif ev.get("description") == "R":
+                rc[pid] = rc.get(pid, 0) + 1
+    return {
+        "sub_on": sub_on,
+        "sub_off": sub_off,
+        "goals": goals,
+        "assists": assists,
+        "yc": yc,
+        "rc": rc,
+    }
 
-        # Find team starting goalkeepers and player team mapping
-        player_team_map = {}
-        team_gk_map = {}
-        for idx, tl in enumerate(d.get("teamLists", [])):
-            if not tl or not isinstance(tl, dict):
-                continue
-            tid = tl.get("teamId")
-            for p in tl.get("lineup", []):
-                pid = p.get("id")
-                if pid:
-                    player_team_map[pid] = tid
-                    pos = p.get("matchPosition") or p.get("info", {}).get("position") or "M"
-                    if pos in ("G", "GK") and tid not in team_gk_map:
-                        team_gk_map[tid] = pid
-            for p in tl.get("substitutes", []):
-                pid = p.get("id")
-                if pid:
-                    player_team_map[pid] = tid
 
-        team_ids_list = list(team_gk_map.keys())
+def _parse_stream_events(
+    raw_stream: Path, team_lists: List[Dict[str, Any]]
+) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[int, int]]]:
+    """Parse play-by-play stream events for player shot, foul, penalty, offside, and save counts."""
+    fouls_lost: Dict[int, int] = {}
+    fouls_won: Dict[int, int] = {}
+    shots: Dict[int, int] = {}
+    shots_ot: Dict[int, int] = {}
+    offsides: Dict[int, int] = {}
+    pens_won: Dict[int, int] = {}
+    pens_conceded: Dict[int, int] = {}
+    pens_missed: Dict[int, int] = {}
+    saves: Dict[int, int] = {}
 
-        for se in stream_events:
-            stype = se.get("type", "")
-            stext = se.get("text", "")
-            pids = se.get("playerIds", [])
-            if not pids:
-                continue
-            p0 = pids[0]
-            if stype == "free kick lost":
-                fouls_lost[p0] = fouls_lost.get(p0, 0) + 1
-            elif stype == "free kick won":
-                fouls_won[p0] = fouls_won.get(p0, 0) + 1
-            elif stype in ["goal", "attempt saved", "miss", "attempt blocked"]:
-                shots[p0] = shots.get(p0, 0) + 1
-                if stype in ["goal", "attempt saved"]:
-                    shots_ot[p0] = shots_ot.get(p0, 0) + 1
-                if stype == "attempt saved":
-                    # The defending opponent goalkeeper gets a save
-                    shooter_tid = player_team_map.get(p0)
-                    opp_tid = next((t for t in team_ids_list if t != shooter_tid), None)
-                    if opp_tid and opp_tid in team_gk_map:
-                        opp_gk_id = team_gk_map[opp_tid]
-                        saves[opp_gk_id] = saves.get(opp_gk_id, 0) + 1
-            elif stype == "offside":
-                offsides[p0] = offsides.get(p0, 0) + 1
-            elif stype == "penalty lost":
-                pens_conceded[p0] = pens_conceded.get(p0, 0) + 1
-            elif stype == "penalty won":
-                pens_won[p0] = pens_won.get(p0, 0) + 1
-            elif stype in ["penalty miss", "penalty saved"] or "penalty missed" in stext.lower():
-                pens_missed[p0] = pens_missed.get(p0, 0) + 1
+    stream_events: List[Dict[str, Any]] = []
+    if raw_stream.exists():
+        try:
+            with open(raw_stream, "r", encoding="utf-8") as f:
+                st = json.load(f)
+                stream_events = st.get("events", {}).get("content", [])
+        except Exception:
+            stream_events = []
 
-        teams_info = d.get("teams", [])
-        h_score_val = teams_info[0].get("score") if len(teams_info) > 0 else None
-        a_score_val = teams_info[1].get("score") if len(teams_info) > 1 else None
-        is_match_completed = (h_score_val is not None and a_score_val is not None)
+    player_team_map: Dict[int, Any] = {}
+    team_gk_map: Dict[Any, int] = {}
+    for tl in team_lists:
+        if not tl or not isinstance(tl, dict):
+            continue
+        tid = tl.get("teamId")
+        for p in tl.get("lineup", []):
+            pid = p.get("id")
+            if pid:
+                player_team_map[pid] = tid
+                pos = p.get("matchPosition") or p.get("info", {}).get("position") or "M"
+                if pos in ("G", "GK") and tid not in team_gk_map:
+                    team_gk_map[tid] = pid
+        for p in tl.get("substitutes", []):
+            pid = p.get("id")
+            if pid:
+                player_team_map[pid] = tid
 
-        for idx, tl in enumerate(d.get("teamLists", [])):
-            if not tl or not isinstance(tl, dict):
-                continue
-            t_obj = teams_info[idx].get("team", {}) if idx < len(teams_info) else {}
-            score_val = teams_info[idx].get("score") if idx < len(teams_info) else None
-            opp_score_val = teams_info[1 - idx].get("score") if len(teams_info) > 1 and (1 - idx) < len(teams_info) else 0
+    team_ids_list = list(team_gk_map.keys())
+    for se in stream_events:
+        stype = se.get("type", "")
+        stext = se.get("text", "")
+        pids = se.get("playerIds", [])
+        if not pids:
+            continue
+        p0 = pids[0]
+        if stype == "free kick lost":
+            fouls_lost[p0] = fouls_lost.get(p0, 0) + 1
+        elif stype == "free kick won":
+            fouls_won[p0] = fouls_won.get(p0, 0) + 1
+        elif stype in ["goal", "attempt saved", "miss", "attempt blocked"]:
+            shots[p0] = shots.get(p0, 0) + 1
+            if stype in ["goal", "attempt saved"]:
+                shots_ot[p0] = shots_ot.get(p0, 0) + 1
+            if stype == "attempt saved":
+                shooter_tid = player_team_map.get(p0)
+                opp_tid = next((t for t in team_ids_list if t != shooter_tid), None)
+                if opp_tid and opp_tid in team_gk_map:
+                    opp_gk_id = team_gk_map[opp_tid]
+                    saves[opp_gk_id] = saves.get(opp_gk_id, 0) + 1
+        elif stype == "offside":
+            offsides[p0] = offsides.get(p0, 0) + 1
+        elif stype == "penalty lost":
+            pens_conceded[p0] = pens_conceded.get(p0, 0) + 1
+        elif stype == "penalty won":
+            pens_won[p0] = pens_won.get(p0, 0) + 1
+        elif stype in ["penalty miss", "penalty saved"] or "penalty missed" in stext.lower():
+            pens_missed[p0] = pens_missed.get(p0, 0) + 1
 
-            starters = []
-            team_overall_sum = 0.0
-            team_attack_sum = 0.0
-            team_defense_sum = 0.0
-            team_cards_risk_sum = 0.0
-            starter_count = 0
+    return stream_events, {
+        "fouls_lost": fouls_lost,
+        "fouls_won": fouls_won,
+        "shots": shots,
+        "shots_ot": shots_ot,
+        "offsides": offsides,
+        "pens_won": pens_won,
+        "pens_conceded": pens_conceded,
+        "pens_missed": pens_missed,
+        "saves": saves,
+    }
 
-            for p in tl.get("lineup", []):
-                pid = p.get("id")
-                reg_p = state.player_registry_map.get(int(pid), {}) if pid else {}
-                photo = state.resolve_player_photo(pid, reg_p)
-                pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
-                
-                # Dynamic player rating calculation
-                p_rat = {}
-                if pid:
-                    try:
-                        p_rat = get_player_dynamic_rating(pid, as_of_match_id=match_id)
-                    except Exception:
-                        p_rat = {}
 
-                p_mins = sub_off.get(pid, 90)
-                p_stats = {
-                    "minutes": p_mins,
-                    "goals": goals.get(pid, 0),
-                    "assists": assists.get(pid, 0),
-                    "shots": shots.get(pid, 0),
-                    "shots_ontarget": shots_ot.get(pid, 0),
-                    "fouls_committed": fouls_lost.get(pid, 0),
-                    "fouls_won": fouls_won.get(pid, 0),
-                    "offsides": offsides.get(pid, 0),
-                    "yellow_cards": yc.get(pid, 0),
-                    "red_cards": rc.get(pid, 0),
-                    "penalties_won": pens_won.get(pid, 0),
-                    "penalties_conceded": pens_conceded.get(pid, 0),
-                    "penalties_missed": pens_missed.get(pid, 0),
-                    "saves": saves.get(pid, 0),
-                }
+def _build_player_match_stats_dict(
+    pid: Any,
+    mins: int,
+    ev_counts: Dict[str, Dict[int, int]],
+    st_counts: Dict[str, Dict[int, int]],
+) -> Dict[str, int]:
+    """Assemble per-player match counting stats dictionary."""
+    return {
+        "minutes": mins,
+        "goals": ev_counts["goals"].get(pid, 0),
+        "assists": ev_counts["assists"].get(pid, 0),
+        "shots": st_counts["shots"].get(pid, 0),
+        "shots_ontarget": st_counts["shots_ot"].get(pid, 0),
+        "fouls_committed": st_counts["fouls_lost"].get(pid, 0),
+        "fouls_won": st_counts["fouls_won"].get(pid, 0),
+        "offsides": st_counts["offsides"].get(pid, 0),
+        "yellow_cards": ev_counts["yc"].get(pid, 0),
+        "red_cards": ev_counts["rc"].get(pid, 0),
+        "penalties_won": st_counts["pens_won"].get(pid, 0),
+        "penalties_conceded": st_counts["pens_conceded"].get(pid, 0),
+        "penalties_missed": st_counts["pens_missed"].get(pid, 0),
+        "saves": st_counts["saves"].get(pid, 0),
+    }
 
-                if is_match_completed:
-                    perf = calculate_detailed_match_score(
-                        p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0
-                    )
-                    overall_r = perf["overall"]
-                    att_r = perf["attack"]
-                    def_r = perf["defense"]
-                    match_r = perf["overall"]
-                else:
-                    overall_r = p_rat.get("overall_rating", 6.0)
-                    att_r = p_rat.get("attack_rating", 6.0)
-                    def_r = p_rat.get("defense_rating", 6.0)
-                    match_r = None
 
-                cards_r = p_rat.get("cards_risk", 3.0)
+def _build_match_lineups(
+    match_id: int,
+    d: Dict[str, Any],
+    is_match_completed: bool,
+    ev_counts: Dict[str, Dict[int, int]],
+    st_counts: Dict[str, Dict[int, int]],
+) -> List[Dict[str, Any]]:
+    """Build team lineup cards, starter/substitute lists, and team ratings."""
+    lineups: List[Dict[str, Any]] = []
+    teams_info = d.get("teams", [])
+    sub_on = ev_counts["sub_on"]
+    sub_off = ev_counts["sub_off"]
+    pens_conceded = st_counts["pens_conceded"]
+    pens_won = st_counts["pens_won"]
+    pens_missed = st_counts["pens_missed"]
 
-                team_overall_sum += overall_r
-                team_attack_sum += att_r
-                team_defense_sum += def_r
-                team_cards_risk_sum += cards_r
-                starter_count += 1
+    for idx, tl in enumerate(d.get("teamLists", [])):
+        if not tl or not isinstance(tl, dict):
+            continue
+        t_obj = teams_info[idx].get("team", {}) if idx < len(teams_info) else {}
+        score_val = teams_info[idx].get("score") if idx < len(teams_info) else None
+        opp_score_val = (
+            teams_info[1 - idx].get("score")
+            if len(teams_info) > 1 and (1 - idx) < len(teams_info)
+            else 0
+        )
 
-                starters.append({
-                    "id": pid,
-                    "name": p.get("name", {}).get("display"),
-                    "shirt": p.get("matchShirtNumber"),
-                    "position": pos,
-                    "captain": p.get("captain", False),
-                    "country": p.get("nationalTeam", {}).get("country"),
-                    "photo_url": photo,
-                    "rating": overall_r,
-                    "match_rating": match_r,
-                    "form_rating": p_rat.get("overall_rating", 6.0),
-                    "is_match_rating": is_match_completed,
-                    "attack_rating": att_r,
-                    "defense_rating": def_r,
-                    "cards_risk": cards_r,
-                    "form_label": p_rat.get("form_label", "Normal"),
-                    "trend": p_rat.get("trend", "stable"),
-                    "penalties_conceded": pens_conceded.get(pid, 0),
-                    "penalties_won": pens_won.get(pid, 0),
-                    "penalties_missed": pens_missed.get(pid, 0),
-                })
+        starters = []
+        team_overall_sum = 0.0
+        team_attack_sum = 0.0
+        team_defense_sum = 0.0
+        team_cards_risk_sum = 0.0
+        starter_count = 0
 
-            subs = []
-            for p in tl.get("substitutes", []):
-                pid = p.get("id")
-                reg_p = state.player_registry_map.get(int(pid), {}) if pid else {}
-                photo = state.resolve_player_photo(pid, reg_p)
-                pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
-                
-                p_rat = {}
-                if pid:
-                    try:
-                        p_rat = get_player_dynamic_rating(pid, as_of_match_id=match_id)
-                    except Exception:
-                        p_rat = {}
+        for p in tl.get("lineup", []):
+            pid = p.get("id")
+            reg_p = state.player_registry_map.get(int(pid), {}) if pid else {}
+            photo = state.resolve_player_photo(pid, reg_p)
+            pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
 
-                p_mins = (90 - sub_on.get(pid, 75)) if pid in sub_on else 0
-                p_stats = {
-                    "minutes": p_mins,
-                    "goals": goals.get(pid, 0),
-                    "assists": assists.get(pid, 0),
-                    "shots": shots.get(pid, 0),
-                    "shots_ontarget": shots_ot.get(pid, 0),
-                    "fouls_committed": fouls_lost.get(pid, 0),
-                    "fouls_won": fouls_won.get(pid, 0),
-                    "offsides": offsides.get(pid, 0),
-                    "yellow_cards": yc.get(pid, 0),
-                    "red_cards": rc.get(pid, 0),
-                    "penalties_won": pens_won.get(pid, 0),
-                    "penalties_conceded": pens_conceded.get(pid, 0),
-                    "penalties_missed": pens_missed.get(pid, 0),
-                    "saves": saves.get(pid, 0),
-                }
+            p_rat = {}
+            if pid:
+                try:
+                    p_rat = get_player_dynamic_rating(pid, as_of_match_id=match_id)
+                except Exception:
+                    p_rat = {}
 
-                if is_match_completed and p_mins > 0:
-                    perf = calculate_detailed_match_score(
-                        p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0
-                    )
-                    sub_r = perf["overall"]
-                    match_r = perf["overall"]
-                else:
-                    sub_r = p_rat.get("overall_rating", 6.0)
-                    match_r = None
+            p_mins = sub_off.get(pid, 90)
+            p_stats = _build_player_match_stats_dict(pid, p_mins, ev_counts, st_counts)
 
-                subs.append({
-                    "id": pid,
-                    "name": p.get("name", {}).get("display"),
-                    "shirt": p.get("matchShirtNumber"),
-                    "position": pos,
-                    "photo_url": photo,
-                    "rating": sub_r,
-                    "match_rating": match_r,
-                    "form_rating": p_rat.get("overall_rating", 6.0),
-                    "is_match_rating": is_match_completed,
-                    "cards_risk": p_rat.get("cards_risk", 3.0),
-                    "form_label": p_rat.get("form_label", "Normal"),
-                    "trend": p_rat.get("trend", "stable"),
-                    "penalties_conceded": pens_conceded.get(pid, 0),
-                    "penalties_won": pens_won.get(pid, 0),
-                    "penalties_missed": pens_missed.get(pid, 0),
-                })
-
-            # Sort starters & substitutes by position: Kaleci (GK) -> Savunma (DEF) -> Orta Saha (MID) -> Forvet (FWD)
-            starters.sort(key=lambda x: (state.get_position_order(x.get("position")), x.get("shirt") or 99))
-            subs.sort(key=lambda x: (state.get_position_order(x.get("position")), x.get("shirt") or 99))
-
-            formation_obj = tl.get("formation") or {}
-            if isinstance(formation_obj, dict):
-                form_label = formation_obj.get("label", "4-3-3")
-                form_matrix = formation_obj.get("players", [])
+            if is_match_completed:
+                perf = calculate_detailed_match_score(
+                    p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0
+                )
+                overall_r = perf["overall"]
+                att_r = perf["attack"]
+                def_r = perf["defense"]
+                match_r = perf["overall"]
             else:
-                form_label = str(formation_obj) if formation_obj else "4-3-3"
-                form_matrix = []
+                overall_r = p_rat.get("overall_rating", 6.0)
+                att_r = p_rat.get("attack_rating", 6.0)
+                def_r = p_rat.get("defense_rating", 6.0)
+                match_r = None
 
-            divisor = starter_count if starter_count > 0 else 1
-            lineups.append({
-                "team_id": tl.get("teamId"),
-                "team_name": t_obj.get("name"),
-                "score": score_val,
-                "formation": form_label,
-                "formation_matrix": form_matrix,
-                "team_ratings": {
-                    "overall": round(team_overall_sum / divisor, 2),
-                    "attack": round(team_attack_sum / divisor, 2),
-                    "defense": round(team_defense_sum / divisor, 2),
-                    "cards_risk": round(team_cards_risk_sum / divisor, 2),
-                },
-                "starters": starters,
-                "substitutes": subs,
+            cards_r = p_rat.get("cards_risk", 3.0)
+            team_overall_sum += overall_r
+            team_attack_sum += att_r
+            team_defense_sum += def_r
+            team_cards_risk_sum += cards_r
+            starter_count += 1
+
+            starters.append({
+                "id": pid,
+                "name": p.get("name", {}).get("display"),
+                "shirt": p.get("matchShirtNumber"),
+                "position": pos,
+                "captain": p.get("captain", False),
+                "country": p.get("nationalTeam", {}).get("country"),
+                "photo_url": photo,
+                "rating": overall_r,
+                "match_rating": match_r,
+                "form_rating": p_rat.get("overall_rating", 6.0),
+                "is_match_rating": is_match_completed,
+                "attack_rating": att_r,
+                "defense_rating": def_r,
+                "cards_risk": cards_r,
+                "form_label": p_rat.get("form_label", "Normal"),
+                "trend": p_rat.get("trend", "stable"),
+                "penalties_conceded": pens_conceded.get(pid, 0),
+                "penalties_won": pens_won.get(pid, 0),
+                "penalties_missed": pens_missed.get(pid, 0),
             })
 
-    # Team Stats (Comparative 182 Metrics across categories)
+        subs = []
+        for p in tl.get("substitutes", []):
+            pid = p.get("id")
+            reg_p = state.player_registry_map.get(int(pid), {}) if pid else {}
+            photo = state.resolve_player_photo(pid, reg_p)
+            pos = p.get("matchPosition") or p.get("info", {}).get("position") or reg_p.get("position") or "M"
+
+            p_rat = {}
+            if pid:
+                try:
+                    p_rat = get_player_dynamic_rating(pid, as_of_match_id=match_id)
+                except Exception:
+                    p_rat = {}
+
+            p_mins = (90 - sub_on.get(pid, 75)) if pid in sub_on else 0
+            p_stats = _build_player_match_stats_dict(pid, p_mins, ev_counts, st_counts)
+
+            if is_match_completed and p_mins > 0:
+                perf = calculate_detailed_match_score(
+                    p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0
+                )
+                sub_r = perf["overall"]
+                match_r = perf["overall"]
+            else:
+                sub_r = p_rat.get("overall_rating", 6.0)
+                match_r = None
+
+            subs.append({
+                "id": pid,
+                "name": p.get("name", {}).get("display"),
+                "shirt": p.get("matchShirtNumber"),
+                "position": pos,
+                "photo_url": photo,
+                "rating": sub_r,
+                "match_rating": match_r,
+                "form_rating": p_rat.get("overall_rating", 6.0),
+                "is_match_rating": is_match_completed,
+                "cards_risk": p_rat.get("cards_risk", 3.0),
+                "form_label": p_rat.get("form_label", "Normal"),
+                "trend": p_rat.get("trend", "stable"),
+                "penalties_conceded": pens_conceded.get(pid, 0),
+                "penalties_won": pens_won.get(pid, 0),
+                "penalties_missed": pens_missed.get(pid, 0),
+            })
+
+        starters.sort(key=lambda x: (state.get_position_order(x.get("position")), x.get("shirt") or 99))
+        subs.sort(key=lambda x: (state.get_position_order(x.get("position")), x.get("shirt") or 99))
+
+        formation_obj = tl.get("formation") or {}
+        if isinstance(formation_obj, dict):
+            form_label = formation_obj.get("label", "4-3-3")
+            form_matrix = formation_obj.get("players", [])
+        else:
+            form_label = str(formation_obj) if formation_obj else "4-3-3"
+            form_matrix = []
+
+        divisor = starter_count if starter_count > 0 else 1
+        lineups.append({
+            "team_id": tl.get("teamId"),
+            "team_name": t_obj.get("name"),
+            "score": score_val,
+            "formation": form_label,
+            "formation_matrix": form_matrix,
+            "team_ratings": {
+                "overall": round(team_overall_sum / divisor, 2),
+                "attack": round(team_attack_sum / divisor, 2),
+                "defense": round(team_defense_sum / divisor, 2),
+                "cards_risk": round(team_cards_risk_sum / divisor, 2),
+            },
+            "starters": starters,
+            "substitutes": subs,
+        })
+    return lineups
+
+
+def _build_comparative_team_stats(
+    raw_stats: Path,
+    d: Dict[str, Any],
+    h_xg: Optional[float],
+    a_xg: Optional[float],
+) -> List[Dict[str, Any]]:
+    """Build comparative team statistics across 5 tactical categories."""
     if raw_stats.exists():
         with open(raw_stats, "r", encoding="utf-8") as f:
             s_data = json.load(f)
@@ -376,7 +382,7 @@ def get_match_full_details(match_id: int):
         hm = {it.get("name"): float(it.get("value", 0)) for it in t_data.get(h_id_str, {}).get("M", [])}
         am = {it.get("name"): float(it.get("value", 0)) for it in t_data.get(a_id_str, {}).get("M", [])}
 
-        def m_pair(key, def_val=0.0):
+        def m_pair(key: str, def_val: float = 0.0) -> Tuple[float, float]:
             return hm.get(key, def_val), am.get(key, def_val)
 
         h_pass, a_pass = m_pair("total_pass")
@@ -384,7 +390,7 @@ def get_match_full_details(match_id: int):
         h_pass_pct = round((h_acc_p / max(1.0, h_pass)) * 100, 1) if h_pass > 0 else 0.0
         a_pass_pct = round((a_acc_p / max(1.0, a_pass)) * 100, 1) if a_pass > 0 else 0.0
 
-        team_stats = [
+        return [
             {
                 "category": "Şut & Hücum Hacmi",
                 "items": [
@@ -457,8 +463,9 @@ def get_match_full_details(match_id: int):
                 ]
             }
         ]
-    elif h_xg is not None or a_xg is not None:
-        team_stats = [
+
+    if h_xg is not None or a_xg is not None:
+        return [
             {
                 "category": "Şut & Hücum Hacmi",
                 "items": [
@@ -474,8 +481,63 @@ def get_match_full_details(match_id: int):
                 ]
             }
         ]
+    return []
 
-    # Populate home & away player cards
+
+def _build_match_player_stats(
+    d: Dict[str, Any],
+    is_match_completed: bool,
+    ev_counts: Dict[str, Dict[int, int]],
+    st_counts: Dict[str, Dict[int, int]],
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Populate home and away player performance cards for starters and played substitutes."""
+    player_stats: Dict[str, List[Dict[str, Any]]] = {"home": [], "away": []}
+    teams_info = d.get("teams", [])
+    sub_on = ev_counts["sub_on"]
+    sub_off = ev_counts["sub_off"]
+
+    def _build_player_entry(
+        p: Dict[str, Any],
+        mins: int,
+        is_starter: bool,
+        score_val: Any,
+        opp_score_val: Any,
+    ) -> Dict[str, Any]:
+        pid = p.get("id")
+        reg_p = state.player_registry_map.get(int(pid), {}) if pid else {}
+        photo = state.resolve_player_photo(pid, reg_p)
+        pos = p.get("matchPosition") or p.get("info", {}).get("position", "M")
+        p_stats = _build_player_match_stats_dict(pid, mins, ev_counts, st_counts)
+
+        p_rating = 6.0
+        p_attack = 6.0
+        p_defense = 6.0
+        if is_match_completed:
+            perf = calculate_detailed_match_score(
+                p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0
+            )
+            p_rating = perf["overall"]
+            p_attack = perf.get("attack")
+            p_defense = perf.get("defense")
+
+        return {
+            "id": pid,
+            "name": p.get("name", {}).get("display", "Unknown"),
+            "shirt": p.get("matchShirtNumber"),
+            "position": pos,
+            "is_starter": is_starter,
+            "captain": p.get("captain", False) if is_starter else False,
+            "photo_url": photo,
+            **p_stats,
+            "rating": p_rating,
+            "attack_rating": p_attack,
+            "defense_rating": p_defense,
+            "team_score": score_val or 0,
+            "opp_score": opp_score_val or 0,
+            "match_rating": p_rating if is_match_completed else None,
+            "is_match_rating": is_match_completed,
+        }
+
     for idx, tl in enumerate(d.get("teamLists", [])):
         if not tl or not isinstance(tl, dict):
             continue
@@ -483,149 +545,45 @@ def get_match_full_details(match_id: int):
         lineup_p = tl.get("lineup", [])
         subs_p = tl.get("substitutes", [])
         score_val = teams_info[idx].get("score") if idx < len(teams_info) else None
-        opp_score_val = teams_info[1 - idx].get("score") if len(teams_info) > 1 and (1 - idx) < len(teams_info) else 0
+        opp_score_val = (
+            teams_info[1 - idx].get("score")
+            if len(teams_info) > 1 and (1 - idx) < len(teams_info)
+            else 0
+        )
 
-        # Process starters
         for p in lineup_p:
             pid = p.get("id")
             if not pid:
                 continue
             mins = sub_off.get(pid, 90)
-            reg_p = state.player_registry_map.get(int(pid), {}) if pid else {}
-            photo = state.resolve_player_photo(pid, reg_p)
-            pos = p.get("matchPosition") or p.get("info", {}).get("position", "M")
+            player_stats[side].append(_build_player_entry(p, mins, True, score_val, opp_score_val))
 
-            p_stats = {
-                "minutes": mins,
-                "goals": goals.get(pid, 0),
-                "assists": assists.get(pid, 0),
-                "shots": shots.get(pid, 0),
-                "shots_ontarget": shots_ot.get(pid, 0),
-                "fouls_committed": fouls_lost.get(pid, 0),
-                "fouls_won": fouls_won.get(pid, 0),
-                "offsides": offsides.get(pid, 0),
-                "yellow_cards": yc.get(pid, 0),
-                "red_cards": rc.get(pid, 0),
-                "penalties_won": pens_won.get(pid, 0),
-                "penalties_conceded": pens_conceded.get(pid, 0),
-                "penalties_missed": pens_missed.get(pid, 0),
-                "saves": saves.get(pid, 0),
-            }
-
-            p_rating = 6.0
-            p_attack = 6.0
-            p_defense = 6.0
-            if is_match_completed:
-                perf = calculate_detailed_match_score(p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0)
-                p_rating = perf["overall"]
-                p_attack = perf.get("attack")
-                p_defense = perf.get("defense")
-
-            player_stats[side].append({
-                "id": pid,
-                "name": p.get("name", {}).get("display", "Unknown"),
-                "shirt": p.get("matchShirtNumber"),
-                "position": pos,
-                "is_starter": True,
-                "captain": p.get("captain", False),
-                "photo_url": photo,
-                "minutes": mins,
-                "goals": goals.get(pid, 0),
-                "assists": assists.get(pid, 0),
-                "shots": shots.get(pid, 0),
-                "shots_ontarget": shots_ot.get(pid, 0),
-                "fouls_committed": fouls_lost.get(pid, 0),
-                "fouls_won": fouls_won.get(pid, 0),
-                "offsides": offsides.get(pid, 0),
-                "yellow_cards": yc.get(pid, 0),
-                "red_cards": rc.get(pid, 0),
-                "penalties_won": pens_won.get(pid, 0),
-                "penalties_conceded": pens_conceded.get(pid, 0),
-                "penalties_missed": pens_missed.get(pid, 0),
-                "saves": saves.get(pid, 0),
-                "rating": p_rating,
-                "attack_rating": p_attack,
-                "defense_rating": p_defense,
-                "team_score": score_val or 0,
-                "opp_score": opp_score_val or 0,
-                "match_rating": p_rating if is_match_completed else None,
-                "is_match_rating": is_match_completed,
-            })
-
-        # Process substitutes who actually played
         for p in subs_p:
             pid = p.get("id")
             if not pid or pid not in sub_on:
                 continue
             mins = max(1, 90 - sub_on[pid])
-            reg_p = state.player_registry_map.get(int(pid), {}) if pid else {}
-            photo = state.resolve_player_photo(pid, reg_p)
-            pos = p.get("matchPosition") or p.get("info", {}).get("position", "M")
+            player_stats[side].append(_build_player_entry(p, mins, False, score_val, opp_score_val))
 
-            p_stats = {
-                "minutes": mins,
-                "goals": goals.get(pid, 0),
-                "assists": assists.get(pid, 0),
-                "shots": shots.get(pid, 0),
-                "shots_ontarget": shots_ot.get(pid, 0),
-                "fouls_committed": fouls_lost.get(pid, 0),
-                "fouls_won": fouls_won.get(pid, 0),
-                "offsides": offsides.get(pid, 0),
-                "yellow_cards": yc.get(pid, 0),
-                "red_cards": rc.get(pid, 0),
-                "penalties_won": pens_won.get(pid, 0),
-                "penalties_conceded": pens_conceded.get(pid, 0),
-                "penalties_missed": pens_missed.get(pid, 0),
-                "saves": saves.get(pid, 0),
-            }
+        player_stats[side].sort(
+            key=lambda x: (
+                0 if x.get("is_starter") else 1,
+                state.get_position_order(x.get("position")),
+                x.get("shirt") or 99,
+            )
+        )
+    return player_stats
 
-            p_rating = 6.0
-            p_attack = 6.0
-            p_defense = 6.0
-            if is_match_completed:
-                perf = calculate_detailed_match_score(p_stats, pos, team_score=score_val or 0, opp_score=opp_score_val or 0)
-                p_rating = perf["overall"]
-                p_attack = perf.get("attack")
-                p_defense = perf.get("defense")
 
-            player_stats[side].append({
-                "id": pid,
-                "name": p.get("name", {}).get("display", "Unknown"),
-                "shirt": p.get("matchShirtNumber"),
-                "position": pos,
-                "is_starter": False,
-                "captain": False,
-                "photo_url": photo,
-                "minutes": mins,
-                "goals": goals.get(pid, 0),
-                "assists": assists.get(pid, 0),
-                "shots": shots.get(pid, 0),
-                "shots_ontarget": shots_ot.get(pid, 0),
-                "fouls_committed": fouls_lost.get(pid, 0),
-                "fouls_won": fouls_won.get(pid, 0),
-                "offsides": offsides.get(pid, 0),
-                "yellow_cards": yc.get(pid, 0),
-                "red_cards": rc.get(pid, 0),
-                "penalties_won": pens_won.get(pid, 0),
-                "penalties_conceded": pens_conceded.get(pid, 0),
-                "penalties_missed": pens_missed.get(pid, 0),
-                "saves": saves.get(pid, 0),
-                "rating": p_rating,
-                "attack_rating": p_attack,
-                "defense_rating": p_defense,
-                "team_score": score_val or 0,
-                "opp_score": opp_score_val or 0,
-                "match_rating": p_rating if is_match_completed else None,
-                "is_match_rating": is_match_completed,
-            })
-
-        # Sort player_stats by position: Kaleci -> Savunma -> Orta Saha -> Forvet
-        player_stats[side].sort(key=lambda x: (0 if x.get("is_starter") else 1, state.get_position_order(x.get("position")), x.get("shirt") or 99))
-
-    # Build clean Key Timeline Events
-    key_timeline = []
-    player_names = {}
-    player_photos = {}
+def _build_key_timeline(
+    d: Dict[str, Any],
+    det_events: List[Dict[str, Any]],
+    stream_events: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Build chronologically sorted key match timeline events."""
+    key_timeline: List[Dict[str, Any]] = []
+    player_names: Dict[Any, str] = {}
+    player_photos: Dict[Any, Any] = {}
     for tl in (d.get("teamLists") or []):
         if not tl or not isinstance(tl, dict):
             continue
@@ -640,14 +598,13 @@ def get_match_full_details(match_id: int):
                 player_names[pid] = pname
                 player_photos[pid] = state.resolve_player_photo(pid)
 
-    team_names_map = {}
-    teams_info = d.get("teams", [])
-    for t_item in teams_info:
+    team_names_map: Dict[int, str] = {}
+    for t_item in d.get("teams", []):
         t_obj = t_item.get("team", {})
         if t_obj.get("id"):
             team_names_map[int(t_obj["id"])] = t_obj.get("name", "")
 
-    sub_events = {}
+    sub_events: Dict[Any, Dict[str, Any]] = {}
     for ev in det_events:
         if ev.get("type") == "S":
             eid = ev.get("id")
@@ -764,8 +721,7 @@ def get_match_full_details(match_id: int):
                     "player_out_photo": player_photos.get(p_out),
                 })
 
-    # Also capture stoppage / added time and missed penalties from stream events
-    for se in events:
+    for se in stream_events:
         stype = se.get("type", "")
         stext = se.get("text", "")
         time_info = se.get("time", {})
@@ -793,8 +749,7 @@ def get_match_full_details(match_id: int):
                 "photo_url": player_photos.get(pid) if pid else None,
             })
 
-    # Chronologically sort timeline
-    def parse_minute_sort(item):
+    def parse_minute_sort(item: Dict[str, Any]) -> Tuple[float, int]:
         m = str(item.get("minute", "0")).replace("'", "").strip()
         prio_map = {
             "period_start": 0,
@@ -804,9 +759,9 @@ def get_match_full_details(match_id: int):
             "red_card": 2,
             "penalty_missed": 2,
             "substitution": 2,
-            "period_end": 3
+            "period_end": 3,
         }
-        prio = prio_map.get(item.get("type"), 2)
+        prio = prio_map.get(str(item.get("type")), 2)
         if "+" in m:
             parts = m.split("+")
             try:
@@ -819,6 +774,79 @@ def get_match_full_details(match_id: int):
             return (0.0, prio)
 
     key_timeline.sort(key=parse_minute_sort)
+    return key_timeline
+
+
+@router.get("/api/match/{match_id}/details")
+def get_match_full_details(match_id: int):
+    """
+    Returns full match lineup rosters, substitutes, tactical formations,
+    and play-by-play events.
+    """
+    if match_id in state._completed_match_details_cache:
+        return state._completed_match_details_cache[match_id]
+
+    raw_details = DATA_DIR / "raw" / "matches" / f"{match_id}_details.json"
+    raw_stream = DATA_DIR / "raw" / "matches" / f"{match_id}_stream.json"
+    raw_stats = DATA_DIR / "raw" / "matches" / f"{match_id}_stats.json"
+
+    h_xg, a_xg, tot_xg, xg_source, xg_quality = _fetch_match_xg_info(match_id)
+
+    d: Dict[str, Any] = {}
+    metadata: Dict[str, Any] = {}
+    lineups: List[Dict[str, Any]] = []
+    det_events: List[Dict[str, Any]] = []
+    events: List[Dict[str, Any]] = []
+    ev_counts = _parse_detail_events([])
+    st_counts: Dict[str, Dict[int, int]] = {
+        "fouls_lost": {},
+        "fouls_won": {},
+        "shots": {},
+        "shots_ot": {},
+        "offsides": {},
+        "pens_won": {},
+        "pens_conceded": {},
+        "pens_missed": {},
+        "saves": {},
+    }
+    is_match_completed = False
+
+    if raw_details.exists():
+        with open(raw_details, "r", encoding="utf-8") as f:
+            d = json.load(f)
+
+        metadata = {
+            "match_id": match_id,
+            "kickoff_label": d.get("kickoff", {}).get("label"),
+            "ground": d.get("ground", {}).get("name"),
+            "attendance": d.get("attendance"),
+            "referee": (
+                d.get("matchOfficials", [{}])[0].get("matchOfficial", {}).get("name", {}).get("display")
+                if d.get("matchOfficials")
+                else None
+            ),
+            "halfTimeScore": d.get("halfTimeScore"),
+            "home_xg": h_xg,
+            "away_xg": a_xg,
+            "total_xg": tot_xg,
+            "xg_source": xg_source,
+            "xg_quality": xg_quality,
+        }
+
+        det_events = d.get("events", [])
+        ev_counts = _parse_detail_events(det_events)
+        events, st_counts = _parse_stream_events(raw_stream, d.get("teamLists", []))
+
+        teams_info = d.get("teams", [])
+        h_score_val = teams_info[0].get("score") if len(teams_info) > 0 else None
+        a_score_val = teams_info[1].get("score") if len(teams_info) > 1 else None
+        is_match_completed = (h_score_val is not None and a_score_val is not None)
+
+        lineups = _build_match_lineups(match_id, d, is_match_completed, ev_counts, st_counts)
+
+    team_stats = _build_comparative_team_stats(raw_stats, d, h_xg, a_xg)
+    player_stats = _build_match_player_stats(d, is_match_completed, ev_counts, st_counts)
+    key_timeline = _build_key_timeline(d, det_events, events)
 
     res = {
         "metadata": metadata,

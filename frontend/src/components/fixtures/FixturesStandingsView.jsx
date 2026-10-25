@@ -68,9 +68,9 @@ export default function FixturesStandingsView({ displayedStandings, standingsTyp
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-border text-xs font-semibold text-text-secondary uppercase tracking-wider bg-background-tertiary">
+              <tr className="border-b border-border text-xs font-semibold text-text-secondary bg-background-tertiary">
                 <th className="py-2.5 px-3 w-12 text-center">#</th>
-                <th className="py-2.5 px-3 min-w-[180px]">Kulüp</th>
+                <th className="py-2.5 px-3 min-w-44">Kulüp</th>
                 <th className="py-2.5 px-2 text-center w-10" title="Oynanan Maç">O</th>
                 <th className="py-2.5 px-2 text-center w-10" title="Galibiyet">G</th>
                 <th className="py-2.5 px-2 text-center w-10" title="Beraberlik">B</th>
@@ -82,7 +82,7 @@ export default function FixturesStandingsView({ displayedStandings, standingsTyp
                 <th className="py-2.5 px-3 text-center w-36 hidden sm:table-cell" title="Son 5 Maç">Form</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-light font-mono tabular-nums">
+            <tbody className="divide-y divide-border-light tabular-nums">
               {displayedStandings.map((t, idx) => {
                 const rank = idx + 1;
                 const stats = standingsType === 'all' ? t : (t[standingsType] || t);
@@ -130,7 +130,7 @@ export default function FixturesStandingsView({ displayedStandings, standingsTyp
                           {t.name}
                         </button>
                         {t.abbr && (
-                          <span className="text-xs font-mono font-medium text-text-muted hidden lg:inline">
+                          <span className="text-xs tabular-nums font-medium text-text-muted hidden lg:inline">
                             {t.abbr}
                           </span>
                         )}
@@ -190,19 +190,19 @@ export default function FixturesStandingsView({ displayedStandings, standingsTyp
       <div className="pt-3 border-t border-border-light flex flex-wrap items-center justify-between gap-3 text-xs text-text-secondary font-medium">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-status-info" />
+            <span className="w-2.5 h-2.5 rounded-sm bg-status-info" />
             <span>Şampiyonlar Ligi (1-4)</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-status-warning" />
+            <span className="w-2.5 h-2.5 rounded-sm bg-status-warning" />
             <span>Avrupa Ligi (5)</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-status-error" />
+            <span className="w-2.5 h-2.5 rounded-sm bg-status-error" />
             <span>Küme Düşme Hattı (18-20)</span>
           </div>
         </div>
-        <div className="font-mono text-xs text-text-muted">
+        <div className="tabular-nums text-xs text-text-muted">
           O: Oynanan • G: Galibiyet • B: Beraberlik • M: Mağlubiyet • AV: Averaj • P: Puan
         </div>
       </div>

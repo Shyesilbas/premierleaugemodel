@@ -7,12 +7,15 @@ the processed all-season datasets and SQLite database.
 """
 
 import argparse
+import fcntl
 import json
 import logging
 import re
 import sys
 import time
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timedelta, timezone
@@ -31,6 +34,28 @@ from src.ingest.fetch_season_data import (  # noqa: E402
 
 logger = logging.getLogger("sync_season_data")
 SDP_API_BASE = "https://sdp-prem-prod.premier-league-prod.pulselive.com/api"
+LOCK_EXIT_CODE = 3
+DOWNLOAD_WORKERS = 4
+
+
+class SyncAlreadyRunning(RuntimeError):
+    """Another sync process holds the lock; two would write the same parquet/SQLite files."""
+
+
+@contextmanager
+def sync_lock():
+    """Cross-process lock, so the API button, cron and a terminal run cannot overlap."""
+    lock_path = DATA_DIR / "raw" / ".sync.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("w") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise SyncAlreadyRunning("Baska bir veri guncellemesi calisiyor.") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def load_fixture_file(path: Path) -> List[Dict[str, Any]]:
@@ -191,7 +216,7 @@ def sync_upcoming_referees(
         if not referee:
             # Preserve a previously sourced appointment if the provider has
             # temporarily returned an empty list.
-            old = old_by_id.get(int(fixture["id"]), {})
+            old = old_by_id.get(int(fixture.get("id", -1)), {})
             referee = main_referee_name(old.get("matchOfficials"))
             if not referee:
                 continue
@@ -281,8 +306,8 @@ def sync_season(
     if referees_only:
         # Store only the appointments; old fixture state stays so a later full sync still sees finished matches.
         merged = [
-            {**f, "matchOfficials": fresh_by_id[int(f["id"])]["matchOfficials"]}
-            if fresh_by_id.get(int(f.get("id", -1)), {}).get("matchOfficials") else f
+            {**f, "matchOfficials": officials}
+            if (officials := fresh_by_id.get(int(f.get("id", -1)), {}).get("matchOfficials")) else f
             for f in old_fixtures
         ]
         if appointment_changes and not dry_run:
@@ -341,14 +366,21 @@ def sync_season(
 
     matches_dir.mkdir(parents=True, exist_ok=True)
     failed_match_ids = set()
-    for match_id, kinds in sorted(needs_download.items()):
-        for kind in kinds:
-            if fetch_one(session, match_id, kind):
+
+    def download(job: Tuple[int, str]) -> Tuple[int, bool]:
+        match_id, kind = job
+        ok = fetch_one(session, match_id, kind)
+        time.sleep(delay)
+        return match_id, ok
+
+    jobs = [(match_id, kind) for match_id, kinds in sorted(needs_download.items()) for kind in kinds]
+    with ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS) as pool:
+        for match_id, ok in pool.map(download, jobs):
+            if ok:
                 summary["files_downloaded"] += 1
             else:
                 failed_match_ids.add(match_id)
                 summary["failed_downloads"] += 1
-            time.sleep(delay)
 
     summary["matches"] = [match_label(fresh_by_id[mid]) for mid in sorted(needs_download) if mid not in failed_match_ids]
 
@@ -391,17 +423,24 @@ def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-    summary = sync_season(
-        season_name=args.season_name,
-        season_id=args.season_id,
-        comps=args.comps,
-        delay=args.delay,
-        dry_run=args.dry_run,
-        rebuild=not args.no_rebuild,
-        referees_only=args.referees_only,
-    )
+    try:
+        with sync_lock():
+            summary = sync_season(
+                season_name=args.season_name,
+                season_id=args.season_id,
+                comps=args.comps,
+                delay=args.delay,
+                dry_run=args.dry_run,
+                rebuild=not args.no_rebuild,
+                referees_only=args.referees_only,
+            )
+    except SyncAlreadyRunning as exc:
+        logger.error("%s", exc)
+        raise SystemExit(LOCK_EXIT_CODE)
     logger.info("Sync summary: %s", summary)
-    print("SYNC_RESULT " + json.dumps({"matches": summary.get("matches", [])}, ensure_ascii=False))
+    # Printed before any failure exit so a partial run still reports the matches it did sync.
+    print("SYNC_RESULT " + json.dumps(
+        {"matches": summary.get("matches", []), "failed_downloads": summary["failed_downloads"]}, ensure_ascii=False))
     if summary["failed_downloads"]:
         logger.error("Some match files failed; rerun the sync to retry them.")
         raise SystemExit(1)

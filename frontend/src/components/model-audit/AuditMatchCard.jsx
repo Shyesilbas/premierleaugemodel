@@ -1,4 +1,5 @@
-import { ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { handleImageFallback } from '../../utils/imageFallbacks';
 import { getTeam } from '../../data/teams';
 
@@ -52,7 +53,7 @@ function DeviationStatus({ error, tolerance }) {
 /** Three-way 1X2 cells; `highlight` marks the selected outcome. */
 function ThreeWay({ items, highlight }) {
   return (
-    <div className="grid grid-cols-3 gap-1 text-center">
+    <div className="grid grid-cols-3 gap-1 text-center min-w-40">
       {items.map(({ key, label, value, sub }) => {
         const active = highlight === key;
         return (
@@ -72,8 +73,8 @@ function ThreeWay({ items, highlight }) {
 
 function ValueLine({ primary, secondary, meta }) {
   return (
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-sm text-text-primary tabular-nums">
+    <div className="flex flex-col">
+      <span className="text-sm text-text-primary tabular-nums whitespace-nowrap">
         <span className="font-medium">{primary}</span>
         {secondary && <span className="ml-1 text-text-tertiary">{secondary}</span>}
       </span>
@@ -87,14 +88,14 @@ function TeamName({ team, name, isWinner, align = 'left' }) {
     <img
       src={team.badge}
       alt=""
-      className="w-7 h-7 object-contain shrink-0"
+      className="w-6 h-6 object-contain shrink-0"
       onError={event => handleImageFallback(event, BADGE_FALLBACK)}
     />
   );
   return (
-    <div className={`flex items-center gap-2 flex-1 min-w-0 ${align === 'right' ? 'justify-end text-right' : ''}`}>
+    <div className={`flex items-center gap-2 min-w-0 ${align === 'right' ? 'justify-end text-right' : ''}`}>
       {align === 'left' && img}
-      <span className={`text-sm sm:text-base truncate ${isWinner ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}>
+      <span className={`text-sm truncate ${isWinner ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}>
         {name}
       </span>
       {align === 'right' && img}
@@ -103,6 +104,7 @@ function TeamName({ team, name, isWinner, align = 'left' }) {
 }
 
 export default function AuditMatchCard({ match: m, onSelectMatch }) {
+  const [open, setOpen] = useState(false);
   const homeT = getTeam(m.home_id, m.home_name);
   const awayT = getTeam(m.away_id, m.away_name);
   const modelOverPick = m.prob_over_25 >= 50.0 ? '2.5 üst' : '2.5 alt';
@@ -117,7 +119,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
   const actualWinnerLabel = m.actual_result === 'home' ? m.home_name : m.actual_result === 'away' ? m.away_name : 'Beraberlik';
   const edgeSideLabel = m.highest_edge_side === 'home' ? m.home_name : m.highest_edge_side === 'away' ? m.away_name : 'Beraberlik';
 
-  const handleCardClick = () => {
+  const openMatch = () => {
     onSelectMatch?.({
       ...m,
       id: m.match_id,
@@ -132,8 +134,8 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
   const rows = [
     {
       key: '1x2',
-      title: 'Kim kazanır',
-      sub: <>Öngörü: <span className="text-text-primary">{m.favorite_label}</span></>,
+      title: 'Maç sonucu',
+      sub: `Öngörü: ${m.favorite_label}`,
       model: (
         <ThreeWay
           highlight={m.predicted_winner}
@@ -159,9 +161,9 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
     },
     {
       key: 'ou25',
-      title: '2.5 gol alt / üst',
-      sub: <>Beklenen xG: <span className="tabular-nums text-text-primary">{m.expected_goals}</span></>,
-      model: <ValueLine primary={modelOverPick} secondary={`%${modelOverProb}`} meta={`Adil ${fairOdds(modelOverProb)}`} />,
+      title: '2.5 alt / üst',
+      sub: `Beklenen gol: ${m.expected_goals}`,
+      model: <ValueLine primary={modelOverPick} secondary={`%${modelOverProb}`} meta={`Adil oran ${fairOdds(modelOverProb)}`} />,
       market: <ValueLine primary={odds(m.market_over_25_odds)} meta="Üst kapanış" />,
       actual: played ? <ValueLine primary={`${actualTotalGoals} gol`} secondary={actualOverResult} /> : <ValueLine primary="—" />,
       status: <HitStatus hit={m.hit_over_25} />,
@@ -170,7 +172,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
       key: 'btts',
       title: 'Karşılıklı gol',
       sub: 'İki takım da atar mı',
-      model: <ValueLine primary={modelBttsPick} secondary={`%${modelBttsProb}`} meta={`Adil ${fairOdds(modelBttsProb)}`} />,
+      model: <ValueLine primary={modelBttsPick} secondary={`%${modelBttsProb}`} meta={`Adil oran ${fairOdds(modelBttsProb)}`} />,
       market: <ValueLine primary={odds(m.market_btts_odds)} meta="KG var kapanış" />,
       actual: played ? <ValueLine primary={actualBttsResult} /> : <ValueLine primary="—" />,
       status: <HitStatus hit={m.hit_btts} />,
@@ -179,7 +181,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
       key: 'corners',
       title: 'Toplam korner',
       sub: 'Model beklentisi',
-      model: <ValueLine primary={`${m.expected_corners} korner`} meta="xC" />,
+      model: <ValueLine primary={`${m.expected_corners} korner`} />,
       market: <ValueLine primary="9.5" meta="Standart çizgi" />,
       actual: <ValueLine primary={`${m.actual_corners ?? '—'} korner`} />,
       status: <DeviationStatus error={m.corner_error} tolerance={2} />,
@@ -187,7 +189,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
     {
       key: 'cards',
       title: 'Toplam kart',
-      sub: 'Disiplin ve agresyon',
+      sub: 'Disiplin',
       model: <ValueLine primary={`${m.expected_cards} kart`} />,
       market: <ValueLine primary="3.5 / 4.5" meta="Standart çizgi" />,
       actual: <ValueLine primary={`${m.actual_cards ?? '—'} kart`} />,
@@ -195,84 +197,81 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
     },
   ];
 
+  const tags = [
+    m.confidence_tier === 'high' && 'Net favori',
+    m.is_balanced && 'Dengeli maç',
+  ].filter(Boolean);
+
   return (
-    <article
-      className="bg-background-primary border border-border rounded p-4 sm:p-5 flex flex-col gap-4 cursor-pointer transition-colors duration-150 ease-out hover:border-card-border-hover"
-      onClick={handleCardClick}
-    >
-      {/* Header: GW, date, tags */}
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
-        <div className="flex items-center gap-2 text-text-secondary tabular-nums">
-          <span className="font-medium text-text-primary">Hafta {m.gameweek}</span>
-          <span className="text-text-muted">·</span>
-          <span>{m.match_date}</span>
+    <article className="bg-background-primary border border-border rounded transition-colors duration-150 ease-out hover:border-card-border-hover">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        className="w-full text-left px-3 py-3 sm:px-4 flex flex-col gap-2 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+      >
+        <div className="grid grid-cols-versus items-center gap-3">
+          <TeamName team={homeT} name={m.home_name} isWinner={played && m.home_score > m.away_score} />
+          <span className="min-w-12 text-center text-lg font-semibold text-text-primary tabular-nums">{played ? m.score : 'vs'}</span>
+          <TeamName team={awayT} name={m.away_name} isWinner={played && m.away_score > m.home_score} align="right" />
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-text-secondary">
-          {m.confidence_tier === 'high' && (
-            <span className="inline-flex items-center gap-1.5"><StatusDot tone="success" />Net favori</span>
-          )}
-          {m.is_balanced && (
-            <span className="inline-flex items-center gap-1.5"><StatusDot tone="warning" />Dengeli maç</span>
-          )}
-          {m.highest_edge_side && (
-            <span className="tabular-nums">
-              <span className="font-medium text-text-primary">+{m.edge_pct}% edge</span> · {edgeSideLabel}
-            </span>
-          )}
-          <HitStatus hit={m.hit_1x2} />
+        <div className="flex items-center justify-between gap-3 text-xs text-text-secondary">
+          <p className="min-w-0 truncate tabular-nums">
+            Hafta {m.gameweek} · {m.match_date}
+            {m.favorite_label && <> · Öngörü: <span className="text-text-primary">{m.favorite_label}</span></>}
+            {tags.length > 0 && <> · {tags.join(' · ')}</>}
+            {m.highest_edge_side && <> · +{m.edge_pct}% avantaj ({edgeSideLabel})</>}
+          </p>
+          <span className="flex items-center gap-2 shrink-0">
+            <HitStatus hit={m.hit_1x2} />
+            <ChevronDown className={`w-4 h-4 text-text-tertiary transition-transform duration-150 ease-out motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={1.5} aria-hidden="true" />
+          </span>
         </div>
-      </div>
+      </button>
 
-      {/* Score line */}
-      <div className="flex items-center justify-between gap-3">
-        <TeamName team={homeT} name={m.home_name} isWinner={played && m.home_score > m.away_score} />
-        <span className="text-2xl font-semibold text-text-primary tabular-nums shrink-0 px-2">{played ? m.score : 'vs'}</span>
-        <TeamName team={awayT} name={m.away_name} isWinner={played && m.away_score > m.home_score} align="right" />
-      </div>
+      {open && (
+        <div className="border-t border-border-light px-3 py-3 sm:px-4 flex flex-col gap-3">
+          <div className="overflow-x-auto border border-border rounded">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="bg-background-tertiary border-b border-border text-text-secondary">
+                  <th scope="col" className="py-2 px-3 font-medium">Pazar</th>
+                  <th scope="col" className="py-2 px-3 font-medium border-l border-border">Model</th>
+                  <th scope="col" className="py-2 px-3 font-medium border-l border-border">Piyasa ({m.bookmaker || 'Bet365'})</th>
+                  <th scope="col" className="py-2 px-3 font-medium border-l border-border">{played ? 'Gerçekleşen' : 'Sonuç'}</th>
+                  <th scope="col" className="py-2 px-3 font-medium text-right border-l border-border">Durum</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-light">
+                {rows.map(row => (
+                  <tr key={row.key}>
+                    <th scope="row" className="py-2 px-3 align-middle font-normal">
+                      <span className="block font-medium text-text-primary whitespace-nowrap">{row.title}</span>
+                      <span className="block text-xs text-text-tertiary whitespace-nowrap tabular-nums">{row.sub}</span>
+                    </th>
+                    <td className="py-2 px-3 align-middle border-l border-border-light">{row.model}</td>
+                    <td className="py-2 px-3 align-middle border-l border-border-light">{row.market}</td>
+                    <td className="py-2 px-3 align-middle border-l border-border-light">{row.actual}</td>
+                    <td className="py-2 px-3 align-middle text-right border-l border-border-light">{row.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      {/* Market x (Model | Market | Actual) matrix */}
-      <div className="overflow-x-auto border border-border rounded" onClick={(e) => e.stopPropagation()}>
-        <table className="w-full min-w-max text-left text-sm border-collapse">
-          <thead>
-            <tr className="bg-background-secondary border-b border-border text-text-secondary">
-              <th scope="col" className="py-2 px-3 font-medium w-1/5">Pazar</th>
-              <th scope="col" className="py-2 px-3 font-medium w-1/4">Model (adil oran)</th>
-              <th scope="col" className="py-2 px-3 font-medium w-1/5">Piyasa ({m.bookmaker || 'Bet365'})</th>
-              <th scope="col" className="py-2 px-3 font-medium">{played ? 'Gerçekleşen' : 'Sonuç yok'}</th>
-              <th scope="col" className="py-2 px-3 font-medium text-right">Sonuç</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-light">
-            {rows.map(row => (
-              <tr key={row.key}>
-                <th scope="row" className="py-3 px-3 align-middle font-normal">
-                  <span className="block font-medium text-text-primary">{row.title}</span>
-                  <span className="block text-xs text-text-tertiary">{row.sub}</span>
-                </th>
-                <td className="py-3 px-3 align-middle">{row.model}</td>
-                <td className="py-3 px-3 align-middle">{row.market}</td>
-                <td className="py-3 px-3 align-middle">{row.actual}</td>
-                <td className="py-3 px-3 align-middle text-right">{row.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {onSelectMatch && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCardClick();
-            }}
-            className="h-9 px-2 -mr-2 rounded inline-flex items-center gap-1 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors duration-150 ease-out cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            Maç detaylarını aç
-            <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
-          </button>
+          {onSelectMatch && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={openMatch}
+                className="h-9 px-2 -mr-2 rounded inline-flex items-center gap-1 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors duration-150 ease-out cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                Maç detaylarını aç
+                <ChevronRight className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </article>

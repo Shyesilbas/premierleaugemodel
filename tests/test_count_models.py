@@ -104,5 +104,5 @@ def test_every_trainer_runs_on_synthetic_data_and_writes_a_usable_artifact(name,
     assert artifact["feature_names"] == list(features) and artifact["baseline_mean"] > 0
     assert metrics["train_samples"] > 0 and metrics["test_samples"] > 0 and np.isfinite(metrics["train_rmse"])
     assert artifact["model"].predict(frame[list(features)].head(5)).shape == (5,)
-    # cards returns the whole artifact, the others only the metrics (the pipeline report depends on it)
-    assert (returned.keys() == artifact.keys()) if name == "cards" else (returned["train_samples"] == metrics["train_samples"])
+    # All count trainers now return unified metrics dictionaries.
+    assert returned["train_samples"] == metrics["train_samples"]

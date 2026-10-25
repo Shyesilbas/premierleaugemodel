@@ -98,10 +98,12 @@ STRENGTH_FEATURES_O25 = [
     "home_venue_goals_for_roll_5", "home_venue_goals_against_roll_5",
     "away_venue_goals_for_roll_5",
 ]
-DIFF_FEATURES = [f"sdiff_{t}_{s}" for t in ("goals", "sot") for s in ("e02", "r10")]
+DIFF_FEATURES = [f"sdiff_{t}_{s}" for t in ("goals", "sot", "pa_entries") for s in ("e02", "r10")]
 EXTRA_1X2 = ["xg_diff_10"] + TACTICAL_1X2_FEATURES
 EXTRA_O25 = [
     "exp_match_shots_5",
+    "exp_match_xg_10",
+    "exp_venue_match_xg",
     "home_xi_att_vs_away_def",
     "away_xi_att_vs_home_def",
     "home_big_chances_against_roll_10",
@@ -118,6 +120,16 @@ NOISY_1X2_FORM_EXCLUSIONS = {
     "home_xg_for_ewma_02",
     "away_possession_ewma_02",
     "away_xg_for_roll_10",
+    # Raw goal level columns are collinear with sdiff_goals_e02/r10, gdpg_diff,
+    # venue_goals_diff, and xg_for/against, producing wrong-sign weights on 1X2.
+    "home_goals_for_roll_10",
+    "home_goals_for_ewma_02",
+    "home_goals_against_roll_10",
+    "home_goals_against_ewma_02",
+    "away_goals_for_roll_10",
+    "away_goals_for_ewma_02",
+    "away_goals_against_roll_10",
+    "away_goals_against_ewma_02",
 }
 NOISY_O25_FORM_EXCLUSIONS = {
     "home_possession_ewma_02",
@@ -220,6 +232,8 @@ def fit_probability_calibrator(
     y: pd.Series,
     labels: List[int],
     sample_weight: np.ndarray | None = None,
+    reg_temp: float = 0.10,
+    reg_bias: float = 0.50,
 ) -> Dict[str, Any]:
     """Fit regularized temperature plus class intercepts on chronological OOF predictions."""
     log_probs = np.log(np.clip(probabilities, 1e-12, 1.0))
@@ -240,13 +254,10 @@ def fit_probability_calibrator(
         probs /= probs.sum(axis=1, keepdims=True)
         row_losses = -np.log(np.clip(probs[np.arange(len(y_values)), y_values], 1e-12, 1.0))
         mean_loss = float(np.average(row_losses, weights=weights)) if weights is not None else float(row_losses.mean())
-        return mean_loss + 0.01 * float(np.sum(params * params))
+        return mean_loss + reg_temp * float(params[0] * params[0]) + reg_bias * float(np.sum(biases * biases))
 
     result = minimize(objective, np.zeros(class_count + 1), method="BFGS")
     params = result.x if np.isfinite(result.fun) and np.isfinite(result.x).all() else np.zeros(class_count + 1)
-    if class_count == 3:
-        # Prevent artificial draw inflation (index 1 / params[2] is Draw logit offset)
-        params[2] = float(np.clip(params[2], -0.20, 0.03))
     return {"temperature": float(np.exp(params[0])), "bias": params[1:].astype(float).tolist()}
 
 
@@ -502,7 +513,7 @@ def evaluate_1x2_ensemble_outer_seasons(
     }
 
 
-def evaluate_season_holdouts(
+def evaluate_classification_season_holdouts(
     kind: str,
     X: pd.DataFrame,
     y: pd.Series,
@@ -520,9 +531,13 @@ def evaluate_season_holdouts(
             continue
         train_end = int(valid_positions[0])
         X_train, y_train = X.iloc[:train_end], y.iloc[:train_end]
+        early_season_fallback = False
         if excluded_training_seasons:
             prior_seasons = seasons.iloc[:train_end].astype(str)
             keep = ~prior_seasons.isin(excluded_training_seasons).to_numpy()
+            if not keep.any():
+                keep = np.ones(train_end, dtype=bool)
+                early_season_fallback = True
             X_train = X_train.iloc[keep].reset_index(drop=True)
             y_train = y_train.iloc[keep].reset_index(drop=True)
             train_kickoffs = None if kickoff_values is None else kickoff_values.iloc[:train_end].iloc[keep].reset_index(drop=True)
@@ -546,6 +561,7 @@ def evaluate_season_holdouts(
         results.append({
             "season": season,
             "partial_season": bool(len(valid_positions) < 300),
+            "early_season_fallback_included_excluded_history": early_season_fallback,
             "train_samples": int(len(X_train)),
             "test_samples": int(len(valid_positions)),
             "selected_model": selected,
@@ -608,7 +624,8 @@ def evaluate_1x2_training_variants(
             keep = np.ones(train_end, dtype=bool)
             early_season_fallback = False
             if policy == "exclude_2022_23":
-                keep = ~prior_seasons.eq("2022_23").to_numpy()
+                excluded = EXCLUDED_1X2_TRAINING_SEASONS or {"2022_23"}
+                keep = ~prior_seasons.isin(excluded).to_numpy()
                 if not keep.any():
                     keep = np.ones(train_end, dtype=bool)
                     early_season_fallback = True
@@ -806,8 +823,12 @@ def evaluate_dixon_coles(
         season_train_all = matches.iloc[:train_end]
         target_train_all = y.iloc[:train_end]
         keep_train = np.ones(train_end, dtype=bool)
+        early_season_fallback = False
         if excluded_training_seasons:
             keep_train = ~seasons.iloc[:train_end].isin(excluded_training_seasons).to_numpy()
+            if not keep_train.any():
+                keep_train = np.ones(train_end, dtype=bool)
+                early_season_fallback = True
         season_train = season_train_all.iloc[keep_train].reset_index(drop=True)
         target_train = target_train_all.iloc[keep_train].reset_index(drop=True)
         season_valid = matches.iloc[valid_positions]
@@ -825,6 +846,7 @@ def evaluate_dixon_coles(
         season_rows.append({
             "season": season,
             "partial_season": bool(len(valid_positions) < 300),
+            "early_season_fallback_included_excluded_history": early_season_fallback,
             "train_samples": int(len(season_train)),
             "test_samples": int(len(valid_positions)),
             "raw": scores(target_valid, season_raw),
@@ -895,7 +917,6 @@ def evaluate_calibration_drift_outer_seasons(
         if season_idx == 0 or len(valid_positions) < 300:
             continue
         train_end = int(valid_positions[0])
-        train_matches = matches.iloc[:train_end].reset_index(drop=True)
         prior_seasons = season_values.iloc[:train_end]
         keep = ~prior_seasons.isin(EXCLUDED_1X2_TRAINING_SEASONS).to_numpy()
         early_season_fallback = not bool(keep.any())
@@ -987,9 +1008,16 @@ def evaluate_calibration_drift_outer_seasons(
     }
 
 
+def _write_diagnostic_json(path: Path, payload: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
 def train_match_outcome_models(
     data_path: str = str(FEATURES_PATH),
     model_output_dir: str = str(MODELS_DIR),
+    include_legacy_o25: bool = False,
+    write_diagnostic_jsons: bool = True,
 ) -> Dict[str, Any]:
     if not Path(data_path).exists():
         raise FileNotFoundError(f"Feature dataset not found: {data_path}. Run the full pipeline to rebuild it.")
@@ -1050,7 +1078,8 @@ def train_match_outcome_models(
     production_recency_calibrators: Dict[int, Dict[str, Any]] = {}
     production_ensemble_recency_calibrators: Dict[int, Dict[str, Any]] = {}
 
-    for kind in ("1x2", "o25"):
+    kinds = ("1x2", "o25") if include_legacy_o25 else ("1x2",)
+    for kind in kinds:
         tcol, labels = targets[kind]
         cols = feats[kind]
         excluded_training_seasons = EXCLUDED_1X2_TRAINING_SEASONS if kind == "1x2" and "season" in dev else set()
@@ -1072,12 +1101,10 @@ def train_match_outcome_models(
             dc_oof_probs = dc_forward_for_blocks(
                 dev_fit, dev_fit, kickoff_times=fit_kickoffs
             )
-            # Benchmark optimal weight for diagnostic monitoring
             optimal_weight, blend_curve = choose_blend_weight(
                 oof_probs, dc_oof_probs, oof_targets, labels
             )
-            # Evaluate holdout on the 80/20 ensemble balance (80% Logistic Regression / 20% Dixon-Coles)
-            evaluation_blend_weight = 0.80
+            evaluation_blend_weight = optimal_weight
             ensemble_oof = blend_log(oof_probs, dc_oof_probs, evaluation_blend_weight)
             ensemble_calibrator = fit_probability_calibrator(
                 ensemble_oof, pd.Series(oof_targets), labels
@@ -1119,7 +1146,7 @@ def train_match_outcome_models(
             "raw_pred_distribution": {int(k): int(v) for k, v in pd.Series(raw_probs.argmax(axis=1)).value_counts().sort_index().items()},
             "actual_distribution": {int(k): int(v) for k, v in y_hold.value_counts().sort_index().items()},
             "n_features": len(cols),
-            "season_holdouts": evaluate_season_holdouts(
+            "season_holdouts": evaluate_classification_season_holdouts(
                 kind, df[cols].reset_index(drop=True), df[tcol].reset_index(drop=True),
                 df["season"].reset_index(drop=True) if "season" in df else pd.Series(["all"] * len(df)), labels,
                 excluded_training_seasons=excluded_training_seasons,
@@ -1144,6 +1171,7 @@ def train_match_outcome_models(
             res["ensemble"] = {
                 "weight_logreg": holdout_ensemble["weight_logreg"],
                 "weight_curve": holdout_ensemble["weight_curve"],
+                "optimal_unconstrained_weight": holdout_ensemble["optimal_unconstrained_weight"],
                 "log_loss": round(_ll(y_hold, ensemble_probs, labels), 4),
                 "brier": round(float(np.mean(np.sum((ensemble_probs - onehot_hold) ** 2, axis=1))), 4),
                 "draw_auc": round(float(roc_auc_score(draw_actual_hold, ensemble_probs[:, 1])), 4),
@@ -1215,9 +1243,9 @@ def train_match_outcome_models(
                 calibration_fit, calibration_fit,
                 kickoff_times=calibration_fit["kickoff_millis"] if "kickoff_millis" in calibration_fit else None,
             )
-            # 80/20 Balance (80% Logistic Regression / 20% Dixon-Coles)
-            production_blend_weight = 0.80
-            production_blend_curve = [0.80]
+            production_blend_weight, production_blend_curve = choose_blend_weight(
+                production_oof_probs, production_dc_oof, production_oof_targets, labels
+            )
             production_ensemble_oof = blend_log(
                 production_oof_probs, production_dc_oof, production_blend_weight
             )
@@ -1272,9 +1300,6 @@ def train_match_outcome_models(
     metrics["1x2_variant_outer_holdouts"] = variant_results
     metrics["1x2_draw_propensity_outer_eval"] = draw_propensity_gate
     metrics["draw_propensity_enabled"] = bool(include_draw_propensity)
-    draw_eval_path = PROCESSED_DIR / "1x2_draw_propensity_outer_eval.json"
-    draw_eval_path.parent.mkdir(parents=True, exist_ok=True)
-    draw_eval_path.write_text(json.dumps(draw_propensity_gate, indent=2), encoding="utf-8")
     metrics["dixon_coles_1x2"] = evaluate_dixon_coles(
         df.reset_index(drop=True), df["target_1x2"].reset_index(drop=True),
         df["season"].reset_index(drop=True) if "season" in df else pd.Series(["all"] * len(df)),
@@ -1287,21 +1312,17 @@ def train_match_outcome_models(
         dev["target_1x2"].reset_index(drop=True),
         dev["season"].reset_index(drop=True) if "season" in dev else pd.Series(["all"] * len(dev)),
     )
-    outer_eval_path = PROCESSED_DIR / "1x2_ensemble_outer_eval.json"
-    outer_eval_path.parent.mkdir(parents=True, exist_ok=True)
-    outer_eval_path.write_text(json.dumps(metrics["1x2_ensemble_outer_eval"], indent=2), encoding="utf-8")
-
     metrics["1x2_calibration_drift_outer_eval"] = evaluate_calibration_drift_outer_seasons(
         dev.reset_index(drop=True),
         dev[feats["1x2"]].reset_index(drop=True),
         dev["target_1x2"].reset_index(drop=True),
         dev["season"].reset_index(drop=True) if "season" in dev else pd.Series(["all"] * len(dev)),
     )
-    drift_eval_path = PROCESSED_DIR / "1x2_calibration_drift_outer_eval.json"
-    drift_eval_path.parent.mkdir(parents=True, exist_ok=True)
-    drift_eval_path.write_text(
-        json.dumps(metrics["1x2_calibration_drift_outer_eval"], indent=2), encoding="utf-8"
-    )
+    if write_diagnostic_jsons:
+        _write_diagnostic_json(PROCESSED_DIR / "1x2_draw_propensity_outer_eval.json", draw_propensity_gate)
+        _write_diagnostic_json(PROCESSED_DIR / "1x2_ensemble_outer_eval.json", metrics["1x2_ensemble_outer_eval"])
+        _write_diagnostic_json(PROCESSED_DIR / "1x2_calibration_drift_outer_eval.json", metrics["1x2_calibration_drift_outer_eval"])
+
     selected_recency_half_life = metrics["1x2_calibration_drift_outer_eval"]["selected_half_life_rows"]
     if selected_recency_half_life is not None:
         hl = int(selected_recency_half_life)
@@ -1331,8 +1352,8 @@ def train_match_outcome_models(
             "reason": "outer-season calibration decision gate not passed",
         }
 
-    # 50/50 Golden Balance architecture permanently enables the Dixon-Coles blend
-    ensemble_gate_passed = True
+    # Enable the Dixon-Coles blend only when the outer-season skill gate passes.
+    ensemble_gate_passed = bool(metrics["1x2_ensemble_outer_eval"]["gate_passed"])
     if ensemble_gate_passed and production_ensemble is not None:
         dc_final_fit = df_all
         if EXCLUDED_1X2_TRAINING_SEASONS and "season" in dc_final_fit:
@@ -1385,26 +1406,27 @@ def train_match_outcome_models(
     )
 
     Path(model_output_dir).mkdir(parents=True, exist_ok=True)
+    artifact_payload: Dict[str, Any] = {
+        "model_1x2": final_models["1x2"],
+        "calibrators": calibrators,
+        "calibration_method": (
+            f"forward_oof_recency_weighted_half_life_{int(selected_recency_half_life)}_rows"
+            if selected_recency_half_life is not None
+            else "forward_oof_on_all_eligible_training_matches"
+        ),
+        "calibration_oof_samples": production_calibration_samples,
+        "feature_names": feats["1x2"],  # Backward compatibility
+        "feature_names_1x2": feats["1x2"],
+        "feature_names_o25": feats["o25"],
+        "metrics": metrics,
+    }
+    if "o25" in final_models:
+        artifact_payload["model_o25"] = final_models["o25"]
+    if ensemble_gate_passed and production_ensemble is not None:
+        artifact_payload["model_dc"] = final_models["dc"]
+        artifact_payload["ensemble_weight"] = production_ensemble["weight_logreg"]
     joblib.dump(
-        {
-            "model_1x2": final_models["1x2"],
-            "model_o25": final_models["o25"],
-            "calibrators": calibrators,
-            "calibration_method": (
-                f"forward_oof_recency_weighted_half_life_{int(selected_recency_half_life)}_rows"
-                if selected_recency_half_life is not None
-                else "forward_oof_on_all_eligible_training_matches"
-            ),
-            "calibration_oof_samples": production_calibration_samples,
-            "feature_names": feats["1x2"],  # Backward compatibility
-            "feature_names_1x2": feats["1x2"],
-            "feature_names_o25": feats["o25"],
-            "metrics": metrics,
-            **({
-                "model_dc": final_models["dc"],
-                "ensemble_weight": production_ensemble["weight_logreg"],
-            } if ensemble_gate_passed and production_ensemble is not None else {}),
-        },
+        artifact_payload,
         Path(model_output_dir) / "outcome_models_v1.joblib",
     )
 

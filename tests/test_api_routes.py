@@ -20,6 +20,7 @@ def client():
     ("/api/fixtures/grouped", {"season", "gameweeks", "total_matches"}),
     ("/api/referees", {"referees"}),
     ("/api/benchmarks", {"corner", "outcome"}),
+    ("/api/stats", {"season", "scope", "gameweeks", "team_of_scope", "attack", "defence", "goal_minutes"}),
 ])
 def test_read_routes_answer_with_their_documented_keys(client, route, keys):
     response = client.get(route)
@@ -79,3 +80,11 @@ def test_cors_allows_the_local_frontend_only(client):
         "/api/data-version", headers={"Origin": origin, "Access-Control-Request-Method": "GET"})
     assert ask("http://localhost:5173").headers.get("access-control-allow-origin") == "http://localhost:5173"
     assert "access-control-allow-origin" not in ask("https://evil.example").headers
+
+
+def test_stats_week_scope_is_a_subset_of_the_season_and_unknown_seasons_are_rejected(client):
+    week = client.get("/api/stats", params={"scope": "week"}).json()
+    season = client.get("/api/stats", params={"scope": "season"}).json()
+    assert week["matches_in_scope"] <= season["matches_in_scope"]
+    assert len(week["team_of_scope"]["players"]) <= 11
+    assert client.get("/api/stats", params={"season": "1999_00"}).status_code == 404

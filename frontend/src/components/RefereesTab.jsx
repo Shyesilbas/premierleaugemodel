@@ -129,7 +129,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
           <div>
             <div className="flex items-center gap-2 mb-1.5 text-text-secondary">
               <Scale className="w-4 h-4 text-text-tertiary" />
-              <span className="text-xs font-medium uppercase tracking-wider">Premier League · Hakem Merkezi</span>
+              <span className="text-xs font-medium">Premier League · Hakem Merkezi</span>
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Hakem Profilleri</h1>
             <p className="max-w-2xl mt-1 text-sm text-text-secondary">
@@ -183,7 +183,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
               <span className="text-xs font-medium text-text-secondary block">En Yüksek Kart Ortalaması</span>
               <span className="mt-1 block truncate text-base font-semibold text-text-primary" title={summaryStats.topStrict?.referee_name}>
                 {summaryStats.topStrict?.referee_name || '—'}
-                <span className="font-mono text-xs font-normal text-text-secondary ml-1">({summaryStats.topStrict?.avg_cards} / maç)</span>
+                <span className="tabular-nums text-xs font-normal text-text-secondary ml-1">({summaryStats.topStrict?.avg_cards} / maç)</span>
               </span>
             </div>
           </div>
@@ -244,7 +244,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[780px] border-collapse text-left text-xs">
+              <table className="w-full min-w-max border-collapse text-left text-xs">
                 <thead>
                   <tr className="bg-background-tertiary text-xs font-medium text-text-secondary border-b border-border">
                     <th className="px-5 py-2.5">Hakem</th>
@@ -274,9 +274,9 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right text-xs font-medium tabular-nums text-text-primary">{ref.matches_count ?? 0}</td>
-                        <td className="px-4 py-3 text-right text-xs font-semibold tabular-nums text-text-primary font-mono">{ref.avg_cards ?? '—'}</td>
-                        <td className="px-4 py-3 text-right text-xs tabular-nums text-text-secondary font-mono">{ref.avg_fouls ?? '—'}</td>
-                        <td className="px-4 py-3 text-right text-xs tabular-nums text-text-secondary font-mono">{ref.total_red_cards || 0}</td>
+                        <td className="px-4 py-3 text-right text-xs font-semibold tabular-nums text-text-primary">{ref.avg_cards ?? '—'}</td>
+                        <td className="px-4 py-3 text-right text-xs tabular-nums text-text-secondary">{ref.avg_fouls ?? '—'}</td>
+                        <td className="px-4 py-3 text-right text-xs tabular-nums text-text-secondary">{ref.total_red_cards || 0}</td>
                         <td className="px-4 py-3">
                           <div className="flex w-36 items-center gap-2">
                             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-background-tertiary">
@@ -333,15 +333,15 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                       </div>
                       <div>
                         <span className="block text-xs text-text-secondary">Kart/maç</span>
-                        <span className="text-xs font-semibold tabular-nums text-text-primary font-mono">{ref.avg_cards ?? '—'}</span>
+                        <span className="text-xs font-semibold tabular-nums text-text-primary">{ref.avg_cards ?? '—'}</span>
                       </div>
                       <div>
                         <span className="block text-xs text-text-secondary">Faul/maç</span>
-                        <span className="text-xs tabular-nums text-text-secondary font-mono">{ref.avg_fouls ?? '—'}</span>
+                        <span className="text-xs tabular-nums text-text-secondary">{ref.avg_fouls ?? '—'}</span>
                       </div>
                       <div>
                         <span className="block text-xs text-text-secondary">Kırmızı</span>
-                        <span className="text-xs tabular-nums text-text-secondary font-mono">{ref.total_red_cards || 0}</span>
+                        <span className="text-xs tabular-nums text-text-secondary">{ref.total_red_cards || 0}</span>
                       </div>
                     </div>
 
@@ -369,7 +369,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
             role="dialog"
             aria-modal="true"
             aria-label={`${selectedReferee} profil detayı`}
-            className="bg-background-primary rounded-md max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-border shadow-md"
+            className="bg-background-primary rounded-md max-w-3xl w-full max-h-screen overflow-y-auto border border-border shadow-md"
           >
             {/* Modal Header */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background-primary p-5 sm:p-6">
@@ -411,15 +411,15 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                   </div>
                   <div className="p-4 text-center sm:text-left">
                     <span className="text-xs font-medium text-text-secondary block">Kart / Maç</span>
-                    <span className="mt-1 block text-xl font-semibold tabular-nums text-text-primary font-mono">{refereeDetail.season_stats?.avg_cards || '—'}</span>
+                    <span className="mt-1 block text-xl font-semibold tabular-nums text-text-primary">{refereeDetail.season_stats?.avg_cards || '—'}</span>
                   </div>
                   <div className="p-4 text-center sm:text-left">
                     <span className="text-xs font-medium text-text-secondary block">Kırmızı Kart</span>
-                    <span className="mt-1 block text-xl font-semibold tabular-nums text-text-primary font-mono">{refereeDetail.season_stats?.total_red_cards || 0}</span>
+                    <span className="mt-1 block text-xl font-semibold tabular-nums text-text-primary">{refereeDetail.season_stats?.total_red_cards || 0}</span>
                   </div>
                   <div className="p-4 text-center sm:text-left">
                     <span className="text-xs font-medium text-text-secondary block">Faul / Maç</span>
-                    <span className="mt-1 block text-xl font-semibold tabular-nums text-text-primary font-mono">{refereeDetail.season_stats?.avg_fouls || '—'}</span>
+                    <span className="mt-1 block text-xl font-semibold tabular-nums text-text-primary">{refereeDetail.season_stats?.avg_fouls || '—'}</span>
                   </div>
                 </div>
 
@@ -431,8 +431,8 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                     </div>
                     <div className="flex items-center gap-4 text-xs">
                       <span className="text-text-secondary"><strong className="text-text-primary font-medium">{refereeDetail.career_stats.matches_count || 0}</strong> maç</span>
-                      <span className="text-text-secondary"><strong className="text-text-primary font-medium font-mono">{refereeDetail.career_stats.avg_cards ?? '—'}</strong> kart/maç</span>
-                      <span className="text-text-secondary"><strong className="text-text-primary font-medium font-mono">{refereeDetail.career_stats.avg_fouls ?? '—'}</strong> faul/maç</span>
+                      <span className="text-text-secondary"><strong className="text-text-primary font-medium tabular-nums">{refereeDetail.career_stats.avg_cards ?? '—'}</strong> kart/maç</span>
+                      <span className="text-text-secondary"><strong className="text-text-primary font-medium tabular-nums">{refereeDetail.career_stats.avg_fouls ?? '—'}</strong> faul/maç</span>
                     </div>
                   </div>
                 )}
@@ -448,10 +448,10 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                       {refereeDetail.team_breakdown.map((t, index) => (
                         <div key={t.team_name} className="flex items-center justify-between gap-3 p-3 bg-background-primary hover:bg-background-secondary transition-colors">
                           <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-text-primary">
-                            <span className="w-5 text-right font-mono text-xs text-text-tertiary">{index + 1}</span>
+                            <span className="w-5 text-right tabular-nums text-xs text-text-tertiary">{index + 1}</span>
                             <span className="truncate">{t.team_name}</span>
                           </span>
-                          <span className="shrink-0 font-mono text-xs text-text-secondary">
+                          <span className="shrink-0 tabular-nums text-xs text-text-secondary">
                             <span className="font-medium text-text-primary">{t.yellows} sarı</span>
                             {t.reds > 0 && <span className="ml-2 font-medium text-status-error">{t.reds} kırmızı</span>}
                           </span>
@@ -503,7 +503,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                             className="group flex w-full flex-col gap-2.5 px-4 py-3 text-left transition-colors hover:bg-background-secondary sm:flex-row sm:items-center sm:gap-3 cursor-pointer"
                           >
                             <div className="flex items-center justify-between text-xs text-text-secondary sm:w-16 sm:shrink-0 sm:flex-col sm:items-start sm:gap-0.5">
-                              <span className="font-mono font-medium text-text-primary">H{m.gameweek ?? '—'}</span>
+                              <span className="tabular-nums font-medium text-text-primary">H{m.gameweek ?? '—'}</span>
                               {activeSeason === 'all' && <span>{formatSeasonLabel(m.season || '')}</span>}
                             </div>
 
@@ -512,7 +512,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                                 <span className="truncate text-xs font-medium text-text-primary">{homeTeam.short || m.home_name}</span>
                                 <img src={homeTeam.badge} alt={m.home_name} className="h-5 w-5 shrink-0 object-contain" onError={handleTeamBadgeError} />
                               </div>
-                              <span className="min-w-[64px] shrink-0 text-center font-mono text-xs font-semibold tabular-nums text-text-primary">
+                              <span className="min-w-16 shrink-0 text-center tabular-nums text-xs font-semibold text-text-primary">
                                 {m.home_score ?? '—'} - {m.away_score ?? '—'}
                               </span>
                               <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -522,9 +522,9 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                             </div>
 
                             <div className="flex items-center justify-between gap-3 border-t border-border-light pt-2 text-xs text-text-secondary sm:w-44 sm:shrink-0 sm:justify-end sm:border-0 sm:pt-0">
-                              <span className="whitespace-nowrap">Sarı <strong className="font-medium text-text-primary font-mono">{m.total_yellow_cards || 0}</strong></span>
-                              <span className="whitespace-nowrap">Kırmızı <strong className="font-medium text-text-primary font-mono">{m.total_red_cards || 0}</strong></span>
-                              <span className="whitespace-nowrap">Faul <strong className="font-medium text-text-primary font-mono">{m.total_fouls || 0}</strong></span>
+                              <span className="whitespace-nowrap">Sarı <strong className="font-medium text-text-primary tabular-nums">{m.total_yellow_cards || 0}</strong></span>
+                              <span className="whitespace-nowrap">Kırmızı <strong className="font-medium text-text-primary tabular-nums">{m.total_red_cards || 0}</strong></span>
+                              <span className="whitespace-nowrap">Faul <strong className="font-medium text-text-primary tabular-nums">{m.total_fouls || 0}</strong></span>
                               <ChevronRight className="hidden h-4 w-4 shrink-0 text-text-tertiary transition-transform group-hover:translate-x-0.5 sm:block" />
                             </div>
                           </button>

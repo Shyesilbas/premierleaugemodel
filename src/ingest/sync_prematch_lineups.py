@@ -39,46 +39,19 @@ if str(PROJECT_ROOT / "src" / "ingest") not in sys.path:
 
 from src.ingest.fetch_season_data import build_session, fetch_match_details
 from src.ingest.files import atomic_write_json
-from src.analytics.player_ratings import (
-    calculate_single_match_score,
-    get_all_player_logs,
-    get_all_players_registry,
-    get_match_bookings_map,
+from src.analytics.player_ratings import get_all_players_registry
+from src.api.prediction_service import score_row_with_production_models
+from src.db.database import get_db
+from src.features.build_features import (
+    _aggregate_xi_ratings,
+    _compute_pre_match_player_rating,
+    _get_xi_match_lookup,
+    extract_team_lists,
 )
-from src.features.build_features import _aggregate_xi_ratings, _compute_pre_match_player_rating
-from src.models.dixon_coles import align_to_outcome_probs, btts_prob, expected_goals, over_prob
-from src.models.model_utils import apply_probability_calibrator, blend_log, safe_feature_frame
-
 from src.config import DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MODELS_DIR, DEFAULT_SEASON
 
 OUTCOME_MODEL_PATH = MODELS_DIR / "outcome_models_v1.joblib"
 GOALS_MODEL_PATH = MODELS_DIR / "goals_models_v1.joblib"
-
-
-
-
-def extract_team_lists(details: Dict[str, Any]) -> Dict[int, Dict[str, Any]]:
-    """Returns team_id -> {'formation': str, 'lineup': list, 'subs': list} when official XI is present."""
-    result: Dict[int, Dict[str, Any]] = {}
-    teams_info = details.get("teams") or []
-    for idx, tl in enumerate(details.get("teamLists") or []):
-        if not tl or not isinstance(tl, dict):
-            continue
-        t_id = tl.get("teamId")
-        if not t_id and idx < len(teams_info):
-            t_id = (teams_info[idx].get("team") or {}).get("id")
-        if not t_id:
-            continue
-        lineup = tl.get("lineup") or []
-        subs = tl.get("substitutes") or []
-        formation = (tl.get("formation") or {}).get("label") or "-"
-        if len(lineup) >= 7:
-            result[int(t_id)] = {
-                "formation": str(formation),
-                "lineup": lineup,
-                "subs": subs,
-            }
-    return result
 
 
 def build_player_history_and_last_xi(
@@ -89,31 +62,7 @@ def build_player_history_and_last_xi(
     Dict[int, Tuple[float, float, float]],
 ]:
     """Replays played matches chronologically to build exact point-in-time player history and each team's last played XI."""
-    logs_by_player = get_all_player_logs()
-    reg = get_all_players_registry()
-    bmap = get_match_bookings_map()
-
-    match_starters: Dict[int, Dict[int, List[Tuple[int, str]]]] = {}
-    match_scores: Dict[int, Dict[int, List[Tuple[int, str, float, float, float]]]] = {}
-
-    for pid_str, plogs in logs_by_player.items():
-        try:
-            pid = int(pid_str)
-        except (ValueError, TypeError):
-            continue
-        pos = str(reg.get(pid, {}).get("position", "M"))
-        for l in plogs:
-            mid = int(l.get("match_id") or 0)
-            tid = int(l.get("team_id") or 0)
-            if not mid or not tid:
-                continue
-            if l.get("started"):
-                match_starters.setdefault(mid, {}).setdefault(tid, []).append((pid, pos))
-            sc = calculate_single_match_score(l, pos, bmap, pid)
-            if sc is not None:
-                match_scores.setdefault(mid, {}).setdefault(tid, []).append(
-                    (pid, pos, float(sc["overall"]), float(sc["attack"]), float(sc["defense"]))
-                )
+    match_starters, match_scores = _get_xi_match_lookup()
 
     played = df_features[df_features["is_played"].fillna(False).astype(bool)].copy()
     played = played.sort_values(["kickoff_millis", "match_id"], kind="mergesort")
@@ -188,82 +137,32 @@ def get_target_fixtures(
     return upcoming[upcoming["gameweek"].astype(int) == next_gw].sort_values("_kickoff_utc")
 
 
-def score_row_with_production_models(
-    simulated_df: pd.DataFrame,
-    outcome_artifact: Dict[str, Any],
-    goals_artifact: Optional[Dict[str, Any]],
-) -> Dict[str, float]:
-    o_features = outcome_artifact.get("feature_names_1x2", outcome_artifact["feature_names"])
-    probs_1x2 = outcome_artifact["model_1x2"].predict_proba(
-        safe_feature_frame(simulated_df, o_features, fill_value=np.nan)
-    )
-    has_ensemble = (
-        "model_dc" in outcome_artifact
-        and outcome_artifact.get("metrics", {})
-        .get("1x2_ensemble_production", {})
-        .get("enabled", True)
-    )
-    if has_ensemble:
-        dc_probs_1x2 = outcome_artifact["model_dc"].predict_proba(simulated_df)
-        probs_1x2 = blend_log(probs_1x2, dc_probs_1x2, outcome_artifact["ensemble_weight"])
-        calibrator_1x2 = outcome_artifact.get("calibrators", {}).get("1x2_ensemble")
-    else:
-        calibrator_1x2 = outcome_artifact.get("calibrators", {}).get("1x2")
-    if calibrator_1x2:
-        probs_1x2 = apply_probability_calibrator(probs_1x2, calibrator_1x2)
-    p1x2 = probs_1x2[0]
-
-    lam_h, lam_a, p_o25, p_btts = 0.0, 0.0, 0.0, 0.0
-    if goals_artifact is not None:
-        score_matrix = align_to_outcome_probs(
-            goals_artifact["model"].predict_matrices(simulated_df), np.atleast_2d(p1x2)
-        )
-        lh, la = expected_goals(score_matrix)
-        lam_h, lam_a = float(lh[0]), float(la[0])
-        p_o25 = float(over_prob(score_matrix, 2.5)[0]) * 100.0
-        p_btts = float(btts_prob(score_matrix)[0]) * 100.0
-
-    return {
-        "home_pct": float(p1x2[0] * 100.0),
-        "draw_pct": float(p1x2[1] * 100.0),
-        "away_pct": float(p1x2[2] * 100.0),
-        "lambda_home": lam_h,
-        "lambda_away": lam_a,
-        "lambda_total": lam_h + lam_a,
-        "over_25_pct": p_o25,
-        "btts_pct": p_btts,
-        "home_xi_rating": float(simulated_df["home_xi_rating"].iloc[0]),
-        "away_xi_rating": float(simulated_df["away_xi_rating"].iloc[0]),
-        "xi_rating_diff": float(simulated_df["xi_rating_diff"].iloc[0]),
-        "xi_att_vs_def_diff": float(simulated_df["xi_att_vs_def_diff"].iloc[0]),
-    }
-
-
 def fetch_db_odds(match_id: int) -> List[Dict[str, Any]]:
     if not DB_PATH.exists():
         return []
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    rows = con.execute(
-        """
-        SELECT bookmaker, home_open, draw_open, away_open,
-               home_last_seen, draw_last_seen, away_last_seen,
-               over_25_open, under_25_open, over_25_last_seen, under_25_last_seen,
-               btts_yes_open, btts_no_open, btts_yes_last_seen, btts_no_last_seen,
-               fetched_at_utc
-        FROM external_match_odds
-        WHERE match_id = ?
-        ORDER BY CASE bookmaker
-            WHEN 'Pinnacle' THEN 1
-            WHEN 'Bet365' THEN 2
-            WHEN 'Betfair Exchange' THEN 3
-            ELSE 4
-        END
-        """,
-        (int(match_id),),
-    ).fetchall()
-    con.close()
-    return [dict(r) for r in rows]
+    con = get_db()
+    try:
+        rows = con.execute(
+            """
+            SELECT bookmaker, home_open, draw_open, away_open,
+                   home_last_seen, draw_last_seen, away_last_seen,
+                   over_25_open, under_25_open, over_25_last_seen, under_25_last_seen,
+                   btts_yes_open, btts_no_open, btts_yes_last_seen, btts_no_last_seen,
+                   fetched_at_utc
+            FROM external_match_odds
+            WHERE match_id = ?
+            ORDER BY CASE bookmaker
+                WHEN 'Pinnacle' THEN 1
+                WHEN 'Bet365' THEN 2
+                WHEN 'Betfair Exchange' THEN 3
+                ELSE 4
+            END
+            """,
+            (int(match_id),),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        con.close()
 
 
 def print_match_report(

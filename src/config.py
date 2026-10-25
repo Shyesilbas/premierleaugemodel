@@ -41,6 +41,14 @@ EXCLUDED_1X2_TRAINING_SEASONS = {"2022_23"}
 # still be used to fit the final production estimator.
 LOCKED_SEASONS = {"2026_27"}
 
+SEASON_ORDER: dict[str, int] = {
+    "2022_23": 0,
+    "2023_24": 1,
+    "2024_25": 2,
+    "2025_26": 3,
+    "2026_27": 4,
+}
+
 
 def configure_logging(level: int = logging.INFO) -> None:
     """Configure the root logger once. Call from entry points only, never at import time."""

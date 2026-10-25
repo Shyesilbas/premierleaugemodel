@@ -49,6 +49,7 @@ Bu belge, Premier League Model App platformunda **Maç (Match)**, **Takım (Team
    - 5.2 Veri Kaynakları ve Akış Hatları (Ingestion Pipelines)
    - 5.3 REST API Uç Noktaları Özeti
    - 5.4 Ön Yüz Bileşenleri (Frontend UI Mapping)
+6. [İstatistikler (Lig İstatistikleri Sayfası)](#6-i̇statistikler-lig-i̇statistikleri-sayfası)
 
 ---
 
@@ -367,8 +368,8 @@ Premier League resmi sıralama kuralları (Puan -> Averaj -> Atılan Gol) ile he
 
 ---
 
-### 2.3 Opta İleri Taktik Oyun Profili (27 Temel Taktik Metrik)
-`team_tactics.py` motoru, Opta ham maç istatistiklerinden her takım için 27 taktiksel parametre üretir. Her parametre lig ortalaması ile karşılaştırılır:
+### 2.3 Opta İleri Taktik Oyun Profili (32 Temel Taktik Metrik)
+`team_tactics.py` motoru, Opta ham maç istatistiklerinden her takım için 32 taktiksel parametre üretir. Her parametre, takımın kendisi hariç diğer takımların ortalaması ve yüzdeliğiyle karşılaştırılır (`league_average`, `difference`, `percentile`). Yanıtta ayrıca en çok kullanılan başlangıç dizilişleri (`formations`) döner. Yüzdelik ve ortalama hesabında takımın kendi değeri dahil edilmez; `decimals` alanı gösterim hassasiyetini belirtir.
 
 #### 1. Genel Oyun Karakteri
 * **Topa Sahip Olma (`possession`):** Ortalama topa sahip olma yüzdesi (`%`).
@@ -376,13 +377,13 @@ Premier League resmi sıralama kuralları (Puan -> Averaj -> Atılan Gol) ile he
 
 #### 2. Hücum Üretimi ve Şut Profili
 * **Son Bölgeye Giriş (`final_third_entries`):** Maç başına rakip hücum 3. bölgesine yapılan giriş adedi.
-* **Son Bölgede Pas (`final_third_passes`):** Maç başına hücum 3. bölgesinde yapılan pas sayısı.
+* **Ceza Sahasına Giriş (`pen_area_entries`):** Maç başına rakip ceza sahasına yapılan giriş sayısı.
 * **Son Bölge Pas İsabeti (`final_third_pass_accuracy`):** Hücum bölgesindeki pas isabet yüzdesi (`%`).
 * **Rakip Ceza Sahası Dokunuşu (`opposition_box_touches`):** Maç başına rakip ceza sahasında topla buluşma.
 * **Maç Başına Şut (`shots_per_match`):** Toplam şut denemesi.
 * **İsabetli Şut Oranı (`shots_on_target_share`):** Kaleyi bulan şutların toplam şuta oranı (`%`).
 * **Ceza Sahası İçi Şut Payı (`inside_box_shot_share`):** Tüm şutlar içinde ceza sahası içinden vurulanların payı (`%`).
-* **Ceza Sahası Dışı Şut Payı (`outside_box_shot_share`):** Ceza sahası dışından çekilen şutların oranı (`%`).
+* **Beklenen Gol (`xg_per_match`) ve Şut Başına xG (`xg_per_shot`):** Harici sağlayıcının (`external_match_xg`, yalnızca `xg_quality = full`) xG verisinden; sağlayıcı verisi olmayan maçlar kapsam yüzdesine yansır.
 
 #### 3. Pas Tercihleri ve Uzun Toplar
 * **Uzun Pas Payı (`long_ball_share`):** Toplam paslar içinde uzun topların oranı (`%`).
@@ -391,11 +392,13 @@ Premier League resmi sıralama kuralları (Puan -> Averaj -> Atılan Gol) ile he
 * **Orta İsabeti (`cross_accuracy`):** İsabetli ortaların toplam ortalara oranı (`%`).
 
 #### 4. Duran Toplar
+* **Kazanılan Korner (`corners_won_per_match`):** Maç başına kazanılan korner sayısı.
 * **Ceza Sahasına Gönderilen Korner Oranı (`corners_into_box_share`):** Kullanılan kornerlerin doğrudan içeri kesilme yüzdesi (`%`).
 
 #### 5. Savunma Aksiyonları & Pres
 * **İzin Verilen Şut (`shots_conceded_per_match`):** Maç başına rakibe verilen şut imkanı.
-* **Topu Geri Kazanma (`ball_recoveries`):** Sahipsiz topları kazanma sıklığı.
+* **Yenilen xG (`xga_per_match`):** Rakibin maç başına ürettiği beklenen gol.
+* **Ceza Sahası İçi İzin Verilen Şut Payı (`conceded_inside_box_share`):** Rakibin şutlarının ceza sahası içinden gelen payı (`%`).
 * **Savunma Bölgesinde Top Kazanımı (`defensive_third_recoveries`):** Kendi 1. bölgesinde kazanılan toplar.
 * **Orta Bölgede Top Kazanımı (`mid_third_recoveries`):** Orta sahada kazanılan toplar.
 * **Hücum Bölgesinde Top Kazanımı (`attacking_third_recoveries`):** Rakip kalede presle kazanılan toplar.
@@ -407,7 +410,13 @@ Premier League resmi sıralama kuralları (Puan -> Averaj -> Atılan Gol) ile he
 
 #### 6. Top Kaybı Profili
 * **Toplam Top Kaybı (`possession_losses`):** Maç başına top kaybı (`poss_lost_all`).
-* **Kontrollü Top Kaybı (`controlled_possession_losses`):** Kontrol altındayken yapılan top kaybı (`poss_lost_ctrl`).
+* **100 Dokunuşta Top Kaybı (`losses_per_100_touches`):** Top kaybının topla buluşma hacmine oranı (`poss_lost_all` / `touches` x 100).
+
+#### 7. Disiplin
+* **Yapılan Faul (`fouls_committed`):** Maç başına faul sayısı (`fk_foul_lost`).
+* **Sarı Kart (`yellow_cards`):** Maç başına sarı kart; kaynakta kart anahtarı olmayan maçlar sıfır sayılır (DB kartlarıyla doğrulandı).
+
+Kaldırılan yinelenen metrikler: `outside_box_shot_share` (içerideki payın tam tamamlayıcısı), `controlled_possession_losses` (toplam kayıpla korelasyon 1.00), `final_third_passes` (rakip ceza sahası dokunuşuyla korelasyon 0.91), `ball_recoveries` (üç bölge kazanımı toplamıyla R² 0.97).
 
 ---
 
@@ -717,6 +726,7 @@ Uygulama `data/premier_league.db` (SQLite) ve `data/processed/*.parquet` katmanl
 | :--- | :---: | :--- |
 | `/api/fixtures/grouped` | GET | Fikstürün haftalara ve günlere göre gruplanmış tam listesi, hakem ve xG verileriyle. |
 | `/api/fixtures` | GET | Filtrelenebilir düz maç listesi. |
+| `/api/stats` | GET | İstatistikler sayfası: `scope=week` (+ `gameweek`) veya `scope=season` için kadro, hücum/defans, krallıklar, disiplin, form, ev-deplasman, gol dakikaları ve hakem sıralamaları. |
 | `/api/standings` | GET | Premier League puan durumu (Genel, Ev, Deplasman ve son 5 maç formu). |
 | `/api/match/{match_id}/details` | GET | Maçın kadroları, dizilişleri, oyuncu reytingleri, timeline olayları ve 5 kategoride takım istatistikleri. |
 | `/api/match/{match_id}/odds` | GET | Maçın bahis şirketleri bazında açılış ve kapanış oranları. |
@@ -724,7 +734,7 @@ Uygulama `data/premier_league.db` (SQLite) ve `data/processed/*.parquet` katmanl
 | `/api/predict` | GET | İki takım arasında yapay zeka maç sonucu (1X2), goller, korner, kart, taç, ofsayt, kurtarış ve ilk 11 modülatör tahminleri. |
 | `/api/teams` | GET | Premier League kulüpler listesi ve armaları. |
 | `/api/teams/profile` | GET | Kulüp profili, maç arşivi, kadrosu, Transfermarkt değeri ve 5 yıllık gelişimi. |
-| `/api/teams/tactics` | GET | Takımın 27 metrikten oluşan Opta taktik profili ve lig ortalamasıyla kıyaslaması. |
+| `/api/teams/tactics` | GET | Takımın 32 metrikten oluşan Opta taktik profili ve lig ortalamasıyla kıyaslaması. |
 | `/api/teams/scenarios` | GET | Takımın skor eşitken, öndeyken ve gerideyken sergilediği şut ve korner temposu. |
 | `/api/teams/attacking-leaders`| GET | Takımın en etkili 3 hücumcusu, şut asistleri ve gol katkıları. |
 | `/api/teams/staff` | GET | Takımın teknik direktör ve antrenör kadrosu. |
@@ -748,3 +758,35 @@ Uygulama `data/premier_league.db` (SQLite) ve `data/processed/*.parquet` katmanl
 * **Oyuncu Profilleri:** `PlayerProfilesTab.jsx`, `PlayerSearchPanel.jsx`, `PlayerProfileHeader.jsx`, `PlayerMatchHistory.jsx`, `PlayerMarketValueHistoryModal.jsx`.
 * **Hakem Profilleri:** `RefereesTab.jsx`.
 * **Model Denetimi:** `ModelAuditTab.jsx`, `AuditMatchCard.jsx`.
+* **İstatistikler:** `StatsTab.jsx`, `stats/statsParts.jsx`, `stats/TeamOfScope.jsx`, `stats/GoalMinutes.jsx`.
+
+---
+
+## 6. İstatistikler (Lig İstatistikleri Sayfası)
+
+`/api/stats?season=<sezon>&scope=week|season[&gameweek=<n>]` tek yanıtta tüm bölümleri verir. Hesaplar `src/analytics/league_stats.py` içindedir ve veri sürümü değişince yenilenir.
+
+### 6.1 Kapsam kuralı
+* **Kapsamlı bölümler (yalnızca seçili hafta, sezon kapsamında tüm sezon):** öne çıkanlar, haftanın/sezonun kadrosu, hücum, savunma, gol ve asist krallığı, kart gören oyuncu ve takımlar, modelin sürprizleri.
+* **Birikimli bölümler (seçili hafta dahil, o haftaya kadar):** kaleciler, en çok süre alanlar, genç oyuncular, hakem karnesi, form tablosu, sıralama hareketi, ev ve deplasman tabloları, gol dakikaları. Tek haftalık örneklem bu bölümler için çok küçük olduğundan "Hafta N itibarıyla" etiketiyle gösterilir.
+
+### 6.2 Bölümler ve kaynakları
+| Bölüm | Alan | Kaynak ve kural |
+| :--- | :--- | :--- |
+| Öne çıkanlar | `highlights` | En çok gol atılan maç, en farklı sonuç (3+ fark), en yüksek model reytingi, hat-trick, kırmızı kartlar, modelin en büyük sürprizi. |
+| Haftanın/sezonun kadrosu | `team_of_scope` | Sabit 4-3-3. `player_ratings.calculate_single_match_score` maç reytingi (45+ dakika). Sezon kapsamında en az `max(2, yarı hafta sayısı)` maç. |
+| Hücum, savunma | `attack`, `defence` | `matches_summary_all.parquet` takım satırları. Hücum: gol, xG, isabetli şut. Savunma: yenen gol, gol yememe, xG karşı. |
+| Gol, asist krallığı | `top_scorers`, `top_assists` | `player_match_logs.json`. Hafta kapsamında satırda `season_goals` / `season_assists` (o haftaya kadar toplam) da bulunur. |
+| Disiplin | `discipline` | Oyuncu: `match_player_bookings_cache.json`. Takım: maç özetindeki sarı ve kırmızı kart ile yapılan faul sayısı (`fk_foul_lost`, takımın yaptığı faul). Takımlar kart sayısına göre sıralanır. |
+| Kaleciler | `goalkeepers` | 45+ dakika ilk 11 kaleci. Gol yememe: 60+ dakika ve 0 yenen gol. Kurtarış: takımın maç kurtarışı, o maçta en çok oynayan kaleciye yazılır (yaklaşık). |
+| Süre, genç oyuncular | `minutes`, `young_players` | Oyuncu kayıtları. Yaş yalnızca `player_market_values.age` olan sezonlarda (şu an 2026/27) vardır, isim eşleştirmesiyle birleşir (Transfermarkt ve PL kimlikleri farklıdır). Genç: 21 yaş ve altı. |
+| Hakem karnesi | `referees` | Maç özetindeki hakem ve kart toplamları, maç başı kart. Birden fazla maç yöneten hakem varsa en az 2 maç. |
+| Form, sıralama hareketi | `form`, `movers` | Son 5 maç puanı. Hareket: puan tablosu sırası, hafta kapsamında önceki haftaya, sezon kapsamında 5 hafta öncesine göre. |
+| Ev, deplasman gücü | `venue` | Ev ve deplasman puan tabloları ve lig geneli sonuç dağılımı. |
+| Gol dakikaları | `goal_minutes` | Hafta kapsamında hem seçili hafta (`league_scope`, takım satırlarında `scope_scored` / `scope_conceded`) hem o haftaya kadar birikimli dağılım (`league`, `scored`, `conceded`) gelir; arayüzde "Bu hafta" ve "Hafta N itibarıyla" arasında geçiş vardır. Sezon kapsamında ikisi aynıdır. `shots_events_all.parquet` gol olayları, 6 dakika aralığı (kaçan 90+ ve 45+ dakikalar ilgili devrenin son aralığına yazılır). Golü atan takım, olay metnindeki skor değişiminden bulunur (kendi kalesine atılan goller dahil). |
+| Modelin sürprizleri | `surprises` | `model_match_audit`: gerçekleşen sonuca modelin %30 veya daha az ihtimal verdiği maçlar. |
+
+### 6.3 Sınırlar
+* Reytingler modelin hesapladığı değerlerdir, resmi reyting değildir.
+* Yaş verisi olmayan sezonlarda genç oyuncu bölümü boş durum gösterir.
+* Sezon başında az maçlı kapsamlarda sıralamalar küçük örnekleme dayanır.

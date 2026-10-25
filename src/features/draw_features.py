@@ -100,7 +100,8 @@ def _ordered_batches(matches: pd.DataFrame):
 
 
 def _update_batch(state: DrawFeatureState, batch: pd.DataFrame) -> None:
-    for row in batch.itertuples(index=False):
+    # Only these columns are read; itertuples over the full feature frame boxes hundreds of unused columns per batch.
+    for row in batch[["home_id", "away_id", "home_score", "away_score"]].itertuples(index=False):
         if pd.notna(row.home_score) and pd.notna(row.away_score):
             state.update(int(row.home_id), int(row.away_id), int(row.home_score), int(row.away_score))
 

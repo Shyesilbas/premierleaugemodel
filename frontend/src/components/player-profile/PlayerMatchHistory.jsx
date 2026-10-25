@@ -5,12 +5,12 @@ import { getTeam } from '../../data/teams';
 import { parseKickoff } from '../../utils/dateFormatters';
 
 function ratingClass(rating) {
-  if (rating == null) return 'bg-slate-100 text-slate-400 border border-slate-200';
-  if (rating >= 8) return 'bg-emerald-600 text-white shadow-emerald-500/20';
-  if (rating >= 7) return 'bg-emerald-100 text-emerald-800 border border-emerald-200/60';
-  if (rating >= 6) return 'bg-sky-100 text-sky-800 border border-sky-200/60';
-  if (rating >= 5) return 'bg-amber-100 text-amber-800 border border-amber-200/60';
-  return 'bg-rose-100 text-rose-800 border border-rose-200/60';
+  if (rating == null) return 'bg-background-tertiary text-text-muted border border-border';
+  if (rating >= 8) return 'bg-status-success text-white ';
+  if (rating >= 7) return 'bg-background-tertiary text-status-success border border-border';
+  if (rating >= 6) return 'bg-background-tertiary text-status-info border border-border';
+  if (rating >= 5) return 'bg-background-tertiary text-status-warning border border-border';
+  return 'bg-background-tertiary text-status-error border border-border';
 }
 
 function toMatchModalData(match) {
@@ -110,7 +110,7 @@ export default function PlayerMatchHistory({
               >
                 <div className="flex items-center gap-3 shrink-0">
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded border font-mono text-xs tabular-nums ${ratingClass(match.rating)}`}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded border tabular-nums text-xs tabular-nums ${ratingClass(match.rating)}`}
                     title={match.rating != null ? `Maç Performans Reytingi: ${match.rating.toFixed(1)} / 10` : 'Değerlendirilmedi'}
                   >
                     {match.rating != null ? match.rating.toFixed(1) : '—'}
@@ -122,7 +122,7 @@ export default function PlayerMatchHistory({
                     </span>
                     <span className="flex items-center gap-2 text-text-tertiary text-xs">
                       {season === 'all' && <span>{formatSeasonLabel(match.season)}</span>}
-                      <span className="font-mono">H{Math.round(Number(match.gameweek) || 1)}</span>
+                      <span className="tabular-nums">H{Math.round(Number(match.gameweek) || 1)}</span>
                       <span>{match.is_home ? 'İç Saha' : 'Deplasman'}</span>
                     </span>
                   </div>
@@ -135,7 +135,7 @@ export default function PlayerMatchHistory({
                     </span>
                     <img src={home.badge} alt={home.name} className="h-5 w-5 shrink-0 object-contain" onError={handleTeamBadgeError} />
                   </div>
-                  <span className="min-w-[58px] shrink-0 text-center font-mono text-xs font-semibold tabular-nums text-text-primary">
+                  <span className="min-w-14 shrink-0 text-center tabular-nums text-xs font-semibold text-text-primary">
                     {played ? `${homeScore} - ${awayScore}` : kickoff.time || 'vs'}
                   </span>
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">

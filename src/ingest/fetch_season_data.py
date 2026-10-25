@@ -84,7 +84,12 @@ def fetch_match_stats(session: requests.Session, match_id: int) -> Optional[Dict
     url = f"{BASE_API_URL}/stats/match/{match_id}"
     resp = session.get(url, timeout=15)
     if resp.status_code == 200:
-        return resp.json()
+        data = resp.json()
+        if not (isinstance(data, dict) and data.get("data")):
+            # The provider fills stats late; an empty 200 must not be cached as final.
+            logger.warning(f"Empty stats payload for match {match_id}")
+            return None
+        return data
     logger.warning(f"Failed to fetch stats for match {match_id}: HTTP {resp.status_code}")
     return None
 
@@ -94,7 +99,11 @@ def fetch_match_details(session: requests.Session, match_id: int) -> Optional[Di
     url = f"{BASE_API_URL}/fixtures/{match_id}"
     resp = session.get(url, timeout=15)
     if resp.status_code == 200:
-        return resp.json()
+        data = resp.json()
+        if not (isinstance(data, dict) and data.get("teams")):
+            logger.warning(f"Empty details payload for match {match_id}")
+            return None
+        return data
     logger.warning(f"Failed to fetch details for match {match_id}: HTTP {resp.status_code}")
     return None
 
@@ -123,13 +132,18 @@ def fetch_match_stream(session: requests.Session, match_id: int) -> Optional[Dic
                 time.sleep(0.05)
                 params["page"] = page
                 page_resp = session.get(url, params=params, timeout=15)
-                if page_resp.status_code == 200:
-                    page_data = page_resp.json()
-                    p_events = page_data.get("events", {}).get("content", [])
-                    all_events.extend(p_events)
+                if page_resp.status_code != 200:
+                    # A missing page would silently drop goals/cards, so fail the whole stream.
+                    logger.warning(f"Stream page {page} of match {match_id}: HTTP {page_resp.status_code}")
+                    return None
+                p_events = page_resp.json().get("events", {}).get("content", [])
+                all_events.extend(p_events)
             data["events"]["content"] = all_events
             data["events"]["pageInfo"]["numPages"] = 1
             data["events"]["pageInfo"]["numEntries"] = len(all_events)
+        if not all_events:
+            logger.warning(f"Empty stream for match {match_id}")
+            return None
 
     return data
 

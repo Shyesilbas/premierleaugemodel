@@ -25,13 +25,8 @@ export function getPositionLabel(position) {
   return labels[getPlayerCategory(position)] || position || 'Oyuncu';
 }
 
-export function getPositionBadgeStyle(position) {
-  const styles = {
-    G: 'bg-amber-50 text-amber-700 border-amber-200',
-    D: 'bg-sky-50 text-sky-700 border-sky-200',
-    M: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    F: 'bg-purple-50 text-purple-700 border-purple-200',
-  };
-  return styles[getPlayerCategory(position)] || 'bg-slate-50 text-slate-700 border-slate-200';
-}
-
+export const RESULT_META = {
+  W: { label: 'G', title: 'Galibiyet', className: 'bg-status-success text-white' },
+  D: { label: 'B', title: 'Beraberlik', className: 'bg-status-draw text-text-primary' },
+  L: { label: 'M', title: 'Mağlubiyet', className: 'bg-status-error text-white' },
+};

@@ -2,7 +2,7 @@
 
 Premier League maçları için uçtan uca maç analizi ve tahmin platformu: ham maç verisinden maç öncesi özellikler (`shift(1)`, veri sızıntısız), gol skor matrisi modeli, 1X2 maç sonucu sınıflandırma modeli, beş sayım modeli (korner, kart, kurtarış, ofsayt, taç), FastAPI backend servisi ve React/Vite kullanıcı arayüzü.
 
-**Veri ve Model Kapsamı:** 5 sezon, 1.900 fikstür (1.580 oynanmış maç; 2026/27 kilitli canlı sezon). Ayrıntılı durum için: [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Veri ve Model Kapsamı:** 5 sezon, 1.900 fikstür (1.595 oynanmış maç; 2026/27 kilitli canlı sezon). Ayrıntılı durum için: [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ---
 
@@ -132,12 +132,12 @@ python3 run_full_pipeline.py
 
 | Model | Uretimdeki Mimarisi | Performans & Durum | Rapor |
 | :--- | :--- | :--- | :--- |
-| **Gol (Skor Matrisi)** | 13x13 matris: bagimsiz Poisson x Dixon-Coles tau, lambda = lambda_Feat (w_dc=0), full 58 ozellik, alpha=3; API'de 1X2 marjinaline hizalanir | [Uretimde] Skor dagilimi iyilesti (NLL 2.9786), 2.5 Ust'te prior'a karsi sinirda anlamli (LL 0.6774, Delta -0.0074), lig ortalamasina ve piyasaya karsi anlamli ustunluk henuz yok; KG etiketi kilitli | [goals_model.md](docs/reports/models/goals_model.md) |
-| **1X2 Mac Sonucu** | 77 ozellikli L2 duzenlilestirilmis cok terimli lojistik regresyon + sicaklik kalibrasyonu | [Uretimde] Sınıf prior'ini anlamli geciyor (LL 1.026 vs 1.092); beraberlik sinyali ayrımı gelistirme asamasinda | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
-| **Korner** | ElasticNet (l1_ratio=0.8, alpha=0.05), 10 ozellik | [Uretimde] Kucuk basarim kazanimi (RMSE 3.200 vs 3.241) | [corners_model.md](docs/reports/models/corners_model.md) |
-| **Tac** | PoissonRegressor (alpha=10.0), 14 ozellik | [Uretimde] Dis sezon 3/3 basarim (RMSE 7.022 vs 7.388) | [throws_model.md](docs/reports/models/throws_model.md) |
-| **Ofsayt** | Ridge (alpha=250.0), 10 ozellik | [Uretimde] Dis sezon 3/3 basarim (RMSE 1.910 vs 2.024) | [offsides_model.md](docs/reports/models/offsides_model.md) |
-| **Kart** | Sabit ortalama (`training_mean`) | [Baseline] Ozellikli aday dis sezon kapisini gecemedigi icin durust ortalama korundu | [cards_model.md](docs/reports/models/cards_model.md) |
+| **Gol (Skor Matrisi)** | 13x13 matris: bagimsiz Poisson x Dixon-Coles tau, lambda = lambda_Feat (w_dc=0), full 60 ozellik (`exp_match_xg_10` ve `exp_venue_match_xg` dahil), alpha=3; egitim/degerlendirme/API'de 1X2 (`v1.3`) marjinaline hizalanir | [Uretimde] Skor dagilimi iyilesti (NLL 2.9686), 2.5 Ust'te prior'i 3/3 sezonda ve anlamli geciyor (LL 0.6767, haftalik refit 0.6753, Delta -0.0080); KG LL 0.6804 (etiket kilitli) | [goals_model.md](docs/reports/models/goals_model.md) |
+| **1X2 Mac Sonucu** | 71 ozellikli L2 duzenlilestirilmis cok terimli lojistik regresyon + ayristirilmis L2 cezali sicaklik/bias kalibrasyonu (`reg_temp=0.10, reg_bias=0.50`; npxG + npBC + ceza sahasi giris farklari) | [Uretimde] 3 dis sezonda (`N=1,140`) anlamli iyilesme (LL 0.9746 vs v1.2 0.9757, v1.1 0.9789, Brier 0.5798, RPS 0.1980, Isabet %55.09); 304 holdout LL 1.026 (`1.0256`) vs 1.092 | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
+| **Korner** | Sabit ortalama (`training_mean`) | [Baseline] Gelistirme donemi dis sezon kapisinda (1/2) elendigi icin durust ortalama korundu (holdout RMSE 3.235) | [corners_model.md](docs/reports/models/corners_model.md) |
+| **Tac** | PoissonRegressor (alpha=10.0), 14 ozellik | [Uretimde] Gelistirme dis sezon 2/2 basarim (RMSE 6.941 vs 7.337) | [throws_model.md](docs/reports/models/throws_model.md) |
+| **Ofsayt** | Ridge (alpha=250.0), 10 ozellik | [Uretimde] Gelistirme dis sezon 2/2 basarim (RMSE 1.906 vs 2.013) | [offsides_model.md](docs/reports/models/offsides_model.md) |
+| **Kart** | Sabit ortalama (`training_mean`) | [Baseline] Ozellikli aday dis sezon kapisini gecemedigi (1/2) icin durust ortalama korundu | [cards_model.md](docs/reports/models/cards_model.md) |
 | **Kurtaris** | Sabit ortalama (`training_mean`) | [Baseline] Capraz dogrulama kapisi gecilemedigi icin durust ortalama korundu | [saves_model.md](docs/reports/models/saves_model.md) |
 
 Sayim modellerinde ozellikli bir model ancak hem CV kapisini hem de kronolojik dis sezon test kapisini gecerse uretim modeline alinir. Gecemezse sabit ortalama kullanilir ve API `model_skill: "baseline"` degeri doner.

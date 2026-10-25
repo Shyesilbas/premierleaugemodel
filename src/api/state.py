@@ -3,89 +3,91 @@
 Importing this module loads everything (~30 s). Other modules read it as ``state.<name>``;
 names are rebound on reload, so never ``from src.api.state import <variable>``."""
 
-import joblib
 import json
 import logging
-import pandas as pd
 import re
 import threading
 import time
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+import joblib
+import pandas as pd
+
 from src.analytics.team_attackers import get_team_attacking_leaders
 from src.analytics.team_scenarios import get_team_scenario_profile
 from src.analytics.team_tactics import get_team_tactical_profile
 from src.config import DATA_DIR, DEFAULT_SEASON, MODELS_DIR
 from src.db.database import attach_statsapi_xg
-from src.features.build_features import build_team_match_history, calculate_rest_days, compute_strength_state, compute_team_states
+from src.features.build_features import (
+    build_team_match_history,
+    calculate_rest_days,
+    compute_strength_state,
+    compute_team_states,
+)
 from src.features.draw_features import build_draw_state
-from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("api_server")
 
-# Load the current combined datasets & production models into memory.
-logger.info("Loading cached datasets and models...")
-
-
 matches_all = DATA_DIR / "processed" / "matches_summary_all.parquet"
-
-
 features_all = DATA_DIR / "processed" / "features_matches_all.parquet"
-
-
-matches_parquet = matches_all
-
-
-features_parquet = features_all
-
-
-df_matches = pd.read_parquet(matches_parquet) if matches_parquet.exists() else pd.DataFrame()
-
-
-if not df_matches.empty:
-    df_matches = attach_statsapi_xg(df_matches)
-
-
-df_features = pd.read_parquet(features_parquet) if features_parquet.exists() else pd.DataFrame()
-
-
-# Load trained models
-corner_artifact = joblib.load(MODELS_DIR / "corner_model_v1.joblib") if (MODELS_DIR / "corner_model_v1.joblib").exists() else None
-
-
-throws_artifact = joblib.load(MODELS_DIR / "throws_model_v1.joblib") if (MODELS_DIR / "throws_model_v1.joblib").exists() else None
-
-
-saves_artifact = joblib.load(MODELS_DIR / "saves_model_v1.joblib") if (MODELS_DIR / "saves_model_v1.joblib").exists() else None
-
-
-outcome_artifact = joblib.load(MODELS_DIR / "outcome_models_v1.joblib") if (MODELS_DIR / "outcome_models_v1.joblib").exists() else None
-
-
-goals_artifact = joblib.load(MODELS_DIR / "goals_models_v1.joblib") if (MODELS_DIR / "goals_models_v1.joblib").exists() else None
-
-
-offside_artifact = joblib.load(MODELS_DIR / "offside_model_v1.joblib") if (MODELS_DIR / "offside_model_v1.joblib").exists() else None
-
-
-cards_artifact = joblib.load(MODELS_DIR / "cards_model_v1.joblib") if (MODELS_DIR / "cards_model_v1.joblib").exists() else None
-
-
-# Load Player Registry and Match Logs
 players_reg_file = DATA_DIR / "processed" / "players_registry.json"
-
-
 players_logs_file = DATA_DIR / "processed" / "player_match_logs.json"
+fix_2627_path = DATA_DIR / "raw" / f"fixtures_{DEFAULT_SEASON}.json"
+
+MODEL_ARTIFACT_FILENAMES = (
+    "corner_model_v1.joblib",
+    "throws_model_v1.joblib",
+    "saves_model_v1.joblib",
+    "outcome_models_v1.joblib",
+    "goals_models_v1.joblib",
+    "offside_model_v1.joblib",
+    "cards_model_v1.joblib",
+)
+
+_RELOAD_WATCHED = [matches_all, features_all, fix_2627_path, players_reg_file] + [
+    MODELS_DIR / name for name in MODEL_ARTIFACT_FILENAMES
+]
+
+_RELOAD_SETTLE_NS = 2_000_000_000  # do not read files a sync script may still be writing
+
+df_matches: pd.DataFrame = pd.DataFrame()
+df_features: pd.DataFrame = pd.DataFrame()
+corner_artifact: Optional[Dict[str, Any]] = None
+throws_artifact: Optional[Dict[str, Any]] = None
+saves_artifact: Optional[Dict[str, Any]] = None
+outcome_artifact: Optional[Dict[str, Any]] = None
+goals_artifact: Optional[Dict[str, Any]] = None
+offside_artifact: Optional[Dict[str, Any]] = None
+cards_artifact: Optional[Dict[str, Any]] = None
+
+all_players: List[Dict[str, Any]] = []
+player_registry_map: Dict[int, Dict[str, Any]] = {}
+raw_fixtures_2627: List[Dict[str, Any]] = []
+teams_dict: Dict[int, Dict[str, Any]] = {}
+match_stats_map: Dict[int, Dict[str, Any]] = {}
+teams_list: List[Dict[str, Any]] = []
+_matches_prepared: pd.DataFrame = pd.DataFrame()
+_long_history: pd.DataFrame = pd.DataFrame()
+_played_matches: pd.DataFrame = pd.DataFrame()
+CURRENT_SEASON: Optional[str] = None
+
+_live_state_cache: Dict[str, Tuple[pd.DataFrame, Dict[str, Any], Optional[pd.Timestamp], Any]] = {}
+_historical_manager_changes_cache: Dict[str, Any] = {}
+_completed_match_details_cache: Dict[int, Any] = {}
+_historical_standings_cache: Dict[str, Any] = {}
+_historical_fixtures_grouped_cache: Dict[str, Any] = {}
+_fixture_pred_cache: Dict[Tuple[int, int, Optional[str]], Dict[str, Any]] = {}
+_season_players_cache: Dict[str, Dict[int, Dict[str, Any]]] = {}
+_player_logs_dict: Optional[Dict[str, Any]] = None
+_player_cards_dict: Optional[Dict[str, Any]] = None
+_loaded_data_version: int = 0
+_data_reload_lock = threading.Lock()
 
 
-all_players = []
-
-
-if players_reg_file.exists():
-    with open(players_reg_file, "r", encoding="utf-8") as f:
-        all_players = json.load(f)
-
-
-player_registry_map: Dict[int, Dict[str, Any]] = {int(p["id"]): p for p in all_players if "id" in p}
+def current_data_version() -> int:
+    """Newest mtime (ns) among the files reload_runtime_datasets loads into memory."""
+    return max((p.stat().st_mtime_ns for p in _RELOAD_WATCHED if p.exists()), default=0)
 
 
 def resolve_player_photo(pid: Any, reg_p: Optional[Dict[str, Any]] = None) -> Optional[str]:
@@ -126,13 +128,10 @@ def parse_kickoff_datetime(kickoff_str: str) -> datetime:
     if not kickoff_str:
         return datetime.min
     try:
-        clean = re.sub(r'\s+[A-Z]{3,4}$', '', str(kickoff_str).strip())
-        return datetime.strptime(clean, '%a %d %b %Y, %H:%M')
+        clean = re.sub(r"\s+[A-Z]{3,4}$", "", str(kickoff_str).strip())
+        return datetime.strptime(clean, "%a %d %b %Y, %H:%M")
     except Exception:
         return datetime.min
-
-
-_player_logs_dict: Optional[Dict[str, Any]] = None
 
 
 def get_player_match_logs(pid: int) -> List[Dict[str, Any]]:
@@ -150,9 +149,6 @@ def get_player_match_logs(pid: int) -> List[Dict[str, Any]]:
     return _player_logs_dict.get(str(pid), _player_logs_dict.get(pid, []))
 
 
-_player_cards_dict: Optional[Dict[str, Any]] = None
-
-
 def get_player_cards_dict() -> Dict[str, Any]:
     global _player_cards_dict
     if _player_cards_dict is None:
@@ -167,80 +163,6 @@ def get_player_cards_dict() -> Dict[str, Any]:
         else:
             _player_cards_dict = {}
     return _player_cards_dict
-
-
-# Load 2026-27 fixtures if available
-raw_fixtures_2627 = []
-
-
-fix_2627_path = DATA_DIR / "raw" / f"fixtures_{DEFAULT_SEASON}.json"
-
-
-if fix_2627_path.exists():
-    with open(fix_2627_path, "r", encoding="utf-8") as f:
-        raw_fixtures_2627 = json.load(f)
-
-
-# Unique Teams and Match Stats Lookup
-teams_dict = {}
-
-
-match_stats_map = {}
-
-
-if not df_matches.empty:
-    for _, r in df_matches.iterrows():
-        mid = int(r["match_id"])
-        teams_dict[int(r["home_id"])] = {"id": int(r["home_id"]), "name": r["home_name"], "abbr": r["home_abbr"]}
-        teams_dict[int(r["away_id"])] = {"id": int(r["away_id"]), "name": r["away_name"], "abbr": r["away_abbr"]}
-        if pd.notnull(r.get("total_corners")) or pd.notnull(r.get("home_total_scoring_att")) or pd.notnull(r.get("away_total_scoring_att")):
-            match_stats_map[mid] = {
-                "total_corners": r.get("total_corners"),
-                "total_throws": r.get("total_throws"),
-                "total_shots": r.get("total_shots"),
-                "total_shots_ontarget": r.get("total_shots_ontarget"),
-                "total_saves": r.get("total_saves"),
-                "home_won_corners": r.get("home_won_corners"),
-                "away_won_corners": r.get("away_won_corners"),
-                "home_total_throws": r.get("home_total_throws"),
-                "away_total_throws": r.get("away_total_throws"),
-                "home_total_shots": int(r["home_total_scoring_att"]) if pd.notnull(r.get("home_total_scoring_att")) else None,
-                "away_total_shots": int(r["away_total_scoring_att"]) if pd.notnull(r.get("away_total_scoring_att")) else None,
-            }
-
-
-teams_list = sorted(list(teams_dict.values()), key=lambda x: x["name"])
-
-
-# Live team states (form + strength) built with the SAME definitions as the training features.
-# Each team's state includes its latest played match (no stale / future-fixture rows).
-_matches_prepared = calculate_rest_days(df_matches) if not df_matches.empty else pd.DataFrame()
-
-
-_long_history = build_team_match_history(_matches_prepared) if not _matches_prepared.empty else pd.DataFrame()
-
-
-_played_matches = _matches_prepared[_matches_prepared["is_played"]] if not _matches_prepared.empty else pd.DataFrame()
-
-
-CURRENT_SEASON = (
-    str(_played_matches["season"].iloc[-1]) if not _played_matches.empty and "season" in _played_matches.columns else None
-)
-
-
-_live_state_cache: Dict[str, Tuple[pd.DataFrame, Dict[str, Any], Optional[pd.Timestamp], Any]] = {}
-
-
-_historical_manager_changes_cache: Dict[str, Any] = {}
-
-
-_completed_match_details_cache: Dict[int, Any] = {}
-
-
-_historical_standings_cache: Dict[str, Any] = {}
-
-
-_historical_fixtures_grouped_cache: Dict[str, Any] = {}
 
 
 def get_live_state(
@@ -266,27 +188,42 @@ def get_live_state(
     return _live_state_cache[key]
 
 
-if not _long_history.empty:
-    get_live_state(None)  # Warm up current-season state at startup
+def _load_artifact(filename: str) -> Optional[Dict[str, Any]]:
+    path = MODELS_DIR / filename
+    return joblib.load(path) if path.exists() else None
 
 
 def reload_runtime_datasets() -> None:
-    """Reload data files refreshed by the season sync job into this API worker."""
+    """Reload data files and all 7 production model artifacts into this API worker."""
     global df_matches, df_features, raw_fixtures_2627, teams_dict, match_stats_map
     global teams_list, _matches_prepared, _long_history, _played_matches, CURRENT_SEASON, _live_state_cache
-    global outcome_artifact, goals_artifact, offside_artifact, cards_artifact, _loaded_data_version
+    global corner_artifact, throws_artifact, saves_artifact
+    global outcome_artifact, goals_artifact, offside_artifact, cards_artifact
+    global all_players, player_registry_map, _player_logs_dict, _player_cards_dict
+    global _loaded_data_version
 
-    # Captured before reading so a write landing mid-reload triggers another reload.
     version = current_data_version()
-    outcome_artifact = joblib.load(MODELS_DIR / "outcome_models_v1.joblib") if (MODELS_DIR / "outcome_models_v1.joblib").exists() else None
-    goals_artifact = joblib.load(MODELS_DIR / "goals_models_v1.joblib") if (MODELS_DIR / "goals_models_v1.joblib").exists() else None
-    offside_artifact = joblib.load(MODELS_DIR / "offside_model_v1.joblib") if (MODELS_DIR / "offside_model_v1.joblib").exists() else None
-    cards_artifact = joblib.load(MODELS_DIR / "cards_model_v1.joblib") if (MODELS_DIR / "cards_model_v1.joblib").exists() else None
+    corner_artifact = _load_artifact("corner_model_v1.joblib")
+    throws_artifact = _load_artifact("throws_model_v1.joblib")
+    saves_artifact = _load_artifact("saves_model_v1.joblib")
+    outcome_artifact = _load_artifact("outcome_models_v1.joblib")
+    goals_artifact = _load_artifact("goals_models_v1.joblib")
+    offside_artifact = _load_artifact("offside_model_v1.joblib")
+    cards_artifact = _load_artifact("cards_model_v1.joblib")
 
-    df_matches = pd.read_parquet(matches_parquet) if matches_parquet.exists() else pd.DataFrame()
+    if players_reg_file.exists():
+        with players_reg_file.open("r", encoding="utf-8") as stream:
+            all_players = json.load(stream)
+    else:
+        all_players = []
+    player_registry_map = {int(p["id"]): p for p in all_players if "id" in p}
+    _player_logs_dict = None
+    _player_cards_dict = None
+
+    df_matches = pd.read_parquet(matches_all) if matches_all.exists() else pd.DataFrame()
     if not df_matches.empty:
         df_matches = attach_statsapi_xg(df_matches)
-    df_features = pd.read_parquet(features_parquet) if features_parquet.exists() else pd.DataFrame()
+    df_features = pd.read_parquet(features_all) if features_all.exists() else pd.DataFrame()
     if fix_2627_path.exists():
         with fix_2627_path.open("r", encoding="utf-8") as stream:
             raw_fixtures_2627 = json.load(stream)
@@ -298,9 +235,21 @@ def reload_runtime_datasets() -> None:
     if not df_matches.empty:
         for _, row in df_matches.iterrows():
             match_id = int(row["match_id"])
-            teams_dict[int(row["home_id"])] = {"id": int(row["home_id"]), "name": row["home_name"], "abbr": row["home_abbr"]}
-            teams_dict[int(row["away_id"])] = {"id": int(row["away_id"]), "name": row["away_name"], "abbr": row["away_abbr"]}
-            if pd.notnull(row.get("total_corners")) or pd.notnull(row.get("home_total_scoring_att")) or pd.notnull(row.get("away_total_scoring_att")):
+            teams_dict[int(row["home_id"])] = {
+                "id": int(row["home_id"]),
+                "name": row["home_name"],
+                "abbr": row["home_abbr"],
+            }
+            teams_dict[int(row["away_id"])] = {
+                "id": int(row["away_id"]),
+                "name": row["away_name"],
+                "abbr": row["away_abbr"],
+            }
+            if (
+                pd.notnull(row.get("total_corners"))
+                or pd.notnull(row.get("home_total_scoring_att"))
+                or pd.notnull(row.get("away_total_scoring_att"))
+            ):
                 match_stats_map[match_id] = {
                     "total_corners": row.get("total_corners"),
                     "total_throws": row.get("total_throws"),
@@ -311,13 +260,23 @@ def reload_runtime_datasets() -> None:
                     "away_won_corners": row.get("away_won_corners"),
                     "home_total_throws": row.get("home_total_throws"),
                     "away_total_throws": row.get("away_total_throws"),
-                    "home_total_shots": int(row["home_total_scoring_att"]) if pd.notnull(row.get("home_total_scoring_att")) else None,
-                    "away_total_shots": int(row["away_total_scoring_att"]) if pd.notnull(row.get("away_total_scoring_att")) else None,
+                    "home_total_shots": (
+                        int(row["home_total_scoring_att"])
+                        if pd.notnull(row.get("home_total_scoring_att"))
+                        else None
+                    ),
+                    "away_total_shots": (
+                        int(row["away_total_scoring_att"])
+                        if pd.notnull(row.get("away_total_scoring_att"))
+                        else None
+                    ),
                 }
     teams_list = sorted(teams_dict.values(), key=lambda item: item["name"])
     _matches_prepared = calculate_rest_days(df_matches) if not df_matches.empty else pd.DataFrame()
     _long_history = build_team_match_history(_matches_prepared) if not _matches_prepared.empty else pd.DataFrame()
-    _played_matches = _matches_prepared[_matches_prepared["is_played"]] if not _matches_prepared.empty else pd.DataFrame()
+    _played_matches = (
+        _matches_prepared[_matches_prepared["is_played"]] if not _matches_prepared.empty else pd.DataFrame()
+    )
     CURRENT_SEASON = (
         str(_played_matches["season"].iloc[-1])
         if not _played_matches.empty and "season" in _played_matches.columns
@@ -325,6 +284,7 @@ def reload_runtime_datasets() -> None:
     )
     _live_state_cache = {}
     _fixture_pred_cache.clear()
+    _season_players_cache.clear()
     _historical_manager_changes_cache.clear()
     _completed_match_details_cache.clear()
     _historical_standings_cache.clear()
@@ -337,48 +297,19 @@ def reload_runtime_datasets() -> None:
     _loaded_data_version = version
 
 
-_RELOAD_WATCHED = [matches_parquet, features_parquet, fix_2627_path] + [
-    MODELS_DIR / name
-    for name in ("outcome_models_v1.joblib", "goals_models_v1.joblib", "offside_model_v1.joblib", "cards_model_v1.joblib")
-]
-
-
-_RELOAD_SETTLE_NS = 2_000_000_000  # don't read files a sync script may still be writing
-
-
-def current_data_version() -> int:
-    """Newest mtime (ns) among the files reload_runtime_datasets loads into memory."""
-    return max((p.stat().st_mtime_ns for p in _RELOAD_WATCHED if p.exists()), default=0)
-
-
-_loaded_data_version = current_data_version()
-
-
-_data_reload_lock = threading.Lock()
-
-
 def _reload_if_data_changed() -> None:
     """Pick up files rewritten outside the API (e.g. sync scripts run from a terminal)."""
     version = current_data_version()
     if version == _loaded_data_version or time.time_ns() - version < _RELOAD_SETTLE_NS:
         return
     with _data_reload_lock:
-        if current_data_version() == _loaded_data_version:  # another request already reloaded
+        if current_data_version() == _loaded_data_version:
             return
         logger.info("Data files changed on disk; reloading runtime datasets")
         try:
             reload_runtime_datasets()
         except Exception:
             logger.exception("Automatic data reload failed; will retry on a later request")
-
-
-_fixture_pred_cache: Dict[Tuple[int, int, Optional[str]], Dict[str, Any]] = {}
-
-
-_fixture_pred_cache.clear()
-
-
-_season_players_cache: Dict[str, Dict[int, Dict[str, Any]]] = {}
 
 
 def get_season_players_map(season: str) -> Dict[int, Dict[str, Any]]:
@@ -427,3 +358,7 @@ def get_season_players_map(season: str) -> Dict[int, Dict[str, Any]]:
 
     _season_players_cache[season] = s_map
     return s_map
+
+
+logger.info("Loading cached datasets and models...")
+reload_runtime_datasets()

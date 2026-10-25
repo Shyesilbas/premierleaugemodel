@@ -11,16 +11,28 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from src.models.dixon_coles import DixonColesModel, btts_prob, matrix_from_lambdas, over_prob
+from src.models.dixon_coles import (
+    DixonColesModel,
+    align_to_outcome_probs,
+    btts_prob,
+    matrix_from_lambdas,
+    over_prob,
+)
 from src.models.eval_utils import per_match_log_loss
-from src.models.goals_model import BlendedGoalModel, FeatureGoalModel, blend_lambdas
+from src.models.goals_model import BlendedGoalModel, FeatureGoalModel, blend_lambdas, fit_rho_from_lambdas
 from src.models.model_utils import apply_probability_calibrator
 from src.models.train_match_outcome import (
+    EXCLUDED_1X2_TRAINING_SEASONS,
     LOCKED_SEASONS,
     N_CV_SPLITS,
+    candidate_models,
+    chronological_oof_predictions,
     feature_set,
+    fit_model,
     fit_probability_calibrator,
     forward_time_splits,
+    ordered_probabilities,
+    select_model,
 )
 from src.config import FEATURES_PATH, MODELS_DIR, PROCESSED_DIR
 
@@ -48,6 +60,8 @@ COMPACT_GOAL_FEATURES = [
     "home_shots_ontarget_for_ewma_02", "home_shots_ontarget_against_ewma_02",
     "away_shots_ontarget_for_ewma_02", "away_shots_ontarget_against_ewma_02",
     "exp_match_shots_5",
+    "exp_match_xg_10",
+    "exp_venue_match_xg",
 ]
 SCORE_CAP = 12  # last row/column of the score matrix
 OU_LINES = (1.5, 2.5, 3.5)
@@ -78,30 +92,103 @@ def blend_model(features: list[str], chosen: dict[str, Any]) -> BlendedGoalModel
     )
 
 
+def predict_aligned_1x2_probabilities(
+    train_df: pd.DataFrame,
+    eval_df: pd.DataFrame,
+) -> np.ndarray | None:
+    """Fit and calibrate the 1X2 classifier on ``train_df`` and return probabilities for ``eval_df``."""
+    try:
+        cols = feature_set("1x2", list(train_df.columns))
+    except KeyError:
+        return None
+    if not all(col in eval_df.columns for col in cols):
+        return None
+    if len(train_df) < N_CV_SPLITS + 2 or eval_df.empty:
+        return None
+
+    train_1x2 = train_df
+    if "season" in train_df.columns and EXCLUDED_1X2_TRAINING_SEASONS:
+        filtered = train_df[~train_df["season"].astype(str).isin(EXCLUDED_1X2_TRAINING_SEASONS)]
+        if len(filtered) >= N_CV_SPLITS + 2:
+            train_1x2 = filtered
+
+    y_arr = np.select(
+        [
+            train_1x2["home_score"] > train_1x2["away_score"],
+            train_1x2["home_score"] == train_1x2["away_score"],
+        ],
+        [0, 1],
+        default=2,
+    )
+    labels = [0, 1, 2]
+    if len(np.unique(y_arr)) < len(labels):
+        return None
+
+    y_series = pd.Series(y_arr, index=train_1x2.index)
+    kickoffs = train_1x2["kickoff_millis"] if "kickoff_millis" in train_1x2.columns else None
+    try:
+        selected, _ = select_model("1x2", train_1x2[cols], y_series, labels, kickoffs)
+        model = candidate_models()[selected]
+        oof_probs, oof_targets = chronological_oof_predictions(
+            model,
+            train_1x2[cols],
+            y_series,
+            labels,
+            kickoff_times=kickoffs,
+        )
+        calibrator = fit_probability_calibrator(oof_probs, pd.Series(oof_targets), labels)
+        fitted = fit_model(model, train_1x2[cols], y_series)
+        raw = ordered_probabilities(fitted, eval_df[cols], labels)
+        return apply_probability_calibrator(raw, calibrator)
+    except Exception:
+        return None
+
+
 def select_blend_config(df: pd.DataFrame, feature_sets: dict[str, list[str]]) -> dict[str, Any]:
     """Pick feature set, feature_alpha and dc_weight by forward-fold score-matrix NLL using ``df`` only."""
     kickoffs = df["kickoff_millis"] if "kickoff_millis" in df.columns else None
     losses: dict[tuple[str, float, float], list[np.ndarray]] = {}
+    need_dc = any(float(w) > 0.0 for w in BLEND_GRID["dc_weights"])
     for train_idx, valid_idx in forward_time_splits(len(df), kickoffs, n_splits=N_CV_SPLITS):
         train, valid = df.iloc[train_idx], df.iloc[valid_idx]
-        dc = DixonColesModel(half_life_days=BLEND_GRID["dc_half_life_days"]).fit(train)
-        if not dc.fit_ok_:
-            # Same rule as BlendedGoalModel: never score a blend on an unconverged DC fit.
-            logger.warning("Skipping selection fold: Dixon-Coles did not converge on %d rows", len(train))
-            continue
-        dc_home, dc_away = dc.lambdas(valid)
+        if need_dc:
+            dc = DixonColesModel(half_life_days=BLEND_GRID["dc_half_life_days"]).fit(train)
+            if not dc.fit_ok_:
+                # Same rule as BlendedGoalModel: never score a blend on an unconverged DC fit.
+                logger.warning("Skipping selection fold: Dixon-Coles did not converge on %d rows", len(train))
+                continue
+            train_dc_home, train_dc_away = dc.lambdas(train)
+            dc_home, dc_away = dc.lambdas(valid)
+        else:
+            train_dc_home = train_dc_away = dc_home = dc_away = None
         cells = np.arange(len(valid))
+        train_home_goals = train["home_score"].to_numpy(dtype=int)
+        train_away_goals = train["away_score"].to_numpy(dtype=int)
         home_goals = np.minimum(valid["home_score"].to_numpy(dtype=int), SCORE_CAP)
         away_goals = np.minimum(valid["away_score"].to_numpy(dtype=int), SCORE_CAP)
         for set_name in BLEND_GRID["feature_sets"]:
             for alpha in BLEND_GRID["feature_alphas"]:
                 feat = FeatureGoalModel(feature_sets[set_name], alpha=alpha).fit(train)
+                train_feat_home, train_feat_away = feat.lambdas(train)
                 feat_home, feat_away = feat.lambdas(valid)
-                rho = 0.5 * (dc.rho_ + feat.rho_)
                 for weight in BLEND_GRID["dc_weights"]:
+                    if float(weight) > 0.0 and train_dc_home is not None:
+                        tr_h = blend_lambdas(train_dc_home, train_feat_home, weight)
+                        tr_a = blend_lambdas(train_dc_away, train_feat_away, weight)
+                        va_h = blend_lambdas(dc_home, feat_home, weight)
+                        va_a = blend_lambdas(dc_away, feat_away, weight)
+                    else:
+                        tr_h, tr_a = train_feat_home, train_feat_away
+                        va_h, va_a = feat_home, feat_away
+                    rho = fit_rho_from_lambdas(
+                        tr_h,
+                        tr_a,
+                        train_home_goals,
+                        train_away_goals,
+                    )
                     matrices = matrix_from_lambdas(
-                        blend_lambdas(dc_home, feat_home, weight),
-                        blend_lambdas(dc_away, feat_away, weight),
+                        va_h,
+                        va_a,
                         rho,
                     )
                     losses.setdefault((set_name, alpha, weight), []).append(
@@ -140,6 +227,9 @@ def _forward_oof_predictions(
         oof_kickoffs.append(valid["kickoff_millis"].to_numpy())
         model = blend_model(features, chosen).fit(train)
         matrices = model.predict_matrices(valid)
+        p_1x2 = predict_aligned_1x2_probabilities(train, valid)
+        if p_1x2 is not None:
+            matrices = align_to_outcome_probs(matrices, p_1x2)
 
         hs = valid["home_score"].to_numpy(dtype=float)
         as_ = valid["away_score"].to_numpy(dtype=float)
@@ -203,6 +293,65 @@ def _calibration_result(
         "oof_matches": int(len(raw)),
         "scored_matches": int(len(scored)),
     }
+
+
+def derive_goal_skill_gate(
+    evaluation: dict[str, Any],
+    gate: dict[str, Any],
+    calibration_metrics: dict[str, dict[str, Any]],
+    kind: str = BLEND_GRID["kind"],
+) -> dict[str, str]:
+    """Derive per-market skill gates dynamically from outer-season evaluation and OOF calibration."""
+    outer_rows = evaluation.get("outer_season_results", [])
+    skill_gate: dict[str, str] = {}
+
+    for line in OU_LINES:
+        key = f"over_{line}"
+        target = f"over_{line:g}"
+        rows = [
+            r for r in outer_rows
+            if r.get("target") == target and r.get("model") == kind and "delta_vs_prior" in r
+        ]
+        if line == 2.5:
+            passed_vs_prior = bool(gate.get("passed"))
+        elif rows:
+            passed_vs_prior = float(np.mean([float(r["delta_vs_prior"]) for r in rows])) < 0.0
+        else:
+            passed_vs_prior = bool(gate.get("passed"))
+
+        if not passed_vs_prior:
+            skill_gate[key] = "baseline"
+        elif calibration_metrics.get(key, {}).get("calibration_applied"):
+            skill_gate[key] = "model"
+        else:
+            skill_gate[key] = "model_matrix"
+
+    btts_rows = [
+        r for r in outer_rows
+        if r.get("target") == "btts" and r.get("model") == kind and "delta_vs_prior" in r
+    ]
+    btts_gate = gate.get("btts_gate", {})
+    if btts_gate:
+        btts_passed = bool(
+            btts_gate.get("passed")
+            or (
+                float(btts_gate.get("pooled_paired_bootstrap_vs_null", {}).get("mean_delta", 0.0)) < 0.0
+                and (not btts_rows or float(np.mean([float(r["delta_vs_prior"]) for r in btts_rows])) < 0.0)
+            )
+        )
+    elif btts_rows:
+        btts_passed = float(np.mean([float(r["delta_vs_prior"]) for r in btts_rows])) < 0.0
+    else:
+        btts_passed = bool(gate.get("passed"))
+
+    if not btts_passed:
+        skill_gate["btts"] = "baseline"
+    elif calibration_metrics.get("btts", {}).get("calibration_applied"):
+        skill_gate["btts"] = "model"
+    else:
+        skill_gate["btts"] = "model_matrix"
+
+    return skill_gate
 
 
 def train_goals_models(
@@ -279,12 +428,12 @@ def train_goals_models(
         "calibrators": calibrators,
         "calibration_metrics": calibration_metrics,
         "base_rates": base_rates,
-        "skill_gate": {
-            "over_1.5": "model_matrix",
-            "over_2.5": "model",
-            "over_3.5": "model_matrix",
-            "btts": "model_matrix",
-        },
+        "skill_gate": derive_goal_skill_gate(
+            evaluation,
+            gate,
+            calibration_metrics,
+            kind=chosen["kind"],
+        ),
         "locked_seasons_excluded_from_calibration": sorted(LOCKED_SEASONS),
         "calibration_matches": int(len(eval_df)),
         "production_fit_matches": int(len(df)),

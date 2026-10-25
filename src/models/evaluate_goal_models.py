@@ -12,6 +12,7 @@ import pandas as pd
 
 from src.models.dixon_coles import (
     DixonColesModel,
+    align_to_outcome_probs,
     btts_prob,
     matrix_from_lambdas,
     outcome_probs,
@@ -20,7 +21,14 @@ from src.models.dixon_coles import (
 from src.models.eval_utils import paired_bootstrap_delta, per_match_log_loss
 from src.models.goals_model import FeatureGoalModel
 from src.models.model_utils import apply_probability_calibrator
-from src.models.train_goals import BLEND_GRID, SCORE_CAP, blend_model, goal_feature_sets, select_blend_config
+from src.models.train_goals import (
+    BLEND_GRID,
+    SCORE_CAP,
+    blend_model,
+    goal_feature_sets,
+    predict_aligned_1x2_probabilities,
+    select_blend_config,
+)
 from src.models.train_match_outcome import (
     LOCKED_SEASONS,
     candidate_models,
@@ -48,7 +56,9 @@ def _market_probabilities(match_ids: pd.Series, db_path: str = str(DB_PATH)) -> 
 
     Benchmark only: never a model input and never part of a pass/fail decision.
     """
-    with sqlite3.connect(db_path) as conn:
+    from src.db.database import get_db
+
+    with get_db(db_path) as conn:
         odds = pd.read_sql_query(
             "SELECT match_id, over_25_last_seen AS o, under_25_last_seen AS u, "
             "btts_yes_last_seen AS yes, btts_no_last_seen AS no "
@@ -155,6 +165,11 @@ def _goal_matrices(
     matrices[BLEND_GRID["kind"]] = (
         blend_model(feature_sets[chosen["feature_set"]], chosen).fit(train).predict_matrices(test)
     )
+    p_1x2 = predict_aligned_1x2_probabilities(train, test)
+    if p_1x2 is not None:
+        for name, matrix in list(matrices.items()):
+            if name != "null":
+                matrices[name] = align_to_outcome_probs(matrix, p_1x2)
     return matrices, chosen
 
 
@@ -370,7 +385,7 @@ def evaluate_outer_seasons(
         candidate_gates[BLEND_GRID["kind"]]["selection_grid"] = BLEND_GRID
         candidate_gates[BLEND_GRID["kind"]]["selected_configs"] = selected_configs
         kind = BLEND_GRID["kind"]
-        o25_blend, o25_null = np.concatenate(pooled_o25_losses[kind]), null_o25
+        o25_blend = np.concatenate(pooled_o25_losses[kind])
         btts_blend, btts_null = np.concatenate(pooled_btts_losses[kind]), np.concatenate(pooled_btts_losses["null"])
         # BTTS has its own gate: a market that cannot beat the league average is shown as such.
         btts_vs_null = paired_bootstrap_delta(btts_blend, btts_null, n_boot=2000)

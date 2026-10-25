@@ -12,14 +12,14 @@ const SEASONS = [
 ];
 
 function RatingValue({ value }) {
-  const color = value >= 7.5 ? 'text-emerald-700'
-    : value >= 6.8 ? 'text-emerald-600'
-      : value >= 6.0 ? 'text-sky-700'
-        : value ? 'text-amber-700' : 'text-slate-400';
+  const color = value >= 7.5 ? 'text-status-success'
+    : value >= 6.8 ? 'text-status-success'
+      : value >= 6.0 ? 'text-status-info'
+        : value ? 'text-status-warning' : 'text-text-muted';
 
   return (
     <div className="flex items-baseline justify-center sm:justify-start gap-1">
-      <span className={`text-lg font-bold tabular-nums font-mono ${color}`}>
+      <span className={`text-lg font-semibold tabular-nums tabular-nums ${color}`}>
         {value != null ? value.toFixed(1) : '—'}
       </span>
       {value != null && <span className="text-xs text-text-tertiary">/ 10</span>}
@@ -60,7 +60,7 @@ export default function PlayerProfileHeader({ player, stats, team, position, sea
                   className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background-tertiary hover:bg-background-secondary px-2.5 py-0.5 text-xs font-medium text-text-primary transition-colors cursor-pointer"
                 >
                   <Coins className="w-3.5 h-3.5 text-text-secondary" />
-                  <span className="font-mono">{player.market_value.formatted}</span>
+                  <span className="tabular-nums">{player.market_value.formatted}</span>
                   <TrendingUp className="w-3 h-3 text-text-tertiary" />
                 </button>
               )}
@@ -129,7 +129,7 @@ export default function PlayerProfileHeader({ player, stats, team, position, sea
             <span className="block text-xs font-medium text-text-secondary">Piyasa Değeri</span>
             {player.market_value && <TrendingUp className="w-3 h-3 text-text-tertiary" />}
           </div>
-          <span className="text-lg font-semibold tabular-nums text-text-primary font-mono block">
+          <span className="text-lg font-semibold tabular-nums text-text-primary block">
             {player.market_value ? player.market_value.formatted : '—'}
           </span>
         </button>

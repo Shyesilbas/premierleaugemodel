@@ -16,11 +16,67 @@ logger = logging.getLogger("db_layer")
 from src.config import DATA_DIR, DB_PATH, DEFAULT_SEASON, RAW_DIR, SEASONS
 
 
-def get_db():
+def get_db(db_path: Optional[Any] = None):
     """Returns a SQLite connection with row factory enabled."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH if db_path is None else db_path)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def ensure_external_xg_table(conn: sqlite3.Connection) -> None:
+    """Create the provider-sourced xG table if it does not exist."""
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS external_match_xg (
+        match_id INTEGER PRIMARY KEY REFERENCES matches(match_id),
+        provider TEXT NOT NULL,
+        provider_match_id TEXT NOT NULL UNIQUE,
+        provider_season_id TEXT NOT NULL,
+        home_xg REAL NOT NULL,
+        away_xg REAL NOT NULL,
+        xg_quality TEXT,
+        fetched_at_utc TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+
+
+def ensure_external_odds_table(conn: sqlite3.Connection) -> None:
+    """Create the provider-sourced odds table if it does not exist."""
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS external_match_odds (
+        match_id INTEGER NOT NULL REFERENCES matches(match_id),
+        provider TEXT NOT NULL,
+        provider_match_id TEXT NOT NULL,
+        provider_season_id TEXT NOT NULL,
+        bookmaker TEXT NOT NULL,
+        home_open REAL,
+        draw_open REAL,
+        away_open REAL,
+        home_last_seen REAL,
+        draw_last_seen REAL,
+        away_last_seen REAL,
+        over_25_open REAL,
+        under_25_open REAL,
+        over_25_last_seen REAL,
+        under_25_last_seen REAL,
+        btts_yes_open REAL,
+        btts_no_open REAL,
+        btts_yes_last_seen REAL,
+        btts_no_last_seen REAL,
+        corners_over_open REAL,
+        corners_under_open REAL,
+        corners_over_last_seen REAL,
+        corners_under_last_seen REAL,
+        cards_over_open REAL,
+        cards_under_open REAL,
+        cards_over_last_seen REAL,
+        cards_under_last_seen REAL,
+        raw_markets_json TEXT,
+        fetched_at_utc TEXT NOT NULL,
+        PRIMARY KEY (match_id, provider, bookmaker)
+    );
+    """)
+    conn.commit()
 
 
 def attach_statsapi_xg(matches: pd.DataFrame) -> pd.DataFrame:
@@ -99,53 +155,27 @@ def init_db():
     );
     """)
 
-    # Provider-sourced xG is kept separate from the legacy aggregate proxy
-    # stored on matches so its source and quality remain explicit.
+    # Provider-sourced xG and odds tables
+    ensure_external_xg_table(conn)
+    ensure_external_odds_table(conn)
+
+    # Transfermarkt cache tables
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS external_match_xg (
-        match_id INTEGER PRIMARY KEY REFERENCES matches(match_id),
-        provider TEXT NOT NULL,
-        provider_match_id TEXT NOT NULL UNIQUE,
-        provider_season_id TEXT NOT NULL,
-        home_xg REAL NOT NULL,
-        away_xg REAL NOT NULL,
-        xg_quality TEXT,
-        fetched_at_utc TEXT NOT NULL
+    CREATE TABLE IF NOT EXISTS team_season_transfers_cache (
+        team_id INTEGER,
+        season TEXT,
+        tm_club_id INTEGER,
+        data_json TEXT,
+        updated_at TEXT,
+        PRIMARY KEY (team_id, season)
     );
     """)
-
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS external_match_odds (
-        match_id INTEGER NOT NULL REFERENCES matches(match_id),
-        provider TEXT NOT NULL,
-        provider_match_id TEXT NOT NULL,
-        provider_season_id TEXT NOT NULL,
-        bookmaker TEXT NOT NULL,
-        home_open REAL,
-        draw_open REAL,
-        away_open REAL,
-        home_last_seen REAL,
-        draw_last_seen REAL,
-        away_last_seen REAL,
-        over_25_open REAL,
-        under_25_open REAL,
-        over_25_last_seen REAL,
-        under_25_last_seen REAL,
-        btts_yes_open REAL,
-        btts_no_open REAL,
-        btts_yes_last_seen REAL,
-        btts_no_last_seen REAL,
-        corners_over_open REAL,
-        corners_under_open REAL,
-        corners_over_last_seen REAL,
-        corners_under_last_seen REAL,
-        cards_over_open REAL,
-        cards_under_open REAL,
-        cards_over_last_seen REAL,
-        cards_under_last_seen REAL,
-        raw_markets_json TEXT,
-        fetched_at_utc TEXT NOT NULL,
-        PRIMARY KEY (match_id, provider, bookmaker)
+    CREATE TABLE IF NOT EXISTS player_market_value_history_cache (
+        tm_id TEXT PRIMARY KEY,
+        player_name TEXT,
+        data_json TEXT,
+        updated_at TEXT
     );
     """)
 
@@ -440,31 +470,6 @@ def populate_db_from_sources():
     conn.commit()
     conn.close()
     logger.info("Successfully populated SQLite database and referee aggregates.")
-
-
-def get_referee_summary(name: str, season: str = DEFAULT_SEASON) -> Dict[str, Any]:
-    """Returns referee aggregates for a given season or career fallback."""
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM referees WHERE referee_name = ? AND season = ?", (name, season))
-    row = cursor.fetchone()
-    if not row:
-        cursor.execute("SELECT * FROM referees WHERE referee_name = ? AND season = 'all'", (name,))
-        row = cursor.fetchone()
-    conn.close()
-    if row:
-        return dict(row)
-    return {
-        "referee_name": name,
-        "season": season,
-        "matches_count": 0,
-        "avg_yellow_cards": 4.15,
-        "avg_red_cards": 0.12,
-        "avg_cards": 4.27,
-        "avg_fouls": 21.5,
-        "over_3_5_pct": 55.0,
-        "strictness_label": "Standart Hakem"
-    }
 
 
 def get_referees_list(season: str = DEFAULT_SEASON, search: Optional[str] = None) -> List[Dict[str, Any]]:

@@ -66,7 +66,12 @@ Model olasılıkları $\%41.09$ ile $\%74.55$ arasındadır; model aşırı güv
 | **Gol** | **Dixon-Coles Ridge Araması** (ridge 1/3/10/30, iç içe seçim, 19.10.2026) | Skor NLL `3.0003 → 3.0005`; tek başına DC: ridge 1 `3.0469`, ridge 30 `3.0314` (blend `3.0003`) | Sıkı ridge DC'yi iyileştiriyor ama blend'in yerini tutmuyor; arama maliyeti 4x, kazanç yok. ❌ **Reddedildi.**, kod kaldırıldı. |
 | **Gol** | **Kadro Tabanlı Hücum Özellikleri** (ilk 11 şut hacmi: olağan XI'dan sapma, mutlak güç, kilit şutör eksikliği; 2 varyant, 19.10.2026) | Skor NLL `3.0003 → 2.9970` (Δ −0.0033, CI [−0.0051, −0.0016]); 2.5 Üst Δ −0.0005 CI [−0.0015, +0.0004]; KG Δ 0.0000; sabit Poisson'a karşı 2.5 Üst −0.0028 CI [−0.0101, +0.0044], KG +0.0011 CI [−0.0055, +0.0077] | Yalnızca skor matrisinde küçük kazanç; toplam gol pazarlarında etki yok. ❌ **Reddedildi.** Kod repoya alınmadı. |
 | **Gol** | **DC Ağırlığı 0.25/0.5** (blend ızgarası, 19.10.2026) | İç içe: skor NLL `3.0003 → 2.9786` (Δ −0.0217, CI [−0.0328, −0.0111]) ağırlık 0'a daraltılınca | İç katlar her sezonda w=0 seçti; DC yalnızca `rho`'ya katkı veriyor. ❌ **Izgaradan kaldırıldı** (`dc_weights=[0.0]`). |
-| **Gol** | **Ek özellik grupları** (dinlenme günü; hakem gol/faul/kart eğilimi; teknik direktör değişikliğinden bu yana gün; ilk 11'de eksik düzenli oyuncu + XI savunma oranı; iç içe, 19.10.2026) | Hiçbir grup 2.5 Üst'ü iyileştirmedi: Δ +0.0001…+0.0005, hepsi birlikte **+0.0015 [+0.0002, +0.0027] (kötüleşme)**; KG Δ −0.0002…+0.0002; skor NLL en iyi −0.0018 [−0.0045, +0.0007] | Toplam gol için bu veride bilgi yok. ❌ **Reddedildi.** Kod repoya alınmadı. |
+| **Gol** | **Ek özellik grupları** (dinlenme günü; hakem gol/faul/kart eğilimi; teknik direktör değişikliğinden bu yana gün; ilk 11'de eksik düzenli oyuncu + XI savunma oranı; iç içe, 19.10.2026) | Hiçbir grup 2.5 Üst'ü iyileştirmedi: Δ +0.0001…+0.0005, hepsi birlikte **+0.0015 [+0.0002, +0.0027] (kötüleşme)**; KG Δ −0.0002…+0.0002; skor NLL en iyi −0.0018 [−0.0045, +0.0007] | Toplam gol için bu veride bilgi yok. Reddedildi. Kod repoya alınmadı. |
+| **Gol** | **Yönlü (Asimetrik) Ev/Deplasman Özellik Kümeleri ve Ayrı $\alpha_{\text{home}}, \alpha_{\text{away}}$** (24.10.2026) | Havuzda skor NLL `2.9740 -> 2.9695` ve O2.5 LL `0.6768 -> 0.6746` ($\Delta = -0.0021$, CI $[-0.0073, +0.0030]$), ancak `2025/26` sezonunda prior'dan kötüleşti (`+0.0035`, dış sezon galibiyeti `3/3 -> 2/3`); iç içe seçim ızgarasına (`directional in {False, True}`) eklendiğinde iç katlar `3/3` sezonda `directional=False` seçti | Karşı tarafın hücum/savunma temposunu gizlemek son sezonda kalibrasyonu bozuyor ve iç kat seçimi tarafından tercih edilmiyor. Reddedildi. |
+| **Gol** | **Maç Öncesi Kayan Lig Gol Rejimi Özelliği / Çarpımsal Rejim Ölçekleme (`H2a`, `H2b`)** (24.10.2026) | `H2a` (son 40 maç büzülmeli lig gol ortalaması özelliği): $\Delta\text{O2.5} = -0.0000$ ($[-0.0004, +0.0003]$), $\Delta\text{NLL} = +0.0001$; `H2b` (iç katta seçilen $\gamma$ ile çarpımsal $\lambda$ ölçekleme): $\Delta\text{O2.5} = +0.0010$ ($[-0.0026, +0.0046]$), ECE `%3.35 -> %4.56` | Eğitim katlarında sabit terim ve takım form ortalamalarıyla doğrusal bağımlı; çarpımsal ölçekleme sezon geçişlerinde aşırı tepki veriyor. Reddedildi. |
+| **Gol** | **Toplam Gol ($\mu_{\text{total}}$) + Pay ($p_{\text{home}}$) Ayrıştırması (`H3a`)** (24.10.2026) | O2.5 $\Delta\text{Null} = -0.0060$ (CI üst sınırı `-0.0011`), ancak O2.5 $\Delta\text{Base} = -0.0003$ ($[-0.0037, +0.0030]$) gürültü içinde ve KG Log-Loss `+0.0019` (`0.6810 -> 0.6830`), ECE `%3.35 -> %4.17` kötüleşti | Yüksek regülarizasyonlu toplam gol modeli takım bazlı varyansı bastırarak KG (BTTS) ayrımını bozuyor. Reddedildi. |
+| **Gol** | **Doğrusal Olmayan Çarpımsal/Minimum xG ve Şut Başına xG Türevleri (`min_exp_xg`, `prod_exp_xg`, `xg_per_sot`)** (24.10.2026) | `exp_match_xg_10` ve `exp_venue_match_xg` üzerine eklendiğinde `2025/26` sezonunu pozitife çevirdi (`+0.0002`, `2/3` sezon) ve ECE'yi `%3.80 -> %4.17` bozdu | Yalnızca mevcut `exp_match_xg_10` ve `exp_venue_match_xg` toplam xG temposu özellikleri anlamlı kazanç sağladı (`v1.6`'ya alındı); ek türevler çoklu doğrusallık ekledi. Reddedildi. |
+| **Gol** | **L2 Cezalı İnce Izgara $\rho \in [-0.25, +0.25]$ (`H5b`)** (24.10.2026) | Tüm dış sezon metriklerinde $\Delta = 0.0000$ | Mevcut `RHO_GRID` (`[-0.15, +0.15]`) ile fark sıfır. Reddedildi. |
 
 ---
 
@@ -294,9 +299,9 @@ Hizalama 1X2'yi anlamlı biçimde iyileştirir, Üst/Alt pazarlarını bozmaz. B
 
 **Sonuç:** Haftalık yeniden eğitim, ligin gol seviyesine uyumu sağlayan tek iyileştirmedir; ancak aynı şekilde güncellenen bir taban oranın da yakaladığı bir kazançtır. Modelin taban orana karşı **ayırt edici** katkısı ~0.005 LL'de kalır ve anlamlı değildir.
 
-### 11.11. Gol Modeli — Güncel Değerler (v1.4, 19 Ekim 2026)
+### 11.11. Gol Modeli — Güncel Değerler (v1.6, 24 Ekim 2026)
 
-> Sayılar `models/production/goals_models_v1.joblib` ve `data/processed/goal_model_outer_eval.json` dosyalarından alınmıştır. Değişikliklerin gerekçesi ve adım adım sonuçları: `GOAL_MODELS_ANALYSIS.md` (Ç1–Ç5, P1–P8).
+> Sayılar `models/production/goals_models_v1.joblib` ve `data/processed/goal_model_outer_eval.json` dosyalarından alınmıştır. Değişikliklerin gerekçesi ve adım adım sonuçları: `GOAL_MODELS_ANALYSIS.md` (Ç1–Ç5, P1–P8) ve 24 Ekim 2026 `K1–K9` + toplam/saha xG temposu (`exp_match_xg_10`, `exp_venue_match_xg`) güncellemeleri.
 
 **Ölçümler ne anlatıyor?**
 
@@ -310,14 +315,14 @@ Hizalama 1X2'yi anlamlı biçimde iyileştirir, Üst/Alt pazarlarını bozmaz. B
 | **%95 CI** | Eşleşmeli bootstrap güven aralığı; sıfırı içeriyorsa fark gürültüden ayırt edilemez | Sıfırı dışlıyorsa anlamlı |
 | **ECE** | Tahmin edilen olasılıkla gerçekleşme oranı arasındaki ortalama sapma (desil) | Düşük iyi; modelin "%60" dediği maçların ne kadarının gerçekten gol attığını gösterir |
 
-**Mimari & üretim ayarı** (1.589 maçla fit; 2026/27 kilitli sezonu seçimde kullanılmadı):
+**Mimari & üretim ayarı** (1.595 maçla fit; 2026/27 kilitli sezonu seçimde kullanılmadı):
 
 | Bileşen | Değer | Ne anlatıyor |
 | :--- | :--- | :--- |
-| Oranlar | $\lambda = \lambda_{Feat}$ ($w_{dc}=0$); DC yarı ömür 365 gün | DC artık yalnızca ortak $\rho$'ya katkı veriyor; golleri özellik modeli tahmin ediyor |
-| Feature-Poisson | `full`, 58 özellik, α=3, medyan imputasyon + standartlaştırma | L2 cezası eskiden (α=30) modeli neredeyse sıfırlıyordu; artık özellikler gerçekten kullanılıyor |
-| Skor matrisi | 13×13, bağımsız Poisson × Dixon-Coles $\tau$ ($\rho = -0.0548$) | Tüm pazarlar aynı matristen türer |
-| Kalibratör | `over_1.5` ve `btts` **uygulanıyor** (ileri OOF LL 0.4729→0.4714 ve 0.6822→0.6814); `over_2.5` ve `over_3.5` uygulanmıyor | Yalnızca ileri katlarda kazanç veren pazarlara kalibrasyon eklenir |
+| Oranlar | $\lambda = \lambda_{Feat}$ ($w_{dc}=0$); `dc_weight=0` iken gereksiz DC fit atlanır | Golleri özellik modeli tahmin ediyor; ortak $\rho$ harmanlanmış $\lambda$ üzerinden kestirilir |
+| Feature-Poisson | `full`, 60 özellik (`compact`: 13 özellik; `exp_match_xg_10` ve `exp_venue_match_xg` dahil), α=3, medyan imputasyon + standartlaştırma | Toplam ve saha bazlı beklenen xG temposu özellikleri (`exp_match_xg_10`, `exp_venue_match_xg`) skor NLL'yi anlamlı iyileştirdi ($\Delta = -0.0008$, CI $[-0.0015, -0.0002]$) |
+| Skor matrisi | 13×13, bağımsız Poisson × Dixon-Coles $\tau$ ($\rho = -0.0300$), lojistik 1X2'ye (`v1.2`, 69 özellik) hizalı | Eğitim kalibrasyonu, dış sezon değerlendirmesi ve API aynı 1X2-hizalı matrisi kullanır |
+| Kalibratör | `over_1.5`, `over_2.5`, `over_3.5` ve `btts` **tamamı uygulanıyor** (ileri OOF LL: O1.5 `0.4729->0.4707`, O2.5 `0.6774->0.6758`, O3.5 `0.6469->0.6460`, BTTS `0.6830->0.6817`) | 1X2 `v1.2` hizalamasıyla dört pazarın tamamı ileri katlarda kazanç sağladı; `skill_gate` dinamik türetilir |
 | Seçim ölçütü | İleri katlarda skor NLL, en düşük kayıp kazanır (1-SE kuralı kaldırıldı) | Eskiden 2.5 Üst LL'si seçiyordu ve ayarları ayırt edemiyordu |
 | Izgara | `feature_sets [compact, full]`, `feature_alphas [0.1…30]`, `dc_weights [0.0]` | DC ağırlığı iç içe testte her sezon 0 seçildi |
 | API | Matris lojistik 1X2'ye hizalanır; `btts_prediction` kapı geçilmediği için `null` | KG'de ayırt edicilik kanıtlanmadığından etiket yok, yalnızca yüzde |
@@ -326,26 +331,26 @@ Hizalama 1X2'yi anlamlı biçimde iyileştirir, Üst/Alt pazarlarını bozmaz. B
 
 | Pazar | 2023/24 | 2024/25 | 2025/26 |
 | :--- | :---: | :---: | :---: |
-| Over 2.5 | 0.6648 / 0.6790 | 0.6774 / 0.6854 | 0.6901 / 0.6900 |
-| Over 1.5 | 0.4225 / 0.4379 | 0.4832 / 0.4817 | 0.5121 / 0.5159 |
-| Over 3.5 | 0.6995 / 0.7158 | 0.6421 / 0.6451 | 0.6065 / 0.6118 |
-| BTTS | 0.6729 / 0.6863 | 0.6840 / 0.6824 | 0.6843 / 0.6859 |
+| Over 2.5 | 0.6645 / 0.6790 | 0.6763 / 0.6854 | 0.6892 / 0.6900 |
+| Over 1.5 | 0.4192 / 0.4379 | 0.4834 / 0.4817 | 0.5122 / 0.5159 |
+| Over 3.5 | 0.6970 / 0.7158 | 0.6423 / 0.6451 | 0.6052 / 0.6118 |
+| BTTS | 0.6709 / 0.6863 | 0.6840 / 0.6824 | 0.6851 / 0.6859 |
 
 **Özet:**
 
 | Ölçüm | Değer | Ne anlatıyor |
 | :--- | :--- | :--- |
-| Skor NLL | **2.9786** (v1.3: 3.0152; sabit lig ortalaması 3.0959) | Skor dağılımı belirgin iyileşti: Ç1 ile −0.0149, DC'siz seçimle −0.0217 (CI [−0.0328, −0.0111]) |
-| O2.5 ortalama LL (donuk) | **0.6774** (v1.3: 0.6803) | Δ prior −0.0074, CI [−0.0146, −0.0001], P(daha iyi) %98 → prior'dan **sınırda anlamlı** iyi |
-| O2.5 − sabit Poisson | −0.0051, CI [−0.0119, +0.0019] | Takım bilgisinin katkısı **gürültüden ayırt edilemiyor** |
-| O2.5 − piyasa | +0.0086, CI [+0.0011, +0.0162] | Piyasa modelden **anlamlı biçimde iyi**; toplam gol bilgisi eksik |
-| KG LL | 0.6804 | Sabit Poisson'a karşı −0.0013, CI [−0.0071, +0.0042]; KG kapısı **geçilemedi** |
-| KG − piyasa | +0.0050, CI [−0.0005, +0.0106] | Artık piyasadan anlamlı kötü değil, ama iyi de değil |
-| O2.5 haftalık yeniden eğitim | **0.6760** | Donuğa göre −0.0014 [−0.0037, +0.0009] (anlamlı değil); haftalık prior'a göre −0.0042 [−0.0104, +0.0021] (anlamlı değil) |
-| O2.5 desil ECE | %5.07 (v1.3: %4.6); monotonluk payı 0.44 | Kalibrasyon hafif kötüleşti; nedeni incelenmedi |
-| Kapı (`passed`) / `ci_excludes_zero` / `ci_vs_null_excludes_zero` | ✅ / ✅ (sınırda) / ❌ | Prior'u geçiyor; lig ortalamasını anlamlı geçmiyor |
+| Skor NLL | **2.9686** (v1.6-1X2v1.2: 2.9696, v1.5: 2.9737, v1.4: 2.9786; sabit lig ortalaması 3.0959) | 1X2 `v1.3` hizalaması (`npxG` + `npBC` + `sdiff_pa_entries`) ve toplam/saha xG temposu (`v1.6`) ile skor dağılımı anlamlı iyileşti ($\Delta\text{Null} = -0.1271$, CI $[-0.1570, -0.0986]$) |
+| O2.5 ortalama LL (donuk) | **0.6767** (v1.4: 0.6774) | Δ prior −0.0080, CI [−0.0156, −0.00001], P(daha iyi) %97.5, 3/3 negatif sezon (25/26 LL 0.6892 -> 0.6882) → prior'dan **anlamlı** iyi |
+| O2.5 − sabit Poisson | −0.0058, CI [−0.0132, +0.0018] | P(daha iyi) %93.6; %95 CI sıfırı kesiyor |
+| O2.5 − piyasa | +0.0078, CI [+0.0001, +0.0156] | Piyasa (Bet365 kapanış) anlamlı biçimde önde |
+| KG LL | **0.6804** (v1.5: 0.6808) | Sabit Poisson'a karşı −0.0014; KG kapısı kapalı |
+| KG − piyasa | +0.0048, CI [−0.0007, +0.0102] | Piyasa ile fark dar seviyede korunuyor, piyasadan anlamlı kötü değil |
+| O2.5 haftalık yeniden eğitim | **0.6753** (v1.6-1X2v1.2: 0.6756, v1.4: 0.6760) | Donuğa göre −0.0018 [−0.0041, +0.0007]; haftalık prior'a göre −0.0048 [−0.0113, +0.0017] |
+| O2.5 desil ECE | **%4.24** (v1.4: %5.07) | 1X2-hizalı değerlendirme ile kalibrasyon iyileşti |
+| Kapı (`passed`) / `ci_excludes_zero` / `ci_vs_null_excludes_zero` | Geçti / Geçti / Geçmedi | Prior'u 3/3 sezonda ve anlamlı geçiyor; sabit Poisson'a karşı %93.6 olasılıkla önde |
 | Sezon bazlı seçilen ayarlar | 23/24: full α10 w0 · 24/25: full α3 w0 · 25/26: full α3 w0 | İç katlar her sezon DC'siz seçti |
-| 1X2 (API) | Lojistik model; hizalama etkisi bu sürümde **yeniden ölçülmedi** (v1.3: 1X2 −0.0157, O2.5 −0.0012) | — |
+| 1X2 (API) | Lojistik model; kalibrasyon, değerlendirme ve API aynı hizalanmış matrisi kullanır | — |
 
 **Bilinen sınırlar:** (1) toplam gol hacmi hâlâ öngörülemiyor; piyasa 2.5 Üst'te anlamlı biçimde önde; (2) kadro tabanlı özellikler (ilk 11 şut hacmi) denendi, 2.5 Üst ve KG'ye katkı vermedi (Reddedilen Deneyler); (3) ECE hafif kötüleşti; (4) 2.5 Üst kapısı yalnızca ortalama farkın negatif olmasını ve prior'a karşı sonucu istiyor, sabit Poisson'a karşı anlamlılık zorunlu değil; (5) DC tamamen kaldırılmadı, $\rho$ ortak.
 

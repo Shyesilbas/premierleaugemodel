@@ -309,7 +309,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                   <button
                     type="button"
                     onClick={() => setIsGameweekMenuOpen(open => !open)}
-                    className="flex items-center gap-1 px-2 py-0.5 text-xs font-mono font-medium text-text-primary transition-colors"
+                    className="flex items-center gap-1 px-2 py-0.5 text-xs tabular-nums font-medium text-text-primary transition-colors"
                   >
                     <span>{selectedGameweek === 'all' ? 'Tüm Haftalar' : `Hafta ${selectedGameweek}`}</span>
                     {String(selectedGameweek) === String(currentGameweek) && (
@@ -344,7 +344,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                           >
                             <span>Hafta {gw}</span>
                             {isCurrent && (
-                              <span className={`rounded-sm px-1.5 py-0.5 text-xs uppercase font-sans font-medium ${
+                              <span className={`rounded-sm px-1.5 py-0.5 text-xs font-sans font-medium ${
                                 isSelected ? 'bg-status-success text-white' : 'bg-background-tertiary text-status-success'
                               }`}>
                                 Mevcut
@@ -390,15 +390,15 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
             {activeView === 'table' && (
               <div className="flex items-center gap-2.5 text-xs font-medium text-text-secondary ml-1">
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-xs bg-status-info" />
+                  <span className="w-2 h-2 rounded-sm bg-status-info" />
                   <span>UCL (1-4)</span>
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-xs bg-status-warning" />
+                  <span className="w-2 h-2 rounded-sm bg-status-warning" />
                   <span>UEL (5)</span>
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-xs bg-status-error" />
+                  <span className="w-2 h-2 rounded-sm bg-status-error" />
                   <span>Düşme (18-20)</span>
                 </span>
               </div>
@@ -410,7 +410,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
             
             {/* Search Input (Only for fixtures view) */}
             {activeView === 'fixtures' && (
-              <div className="relative min-w-[170px] sm:min-w-[210px] flex-1 sm:flex-initial">
+              <div className="relative min-w-44 sm:min-w-52 flex-1 sm:flex-initial">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                 <input
                   type="text"

@@ -59,3 +59,49 @@ def test_fixture_file_loader_accepts_both_layouts():
         assert sync.load_fixture_file(as_list) == [{"id": 1}]
         assert sync.load_fixture_file(as_content) == [{"id": 2}]
         assert sync.load_fixture_file(Path(tmp) / "missing.json") == []
+
+
+class _Resp:
+    def __init__(self, payload, status=200):
+        self._payload, self.status_code = payload, status
+
+    def json(self):
+        return self._payload
+
+
+class _Session:
+    def __init__(self, *responses):
+        self.responses = list(responses)
+
+    def get(self, *_, **__):
+        return self.responses.pop(0)
+
+
+def test_empty_payloads_are_rejected_instead_of_cached_as_final():
+    from src.ingest import fetch_season_data as fetch
+
+    assert fetch.fetch_match_stats(_Session(_Resp({"entity": {}, "data": {}})), 1) is None
+    assert fetch.fetch_match_stats(_Session(_Resp({"data": {"x": 1}})), 1) == {"data": {"x": 1}}
+    assert fetch.fetch_match_details(_Session(_Resp({"teams": []})), 1) is None
+    assert fetch.fetch_match_stream(_Session(_Resp({"events": {"pageInfo": {"numPages": 1}, "content": []}})), 1) is None
+
+
+def test_a_failed_stream_page_fails_the_whole_stream():
+    from src.ingest import fetch_season_data as fetch
+
+    first = _Resp({"events": {"pageInfo": {"numPages": 2}, "content": [{"id": 1}]}})
+    assert fetch.fetch_match_stream(_Session(first, _Resp({}, status=500)), 1) is None
+    ok = _Resp({"events": {"content": [{"id": 2}]}})
+    data = fetch.fetch_match_stream(_Session(first, ok), 1)
+    assert [e["id"] for e in data["events"]["content"]] == [1, 2]
+
+
+def test_second_sync_cannot_take_the_lock():
+    import pytest
+
+    with sync.sync_lock():
+        with pytest.raises(sync.SyncAlreadyRunning):
+            with sync.sync_lock():
+                pass
+    with sync.sync_lock():  # released afterwards
+        pass

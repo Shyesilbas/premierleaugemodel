@@ -25,6 +25,7 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
 from src.config import DB_PATH, DEFAULT_SEASON  # noqa: E402
+from src.db.database import ensure_external_xg_table as create_source_table, get_db  # noqa: E402
 
 API_BASE = "https://api.thestatsapi.com/api"
 PROVIDER = "TheStatsAPI"
@@ -75,22 +76,6 @@ class TheStatsApiClient:
             except URLError as exc:
                 self.last_request_at = time.monotonic()
                 raise RuntimeError(f"TheStatsAPI request failed for {path}: {exc.reason}") from exc
-
-
-def create_source_table(conn: sqlite3.Connection) -> None:
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS external_match_xg (
-            match_id INTEGER PRIMARY KEY REFERENCES matches(match_id),
-            provider TEXT NOT NULL,
-            provider_match_id TEXT NOT NULL UNIQUE,
-            provider_season_id TEXT NOT NULL,
-            home_xg REAL NOT NULL,
-            away_xg REAL NOT NULL,
-            xg_quality TEXT,
-            fetched_at_utc TEXT NOT NULL
-        )
-    """)
-    conn.commit()
 
 
 def fetch_all_matches(client: TheStatsApiClient, competition_id: str, season_id: str) -> list[dict[str, Any]]:
@@ -155,8 +140,7 @@ def import_season(args: argparse.Namespace) -> dict[str, int]:
     if not api_key:
         raise RuntimeError("Set THESTATSAPI_API_KEY in the process environment; it is never read from or written to a file.")
     client = TheStatsApiClient(api_key, args.minimum_interval)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db(DB_PATH)
     create_source_table(conn)
 
     seasons_response = client.get_json(f"/football/competitions/{args.competition_id}/seasons")

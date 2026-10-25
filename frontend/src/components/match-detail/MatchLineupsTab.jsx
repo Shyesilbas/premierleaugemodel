@@ -72,11 +72,11 @@ export default function MatchLineupsTab({
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-border-light">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-status-success" />
-                        <h4 className="text-xs sm:text-sm font-semibold tracking-wide text-text-primary">
+                        <h4 className="text-xs sm:text-sm font-semibold text-text-primary">
                           {isCompleted ? 'Maç Performansı & Oyuncu Reytingleri' : 'İlk 11 Kadro Formu & Dinamik Model Etkisi'}
                         </h4>
                       </div>
-                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-sm border ${
                         (prediction?.lineup_analysis?.is_official || isCompleted)
                           ? 'bg-background-tertiary text-status-success border-status-success'
                           : 'bg-background-tertiary text-text-tertiary border-border-light'
@@ -88,10 +88,10 @@ export default function MatchLineupsTab({
                     {/* Team Ratings Comparison Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center text-center">
                       {/* Home Team 11 */}
-                      <div className="bg-background-tertiary rounded p-2.5 border border-border-light flex flex-col items-center">
-                        <span className="text-xs font-semibold text-text-tertiary truncate max-w-[140px]">{homeTeam?.name}</span>
+                      <div className="bg-background-tertiary rounded p-2.5 flex flex-col items-center">
+                        <span className="text-xs font-semibold text-text-tertiary truncate max-w-36">{homeTeam?.name}</span>
                         <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="text-xl font-semibold font-mono text-text-primary">
+                          <span className="text-xl font-semibold tabular-nums text-text-primary">
                             {Number(homeLineup?.team_ratings?.overall || prediction?.lineup_analysis?.home_xi?.team_overall || 6.0).toFixed(1)}
                           </span>
                           <span className="text-xs text-text-secondary font-semibold">/ 10</span>
@@ -104,12 +104,12 @@ export default function MatchLineupsTab({
                       </div>
 
                       {/* Center Model Impact Delta */}
-                      <div className="bg-background-tertiary rounded p-2 border border-border-light space-y-1">
-                        <span className="text-xs uppercase tracking-wider text-text-tertiary font-semibold block">
+                      <div className="bg-background-tertiary rounded p-2 space-y-1">
+                        <span className="text-xs text-text-tertiary font-semibold block">
                           Lineup Modülatörleri
                         </span>
                         {prediction?.lineup_analysis?.lineup_impact ? (
-                          <div className="space-y-0.5 text-xs font-mono">
+                          <div className="space-y-0.5 text-xs tabular-nums">
                             <div className="flex justify-between px-2 text-xs">
                               <span className="text-text-tertiary">Gol Etkisi:</span>
                               <span className="font-semibold text-text-primary">
@@ -129,10 +129,10 @@ export default function MatchLineupsTab({
                       </div>
 
                       {/* Away Team 11 */}
-                      <div className="bg-background-tertiary rounded p-2.5 border border-border-light flex flex-col items-center">
-                        <span className="text-xs font-semibold text-text-tertiary truncate max-w-[140px]">{awayTeam?.name}</span>
+                      <div className="bg-background-tertiary rounded p-2.5 flex flex-col items-center">
+                        <span className="text-xs font-semibold text-text-tertiary truncate max-w-36">{awayTeam?.name}</span>
                         <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="text-xl font-semibold font-mono text-text-primary">
+                          <span className="text-xl font-semibold tabular-nums text-text-primary">
                             {Number(awayLineup?.team_ratings?.overall || prediction?.lineup_analysis?.away_xi?.team_overall || 6.0).toFixed(1)}
                           </span>
                           <span className="text-xs text-text-secondary font-semibold">/ 10</span>
@@ -165,12 +165,12 @@ export default function MatchLineupsTab({
                     onPlayerClick={handlePlayerClick}
                   />
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                 
                 {/* Home Team Column */}
-                <div className="space-y-6">
+                <div className="bg-background-primary border border-border rounded p-4 space-y-4 self-start">
                   {/* Team Card Header */}
-                  <div className="bg-background-tertiary border border-border rounded p-4 flex items-center justify-between">
+                  <div className="pb-3 border-b border-border-light flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <img src={homeTeam.badge} alt="" className="w-8 h-8 object-contain shrink-0" />
                       <div>
@@ -179,7 +179,7 @@ export default function MatchLineupsTab({
                       </div>
                     </div>
                     {homeLineup?.formation && (
-                      <span className="text-xs font-mono font-semibold px-3 py-1 rounded bg-background-tertiary text-primary border border-primary">
+                      <span className="text-xs tabular-nums font-semibold px-3 py-1 rounded bg-background-tertiary text-primary border border-primary">
                         {homeLineup.formation}
                       </span>
                     )}
@@ -188,7 +188,7 @@ export default function MatchLineupsTab({
                   {/* Starting XI Grouped By Position Lines */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between pb-1.5 border-b border-border">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-text-primary">
+                      <span className="text-xs font-semibold text-text-primary">
                         Başlangıç 11'i ({homeLineup?.starters?.length || 0})
                       </span>
                       <span className="text-xs text-text-secondary font-medium">
@@ -198,7 +198,7 @@ export default function MatchLineupsTab({
 
                     {groupPlayersByPosition(homeLineup?.starters).map((group) => (
                       <div key={group.key} className="space-y-2">
-                        <span className="text-xs font-mono font-semibold uppercase tracking-wider text-text-secondary block px-1">
+                        <span className="text-xs tabular-nums font-semibold text-text-secondary block px-1">
                           {group.label} ({group.list.length})
                         </span>
                         <div className="space-y-1.5">
@@ -210,7 +210,7 @@ export default function MatchLineupsTab({
                               <div 
                                 key={p.id || idx}
                                 onClick={(e) => handlePlayerClick(p, 'home', e)}
-                                className="flex items-center justify-between p-2.5 rounded bg-background-primary border border-border hover:border-primary hover:bg-background-tertiary transition-all cursor-pointer group "
+                                className="flex items-center justify-between p-2.5 rounded hover:bg-background-tertiary transition-all cursor-pointer group"
                                 title={`${p.name} maç performansını görüntüle`}
                               >
                                 <div className="flex items-center gap-3 min-w-0">
@@ -220,9 +220,9 @@ export default function MatchLineupsTab({
                                     shirt={p.shirt || idx + 1}
                                     fallback="initials"
                                     size="w-8 h-8 text-xs"
-                                    className="shrink-0 group-hover:scale-105 transition-transform"
+                                    className="shrink-0 transition-transform"
                                   />
-                                  <span className="w-6 h-6 rounded-full bg-background-tertiary border border-border flex items-center justify-center font-mono font-semibold text-xs text-text-primary shrink-0">
+                                  <span className="w-6 h-6 rounded-full bg-background-tertiary border border-border flex items-center justify-center tabular-nums font-semibold text-xs text-text-primary shrink-0">
                                     {p.shirt || idx + 1}
                                   </span>
                                   <div className="min-w-0">
@@ -256,7 +256,7 @@ export default function MatchLineupsTab({
                                 <div className="flex items-center gap-2 shrink-0">
                                   {effectiveRating != null ? (
                                     <span
-                                      className={`text-xs font-mono font-semibold px-1.5 py-0.5 rounded border ${
+                                      className={`text-xs tabular-nums font-semibold px-1.5 py-0.5 rounded border ${
                                         effectiveRating >= 7.5
                                           ? 'bg-background-tertiary text-status-success border-status-success'
                                           : effectiveRating >= 6.5
@@ -270,11 +270,11 @@ export default function MatchLineupsTab({
                                       {Number(effectiveRating).toFixed(1)}
                                     </span>
                                   ) : isCompleted ? (
-                                    <span className="text-xs font-mono text-text-tertiary px-1" title="Değerlendirilmedi">
+                                    <span className="text-xs tabular-nums text-text-tertiary px-1" title="Değerlendirilmedi">
                                       —
                                     </span>
                                   ) : null}
-                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${getPositionBadgeClass(p.position)}`}>
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-sm border ${getPositionBadgeClass(p.position)}`}>
                                     {formatPosition(p.position)}
                                   </span>
                                   <ExternalLink className="w-3.5 h-3.5 text-text-tertiary group-hover:text-text-secondary transition-colors" />
@@ -290,7 +290,7 @@ export default function MatchLineupsTab({
                   {/* Substitutes Bench */}
                   {homeLineup?.substitutes?.length > 0 && (
                     <div className="pt-4 border-t border-border space-y-2.5">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-text-primary block">
+                      <span className="text-xs font-semibold text-text-primary block">
                         Yedek Kulübesi ({homeLineup.substitutes.length})
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -302,7 +302,7 @@ export default function MatchLineupsTab({
                             <div 
                               key={sub.id || idx}
                               onClick={(e) => handlePlayerClick(sub, 'home', e)}
-                              className="flex items-center justify-between p-2 rounded bg-background-primary border border-border hover:border-border hover:bg-background-tertiary transition-all cursor-pointer group text-xs "
+                              className="flex items-center justify-between p-2 rounded hover:bg-background-tertiary transition-all cursor-pointer group text-xs"
                               title={`${sub.name} maç performansını görüntüle`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
@@ -314,7 +314,7 @@ export default function MatchLineupsTab({
                                   size="w-6 h-6 text-xs"
                                   className="shrink-0"
                                 />
-                                <span className="font-mono text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
+                                <span className="tabular-nums text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
                                 <span className="font-medium text-text-primary truncate">{sub.name}</span>
                                 {pStat?.goals > 0 && <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success">G: {pStat.goals}</span>}
                                 {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary">A: {pStat.assists}</span>}
@@ -322,7 +322,7 @@ export default function MatchLineupsTab({
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {effectiveRating != null && (
-                                  <span className={`text-xs font-mono font-semibold px-1.5 py-0.2 rounded border ${
+                                  <span className={`text-xs tabular-nums font-semibold px-1.5 py-0.2 rounded border ${
                                     effectiveRating >= 7.5 ? 'bg-background-tertiary text-status-success border-status-success' :
                                     effectiveRating >= 6.5 ? 'bg-background-tertiary text-primary border-primary' :
                                     effectiveRating >= 5.5 ? 'bg-background-tertiary text-text-primary border-border' :
@@ -344,9 +344,9 @@ export default function MatchLineupsTab({
                 </div>
 
                 {/* Away Team Column */}
-                <div className="space-y-6">
+                <div className="bg-background-primary border border-border rounded p-4 space-y-4 self-start">
                   {/* Team Card Header */}
-                  <div className="bg-background-tertiary border border-border rounded p-4 flex items-center justify-between">
+                  <div className="pb-3 border-b border-border-light flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <img src={awayTeam.badge} alt="" className="w-8 h-8 object-contain shrink-0" />
                       <div>
@@ -355,7 +355,7 @@ export default function MatchLineupsTab({
                       </div>
                     </div>
                     {awayLineup?.formation && (
-                      <span className="text-xs font-mono font-semibold px-3 py-1 rounded bg-background-tertiary text-primary border border-primary">
+                      <span className="text-xs tabular-nums font-semibold px-3 py-1 rounded bg-background-tertiary text-primary border border-primary">
                         {awayLineup.formation}
                       </span>
                     )}
@@ -364,7 +364,7 @@ export default function MatchLineupsTab({
                   {/* Starting XI Grouped By Position Lines */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between pb-1.5 border-b border-border">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-text-primary">
+                      <span className="text-xs font-semibold text-text-primary">
                         Başlangıç 11'i ({awayLineup?.starters?.length || 0})
                       </span>
                       <span className="text-xs text-text-secondary font-medium">
@@ -374,7 +374,7 @@ export default function MatchLineupsTab({
 
                     {groupPlayersByPosition(awayLineup?.starters).map((group) => (
                       <div key={group.key} className="space-y-2">
-                        <span className="text-xs font-mono font-semibold uppercase tracking-wider text-text-secondary block px-1">
+                        <span className="text-xs tabular-nums font-semibold text-text-secondary block px-1">
                           {group.label} ({group.list.length})
                         </span>
                         <div className="space-y-1.5">
@@ -386,7 +386,7 @@ export default function MatchLineupsTab({
                               <div 
                                 key={p.id || idx}
                                 onClick={(e) => handlePlayerClick(p, 'away', e)}
-                                className="flex items-center justify-between p-2.5 rounded bg-background-primary border border-border hover:border-primary hover:bg-background-tertiary transition-all cursor-pointer group "
+                                className="flex items-center justify-between p-2.5 rounded hover:bg-background-tertiary transition-all cursor-pointer group"
                                 title={`${p.name} maç performansını görüntüle`}
                               >
                                 <div className="flex items-center gap-3 min-w-0">
@@ -396,9 +396,9 @@ export default function MatchLineupsTab({
                                     shirt={p.shirt || idx + 1}
                                     fallback="initials"
                                     size="w-8 h-8 text-xs"
-                                    className="shrink-0 group-hover:scale-105 transition-transform"
+                                    className="shrink-0 transition-transform"
                                   />
-                                  <span className="w-6 h-6 rounded-full bg-background-tertiary border border-border flex items-center justify-center font-mono font-semibold text-xs text-text-primary shrink-0">
+                                  <span className="w-6 h-6 rounded-full bg-background-tertiary border border-border flex items-center justify-center tabular-nums font-semibold text-xs text-text-primary shrink-0">
                                     {p.shirt || idx + 1}
                                   </span>
                                   <div className="min-w-0">
@@ -432,7 +432,7 @@ export default function MatchLineupsTab({
                                 <div className="flex items-center gap-2 shrink-0">
                                   {effectiveRating != null ? (
                                     <span
-                                      className={`text-xs font-mono font-semibold px-1.5 py-0.5 rounded border ${
+                                      className={`text-xs tabular-nums font-semibold px-1.5 py-0.5 rounded border ${
                                         effectiveRating >= 7.5
                                           ? 'bg-background-tertiary text-status-success border-status-success'
                                           : effectiveRating >= 6.5
@@ -446,11 +446,11 @@ export default function MatchLineupsTab({
                                       {Number(effectiveRating).toFixed(1)}
                                     </span>
                                   ) : isCompleted ? (
-                                    <span className="text-xs font-mono text-text-tertiary px-1" title="Değerlendirilmedi">
+                                    <span className="text-xs tabular-nums text-text-tertiary px-1" title="Değerlendirilmedi">
                                       —
                                     </span>
                                   ) : null}
-                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${getPositionBadgeClass(p.position)}`}>
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-sm border ${getPositionBadgeClass(p.position)}`}>
                                     {formatPosition(p.position)}
                                   </span>
                                   <ExternalLink className="w-3.5 h-3.5 text-text-tertiary group-hover:text-text-secondary transition-colors" />
@@ -466,7 +466,7 @@ export default function MatchLineupsTab({
                   {/* Substitutes Bench */}
                   {awayLineup?.substitutes?.length > 0 && (
                     <div className="pt-4 border-t border-border space-y-2.5">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-text-primary block">
+                      <span className="text-xs font-semibold text-text-primary block">
                         Yedek Kulübesi ({awayLineup.substitutes.length})
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -478,7 +478,7 @@ export default function MatchLineupsTab({
                             <div 
                               key={sub.id || idx}
                               onClick={(e) => handlePlayerClick(sub, 'away', e)}
-                              className="flex items-center justify-between p-2 rounded bg-background-primary border border-border hover:border-border hover:bg-background-tertiary transition-all cursor-pointer group text-xs "
+                              className="flex items-center justify-between p-2 rounded hover:bg-background-tertiary transition-all cursor-pointer group text-xs"
                               title={`${sub.name} maç performansını görüntüle`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
@@ -490,7 +490,7 @@ export default function MatchLineupsTab({
                                   size="w-6 h-6 text-xs"
                                   className="shrink-0"
                                 />
-                                <span className="font-mono text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
+                                <span className="tabular-nums text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
                                 <span className="font-medium text-text-primary truncate">{sub.name}</span>
                                 {pStat?.goals > 0 && <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success">G: {pStat.goals}</span>}
                                 {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary">A: {pStat.assists}</span>}
@@ -498,7 +498,7 @@ export default function MatchLineupsTab({
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {effectiveRating != null && (
-                                  <span className={`text-xs font-mono font-semibold px-1.5 py-0.2 rounded border ${
+                                  <span className={`text-xs tabular-nums font-semibold px-1.5 py-0.2 rounded border ${
                                     effectiveRating >= 7.5 ? 'bg-background-tertiary text-status-success border-status-success' :
                                     effectiveRating >= 6.5 ? 'bg-background-tertiary text-primary border-primary' :
                                     effectiveRating >= 5.5 ? 'bg-background-tertiary text-text-primary border-border' :

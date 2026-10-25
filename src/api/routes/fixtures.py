@@ -9,7 +9,7 @@ from src.config import DEFAULT_SEASON
 from src.db.database import get_all_grouped_fixtures, get_db, get_referee_detail, get_referees_list
 from typing import Any, Dict, Optional
 from src.api import state
-from src.api.routes.predict import predict_match
+from src.api.prediction_service import compute_match_prediction
 from fastapi import APIRouter
 
 router = APIRouter()
@@ -46,7 +46,7 @@ def get_quick_fixture_prediction(home_id: int, away_id: int, season: Optional[st
     if cache_key in state._fixture_pred_cache:
         return state._fixture_pred_cache[cache_key]
     try:
-        p = predict_match(home_id, away_id, season)
+        p = compute_match_prediction(home_id, away_id, season, include_lineup_analysis=False)
         summary = {
             "favorite_label": p["favorite_label"],
             "home_win_pct": p["outcome"]["home_win_pct"],

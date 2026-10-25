@@ -382,6 +382,8 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
         red_cards: player.red_cards ?? 0,
         photo_url: player.photo_url || null,
         captain: player.captain || false,
+        market_value_eur: player.market_value_eur ?? null,
+        market_value_formatted: player.market_value_formatted ?? null,
       }));
     }
     if (!teamStaff?.players?.length) return [];

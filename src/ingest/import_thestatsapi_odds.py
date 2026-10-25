@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.config import DB_PATH, DEFAULT_SEASON
+from src.db.database import ensure_external_odds_table as init_odds_table, get_db
 from src.ingest.import_thestatsapi_xg import (
     PROVIDER,
     TheStatsApiClient,
@@ -22,50 +23,11 @@ from src.ingest.import_thestatsapi_xg import (
 )
 
 
-
 def parse_price(val: Any) -> float | None:
     try:
         return float(val) if val not in (None, "", "null") else None
     except (ValueError, TypeError):
         return None
-
-
-def init_odds_table(conn: sqlite3.Connection) -> None:
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS external_match_odds (
-            match_id INTEGER NOT NULL REFERENCES matches(match_id),
-            provider TEXT NOT NULL,
-            provider_match_id TEXT NOT NULL,
-            provider_season_id TEXT NOT NULL,
-            bookmaker TEXT NOT NULL,
-            home_open REAL,
-            draw_open REAL,
-            away_open REAL,
-            home_last_seen REAL,
-            draw_last_seen REAL,
-            away_last_seen REAL,
-            over_25_open REAL,
-            under_25_open REAL,
-            over_25_last_seen REAL,
-            under_25_last_seen REAL,
-            btts_yes_open REAL,
-            btts_no_open REAL,
-            btts_yes_last_seen REAL,
-            btts_no_last_seen REAL,
-            corners_over_open REAL,
-            corners_under_open REAL,
-            corners_over_last_seen REAL,
-            corners_under_last_seen REAL,
-            cards_over_open REAL,
-            cards_under_open REAL,
-            cards_over_last_seen REAL,
-            cards_under_last_seen REAL,
-            raw_markets_json TEXT,
-            fetched_at_utc TEXT NOT NULL,
-            PRIMARY KEY (match_id, provider, bookmaker)
-        )
-    """)
-    conn.commit()
 
 
 def import_odds(
@@ -80,8 +42,7 @@ def import_odds(
         raise ValueError("API key must be provided.")
 
     client = TheStatsApiClient(api_key.strip(), minimum_interval=minimum_interval)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db(DB_PATH)
     init_odds_table(conn)
 
     # 1. Fetch seasons for this competition

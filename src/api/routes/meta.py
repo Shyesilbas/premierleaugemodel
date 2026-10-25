@@ -2,6 +2,8 @@
 
 import json
 import logging
+import os
+import signal
 import subprocess
 import sys
 import threading
@@ -38,37 +40,70 @@ def _sync_command(kind: str, season: str) -> List[str]:
     }[kind]
 
 
+SYNC_TIMEOUT_SECONDS = 60 * 30
+SYNC_LOCKED_EXIT_CODE = 3  # keep in step with LOCK_EXIT_CODE in sync_season_data
+_OUTPUT_TAIL = 6000
+
+
+def _parse_sync_result(stdout: str) -> Dict[str, Any]:
+    for line in stdout.splitlines():
+        if line.startswith("SYNC_RESULT "):
+            return json.loads(line[len("SYNC_RESULT "):])
+    return {}
+
+
 def _run_season_sync_job(job_id: str, season: str, kind: str = "matches") -> None:
     command = _sync_command(kind, season)
+    lines: List[str] = []
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             command,
             cwd=BASE_DIR,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=60 * 30,
-            check=False,
+            start_new_session=True,  # own process group, so a timeout also stops the rebuild steps it spawned
         )
-        output = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()[-6000:]
-        if result.returncode != 0:
-            with _sync_job_lock:
-                if _sync_job.get("id") == job_id:
-                    _sync_job.update(status="failed", message="Veri güncellemesi tamamlanamadı.", output=output)
-            return
 
-        state.reload_runtime_datasets()
+        def kill_group() -> None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+        timer = threading.Timer(SYNC_TIMEOUT_SECONDS, kill_group)
+        timer.start()
+        try:
+            for line in process.stdout:
+                lines.append(line)
+                with _sync_job_lock:
+                    if _sync_job.get("id") == job_id:
+                        _sync_job["output"] = "".join(lines)[-_OUTPUT_TAIL:]
+            returncode = process.wait()
+        finally:
+            timer.cancel()
+        stdout = "".join(lines)
+        output = stdout.strip()[-_OUTPUT_TAIL:]
+        result = _parse_sync_result(stdout)
+
+        if returncode == SYNC_LOCKED_EXIT_CODE:
+            update = dict(status="failed", message="Baska bir veri guncellemesi zaten calisiyor.", output=output)
+        elif returncode != 0 and not result:
+            update = dict(status="failed", message="Veri güncellemesi tamamlanamadı.", output=output)
+        else:
+            # A partial run (some downloads failed) still saved and rebuilt the rest, so reload what it did finish.
+            state.reload_runtime_datasets()
+            matches = result.get("matches", [])
+            failed = result.get("failed_downloads", 0)
+            if returncode != 0:
+                update = dict(status="failed", matches=matches, output=output,
+                              message=f"Kısmen tamamlandı: {failed} dosya indirilemedi, tekrar deneyin.")
+            else:
+                update = dict(status="completed", matches=matches, output=output,
+                              message="Veri bulundu" if matches else "Veri bulunamadı")
         with _sync_job_lock:
             if _sync_job.get("id") == job_id:
-                matches = []
-                for line in result.stdout.splitlines():
-                    if line.startswith("SYNC_RESULT "):
-                        matches = json.loads(line[len("SYNC_RESULT "):]).get("matches", [])
-                _sync_job.update(
-                    status="completed",
-                    message="Veri bulundu" if matches else "Veri bulunamadı",
-                    matches=matches,
-                    output=output,
-                )
+                _sync_job.update(update)
     except Exception as exc:
         logger.exception("Season sync job failed")
         with _sync_job_lock:

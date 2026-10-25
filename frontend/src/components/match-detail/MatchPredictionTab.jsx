@@ -1,13 +1,19 @@
-export default function MatchPredictionTab({ prediction, loadingPrediction, predSubTab, setPredSubTab, homeTeam, awayTeam, variant = 'page' }) {
+import InlineError from '../common/InlineError';
+import Skeleton from '../common/Skeleton';
+
+export default function MatchPredictionTab({ prediction, loadingPrediction, predSubTab, setPredSubTab, homeTeam, awayTeam, variant = 'page', failed = false, onRetry }) {
   const containerClass = variant === 'modal' ? 'space-y-4 max-w-2xl mx-auto py-1' : 'space-y-3 max-w-xl mx-auto py-2';
   return (
     <div className={containerClass}>
 
-                {loadingPrediction || !prediction ? (
-                  <div className="py-12 text-center">
-                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-xs font-semibold text-text-primary">Tahminler hesaplanıyor...</p>
+                {loadingPrediction || (!prediction && !failed) ? (
+                  <div className="space-y-3" role="status" aria-label="Yükleniyor">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-24 w-full" />
                   </div>
+                ) : !prediction ? (
+                  <InlineError message="Tahminler alınamadı." onRetry={onRetry} />
                 ) : (
                   <>
                     {/* Category Tabs */}
@@ -46,35 +52,35 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
 
                     {/* TAB 1: MAÇ SONUCU (1X2) */}
                     {predSubTab === 'outcome' && (
-                      <div className="bg-background-tertiary border border-border rounded p-4 animate-fadeIn space-y-3">
+                      <div className="bg-background-primary border border-border rounded p-4 animate-fadeIn space-y-3">
                         <div className="flex items-center justify-between pb-2 border-b border-border text-xs">
                           <span className="font-semibold text-text-primary">1X2 Olasılık Dağılımı</span>
-                          <span className="font-semibold text-text-secondary bg-background-primary px-2 py-0.5 rounded border border-border">
+                          <span className="font-semibold text-text-secondary bg-background-tertiary px-2 py-0.5 rounded">
                             Favori: {prediction.favorite_label}
                           </span>
                         </div>
 
                         <div className="grid grid-cols-3 gap-3 pt-1 text-center">
-                          <div className="bg-background-primary p-3 rounded border border-border">
+                          <div className="bg-background-tertiary p-3 rounded">
                             <span className="text-xs font-semibold text-text-secondary truncate block">{homeTeam.name}</span>
-                            <div className="text-2xl font-semibold font-mono text-text-primary my-1">%{prediction.outcome.home_win_pct}</div>
+                            <div className="text-2xl font-semibold tabular-nums text-text-primary my-1">%{prediction.outcome.home_win_pct}</div>
                             <span className="text-xs text-text-tertiary">1 (Ev Sahibi)</span>
                           </div>
 
-                          <div className="bg-background-primary p-3 rounded border border-border">
+                          <div className="bg-background-tertiary p-3 rounded">
                             <span className="text-xs font-semibold text-text-secondary block">Beraberlik</span>
-                            <div className="text-2xl font-semibold font-mono text-text-primary my-1">%{prediction.outcome.draw_pct}</div>
+                            <div className="text-2xl font-semibold tabular-nums text-text-primary my-1">%{prediction.outcome.draw_pct}</div>
                             <span className="text-xs text-text-tertiary">X (Eşitlik)</span>
                           </div>
 
-                          <div className="bg-background-primary p-3 rounded border border-border">
+                          <div className="bg-background-tertiary p-3 rounded">
                             <span className="text-xs font-semibold text-text-secondary truncate block">{awayTeam.name}</span>
-                            <div className="text-2xl font-semibold font-mono text-text-primary my-1">%{prediction.outcome.away_win_pct}</div>
+                            <div className="text-2xl font-semibold tabular-nums text-text-primary my-1">%{prediction.outcome.away_win_pct}</div>
                             <span className="text-xs text-text-tertiary">2 (Deplasman)</span>
                           </div>
                         </div>
 
-                        <div className="h-1.5 rounded-full bg-background-tertiary overflow-hidden flex mt-2">
+                        <div className="h-1.5 rounded-sm bg-background-tertiary overflow-hidden flex mt-2">
                           <div style={{ width: `${prediction.outcome.home_win_pct}%` }} className="h-full bg-primary" />
                           <div style={{ width: `${prediction.outcome.draw_pct}%` }} className="h-full bg-border" />
                           <div style={{ width: `${prediction.outcome.away_win_pct}%` }} className="h-full bg-text-tertiary" />
@@ -84,10 +90,10 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
 
                     {/* TAB 2: GOLLER & PİYASALAR */}
                     {predSubTab === 'goals' && (
-                      <div className="bg-background-tertiary border border-border rounded p-4 animate-fadeIn space-y-4">
+                      <div className="bg-background-primary border border-border rounded p-4 animate-fadeIn space-y-4">
                         <div className="flex items-center justify-between pb-2 border-b border-border text-xs">
                           <span className="font-semibold text-text-primary">Toplam Gol Beklentisi & İhtimaller</span>
-                          <span className="font-mono text-text-secondary">
+                          <span className="tabular-nums text-text-secondary">
                             Toplam Beklenen Gol: <strong className="text-text-primary text-sm">{prediction.goals?.expected_total_goals || (Number(prediction.goals?.expected_home_goals || 1.4) + Number(prediction.goals?.expected_away_goals || 1.2)).toFixed(2)}</strong>
                           </span>
                         </div>
@@ -98,21 +104,21 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                         </div>
 
                         <div className="grid grid-cols-4 gap-2 pt-1 text-center">
-                          <div className="bg-background-primary p-2.5 rounded border border-border">
+                          <div className="bg-background-tertiary p-2.5 rounded">
                             <span className="text-xs text-text-secondary block">1.5 Üst</span>
-                            <strong className="text-lg font-semibold font-mono text-text-primary">%{prediction.goals?.['over_1.5']?.pct || '75.0'}</strong>
+                            <strong className="text-lg font-semibold tabular-nums text-text-primary">%{prediction.goals?.['over_1.5']?.pct || '75.0'}</strong>
                           </div>
-                          <div className="bg-background-primary p-2.5 rounded border border-border">
+                          <div className="bg-background-tertiary p-2.5 rounded">
                             <span className="text-xs text-text-secondary block">2.5 Üst</span>
-                            <strong className="text-lg font-semibold font-mono text-text-primary">%{prediction.outcome?.over_2_5_goals_pct}</strong>
+                            <strong className="text-lg font-semibold tabular-nums text-text-primary">%{prediction.outcome?.over_2_5_goals_pct}</strong>
                           </div>
-                          <div className="bg-background-primary p-2.5 rounded border border-border">
+                          <div className="bg-background-tertiary p-2.5 rounded">
                             <span className="text-xs text-text-secondary block">3.5 Üst</span>
-                            <strong className="text-lg font-semibold font-mono text-text-primary">%{prediction.goals?.['over_3.5']?.pct || '32.0'}</strong>
+                            <strong className="text-lg font-semibold tabular-nums text-text-primary">%{prediction.goals?.['over_3.5']?.pct || '32.0'}</strong>
                           </div>
-                          <div className="bg-background-primary p-2.5 rounded border border-border">
+                          <div className="bg-background-tertiary p-2.5 rounded">
                             <span className="text-xs text-text-secondary block">KG Var</span>
-                            <strong className="text-lg font-semibold font-mono text-text-primary">%{prediction.goals?.btts_pct || '55.0'}</strong>
+                            <strong className="text-lg font-semibold tabular-nums text-text-primary">%{prediction.goals?.btts_pct || '55.0'}</strong>
                           </div>
                         </div>
 
@@ -123,7 +129,7 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                               <span className="text-xs font-semibold text-text-primary">
                                 Tek Taraflı Takım Gol Baremleri
                               </span>
-                              <span className="text-xs font-semibold text-status-success bg-background-tertiary border border-status-success px-2 py-0.5 rounded-full">
+                              <span className="text-xs font-semibold text-status-success bg-background-tertiary border border-status-success px-2 py-0.5 rounded-sm">
                                 Dinamik Barem Çıkarımı
                               </span>
                             </div>
@@ -135,15 +141,15 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                                 if (!teamData) return null;
 
                                 return (
-                                  <div key={side} className="bg-background-primary rounded border border-border p-3 space-y-2 ">
+                                  <div key={side} className="bg-background-tertiary rounded p-3 space-y-2">
                                     <div className="flex items-center justify-between pb-1.5 border-b border-border-light">
                                       <div className="min-w-0 pr-1">
                                         <span className="text-xs font-semibold text-text-primary block truncate">{teamObj.name}</span>
                                         <span className="text-xs text-text-secondary">λ = {teamData.expected_goals} beklenen gol</span>
                                       </div>
                                       <div className="text-right shrink-0">
-                                        <span className="text-xs uppercase font-semibold tracking-wider text-text-tertiary block">Ana Çizgi</span>
-                                        <span className="text-xs font-mono font-semibold text-primary bg-background-tertiary px-1.5 py-0.5 rounded border border-primary">
+                                        <span className="text-xs font-semibold text-text-tertiary block">Ana Çizgi</span>
+                                        <span className="text-xs tabular-nums font-semibold text-primary bg-background-tertiary px-1.5 py-0.5 rounded border border-primary">
                                           {teamData.primary_line} Üst
                                         </span>
                                       </div>
@@ -162,14 +168,14 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                                             }`}
                                           >
                                             <div className="flex items-center gap-1.5">
-                                              <span className="font-mono font-semibold text-text-primary">{lineStr} Üst</span>
+                                              <span className="tabular-nums font-semibold text-text-primary">{lineStr} Üst</span>
                                               {isPrimary && (
-                                                <span className="text-xs bg-background-tertiary text-text-primary px-1 py-0.5 rounded font-semibold uppercase tracking-wider">
+                                                <span className="text-xs bg-background-tertiary text-text-primary px-1 py-0.5 rounded font-semibold">
                                                   Piyasa
                                                 </span>
                                               )}
                                             </div>
-                                            <div className="flex items-center gap-1.5 font-mono text-xs">
+                                            <div className="flex items-center gap-1.5 tabular-nums text-xs">
                                               <span className="text-status-success font-semibold">%{lineData.over_pct}</span>
                                               <span className="text-text-secondary font-medium">({lineData.fair_odds_over})</span>
                                               <span className="text-text-tertiary">|</span>
@@ -199,7 +205,7 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                             <span className="text-text-secondary text-xs">{homeTeam.short}: {prediction.corners.expected_home} • {awayTeam.short}: {prediction.corners.expected_away}</span>
                           </div>
                           <div className="text-right">
-                            <span className="font-mono font-semibold text-text-primary text-base">{prediction.corners.expected_total} korner</span>
+                            <span className="tabular-nums font-semibold text-text-primary text-base">{prediction.corners.expected_total} korner</span>
                             <span className="text-text-secondary text-xs block">9.5 Üst: %{prediction.corners.prob_over_9_5_pct}</span>
                           </div>
                         </div>
@@ -211,7 +217,7 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                             <span className="text-text-secondary text-xs">Hakem: {prediction.referee?.name || 'Belirtilmedi'} ({prediction.referee?.avg_cards || '4.0'} kart/m)</span>
                           </div>
                           <div className="text-right">
-                            <span className="font-mono font-semibold text-text-primary text-base">{prediction.cards?.expected_total || '4.2'} kart</span>
+                            <span className="tabular-nums font-semibold text-text-primary text-base">{prediction.cards?.expected_total || '4.2'} kart</span>
                             <span className="text-text-secondary text-xs block">3.5 Üst: %{prediction.cards?.prob_over_3_5_pct || '62.0'}</span>
                           </div>
                         </div>
@@ -223,7 +229,7 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                             <span className="text-text-secondary text-xs">Kurtarış: {homeTeam.short} ({prediction.saves.expected_home}) • {awayTeam.short} ({prediction.saves.expected_away})</span>
                           </div>
                           <div className="text-right">
-                            <span className="font-mono font-semibold text-text-primary text-base">{prediction.shots?.expected_total || '26.0'} şut</span>
+                            <span className="tabular-nums font-semibold text-text-primary text-base">{prediction.shots?.expected_total || '26.0'} şut</span>
                             <span className="text-text-secondary text-xs block">{prediction.saves.expected_total} kaleci kurtarışı</span>
                           </div>
                         </div>
@@ -235,7 +241,7 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                             <span className="text-text-secondary text-xs">Taktik: {(prediction.offsides?.expected_total || 3.3) >= 3.6 ? 'Yüksek Savunma Hattı' : 'Derin Blok Savunma'}</span>
                           </div>
                           <div className="text-right">
-                            <span className="font-mono font-semibold text-text-primary text-base">{prediction.throws.expected_total} taç</span>
+                            <span className="tabular-nums font-semibold text-text-primary text-base">{prediction.throws.expected_total} taç</span>
                             <span className="text-text-secondary text-xs block">{prediction.offsides?.expected_total || '3.3'} ofsayt</span>
                           </div>
                         </div>

@@ -1,7 +1,7 @@
 import { Activity, CheckCircle2, RotateCw } from 'lucide-react';
 import PlayerAvatar from '../PlayerAvatar';
 import { getPositionLabel } from './teamProfileUtils';
-import TeamTacticalMetric from './TeamTacticalMetric';
+import TeamTacticalMetric, { LOW_SAMPLE_MATCHES } from './TeamTacticalMetric';
 
 export default function TeamGameProfileSection({
   activeTeamTab,
@@ -22,65 +22,45 @@ export default function TeamGameProfileSection({
 }) {
   const compareWithLeague = key => {
     const metric = tacticalProfile?.metrics?.[key];
-    if (metric?.value == null || metric?.league_average == null) return null;
-    const difference = Number(metric.value) - Number(metric.league_average);
-    if (Math.abs(difference) < 0.05) return `${metric.label.toLocaleLowerCase('tr-TR')} lig ortalamasına yakın`;
-    const amount = formatNumber ? formatNumber(Math.abs(difference)) : Number(Math.abs(difference)).toFixed(1);
+    if (metric?.value == null || metric?.difference == null) return null;
+    const difference = Number(metric.difference);
     const label = metric.label.toLocaleLowerCase('tr-TR');
+    const tolerance = 0.5 * 10 ** -(metric.decimals ?? 1);
+    if (Math.abs(difference) < tolerance) return `${label} diğer takımların ortalamasına yakın`;
+    const amount = Math.abs(difference).toLocaleString('tr-TR', {
+      minimumFractionDigits: metric.decimals ?? 1,
+      maximumFractionDigits: metric.decimals ?? 1,
+    });
     if (metric.unit === 'PPDA') {
-      return `PPDA lig ortalamasından ${amount} ${difference < 0 ? 'düşük (daha yoğun pres göstergesi)' : 'yüksek (daha düşük pres yoğunluğu göstergesi)'}`;
+      return `PPDA diğer takımların ortalamasından ${amount} ${difference < 0 ? 'düşük (daha yoğun pres göstergesi)' : 'yüksek (daha düşük pres yoğunluğu göstergesi)'}`;
     }
     if (metric.unit === '%') {
-      return `${label}, lig ortalamasından ${amount} yüzde puan ${difference > 0 ? 'yüksek' : 'düşük'}`;
+      return `${label}, diğer takımların ortalamasından ${amount} yüzde puan ${difference > 0 ? 'yüksek' : 'düşük'}`;
     }
-    return `${label}, lig ortalamasından maç başına ${amount} ${difference > 0 ? 'fazla' : 'az'}`;
+    return `${label}, diğer takımların ortalamasından ${metric.unit} ${amount} ${difference > 0 ? 'fazla' : 'az'}`;
+  };
+
+  const TAB_NOTES = {
+    general: 'Bu ölçüler topu ne kadar tuttuğunu ve pasların ne kadarının ileri bölgeye yöneldiğini anlatır; tek başına hücum başarısı veya maç sonucu göstermez.',
+    attack: 'Son bölgeye giriş ve ceza sahası erişimi hücum alanına ulaşmayı, şut sayısı üretim hacmini gösterir. xG şutların konum ve türüne göre kalitesini hesaba katar; yine de gerçek golü garanti etmez.',
+    passing: 'İsabet kartları başarılı pasların tüm denemelere oranını gösterir; hedef oyuncuyu, pasın saha içindeki noktasını veya oluşan fırsatın kalitesini göstermez.',
+    'set-pieces': 'Bu ölçüler korner hacmini ve tercihini anlatır; ceza sahasına gönderilen topların isabetini veya oluşturduğu şut ve gol sayısını göstermez.',
+    defense: 'İzin verilen şut ve xGA rakibin ürettiği tehlikeyi, ceza sahası içi payı şutların nereden geldiğini gösterir. PPDA düşükse baskı yoğundur; top kazanımları topun nerede geri alındığını anlatır.',
+    losses: 'Maç başı kayıp sayısı topa sahip olan takımda doğal olarak artar. 100 dokunuş başına oran bu hacmi dengeler; ikisi birlikte okunmalıdır.',
+    discipline: 'Faul ve kart sayıları oyun biçiminden ve hakem eğiliminden etkilenir; tek başına savunma kalitesini göstermez.',
   };
 
   const teamComment = () => {
     const name = tacticalProfile?.team_name || 'Takım';
-    if (activeTacticalTab === 'general') {
-      const possession = compareWithLeague('possession');
-      const forwardPasses = compareWithLeague('forward_pass_share');
-      if (!possession && !forwardPasses) return 'Karşılaştırmalı yorum için henüz yeterli veri yok.';
-      return `${name} için ${[possession, forwardPasses].filter(Boolean).join('; ')}. Bu iki ölçü topu ne kadar tuttuğunu ve pasların ne kadarının ileri bölgeye yöneldiğini anlatır; tek başına hücum başarısı veya maç sonucu göstermez.`;
-    }
-    if (activeTacticalTab === 'attack') {
-      const boxTouches = compareWithLeague('opposition_box_touches');
-      const entries = compareWithLeague('final_third_entries');
-      const shots = compareWithLeague('shots_per_match');
-      const onTarget = compareWithLeague('shots_on_target_share');
-      const passAccuracy = compareWithLeague('final_third_pass_accuracy');
-      const observations = [entries, boxTouches, shots, onTarget, passAccuracy].filter(Boolean);
-      if (!observations.length) return 'Karşılaştırmalı yorum için henüz yeterli veri yok.';
-      return `${name} için ${observations.join('; ')}. Son bölgeye giriş ve ceza sahası dokunuşu hücum alanına erişimi, şut sayısı üretim hacmini gösterir. Son bölge pas isabeti tamamlanan pasların; isabetli şut oranı ise kaleyi bulan şutların payıdır. Bu ölçüler şut kalitesini veya gol beklentisini tek başına göstermez.`;
-    }
-    if (activeTacticalTab === 'passing') {
-      const longPassShare = compareWithLeague('long_ball_share');
-      const crosses = compareWithLeague('crosses_per_match');
-      const observations = [longPassShare, crosses].filter(Boolean);
-      if (!observations.length) return 'Karşılaştırmalı yorum için henüz yeterli veri yok.';
-      return `${name} için ${observations.join('; ')}. İsabet kartları başarılı pasların tüm denemelere oranını gösterir; hedef oyuncuyu, pasın saha içindeki noktasını veya oluşan fırsatın kalitesini göstermez.`;
-    }
-    if (activeTacticalTab === 'set-pieces') {
-      const corners = compareWithLeague('corners_into_box_share');
-      if (!corners) return 'Karşılaştırmalı yorum için henüz yeterli veri yok.';
-      return `${name} için ${corners}. Bu oran korner tercihini anlatır; ceza sahasına gönderilen topların isabetini veya oluşturduğu şut ve gol sayısını göstermez.`;
-    }
-    if (activeTacticalTab === 'defense') {
-      const shotsConceded = compareWithLeague('shots_conceded_per_match');
-      const ppda = compareWithLeague('pressing_intensity');
-      const attackingThird = compareWithLeague('attacking_third_recoveries');
-      const aerialDuels = compareWithLeague('aerial_duel_success');
-      const observations = [shotsConceded, ppda, attackingThird, aerialDuels].filter(Boolean);
-      if (!observations.length) return 'Karşılaştırmalı yorum için henüz yeterli veri yok.';
-      return `${name} için ${observations.join('; ')}. İzin verilen şut kaleye gelen toplam şut hacmini, PPDA düşükse baskının yoğunluğunu; hücum bölgesindeki top kazanımları topun nerede geri alındığını, hava topu oranı ise bu mücadelelerin ne kadarının kazanıldığını gösterir.`;
-    }
-    if (activeTacticalTab === 'losses') {
-      const totalLosses = compareWithLeague('possession_losses');
-      const controlledLosses = compareWithLeague('controlled_possession_losses');
-      const observations = [totalLosses, controlledLosses].filter(Boolean);
-      if (!observations.length) return 'Karşılaştırmalı yorum için henüz yeterli veri yok.';
-      return `${name} için ${observations.join('; ')}. Bunlar maç içindeki kayıp aksiyonlarının sayısıdır; daha çok topa sahip olan veya daha çok pas yapan takımda bu sayı da artabilir. Bu yüzden tek başına hata oranı olarak okunmamalıdır.`;
+    if (activeTacticalTab !== 'game-state') {
+      // Surface the metrics that sit farthest from the middle of the league.
+      const highlights = (activeTab?.keys || [])
+        .map(key => ({ metric: tacticalProfile?.metrics?.[key], text: compareWithLeague(key) }))
+        .filter(item => item.text)
+        .sort((a, b) => Math.abs((b.metric.percentile ?? 50) - 50) - Math.abs((a.metric.percentile ?? 50) - 50))
+        .slice(0, 3);
+      if (!highlights.length) return 'Karşılaştırmalı yorum için henüz yeterli veri yok.';
+      return `${name} için öne çıkanlar: ${highlights.map(item => item.text).join('; ')}. ${TAB_NOTES[activeTacticalTab] || ''}`.trim();
     }
 
     const stateNames = { level: 'skor eşitken', leading: 'öndeyken', trailing: 'gerideyken' };
@@ -112,7 +92,7 @@ export default function TeamGameProfileSection({
     <>
       {/* TAB: OYUN PROFİLİ & ANALİZ */}
       {activeTeamTab === 'profile' && (
-        <section className="bg-background-primary border border-border rounded p-5 ">
+        <section className="bg-background-primary border border-border rounded p-5">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 pb-3 border-b border-border-light">
           <div>
             <div className="flex items-center gap-2">
@@ -139,13 +119,13 @@ export default function TeamGameProfileSection({
               onClick={handleManualRefresh}
               disabled={isRefreshing}
               title="Sunucudan en güncel veriyi çek ve önbelleği yenile"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-text-secondary hover:text-slate-950 bg-background-tertiary hover:bg-background-tertiary border border-border hover:border-slate-300 rounded transition-all  disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-text-secondary hover:text-text-primary bg-background-tertiary hover:bg-background-tertiary border border-border hover:border-border rounded transition-all disabled:opacity-50"
             >
               <RotateCw className={`w-3.5 h-3.5 text-text-secondary ${isRefreshing ? 'animate-spin text-status-success' : ''}`} />
               <span>{isRefreshing ? 'Yenileniyor...' : 'Yenile'}</span>
             </button>
             {tacticalProfile?.matches > 0 && activeTacticalTab !== 'game-state' && (
-              <span className="text-xs text-text-secondary font-mono font-medium whitespace-nowrap bg-background-tertiary px-2.5 py-1 rounded border border-border">
+              <span className="text-xs text-text-secondary tabular-nums font-medium whitespace-nowrap bg-background-tertiary px-2.5 py-1 rounded border border-border">
                 {tacticalProfile.matches} maç
               </span>
             )}
@@ -162,9 +142,9 @@ export default function TeamGameProfileSection({
               aria-selected={activeTacticalTab === tab.id}
               aria-controls="team-profile-tabpanel"
               onClick={() => setActiveTacticalTab(tab.id)}
-              className={`px-3 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors ${
+              className={`px-3 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors ${
                 activeTacticalTab === tab.id
-                  ? 'border-slate-800 text-text-primary'
+                  ? 'border-border text-text-primary'
                   : 'border-transparent text-text-secondary hover:text-text-primary'
               }`}
             >
@@ -182,11 +162,11 @@ export default function TeamGameProfileSection({
           ) : (
             <div>
               <div className="rounded border border-border bg-background-tertiary p-4 mb-4">
-                <p className="text-xs uppercase tracking-wide font-bold text-text-secondary mb-1">Takım yorumu</p>
+                <p className="text-xs font-semibold text-text-secondary mb-1">Takım yorumu</p>
                 <p className="text-xs leading-5 text-text-secondary">{teamComment()}</p>
                 <p className="text-xs leading-4 text-text-secondary mt-2">Oranlar ilgili skor durumunda oynanan dakikalar 90 dakikaya ölçeklenerek hesaplanır. Karşılaştırma için en az 90 dakika gerekir; yüksek tempo tek başına etkinlik veya neden göstermez.</p>
               </div>
-              <h4 className="text-xs font-bold text-text-secondary mb-2">{activeTab.title}</h4>
+              <h4 className="text-xs font-semibold text-text-secondary mb-2">{activeTab.title}</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {[
                   ['level', 'Skor eşit'],
@@ -197,8 +177,8 @@ export default function TeamGameProfileSection({
                   return (
                     <div key={key} className="rounded border border-border bg-background-tertiary/60 p-4">
                       <div className="flex items-center justify-between gap-2">
-                        <h5 className="text-xs font-bold text-text-primary">{label}</h5>
-                        <span className="text-xs font-mono text-text-muted">{formatNumber(state?.minutes || 0)} dk</span>
+                        <h5 className="text-xs font-semibold text-text-primary">{label}</h5>
+                        <span className="text-xs tabular-nums text-text-muted">{formatNumber(state?.minutes || 0)} dk</span>
                       </div>
                       <div className="grid grid-cols-2 gap-3 mt-4">
                         {[
@@ -209,7 +189,7 @@ export default function TeamGameProfileSection({
                           const qualified = state?.[`${rateKey}_qualified`];
                           return (
                             <div key={type}>
-                              <p className="text-xs uppercase tracking-wide font-bold text-text-secondary">{metricLabel} / 90 dk</p>
+                              <p className="text-xs font-semibold text-text-secondary">{metricLabel} / 90 dk</p>
                               {qualified ? (
                                 <>
                                   <p className="text-xl font-semibold text-text-primary mt-1">{formatNumber(state[rateKey])}</p>
@@ -235,15 +215,34 @@ export default function TeamGameProfileSection({
         ) : (
           <div>
             <div className="rounded border border-border bg-background-tertiary p-4 mb-4">
-              <p className="text-xs uppercase tracking-wide font-bold text-text-secondary mb-1">Takım yorumu</p>
+              <p className="text-xs font-semibold text-text-secondary mb-1">Takım yorumu</p>
               <p className="text-xs leading-5 text-text-secondary">{teamComment()}</p>
+              {tacticalProfile.matches < LOW_SAMPLE_MATCHES && (
+                <p className="text-xs leading-4 text-status-warning mt-2">
+                  Seçili dönemde yalnızca {tacticalProfile.matches} maç var; karşılaştırmalar değişken olabilir.
+                </p>
+              )}
               <p className="text-xs leading-4 text-text-secondary mt-2">
                 {activeTab.explanation} “Lig p80”, değerin lig takımlarının yaklaşık %80’inden yüksek olduğu yüzdelik dilimi anlatır. Yüksek yüzdelik her metrikte daha iyi performans demek değildir.
                 {activeTacticalTab === 'defense' && ' PPDA yalnızca takım ve lig verisi en az %80 kapsandığında hesaplanır. PPDA yüzdeliği ham değerin sırasıdır; düşük PPDA daha yoğun pres anlamına gelir.'}
               </p>
             </div>
-            <h4 className="text-xs font-bold text-text-secondary mb-2">{activeTab.title}</h4>
+            <h4 className="text-xs font-semibold text-text-secondary mb-2">{activeTab.title}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+              {activeTacticalTab === 'general' && tacticalProfile.formations?.length > 0 && (
+                <div className="rounded border border-border bg-background-primary p-4 transition-colors hover:border-card-border-hover">
+                  <p className="text-xs font-semibold leading-4 text-text-secondary">Kullanılan diziliş</p>
+                  <ul className="mt-3 space-y-1.5">
+                    {tacticalProfile.formations.map(item => (
+                      <li key={item.formation} className="flex items-baseline justify-between gap-2">
+                        <span className="text-2xl font-semibold leading-none tracking-tight tabular-nums text-text-primary">{item.formation}</span>
+                        <span className="text-xs text-text-secondary tabular-nums">{item.matches}/{tacticalProfile.matches} maç</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-xs leading-4 text-text-muted">Maça başlanan diziliş; maç içi değişiklikleri göstermez.</p>
+                </div>
+              )}
               {activeTab.keys.map(key => (
                 <TeamTacticalMetric key={key} metric={tacticalProfile.metrics?.[key]} totalMatches={tacticalProfile.matches} />
               ))}
@@ -251,7 +250,7 @@ export default function TeamGameProfileSection({
             {activeTacticalTab === 'attack' && (
               <section className="mt-6 border-t border-border pt-5" aria-labelledby="team-attacking-leaders-title">
                 <div className="mb-3">
-                  <h4 id="team-attacking-leaders-title" className="text-sm font-bold text-text-primary">Ofansif reytingde öne çıkan 3 oyuncu</h4>
+                  <h4 id="team-attacking-leaders-title" className="text-sm font-semibold text-text-primary">Ofansif reytingde öne çıkan 3 oyuncu</h4>
                   <p className="mt-1 text-xs leading-4 text-text-secondary">
                     Reyting; 90 dakika başına şut pası, şut, asist ve gol oranlarının takım içindeki en yüksek oranlara göre eşit ağırlıklı puanıdır. En az 180 dakika oynayanlar sıralanır.
                   </p>
@@ -276,15 +275,15 @@ export default function TeamGameProfileSection({
                               className="border-border bg-background-tertiary shrink-0"
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-bold text-text-primary" title={player.name}>{player.name}</p>
+                              <p className="truncate text-xs font-semibold text-text-primary" title={player.name}>{player.name}</p>
                               <p className="mt-0.5 text-xs text-text-secondary">{getPositionLabel(player.position)} · {player.appearances} maç · {formatNumber(player.minutes)} dk</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Reyting /100</p>
+                              <p className="text-xs font-semibold text-text-muted">Reyting /100</p>
                               <p className="text-xl font-semibold tabular-nums text-text-primary">{formatNumber(player.rating)}</p>
                             </div>
                           </div>
-                          <div className="mt-4 grid grid-cols-4 divide-x divide-slate-200 border-t border-border-light pt-3">
+                          <div className="mt-4 grid grid-cols-4 divide-x divide-border border-t border-border-light pt-3">
                             {[
                               ['Şut pası', player.shot_assists],
                               ['Şut', player.shots],

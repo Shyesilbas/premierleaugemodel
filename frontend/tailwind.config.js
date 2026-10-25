@@ -14,7 +14,8 @@ export default {
         text: { primary: '#0f172a', secondary: '#475569', tertiary: '#64748b', muted: '#94a3b8' },
         border: { DEFAULT: '#e2e8f0', light: '#f1f5f9', focus: '#0f172a' },
         'card-border-hover': '#cbd5e1',
-        status: { success: '#047857', error: '#b91c1c', warning: '#b45309', info: '#1d4ed8' },
+        pitch: '#1d6b3a',
+        status: { success: '#047857', error: '#b91c1c', warning: '#b45309', info: '#1d4ed8', draw: '#facc15' },
         pl: {
           dark: '#05070c',
           card: '#0c101a',
@@ -26,6 +27,14 @@ export default {
           pink: '#e90052',
           yellow: '#ffdc00',
         }
+      },
+      aspectRatio: {
+        pitch: '3 / 4',
+        'pitch-wide': '4 / 3',
+      },
+      gridTemplateColumns: {
+        versus: '1fr auto 1fr',
+        'manager-table': 'minmax(9rem, 1.5fr) repeat(6, minmax(3.25rem, 1fr))',
       },
       fontFamily: {
         sans: ['Outfit', 'Inter', 'sans-serif'],

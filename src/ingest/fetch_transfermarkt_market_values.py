@@ -19,7 +19,8 @@ logger = logging.getLogger("fetch_tm_market_values")
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
-from src.config import DB_PATH, PROCESSED_DIR, configure_logging  # noqa: E402
+from src.config import PROCESSED_DIR, configure_logging  # noqa: E402
+from src.db.database import get_db  # noqa: E402
 
 JSON_OUT_PATH = PROCESSED_DIR / "market_values_2026_27.json"
 
@@ -208,7 +209,7 @@ def fetch_historical_seasons_market_values(conn: sqlite3.Connection) -> int:
 
 def run_pipeline() -> None:
     logger.info("Starting Transfermarkt market values ingestion for 2026_27 season...")
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     init_market_value_tables(conn)
 
     # 1. Fetch Historical Seasons (2022-2026)

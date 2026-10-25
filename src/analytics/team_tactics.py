@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import json
 import re
-from collections import defaultdict
+import sqlite3
+from collections import Counter, defaultdict
 from functools import lru_cache
 from typing import Any
 
 
-from src.config import MATCHES_RAW_DIR as RAW_MATCHES
+from src.config import DB_PATH, MATCHES_RAW_DIR as RAW_MATCHES
 
 TACTICAL_METRICS = {
     "possession": {
@@ -51,15 +52,10 @@ TACTICAL_METRICS = {
         "unit": "PPDA",
         "description": "Rakibin savunma aksiyonu başına yaptığı pas sayısıdır. Düşük PPDA daha yoğun baskıya işaret eder; yalnızca yeterli veri kapsamı olan dönemlerde gösterilir.",
     },
-    "outside_box_shot_share": {
-        "label": "Ceza sahası dışı şut payı",
-        "unit": "%",
-        "description": "Ceza sahası dışı şutların tüm şutlar içindeki payı.",
-    },
     "inside_box_shot_share": {
         "label": "Ceza sahası içi şut payı",
         "unit": "%",
-        "description": "Ceza sahası içinden çekilen şutların tüm şutlar içindeki payı. Şut konumunu gösterir; şut kalitesini göstermez.",
+        "description": "Ceza sahası içinden çekilen şutların tüm şutlar içindeki payı; kalan pay ceza sahası dışındandır. Şut konumunu gösterir; şut kalitesini göstermez.",
     },
     "shots_per_match": {
         "label": "Şut",
@@ -80,11 +76,6 @@ TACTICAL_METRICS = {
         "label": "Rakip ceza sahası dokunuşu",
         "unit": "maç başına",
         "description": "Maç başına rakip ceza sahasında yapılan dokunuş sayısı.",
-    },
-    "final_third_passes": {
-        "label": "Son bölgede pas",
-        "unit": "maç başına",
-        "description": "Maç başına son hücum bölgesinde denenen pas sayısı.",
     },
     "final_third_pass_accuracy": {
         "label": "Son bölge pas isabeti",
@@ -111,20 +102,10 @@ TACTICAL_METRICS = {
         "unit": "%",
         "description": "İsabetli ortaların toplam orta denemelerine oranı.",
     },
-    "ball_recoveries": {
-        "label": "Topu geri kazanma",
-        "unit": "maç başına",
-        "description": "Maç başına topun yeniden kazanıldığı aksiyon sayısı.",
-    },
     "possession_losses": {
         "label": "Top kaybı (tüm türler)",
         "unit": "maç başına",
-        "description": "Kaynak istatistikteki poss_lost_all değeri, maç başına. Topa sahip olma ve aksiyon hacmiyle birlikte okunmalıdır.",
-    },
-    "controlled_possession_losses": {
-        "label": "Kontrollü top kaybı",
-        "unit": "maç başına",
-        "description": "Kaynak istatistikteki poss_lost_ctrl değeri, maç başına. Tek başına pas hatası sayısı olarak yorumlanmamalıdır.",
+        "description": "Maç başına tüm top kaybı aksiyonları (kontrollü kayıplar dahil). Topa sahip olan takımda doğal olarak artar; oransal karşılığı için 100 dokunuş başına kayba bakın.",
     },
     "interceptions": {
         "label": "Pas arası",
@@ -150,6 +131,55 @@ TACTICAL_METRICS = {
         "label": "İzin verilen şut",
         "unit": "maç başına",
         "description": "Maç başına rakibe izin verilen toplam şut sayısı.",
+    },
+    "losses_per_100_touches": {
+        "label": "Top kaybı (100 dokunuşta)",
+        "unit": "100 dokunuş başına",
+        "description": "Her 100 topla buluşmada yaşanan top kaybı sayısı. Maç başı sayıdan farklı olarak topa sahip olma hacmine göre ölçeklenir.",
+    },
+    "xg_per_match": {
+        "label": "Beklenen gol (xG)",
+        "unit": "maç başına",
+        "decimals": 2,
+        "description": "Harici sağlayıcının şut bazlı beklenen gol toplamı, maç başına. Şut kalitesini hesaba katar; gerçek golle birebir örtüşmez.",
+    },
+    "xga_per_match": {
+        "label": "Beklenen gol yenilen (xGA)",
+        "unit": "maç başına",
+        "decimals": 2,
+        "description": "Rakibin maç başına ürettiği beklenen gol. Düşük değer, rakibe daha az kaliteli pozisyon verildiğine işaret eder.",
+    },
+    "xg_per_shot": {
+        "label": "Şut başına xG",
+        "unit": "şut başına",
+        "decimals": 2,
+        "description": "Takımın xG toplamının toplam şut sayısına oranı. Yüksek değer daha kaliteli konumlardan şut çekildiğini gösterir.",
+    },
+    "pen_area_entries": {
+        "label": "Ceza sahasına giriş",
+        "unit": "maç başına",
+        "description": "Maç başına rakip ceza sahasına yapılan giriş sayısı. Ceza sahası dokunuşundan farklı olarak her girişi bir kez sayar.",
+    },
+    "conceded_inside_box_share": {
+        "label": "Ceza sahası içi izin verilen şut payı",
+        "unit": "%",
+        "description": "Rakibin çektiği şutların ceza sahası içinden gelen payı. Yüksek oran, rakibe daha yakın mesafeden şut izni verildiğini gösterir.",
+    },
+    "corners_won_per_match": {
+        "label": "Kazanılan korner",
+        "unit": "maç başına",
+        "description": "Maç başına kazanılan korner sayısı.",
+    },
+    "fouls_committed": {
+        "label": "Yapılan faul",
+        "unit": "maç başına",
+        "description": "Maç başına yapılan faul sayısı.",
+    },
+    "yellow_cards": {
+        "label": "Sarı kart",
+        "unit": "maç başına",
+        "decimals": 2,
+        "description": "Maç başına görülen sarı kart. Kaynakta kart görülmeyen maçlar kayıtsız bırakıldığından bu maçlar sıfır sayılır.",
     },
 }
 
@@ -219,7 +249,32 @@ def load_team_match_rows() -> tuple[dict[int, list[dict[str, Any]]], dict[int, s
                 }
             )
 
+    _attach_xg(by_team)
     return dict(by_team), team_names
+
+
+def _attach_xg(by_team: dict[int, list[dict[str, Any]]]) -> None:
+    """Attach provider xG (own and opponent) to team-match rows when the DB has it."""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            xg_rows = conn.execute(
+                """
+                SELECT m.match_id, m.home_id, m.away_id, x.home_xg, x.away_xg
+                FROM external_match_xg x JOIN matches m ON m.match_id = x.match_id
+                WHERE x.xg_quality = 'full'
+                """
+            ).fetchall()
+    except sqlite3.Error:
+        return
+    xg_by_team_match: dict[tuple[int, int], tuple[float, float]] = {}
+    for match_id, home_id, away_id, home_xg, away_xg in xg_rows:
+        xg_by_team_match[(match_id, home_id)] = (home_xg, away_xg)
+        xg_by_team_match[(match_id, away_id)] = (away_xg, home_xg)
+    for team_id, rows in by_team.items():
+        for row in rows:
+            pair = xg_by_team_match.get((row["match_id"], team_id))
+            if pair is not None:
+                row["metrics"]["xg_for"], row["metrics"]["xg_against"] = pair
 
 
 def _number(value: Any) -> float | None:
@@ -229,15 +284,20 @@ def _number(value: Any) -> float | None:
         return None
 
 
-def _safe_shot_split(metrics: dict[str, Any]) -> tuple[float, float, float] | None:
+def _safe_shot_split(
+    metrics: dict[str, Any],
+    total_key: str = "total_scoring_att",
+    inside_key: str = "attempts_ibox",
+    outside_key: str = "attempts_obox",
+) -> tuple[float, float, float] | None:
     """Return (inside, outside, total) when the raw shot split is consistent.
 
     A missing side is inferred as zero only if the other side exactly equals
     the reported total. When both sides exist, they must add to the total.
     """
-    total = _number(metrics.get("total_scoring_att"))
-    inside = _number(metrics.get("attempts_ibox"))
-    outside = _number(metrics.get("attempts_obox"))
+    total = _number(metrics.get(total_key))
+    inside = _number(metrics.get(inside_key))
+    outside = _number(metrics.get(outside_key))
     if total is None:
         return None
     if inside is None and outside is not None and outside == total:
@@ -258,7 +318,7 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
     defensive_third_wins: list[float] = []
     attacking_third_wins: list[float] = []
     ppda_values: list[float] = []
-    obox_shots = total_shots = 0.0
+    total_shots = 0.0
     shot_split_matches = 0
     inside_shots = 0.0
     total_shot_attempts = 0.0
@@ -276,9 +336,7 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
     crosses_per_match: list[float] = []
     accurate_crosses = total_crosses = 0.0
     cross_accuracy_matches = 0
-    ball_recoveries: list[float] = []
     possession_losses: list[float] = []
-    controlled_possession_losses: list[float] = []
     interceptions: list[float] = []
     tackles_won = tackles_total = 0.0
     tackle_matches = 0
@@ -287,6 +345,18 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
     clearances: list[float] = []
     total_shots_conceded = 0.0
     total_shots_conceded_matches = 0
+    conceded_inside = conceded_split_total = 0.0
+    conceded_split_matches = 0
+    losses_for_rate = touches_for_rate = 0.0
+    loss_rate_matches = 0
+    xg_for: list[float] = []
+    xg_against: list[float] = []
+    xg_shot_total = xg_shot_attempts = 0.0
+    xg_shot_matches = 0
+    box_entries: list[float] = []
+    corners_won_values: list[float] = []
+    fouls: list[float] = []
+    yellow_cards: list[float] = []
 
     for row in rows:
         metrics = row["metrics"]
@@ -321,7 +391,6 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
         if split is not None:
             inside, outside, total = split
             inside_shots += inside
-            obox_shots += outside
             total_shots += total
             shot_split_matches += 1
 
@@ -397,15 +466,15 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
             total_crosses += total_cross
             cross_accuracy_matches += 1
 
-        value = _number(metrics.get("ball_recovery"))
-        if value is not None:
-            ball_recoveries.append(value)
         value = _number(metrics.get("poss_lost_all"))
         if value is not None:
             possession_losses.append(value)
-        value = _number(metrics.get("poss_lost_ctrl"))
-        if value is not None:
-            controlled_possession_losses.append(value)
+        lost_all = _number(metrics.get("poss_lost_all"))
+        touches = _number(metrics.get("touches"))
+        if lost_all is not None and touches is not None and lost_all >= 0 and touches > 0:
+            losses_for_rate += lost_all
+            touches_for_rate += touches
+            loss_rate_matches += 1
         value = _number(metrics.get("interception"))
         if value is not None:
             interceptions.append(value)
@@ -440,6 +509,40 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
         if conceded is not None and conceded >= 0:
             total_shots_conceded += conceded
             total_shots_conceded_matches += 1
+        conceded_split = _safe_shot_split(
+            metrics,
+            total_key="shots_conceded",
+            inside_key="attempts_conceded_ibox",
+            outside_key="attempts_conceded_obox",
+        )
+        if conceded_split is not None:
+            conceded_inside += conceded_split[0]
+            conceded_split_total += conceded_split[2]
+            conceded_split_matches += 1
+
+        value = _number(metrics.get("xg_for"))
+        if value is not None and value >= 0:
+            xg_for.append(value)
+            if total_attempts is not None and total_attempts > 0:
+                xg_shot_total += value
+                xg_shot_attempts += total_attempts
+                xg_shot_matches += 1
+        value = _number(metrics.get("xg_against"))
+        if value is not None and value >= 0:
+            xg_against.append(value)
+
+        value = _number(metrics.get("pen_area_entries"))
+        if value is not None and value >= 0:
+            box_entries.append(value)
+        value = _number(metrics.get("won_corners"))
+        if value is not None and value >= 0:
+            corners_won_values.append(value)
+        value = _number(metrics.get("fk_foul_lost"))
+        if value is not None and value >= 0:
+            fouls.append(value)
+        # Opta omits the card key in matches without a card; DB match cards confirm
+        # that absence means zero for 448 of 457 such team-matches.
+        yellow_cards.append(_number(metrics.get("total_yel_card")) or 0.0)
 
     def mean(values: list[float]) -> float | None:
         return sum(values) / len(values) if values else None
@@ -455,10 +558,6 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
         "defensive_third_recoveries": (mean(defensive_third_wins), len(defensive_third_wins)),
         "attacking_third_recoveries": (mean(attacking_third_wins), len(attacking_third_wins)),
         "pressing_intensity": (mean(ppda_values), len(ppda_values)),
-        "outside_box_shot_share": (
-            obox_shots / total_shots * 100 if total_shots else None,
-            shot_split_matches,
-        ),
         "inside_box_shot_share": (
             inside_shots / total_shots * 100 if total_shots else None,
             shot_split_matches,
@@ -476,10 +575,6 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
             corner_matches,
         ),
         "opposition_box_touches": (mean(box_touches), len(box_touches)),
-        "final_third_passes": (
-            final_third_passes / final_third_pass_matches if final_third_pass_matches else None,
-            final_third_pass_matches,
-        ),
         "final_third_pass_accuracy": (
             final_third_accurate_passes / final_third_passes * 100 if final_third_passes else None,
             final_third_pass_matches,
@@ -497,9 +592,25 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
             accurate_crosses / total_crosses * 100 if total_crosses else None,
             cross_accuracy_matches,
         ),
-        "ball_recoveries": (mean(ball_recoveries), len(ball_recoveries)),
         "possession_losses": (mean(possession_losses), len(possession_losses)),
-        "controlled_possession_losses": (mean(controlled_possession_losses), len(controlled_possession_losses)),
+        "losses_per_100_touches": (
+            losses_for_rate / touches_for_rate * 100 if touches_for_rate else None,
+            loss_rate_matches,
+        ),
+        "xg_per_match": (mean(xg_for), len(xg_for)),
+        "xga_per_match": (mean(xg_against), len(xg_against)),
+        "xg_per_shot": (
+            xg_shot_total / xg_shot_attempts if xg_shot_attempts else None,
+            xg_shot_matches,
+        ),
+        "pen_area_entries": (mean(box_entries), len(box_entries)),
+        "conceded_inside_box_share": (
+            conceded_inside / conceded_split_total * 100 if conceded_split_total else None,
+            conceded_split_matches,
+        ),
+        "corners_won_per_match": (mean(corners_won_values), len(corners_won_values)),
+        "fouls_committed": (mean(fouls), len(fouls)),
+        "yellow_cards": (mean(yellow_cards), len(yellow_cards)),
         "interceptions": (mean(interceptions), len(interceptions)),
         "tackle_success": (tackles_won / tackles_total * 100 if tackles_total else None, tackle_matches),
         "aerial_duel_success": (
@@ -526,6 +637,19 @@ def _percentile(value: float | None, comparison: list[float]) -> int | None:
     below = sum(candidate < value for candidate in comparison)
     equal = sum(candidate == value for candidate in comparison)
     return round((below + equal / 2) / len(comparison) * 100)
+
+
+def _formation_usage(rows: list[dict[str, Any]], limit: int = 3) -> list[dict[str, Any]]:
+    """Most used starting formations, e.g. 4231 -> "4-2-3-1"."""
+    counts: Counter[str] = Counter()
+    for row in rows:
+        code = _number(row["metrics"].get("formation_used"))
+        if code is not None and code > 0:
+            counts["-".join(str(int(code)))] += 1
+    return [
+        {"formation": formation, "matches": count}
+        for formation, count in counts.most_common(limit)
+    ]
 
 
 @lru_cache(maxsize=128)
@@ -562,8 +686,17 @@ def get_team_tactical_profile(team_id: int, season: str = "all") -> dict[str, An
         if rows
     }
 
+    # The team is excluded from its own league comparison so the average and the
+    # percentile describe how it differs from the other clubs.
+    other_league_values = {
+        other_id: aggregate
+        for other_id, aggregate in league_values.items()
+        if other_id != team_id
+    }
+
     response_metrics: dict[str, dict[str, Any]] = {}
     for key, definition in TACTICAL_METRICS.items():
+        decimals = definition.get("decimals", 1)
         value = team_values[key]["value"]
         league_coverage_pct = None
         if key == "pressing_intensity":
@@ -572,7 +705,7 @@ def get_team_tactical_profile(team_id: int, season: str = "all") -> dict[str, An
             team_coverage = team_values[key]["matches"] / team_row_count if team_row_count else 0
             eligible = {
                 other_id: aggregate
-                for other_id, aggregate in league_values.items()
+                for other_id, aggregate in other_league_values.items()
                 if aggregate[key]["matches"] / len(league_rows_by_team[other_id]) >= 0.8
             }
             total_league_rows = sum(len(rows) for rows in league_rows_by_team.values())
@@ -590,13 +723,18 @@ def get_team_tactical_profile(team_id: int, season: str = "all") -> dict[str, An
         else:
             comparison = [
                 float(aggregate[key]["value"])
-                for aggregate in league_values.values()
+                for aggregate in other_league_values.values()
                 if aggregate[key]["value"] is not None
             ]
         response_metrics[key] = {
             **definition,
-            "value": round(float(value), 1) if value is not None else None,
-            "league_average": round(sum(comparison) / len(comparison), 1) if comparison else None,
+            "value": round(float(value), decimals) if value is not None else None,
+            "league_average": round(sum(comparison) / len(comparison), decimals) if comparison else None,
+            "difference": (
+                round(float(value) - sum(comparison) / len(comparison), 3)
+                if value is not None and comparison
+                else None
+            ),
             "percentile": _percentile(float(value), comparison) if value is not None else None,
             "matches": int(team_values[key]["matches"]),
             "coverage_pct": round(team_values[key]["matches"] / team_row_count * 100, 1) if team_row_count else 0.0,
@@ -609,5 +747,6 @@ def get_team_tactical_profile(team_id: int, season: str = "all") -> dict[str, An
         "team_name": team_names.get(team_id),
         "season": season,
         "matches": len({row["match_id"] for row in selected}),
+        "formations": _formation_usage(selected),
         "metrics": response_metrics,
     }

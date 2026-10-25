@@ -1,223 +1,157 @@
-import { ArrowLeft, Calendar, CheckCircle2, Clock, MapPin, RotateCw, Scale, Users } from 'lucide-react';
+import { ArrowLeft, RotateCw } from 'lucide-react';
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
 import TeamForm from '../TeamForm';
 import { RedCardIcon } from './eventIcons';
 
-export default function MatchScoreboard({ match, homeTeam, awayTeam, homeManager, awayManager, isCompleted, loading, meta, homeRedCards, awayRedCards, homeGoals, awayGoals, recentForm, onBack, onRefresh }) {
+const formatXg = (value) => (value != null ? Number(value).toFixed(2) : '-');
+
+function RedCardBadge({ count, teamName }) {
+  if (!count) return null;
   return (
-    <>
-      {/* Top Navigation & Context Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-background-primary p-3.5 sm:p-4 rounded border border-border ">
-            
-            {/* Back Button & Breadcrumbs */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={onBack}
-                className="inline-flex items-center gap-2 px-3 h-9 rounded border border-border bg-background-primary hover:bg-background-tertiary text-text-primary font-medium text-sm transition-colors cursor-pointer group"
-              >
-                <ArrowLeft className="w-4 h-4 " />
-                <span>Fikstüre Dön</span>
-              </button>
+    <span
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm border border-status-error bg-background-primary"
+      title={`${teamName} - ${count} Kırmızı Kart`}
+    >
+      <RedCardIcon className="w-3 h-4" />
+      {count > 1 && <span className="text-xs font-semibold tabular-nums text-status-error">x{count}</span>}
+    </span>
+  );
+}
 
-              <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary font-medium">
-                <span className="font-semibold text-text-primary">Premier League</span>
-                <span>/</span>
-                <span>{match.gameweek ? `${match.gameweek}. Hafta` : 'Maç Detayı'}</span>
-                <span>/</span>
-                <span className="font-semibold text-text-primary">{homeTeam.short} vs {awayTeam.short}</span>
-              </div>
-            </div>
+function TeamBlock({ team, manager, form, redCards, side }) {
+  const isAway = side === 'away';
+  return (
+    <div className={`flex flex-1 min-w-0 items-center gap-3 ${isAway ? 'flex-row-reverse text-right' : ''}`}>
+      <img
+        src={team.badge}
+        alt=""
+        className="w-10 h-10 object-contain shrink-0"
+        onError={handleTeamBadgeError}
+      />
+      <div className="min-w-0">
+        <div className={`flex items-center gap-2 ${isAway ? 'justify-end' : ''}`}>
+          <h2 className="text-lg font-semibold text-text-primary leading-tight truncate">
+            <span className="sm:hidden">{team.short || team.name}</span>
+            <span className="hidden sm:inline">{team.name}</span>
+          </h2>
+          <RedCardBadge count={redCards} teamName={team.name} />
+        </div>
+        {manager && <p className="text-xs text-text-secondary truncate hidden sm:block">{manager}</p>}
+        <TeamForm
+          results={form}
+          className={`mt-1 ${isAway ? 'justify-end' : ''}`}
+          label={`${team.name} maç öncesi son 5 maç formu`}
+        />
+      </div>
+    </div>
+  );
+}
 
-            {/* Right Action: Refresh & Status Pill */}
-            <div className="flex items-center gap-2">
-              {isCompleted ? (
-                <span className="inline-flex items-center gap-1.5 text-sm text-text-secondary">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-text-secondary" />
-                  <span>Tamamlandı</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-sm text-text-secondary">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                  <span>{match.time_label || match.kickoff_label || 'Başlama Saati'}</span>
-                </span>
-              )}
+export default function MatchScoreboard({ match, homeTeam, awayTeam, homeManager, awayManager, isCompleted, loading, meta, homeRedCards, awayRedCards, homeGoals, awayGoals, recentForm, onBack, onRefresh }) {
+  const homeXg = match.home_xg ?? meta.home_xg;
+  const awayXg = match.away_xg ?? meta.away_xg;
+  const hasXg = homeXg != null || awayXg != null;
+  const halfTime = meta.halfTimeScore;
+  const hasHalfTime = isCompleted && halfTime?.homeScore != null && halfTime?.awayScore != null;
+  const hasGoals = isCompleted && (homeGoals.length > 0 || awayGoals.length > 0);
 
-              <button
-                onClick={() => onRefresh()}
-                title="Maç verilerini sunucudan yenile"
-                className="p-2 rounded bg-background-tertiary hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors"
-              >
-                <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-status-success' : ''}`} />
-              </button>
-            </div>
+  const contextItems = [
+    match.gameweek ? `${match.gameweek}. Hafta` : null,
+    match.kickoff_label || meta.kickoff_label || match.time_label,
+    match.ground_name || meta.ground || homeTeam.stadium,
+    (match.referee_name || meta.referee) ? `Hakem: ${match.referee_name || meta.referee}` : null,
+    meta.attendance ? `${Number(meta.attendance).toLocaleString()} seyirci` : null,
+  ].filter(Boolean);
 
-          </div>
+  return (
+    <section className="bg-background-primary border border-border rounded" aria-label="Maç özeti">
+      <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border-light">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-2 h-9 -ml-2 px-2 rounded text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-background-tertiary transition-colors cursor-pointer focus-visible:outline-none focus-visible:border-border-focus"
+        >
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+          <span>Fikstür</span>
+        </button>
 
-          {/* Hero Scoreboard Banner: Compact & Balanced */}
-          <div className="bg-background-primary border border-border  rounded p-4 sm:p-6 text-text-primary relative">
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6">
-              
-              {/* Home Team */}
-              <div className="flex items-center gap-3 sm:gap-4 flex-1 w-full md:w-auto">
-                <div className="relative flex items-center gap-2 shrink-0">
-                  <img 
-                    src={homeTeam.badge} 
-                    alt={homeTeam.name} 
-                    className="w-10 h-10 sm:w-12 sm:h-12 object-contain drop- shrink-0"
-                    onError={handleTeamBadgeError}
-                  />
-                  {/* Home Team Red Card Badge */}
-                  {homeRedCards > 0 && (
-                    <div 
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-background-tertiary border border-status-error " 
-                      title={`${homeTeam.name} - ${homeRedCards} Kırmızı Kart`}
-                    >
-                      <RedCardIcon className="w-3 h-4" />
-                      {homeRedCards > 1 && (
-                        <span className="text-xs font-mono font-semibold text-status-error">x{homeRedCards}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider block">
-                    Ev Sahibi
-                  </span>
-                  <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-text-primary tracking-tight leading-tight truncate">
-                    {homeTeam.name}
-                  </h2>
-                  {homeManager && (
-                    <p className="text-xs text-text-secondary font-medium truncate">TD: {homeManager}</p>
-                  )}
-                  <div className="mt-1 flex items-center gap-1" aria-label={`${homeTeam.name} maç öncesi son 5 maç formu`}>
-                    <TeamForm results={recentForm[String(match?.home_id)] || []} />
-                  </div>
-                </div>
-              </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-text-secondary">{isCompleted ? 'Tamamlandı' : 'Oynanmadı'}</span>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            aria-label="Maç verilerini yenile"
+            title="Maç verilerini yenile"
+            className="inline-flex items-center justify-center w-9 h-9 rounded text-text-secondary hover:text-text-primary hover:bg-background-tertiary transition-colors cursor-pointer disabled:cursor-default disabled:opacity-60 focus-visible:outline-none focus-visible:border-border-focus"
+          >
+            <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
 
-              {/* Center Scoreboard / Time Display */}
-              <div className="flex flex-col items-center justify-center shrink-0 px-3 py-1 text-center">
-                
-                {/* Score or VS Badge */}
-                <div className="flex items-center gap-2">
-                  {isCompleted ? (
-                    <div className="font-mono text-3xl sm:text-4xl font-semibold text-text-primary px-4 py-1 rounded bg-background-tertiary border border-border  tracking-tight">
-                      {match.home_score} - {match.away_score}
-                    </div>
-                  ) : (
-                    <div className="font-mono text-xl sm:text-2xl font-semibold text-text-primary px-4 py-1 rounded bg-background-tertiary border border-border  tracking-widest">
-                      VS
-                    </div>
-                  )}
-                </div>
+      <div className="px-4 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <TeamBlock
+            team={homeTeam}
+            manager={homeManager}
+            form={recentForm[String(match?.home_id)] || []}
+            redCards={homeRedCards}
+            side="home"
+          />
 
-                {/* Halftime score */}
-                {isCompleted && meta.halfTimeScore?.homeScore != null && meta.halfTimeScore?.awayScore != null && (
-                  <span className="text-xs font-mono text-text-secondary mt-1 font-semibold">
-                    İY {meta.halfTimeScore.homeScore} - {meta.halfTimeScore.awayScore}
-                  </span>
-                )}
-
-                {/* xG Metric Pill */}
-                {isCompleted && (
-                  <div className="mt-2">
-                    {((match.home_xg ?? meta.home_xg) != null || (match.away_xg ?? meta.away_xg) != null) ? (
-                      <span className="text-sm font-mono font-medium text-text-primary inline-flex items-center gap-1.5 tabular-nums ">
-                        <span className="text-xs font-sans font-semibold text-status-error uppercase tracking-wider">xG:</span>
-                        {(match.home_xg ?? meta.home_xg) != null ? Number(match.home_xg ?? meta.home_xg).toFixed(2) : '-'} - {(match.away_xg ?? meta.away_xg) != null ? Number(match.away_xg ?? meta.away_xg).toFixed(2) : '-'}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-mono text-text-tertiary italic">
-                        xG: Not Found
-                      </span>
-                    )}
-                  </div>
-                )}
-
-              </div>
-
-              {/* Away Team */}
-              <div className="flex items-center justify-end gap-3 sm:gap-4 flex-1 w-full md:w-auto text-right">
-                <div className="min-w-0">
-                  <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider block">
-                    Deplasman
-                  </span>
-                  <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-text-primary tracking-tight leading-tight truncate">
-                    {awayTeam.name}
-                  </h2>
-                  {awayManager && (
-                    <p className="text-xs text-text-secondary font-medium truncate">TD: {awayManager}</p>
-                  )}
-                  <div className="mt-1 flex items-center gap-1 justify-end" aria-label={`${awayTeam.name} maç öncesi son 5 maç formu`}>
-                    <TeamForm results={recentForm[String(match?.away_id)] || []} />
-                  </div>
-                </div>
-                <div className="relative flex items-center gap-2 shrink-0">
-                  {/* Away Team Red Card Badge */}
-                  {awayRedCards > 0 && (
-                    <div 
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-background-tertiary border border-status-error " 
-                      title={`${awayTeam.name} - ${awayRedCards} Kırmızı Kart`}
-                    >
-                      <RedCardIcon className="w-3 h-4" />
-                      {awayRedCards > 1 && (
-                        <span className="text-xs font-mono font-semibold text-status-error">x{awayRedCards}</span>
-                      )}
-                    </div>
-                  )}
-                  <img 
-                    src={awayTeam.badge} 
-                    alt={awayTeam.name} 
-                    className="w-10 h-10 sm:w-12 sm:h-12 object-contain drop- shrink-0"
-                    onError={handleTeamBadgeError}
-                  />
-                </div>
-              </div>
-
-            </div>
-
-            {isCompleted && (homeGoals.length > 0 || awayGoals.length > 0) && (
-              <div className="relative z-10 mt-5 border-t border-border-light pt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  {[{ goals: homeGoals, align: 'text-left' }, { goals: awayGoals, align: 'text-right' }].map((side, sideIndex) => (
-                    <div key={sideIndex} className={`min-w-0 space-y-1 ${side.align}`}>
-                      {side.goals.map((goal, index) => (
-                        <p key={`${goal.minute}-${goal.player_id || index}`} className="text-xs sm:text-xs leading-4 text-text-secondary truncate">
-                          <span className="font-semibold text-text-primary">{goal.minute}</span>{' '}
-                          {goal.player_name || 'Bilinmeyen Oyuncu'}{goal.is_own_goal ? ' (KK)' : ''}
-                        </p>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
+          <div className="flex flex-col items-center shrink-0 text-center min-w-20">
+            {isCompleted ? (
+              <span className="text-3xl font-semibold tabular-nums text-text-primary leading-none">
+                {match.home_score} - {match.away_score}
+              </span>
+            ) : (
+              <span className="text-xl font-medium text-text-muted leading-none">vs</span>
             )}
-
-            {/* Hero Footer Meta Details (No emojis) */}
-            <div className="mt-6 pt-4 border-t border-border-light flex flex-wrap items-center justify-center gap-5 sm:gap-8 text-xs text-text-secondary font-medium">
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-text-tertiary" />
-                <span>{match.kickoff_label || meta.kickoff_label || match.time_label || 'Tarih Belirtilmedi'}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-text-tertiary" />
-                <span>{match.ground_name || meta.ground || homeTeam.stadium || 'Premier League Stadı'}</span>
-              </div>
-              {(match.referee_name || meta.referee) && (
-                <div className="flex items-center gap-1.5">
-                  <Scale className="w-4 h-4 text-text-tertiary" />
-                  <span>Hakem: <strong className="text-text-primary font-semibold">{match.referee_name || meta.referee}</strong></span>
-                </div>
-              )}
-              {meta.attendance && (
-                <div className="flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-text-tertiary" />
-                  <span>{Number(meta.attendance).toLocaleString()} Seyirci</span>
-                </div>
-              )}
-            </div>
-
+            {hasHalfTime && (
+              <span className="mt-1.5 text-xs tabular-nums text-text-secondary">
+                İY {halfTime.homeScore} - {halfTime.awayScore}
+              </span>
+            )}
+            {isCompleted && hasXg && (
+              <span className="mt-0.5 text-xs tabular-nums text-text-secondary">
+                xG {formatXg(homeXg)} - {formatXg(awayXg)}
+              </span>
+            )}
           </div>
-    </>
+
+          <TeamBlock
+            team={awayTeam}
+            manager={awayManager}
+            form={recentForm[String(match?.away_id)] || []}
+            redCards={awayRedCards}
+            side="away"
+          />
+        </div>
+
+        {hasGoals && (
+          <div className="mt-4 pt-3 border-t border-border-light grid grid-cols-2 gap-4">
+            {[{ goals: homeGoals, align: 'text-left' }, { goals: awayGoals, align: 'text-right' }].map((side, sideIndex) => (
+              <ul key={sideIndex} className={`min-w-0 space-y-0.5 ${side.align}`}>
+                {side.goals.map((goal, index) => (
+                  <li key={`${goal.minute}-${goal.player_id || index}`} className="text-xs text-text-secondary truncate">
+                    <span className="font-semibold tabular-nums text-text-primary">{goal.minute}</span>{' '}
+                    {goal.player_name || 'Bilinmeyen oyuncu'}{goal.is_own_goal ? ' (KK)' : ''}
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {contextItems.length > 0 && (
+        <p className="px-4 py-2 border-t border-border-light text-xs text-text-secondary flex flex-wrap gap-x-3 gap-y-1">
+          {contextItems.map((item, index) => (
+            <span key={index} className="tabular-nums">{item}</span>
+          ))}
+        </p>
+      )}
+    </section>
   );
 }

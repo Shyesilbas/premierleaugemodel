@@ -17,6 +17,7 @@ from typing import Any
 
 import pandas as pd
 from src.config import DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MODELS_DIR
+from src.db.database import get_db
 
 
 RAW_KINDS = ("stats", "stream", "details")
@@ -25,7 +26,7 @@ MODEL_STALE_DAYS = 8.0     # weekly retraining: older than this vs the newest pl
 
 
 def _ids(db_path: Path, sql: str) -> set[int]:
-    with sqlite3.connect(db_path) as conn:
+    with get_db(db_path) as conn:
         return {int(row[0]) for row in conn.execute(sql)}
 
 

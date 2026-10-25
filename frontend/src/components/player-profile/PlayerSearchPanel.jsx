@@ -48,14 +48,14 @@ export default function PlayerSearchPanel({ searchTerm, onSearchChange, players,
                   <PlayerAvatar player={player} size="sm" shape="circle" className="w-7 h-7" />
                   <div className="text-left min-w-0">
                     <div className="flex items-center gap-1.5 leading-tight">
-                      <span className="truncate max-w-[120px] font-medium">{player.name}</span>
+                      <span className="truncate max-w-32 font-medium">{player.name}</span>
                       {player.shirt ? (
-                        <span className={`px-1 font-mono text-xs rounded-sm ${selected ? 'text-white/80' : 'text-text-tertiary'}`}>
+                        <span className={`px-1 tabular-nums text-xs rounded-sm ${selected ? 'text-white/80' : 'text-text-tertiary'}`}>
                           #{player.shirt}
                         </span>
                       ) : null}
                     </div>
-                    <span className={`block max-w-[110px] truncate text-xs ${selected ? 'text-white/70' : 'text-text-secondary'}`}>
+                    <span className={`block max-w-28 truncate text-xs ${selected ? 'text-white/70' : 'text-text-secondary'}`}>
                       {team.short || player.teamName}
                     </span>
                   </div>

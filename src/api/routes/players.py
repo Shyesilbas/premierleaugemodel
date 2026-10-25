@@ -2,13 +2,14 @@
 
 import json
 import logging
-import sqlite3
-from fastapi import HTTPException
-from src.analytics.player_ratings import calculate_single_match_score, get_match_bookings_map, get_player_dynamic_rating
-from src.config import DATA_DIR
 from typing import Optional
+
+from fastapi import APIRouter, HTTPException
+
+from src.analytics.player_ratings import calculate_single_match_score, get_match_bookings_map
 from src.api import state
-from fastapi import APIRouter
+from src.config import SEASON_ORDER
+from src.db.database import get_db
 
 router = APIRouter()
 logger = logging.getLogger("api_server")
@@ -57,12 +58,11 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
 
     # Clone player dict and ensure teamId and teamName match the active season
     player_data = dict(player)
-    season_order = {'2022_23': 0, '2023_24': 0.5, '2024_25': 1, '2025_26': 2, '2026_27': 3}
     active_logs = logs if logs else raw_logs
     if active_logs:
         sorted_active = sorted(
             active_logs, 
-            key=lambda x: (season_order.get(x.get("season", ""), 0), float(x.get("gameweek") or 0))
+            key=lambda x: (SEASON_ORDER.get(x.get("season", ""), 0), float(x.get("gameweek") or 0))
         )
         latest_match = sorted_active[-1]
         if latest_match.get("team_id"):
@@ -71,8 +71,7 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
     tm_mv = None
     p_name = player_data.get("name") or f"{player_data.get('firstName', '')} {player_data.get('lastName', '')}".strip()
     try:
-        conn = sqlite3.connect(DATA_DIR / "premier_league.db")
-        conn.row_factory = sqlite3.Row
+        conn = get_db()
         last_name = p_name.split()[-1] if p_name else ""
         row = conn.execute(
             "SELECT player_id, market_value, market_value_eur, position, age, nationality FROM player_market_values WHERE LOWER(name) = LOWER(?) OR LOWER(name) LIKE LOWER(?) ORDER BY market_value DESC LIMIT 1",
@@ -157,8 +156,7 @@ def get_player_market_value_history(player_id: str, name: Optional[str] = None):
     Returns authentic career market value progression curve & chronological history
     for a player, sourced from Transfermarkt career evaluations with SQLite fallback.
     """
-    conn = sqlite3.connect(DATA_DIR / "premier_league.db")
-    conn.row_factory = sqlite3.Row
+    conn = get_db()
     try:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS player_market_value_history_cache (
@@ -310,19 +308,3 @@ def get_player_market_value_history(player_id: str, name: Optional[str] = None):
         }
     finally:
         conn.close()
-
-
-@router.get("/api/players/{player_id}/rating")
-def get_player_rating_endpoint(player_id: int, as_of_match_id: Optional[int] = None):
-    """
-    Returns player's dynamic 0-10 rating, 5-match EWMA form, season baseline,
-    and cards risk index.
-    """
-    try:
-        data = get_player_dynamic_rating(player_id, as_of_match_id=as_of_match_id)
-        if not data:
-            raise HTTPException(status_code=404, detail="Player rating data not found.")
-        return data
-    except Exception as e:
-        logger.warning(f"Error fetching player rating for {player_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))

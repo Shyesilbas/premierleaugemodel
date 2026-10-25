@@ -50,12 +50,16 @@ METRIC_FIELDS = [
     # Advanced Attack & Big Chances
     "big_chance_created", "big_chance_missed", "big_chance_scored",
     "touches_in_opp_box", "touches_in_final_third", "total_fastbreak", "shot_fastbreak",
-    "total_att_assist",
+    "total_att_assist", "pen_area_entries",
+    "att_pen_goal", "att_pen_target", "att_pen_miss", "att_pen_post", "penalty_faced",
     # Pressing, Recoveries & Duels
     "ppda", "ball_recovery", "duel_won", "duel_lost", "aerial_won", "aerial_lost",
     "total_clearance", "head_clearance", "outfielder_block", "blocked_pass",
 ]
-SPARSE_ZERO_METRICS = {"total_red_card"}
+SPARSE_ZERO_METRICS = {
+    "total_red_card",
+    "att_pen_goal", "att_pen_target", "att_pen_miss", "att_pen_post", "penalty_faced",
+}
 
 
 def _sum_if_complete(left: Any, right: Any) -> float:
@@ -222,6 +226,19 @@ def parse_match(
             fallback = 0.0 if (is_completed and fld in SPARSE_ZERO_METRICS) else np.nan
             record[f"{side}_{fld}"] = metrics.get(fld, fallback)
             record[f"{side}_{fld}_reported"] = bool(present)
+
+    if is_completed and home_metrics and away_metrics:
+        record["home_penalty_attempts"] = float(max(
+            record["home_att_pen_goal"] + record["home_att_pen_target"] + record["home_att_pen_miss"] + record["home_att_pen_post"],
+            record["away_penalty_faced"],
+        ))
+        record["away_penalty_attempts"] = float(max(
+            record["away_att_pen_goal"] + record["away_att_pen_target"] + record["away_att_pen_miss"] + record["away_att_pen_post"],
+            record["home_penalty_faced"],
+        ))
+    else:
+        record["home_penalty_attempts"] = np.nan
+        record["away_penalty_attempts"] = np.nan
 
     # Preserve raw provider values and fill only omissions from the same provider's
     # event stream. Source flags continue to describe the stats endpoint itself.

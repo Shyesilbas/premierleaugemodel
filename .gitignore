@@ -60,3 +60,4 @@ data/processed/model_audit_summary*.json
 data/processed/match_player_bookings_cache.json
 models/backup/
 models/production/*.backup_*.joblib
+data/raw/.sync.lock
