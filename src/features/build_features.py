@@ -17,6 +17,7 @@ import logging
 import sqlite3
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from collections import defaultdict
 
 import pandas as pd
 import numpy as np
@@ -624,6 +625,7 @@ def _get_xi_match_lookup():
 
     match_starters: Dict[int, Dict[int, List[Tuple[int, str]]]] = defaultdict(lambda: defaultdict(list))
     match_scores: Dict[int, Dict[int, List[Tuple[int, str, float, float, float]]]] = defaultdict(lambda: defaultdict(list))
+    match_player_mins: Dict[int, Dict[int, Dict[int, int]]] = defaultdict(lambda: defaultdict(dict))
 
     for pid_str, plogs in logs_by_player.items():
         try:
@@ -639,11 +641,14 @@ def _get_xi_match_lookup():
             pos = _resolve_match_pos(mid, tid, pid, l, reg_pos)
             if l.get("started"):
                 match_starters[mid][tid].append((pid, pos))
+            mins_val = int(l.get("minutes_played") or l.get("minutes") or 0)
+            if mins_val > 0:
+                match_player_mins[mid][tid][pid] = mins_val
             sc = calculate_single_match_score(l, pos, bmap, pid)
             if sc is not None:
                 match_scores[mid][tid].append((pid, pos, float(sc["overall"]), float(sc["attack"]), float(sc["defense"])))
 
-    _XI_MATCH_CACHE = (match_starters, match_scores)
+    _XI_MATCH_CACHE = (match_starters, match_scores, match_player_mins)
     return _XI_MATCH_CACHE
 
 
@@ -692,6 +697,49 @@ def _aggregate_xi_ratings(
     return (ov, att, df_r)
 
 
+def _compute_xi_minute_metrics(
+    starters: List[Tuple[int, str]],
+    player_history: Dict[int, List[Tuple[str, float, float, float]]],
+    s_str: str,
+    recent_mids: List[int],
+    match_rosters: Dict[int, Dict[int, int]],
+    fallback_xi_ov: float = 6.15,
+) -> Tuple[float, float, float]:
+    """
+    Computes (xi_continuity, xi_weighted_ov, missing_reg_mins) from recent player minute shares.
+    xi_continuity: average minute share of the starters over the team's last <= 12 matches (prior 0.75).
+    xi_weighted_ov: minute-weighted rating of the starters (prior fallback_xi_ov).
+    missing_reg_mins: sum of minute shares for non-starting players with >= 40% recent minute share.
+    """
+    n_rec = len(recent_mids)
+    if n_rec < 3 or len(starters) < 7:
+        return (0.75, fallback_xi_ov, 0.0)
+
+    p_mins: Dict[int, int] = defaultdict(int)
+    for past_mid in recent_mids:
+        roster = match_rosters.get(past_mid, {})
+        for pid, m_val in roster.items():
+            p_mins[pid] += m_val
+
+    max_mins = n_rec * 90.0
+    starter_pids = {p[0] for p in starters}
+
+    starter_shares = [p_mins.get(p[0], 0) / max_mins for p in starters]
+    xi_continuity = float(np.mean(starter_shares))
+
+    weights = [max(0.10, p_mins.get(p[0], 0) / max_mins) for p in starters]
+    starters_ov = [_compute_pre_match_player_rating(player_history, p[0], s_str)[0] for p in starters]
+    xi_weighted_ov = float(np.average(starters_ov, weights=weights))
+
+    missing_reg_mins = sum(
+        total_m / max_mins
+        for pid, total_m in p_mins.items()
+        if (total_m / max_mins) >= 0.40 and pid not in starter_pids
+    )
+
+    return (xi_continuity, xi_weighted_ov, float(missing_reg_mins))
+
+
 def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Sequential Elo + season-to-date table + point-in-time Starting XI dynamic player ratings.
@@ -701,10 +749,13 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     has_season = "season" in df.columns
     first_season = df["season"].iloc[0] if has_season and len(df) else None
 
-    match_starters, match_scores = _get_xi_match_lookup()
+    match_starters, match_scores, match_player_mins = _get_xi_match_lookup()
     player_history: Dict[int, List[Tuple[str, float, float, float]]] = {}
     team_last_xi: Dict[int, Tuple[float, float, float]] = {}
     team_last_xi_starters: Dict[int, List[Tuple[int, str]]] = {}
+    team_last_xi_metrics: Dict[int, Tuple[float, float, float]] = {}
+    team_recent_matches: Dict[int, List[int]] = defaultdict(list)
+    team_match_rosters: Dict[int, Dict[int, Dict[int, int]]] = defaultdict(dict)
 
     elo: Dict[int, float] = {}
     elo_home_venue: Dict[int, float] = {}
@@ -742,8 +793,9 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
                 elo_home_venue[t] = ELO_INIT if season == first_season else ELO_NEWCOMER
                 elo_away_venue[t] = ELO_INIT if season == first_season else ELO_NEWCOMER
 
-        # Compute pre-match Starting XI ratings for home and away
+        # Compute pre-match Starting XI ratings and minute-weighted metrics for home and away
         xi_vals: Dict[int, Tuple[float, float, float]] = {}
+        xi_metrics: Dict[int, Tuple[float, float, float]] = {}
         official_unplayed = load_official_match_starters(mid) if (mid and not row["is_played"]) else {}
         for tid in (h, a):
             starters = match_starters.get(mid, {}).get(tid, []) if mid else []
@@ -751,15 +803,25 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
                 starters = official_unplayed[tid]
             if len(starters) >= 7:
                 ov, att, df_r = _aggregate_xi_ratings(starters, player_history, s_str)
+                rec_mids = team_recent_matches[tid][-12:]
+                m_rosters = team_match_rosters[tid]
+                xi_cont, xi_w_ov, miss_mins = _compute_xi_minute_metrics(
+                    starters, player_history, s_str, rec_mids, m_rosters, ov
+                )
                 if row["is_played"]:
                     team_last_xi[tid] = (ov, att, df_r)
                     team_last_xi_starters[tid] = list(starters)
+                    team_last_xi_metrics[tid] = (xi_cont, xi_w_ov, miss_mins)
                 xi_vals[tid] = (ov, att, df_r)
+                xi_metrics[tid] = (xi_cont, xi_w_ov, miss_mins)
             else:
                 xi_vals[tid] = team_last_xi.get(tid, (6.15, 6.15, 6.15))
+                xi_metrics[tid] = team_last_xi_metrics.get(tid, (0.75, xi_vals[tid][0], 0.0))
 
         h_xi_ov, h_xi_att, h_xi_def = xi_vals[h]
         a_xi_ov, a_xi_att, a_xi_def = xi_vals[a]
+        h_xi_cont, h_xi_w_ov, h_miss_mins = xi_metrics[h]
+        a_xi_cont, a_xi_w_ov, a_miss_mins = xi_metrics[a]
 
         h_ppg, h_gd = season_form(h)
         a_ppg, a_gd = season_form(a)
@@ -775,15 +837,29 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
             "home_xi_att_vs_away_def": h_xi_att - a_xi_def,
             "away_xi_att_vs_home_def": a_xi_att - h_xi_def,
             "xi_att_vs_def_diff": (h_xi_att - a_xi_def) - (a_xi_att - h_xi_def),
+            "home_xi_continuity": h_xi_cont,
+            "away_xi_continuity": a_xi_cont,
+            "xi_continuity_diff": h_xi_cont - a_xi_cont,
+            "home_xi_weighted_ov": h_xi_w_ov,
+            "away_xi_weighted_ov": a_xi_w_ov,
+            "xi_weighted_ov_diff": h_xi_w_ov - a_xi_w_ov,
+            "home_missing_reg_mins": h_miss_mins,
+            "away_missing_reg_mins": a_miss_mins,
+            "missing_reg_mins_diff": h_miss_mins - a_miss_mins,
         })
 
         if not row["is_played"]:
             continue
 
-        # Update player rating histories AFTER pre-match features are recorded
+        # Update player rating histories and roster minutes AFTER pre-match features are recorded
         if mid:
             for tid in (h, a):
+                team_recent_matches[tid].append(mid)
+                mins_dict = match_player_mins.get(mid, {}).get(tid, {})
+                if mins_dict:
+                    team_match_rosters[tid][mid] = dict(mins_dict)
                 for pid, _pos, sc_ov, sc_at, sc_df in match_scores.get(mid, {}).get(tid, []):
+                    player_history.setdefault(pid, []).append((s_str, sc_ov, sc_at, sc_df))
                     player_history.setdefault(pid, []).append((s_str, sc_ov, sc_at, sc_df))
 
         hs, as_ = float(row["home_score"]), float(row["away_score"])
@@ -820,6 +896,9 @@ def _run_strength(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         "all_time_played": dict(all_time_played),
         "xi_ratings": dict(team_last_xi),
         "last_xi_starters": {k: list(v) for k, v in team_last_xi_starters.items()},
+        "last_xi_metrics": dict(team_last_xi_metrics),
+        "team_recent_matches": {k: list(v[-12:]) for k, v in team_recent_matches.items()},
+        "team_match_rosters": {k: {m: dict(team_match_rosters[k].get(m, {})) for m in v[-12:]} for k, v in team_recent_matches.items()},
         "player_history": {k: list(v) for k, v in player_history.items()},
         "season": current_season,
     }
@@ -1323,13 +1402,25 @@ def build_prediction_row(
         row[f"gdpg_{side}"] = strength["gdpg"]
         if tid in official_starters and player_history:
             xi_ov, xi_att, xi_def = _aggregate_xi_ratings(official_starters[tid], player_history, s_str)
+            rec_mids = strength_state.get("team_recent_matches", {}).get(tid, [])[-12:]
+            m_rosters = strength_state.get("team_match_rosters", {}).get(tid, {})
+            xi_cont, xi_w_ov, miss_mins = _compute_xi_minute_metrics(
+                official_starters[tid], player_history, s_str, rec_mids, m_rosters, xi_ov
+            )
             row[f"{side}_xi_rating"] = xi_ov
             row[f"_{side}_xi_att"] = xi_att
             row[f"_{side}_xi_def"] = xi_def
+            row[f"{side}_xi_continuity"] = xi_cont
+            row[f"{side}_xi_weighted_ov"] = xi_w_ov
+            row[f"{side}_missing_reg_mins"] = miss_mins
         else:
             row[f"{side}_xi_rating"] = strength["xi_rating"]
             row[f"_{side}_xi_att"] = strength["xi_attack"]
             row[f"_{side}_xi_def"] = strength["xi_defense"]
+            last_met = strength_state.get("last_xi_metrics", {}).get(tid, (0.75, strength["xi_rating"], 0.0))
+            row[f"{side}_xi_continuity"] = last_met[0]
+            row[f"{side}_xi_weighted_ov"] = last_met[1]
+            row[f"{side}_missing_reg_mins"] = last_met[2]
 
     # Assign venue-specific form to matching side
     st_h = team_states.loc[home_id] if home_id in team_states.index else None
@@ -1353,6 +1444,9 @@ def build_prediction_row(
     row["home_xi_att_vs_away_def"] = h_att_vs_a_def
     row["away_xi_att_vs_home_def"] = a_att_vs_h_def
     row["xi_att_vs_def_diff"] = h_att_vs_a_def - a_att_vs_h_def
+    row["xi_continuity_diff"] = row["home_xi_continuity"] - row["away_xi_continuity"]
+    row["xi_weighted_ov_diff"] = row["home_xi_weighted_ov"] - row["away_xi_weighted_ov"]
+    row["missing_reg_mins_diff"] = row["home_missing_reg_mins"] - row["away_missing_reg_mins"]
 
     # Squad market values and dynamic Bayesian sample-size prior decay weights
     mv_map = get_team_market_values_map()

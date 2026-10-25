@@ -30,6 +30,109 @@ def parse_price(val: Any) -> float | None:
         return None
 
 
+def store_bookmaker_odds(
+    conn: Any,
+    match_id: int,
+    provider_match_id: str,
+    season_id: str,
+    bookmakers: list[dict[str, Any]],
+    fetched_at: str,
+) -> list[str]:
+    """Upsert one row per bookmaker into external_match_odds; returns the bookmaker names saved."""
+    bm_names: list[str] = []
+
+    for bm in bookmakers:
+        bm_name = bm.get("bookmaker") or "unknown"
+        markets = bm.get("markets") or {}
+        mo = markets.get("match_odds") or markets.get("1x2") or {}
+        tg = markets.get("total_goals", {}).get("2.5", {}) or markets.get("over_under_2_5", {})
+        btts = markets.get("btts") or markets.get("both_teams_to_score") or {}
+        corn = markets.get("match_corners", {}).get("9.5", {})
+        card = markets.get("total_cards", {}).get("4.5", {}) or markets.get("total_cards", {}).get("3.5", {})
+
+        # 1X2
+        h_open = parse_price(mo.get("home", {}).get("opening"))
+        d_open = parse_price(mo.get("draw", {}).get("opening"))
+        a_open = parse_price(mo.get("away", {}).get("opening"))
+        h_last = parse_price(mo.get("home", {}).get("last_seen"))
+        d_last = parse_price(mo.get("draw", {}).get("last_seen"))
+        a_last = parse_price(mo.get("away", {}).get("last_seen"))
+
+        # Over/Under 2.5
+        o25_open = parse_price(tg.get("over", {}).get("opening"))
+        u25_open = parse_price(tg.get("under", {}).get("opening"))
+        o25_last = parse_price(tg.get("over", {}).get("last_seen"))
+        u25_last = parse_price(tg.get("under", {}).get("last_seen"))
+
+        # BTTS
+        btts_y_open = parse_price(btts.get("yes", {}).get("opening"))
+        btts_n_open = parse_price(btts.get("no", {}).get("opening"))
+        btts_y_last = parse_price(btts.get("yes", {}).get("last_seen"))
+        btts_n_last = parse_price(btts.get("no", {}).get("last_seen"))
+
+        # Corners 9.5
+        corn_o_open = parse_price(corn.get("over", {}).get("opening"))
+        corn_u_open = parse_price(corn.get("under", {}).get("opening"))
+        corn_o_last = parse_price(corn.get("over", {}).get("last_seen"))
+        corn_u_last = parse_price(corn.get("under", {}).get("last_seen"))
+
+        # Cards 4.5
+        card_o_open = parse_price(card.get("over", {}).get("opening"))
+        card_u_open = parse_price(card.get("under", {}).get("opening"))
+        card_o_last = parse_price(card.get("over", {}).get("last_seen"))
+        card_u_last = parse_price(card.get("under", {}).get("last_seen"))
+
+        # Filter out bookmakers with zero relevant data
+        all_prices = [
+            h_open, d_open, a_open, h_last, d_last, a_last,
+            o25_open, u25_open, o25_last, u25_last,
+            btts_y_open, btts_n_open, btts_y_last, btts_n_last,
+        ]
+        if not any(p is not None for p in all_prices):
+            continue
+
+        raw_json = json.dumps(markets, ensure_ascii=False)
+
+        conn.execute(
+            """INSERT INTO external_match_odds
+               (match_id, provider, provider_match_id, provider_season_id, bookmaker,
+                home_open, draw_open, away_open, home_last_seen, draw_last_seen, away_last_seen,
+                over_25_open, under_25_open, over_25_last_seen, under_25_last_seen,
+                btts_yes_open, btts_no_open, btts_yes_last_seen, btts_no_last_seen,
+                corners_over_open, corners_under_open, corners_over_last_seen, corners_under_last_seen,
+                cards_over_open, cards_under_open, cards_over_last_seen, cards_under_last_seen,
+                raw_markets_json, fetched_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(match_id, provider, bookmaker) DO UPDATE SET
+                 provider_match_id=excluded.provider_match_id,
+                 provider_season_id=excluded.provider_season_id,
+                 home_open=excluded.home_open, draw_open=excluded.draw_open, away_open=excluded.away_open,
+                 home_last_seen=excluded.home_last_seen, draw_last_seen=excluded.draw_last_seen,
+                 away_last_seen=excluded.away_last_seen,
+                 over_25_open=excluded.over_25_open, under_25_open=excluded.under_25_open,
+                 over_25_last_seen=excluded.over_25_last_seen, under_25_last_seen=excluded.under_25_last_seen,
+                 btts_yes_open=excluded.btts_yes_open, btts_no_open=excluded.btts_no_open,
+                 btts_yes_last_seen=excluded.btts_yes_last_seen, btts_no_last_seen=excluded.btts_no_last_seen,
+                 corners_over_open=excluded.corners_over_open, corners_under_open=excluded.corners_under_open,
+                 corners_over_last_seen=excluded.corners_over_last_seen, corners_under_last_seen=excluded.corners_under_last_seen,
+                 cards_over_open=excluded.cards_over_open, cards_under_open=excluded.cards_under_open,
+                 cards_over_last_seen=excluded.cards_over_last_seen, cards_under_last_seen=excluded.cards_under_last_seen,
+                 raw_markets_json=excluded.raw_markets_json, fetched_at_utc=excluded.fetched_at_utc""",
+            (
+                match_id, PROVIDER, provider_match_id, season_id, bm_name,
+                h_open, d_open, a_open, h_last, d_last, a_last,
+                o25_open, u25_open, o25_last, u25_last,
+                btts_y_open, btts_n_open, btts_y_last, btts_n_last,
+                corn_o_open, corn_u_open, corn_o_last, corn_u_last,
+                card_o_open, card_u_open, card_o_last, card_u_last,
+                raw_json, fetched_at,
+            ),
+        )
+        bm_names.append(bm_name)
+
+    return bm_names
+
+
 def import_odds(
     api_key: str,
     season: str = DEFAULT_SEASON,
@@ -147,98 +250,10 @@ def import_odds(
             continue
 
         fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        saved_for_match = 0
-        bm_names = []
-
-        for bm in bookmakers:
-            bm_name = bm.get("bookmaker") or "unknown"
-            markets = bm.get("markets") or {}
-            mo = markets.get("match_odds") or markets.get("1x2") or {}
-            tg = markets.get("total_goals", {}).get("2.5", {}) or markets.get("over_under_2_5", {})
-            btts = markets.get("btts") or markets.get("both_teams_to_score") or {}
-            corn = markets.get("match_corners", {}).get("9.5", {})
-            card = markets.get("total_cards", {}).get("4.5", {}) or markets.get("total_cards", {}).get("3.5", {})
-
-            # 1X2
-            h_open = parse_price(mo.get("home", {}).get("opening"))
-            d_open = parse_price(mo.get("draw", {}).get("opening"))
-            a_open = parse_price(mo.get("away", {}).get("opening"))
-            h_last = parse_price(mo.get("home", {}).get("last_seen"))
-            d_last = parse_price(mo.get("draw", {}).get("last_seen"))
-            a_last = parse_price(mo.get("away", {}).get("last_seen"))
-
-            # Over/Under 2.5
-            o25_open = parse_price(tg.get("over", {}).get("opening"))
-            u25_open = parse_price(tg.get("under", {}).get("opening"))
-            o25_last = parse_price(tg.get("over", {}).get("last_seen"))
-            u25_last = parse_price(tg.get("under", {}).get("last_seen"))
-
-            # BTTS
-            btts_y_open = parse_price(btts.get("yes", {}).get("opening"))
-            btts_n_open = parse_price(btts.get("no", {}).get("opening"))
-            btts_y_last = parse_price(btts.get("yes", {}).get("last_seen"))
-            btts_n_last = parse_price(btts.get("no", {}).get("last_seen"))
-
-            # Corners 9.5
-            corn_o_open = parse_price(corn.get("over", {}).get("opening"))
-            corn_u_open = parse_price(corn.get("under", {}).get("opening"))
-            corn_o_last = parse_price(corn.get("over", {}).get("last_seen"))
-            corn_u_last = parse_price(corn.get("under", {}).get("last_seen"))
-
-            # Cards 4.5
-            card_o_open = parse_price(card.get("over", {}).get("opening"))
-            card_u_open = parse_price(card.get("under", {}).get("opening"))
-            card_o_last = parse_price(card.get("over", {}).get("last_seen"))
-            card_u_last = parse_price(card.get("under", {}).get("last_seen"))
-
-            # Filter out bookmakers with zero relevant data
-            all_prices = [
-                h_open, d_open, a_open, h_last, d_last, a_last,
-                o25_open, u25_open, o25_last, u25_last,
-                btts_y_open, btts_n_open, btts_y_last, btts_n_last,
-            ]
-            if not any(p is not None for p in all_prices):
-                continue
-
-            raw_json = json.dumps(markets, ensure_ascii=False)
-
-            conn.execute(
-                """INSERT INTO external_match_odds
-                   (match_id, provider, provider_match_id, provider_season_id, bookmaker,
-                    home_open, draw_open, away_open, home_last_seen, draw_last_seen, away_last_seen,
-                    over_25_open, under_25_open, over_25_last_seen, under_25_last_seen,
-                    btts_yes_open, btts_no_open, btts_yes_last_seen, btts_no_last_seen,
-                    corners_over_open, corners_under_open, corners_over_last_seen, corners_under_last_seen,
-                    cards_over_open, cards_under_open, cards_over_last_seen, cards_under_last_seen,
-                    raw_markets_json, fetched_at_utc)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(match_id, provider, bookmaker) DO UPDATE SET
-                     provider_match_id=excluded.provider_match_id,
-                     provider_season_id=excluded.provider_season_id,
-                     home_open=excluded.home_open, draw_open=excluded.draw_open, away_open=excluded.away_open,
-                     home_last_seen=excluded.home_last_seen, draw_last_seen=excluded.draw_last_seen,
-                     away_last_seen=excluded.away_last_seen,
-                     over_25_open=excluded.over_25_open, under_25_open=excluded.under_25_open,
-                     over_25_last_seen=excluded.over_25_last_seen, under_25_last_seen=excluded.under_25_last_seen,
-                     btts_yes_open=excluded.btts_yes_open, btts_no_open=excluded.btts_no_open,
-                     btts_yes_last_seen=excluded.btts_yes_last_seen, btts_no_last_seen=excluded.btts_no_last_seen,
-                     corners_over_open=excluded.corners_over_open, corners_under_open=excluded.corners_under_open,
-                     corners_over_last_seen=excluded.corners_over_last_seen, corners_under_last_seen=excluded.corners_under_last_seen,
-                     cards_over_open=excluded.cards_over_open, cards_under_open=excluded.cards_under_open,
-                     cards_over_last_seen=excluded.cards_over_last_seen, cards_under_last_seen=excluded.cards_under_last_seen,
-                     raw_markets_json=excluded.raw_markets_json, fetched_at_utc=excluded.fetched_at_utc""",
-                (
-                    mid, PROVIDER, api_match["id"], season_id, bm_name,
-                    h_open, d_open, a_open, h_last, d_last, a_last,
-                    o25_open, u25_open, o25_last, u25_last,
-                    btts_y_open, btts_n_open, btts_y_last, btts_n_last,
-                    corn_o_open, corn_u_open, corn_o_last, corn_u_last,
-                    card_o_open, card_u_open, card_o_last, card_u_last,
-                    raw_json, fetched_at,
-                ),
-            )
-            saved_for_match += 1
-            bm_names.append(bm_name)
+        saved_names = store_bookmaker_odds(conn, mid, api_match["id"], season_id, bookmakers, fetched_at)
+        saved_for_match = len(saved_names)
+        bm_names = saved_names
+        for bm_name in saved_names:
             stats["bookmakers"][bm_name] = stats["bookmakers"].get(bm_name, 0) + 1
 
         if saved_for_match > 0:

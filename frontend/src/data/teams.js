@@ -26,11 +26,68 @@ export const TEAMS = [
   { id: 21, name: 'Tottenham Hotspur', short: 'Spurs', abbr: 'TOT', color: '#132257', accent: '#FFFFFF', badge: '/badges/21.svg', stadium: 'Tottenham Hotspur Stadium' },
   { id: 25, name: 'West Ham United', short: 'West Ham', abbr: 'WHU', color: '#7A263A', accent: '#1BB1E7', badge: '/badges/25.svg', stadium: 'London Stadium' },
   { id: 38, name: 'Wolverhampton Wanderers', short: 'Wolves', abbr: 'WOL', color: '#FDB913', accent: '#231F20', badge: '/badges/38.svg', stadium: 'Molineux Stadium' },
+
 ];
 
 export const TEAM_MAP = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 
+// Clubs from non-Premier-League competitions: the API supplies their logo, abbreviation and ground.
+const EXTERNAL_TEAMS = new Map();
+
+export function registerTeamLogo(teamId, url) {
+  registerTeamInfo(teamId, { logo: url });
+}
+
+export function registerTeamInfo(teamId, info) {
+  if (!teamId) return;
+  const current = EXTERNAL_TEAMS.get(Number(teamId)) || {};
+  const next = { ...current };
+  Object.entries(info).forEach(([key, value]) => {
+    if (value) next[key] = value;
+  });
+  EXTERNAL_TEAMS.set(Number(teamId), next);
+}
+
+// Walk any API payload (fixtures, standings, team list, team profile) and register what it knows about clubs.
+// Called for fresh responses and for cached ones, so the registry never depends on a network call.
+export function registerLogosFrom(data) {
+  if (!data || typeof data !== 'object') return data;
+  const addMatch = m => {
+    registerTeamInfo(m.home_id, { logo: m.home_logo, abbr: m.home_abbr });
+    registerTeamInfo(m.away_id, { logo: m.away_logo, abbr: m.away_abbr });
+    registerTeamInfo(m.opponent_id, { logo: m.opponent_logo });
+  };
+  (data.gameweeks || []).forEach(gw => (gw.days || []).forEach(day => (day.matches || []).forEach(addMatch)));
+  (data.matches || []).forEach(addMatch);
+  ((data.european || {}).matches || []).forEach(addMatch); // European games listed on referee and player pages
+  (data.rounds || []).forEach(round => (round.ties || []).forEach(tie => (tie.teams || []).forEach(t => registerTeamInfo(t.id, { logo: t.logo, abbr: t.abbr }))));
+  (data.teams || []).forEach(t => registerTeamInfo(t.id, { logo: t.logo, abbr: t.abbr, stadium: t.ground_name }));
+  if (data.team) registerTeamInfo(data.team.id, { logo: data.team.badge, abbr: data.team.abbr, stadium: data.team.ground });
+  (Array.isArray(data) ? data : data.standings || []).forEach(t => {
+    if (typeof t?.badge === 'string' && t.badge.startsWith('http')) registerTeamInfo(t.id, { logo: t.badge, abbr: t.abbr });
+  });
+  return data;
+}
+
 export function getTeam(teamId, fallbackName = 'Takım') {
+  const external = EXTERNAL_TEAMS.get(Number(teamId));
+  if (external && !TEAM_MAP[teamId]) {
+    return {
+      id: Number(teamId),
+      name: fallbackName,
+      short: fallbackName,
+      abbr: external.abbr || (typeof fallbackName === 'string' ? fallbackName.substring(0, 3).toUpperCase() : ''),
+      badge: external.logo || null,
+      color: '#0f172a',
+      accent: '#475569',
+      stadium: external.stadium || '',
+    };
+  }
+  const team = resolveTeam(teamId, fallbackName);
+  return teamId && team.id !== teamId ? { ...team, id: teamId } : team;
+}
+
+function resolveTeam(teamId, fallbackName) {
   if (teamId && TEAM_MAP[teamId]) return TEAM_MAP[teamId];
   
   if (fallbackName && typeof fallbackName === 'string') {

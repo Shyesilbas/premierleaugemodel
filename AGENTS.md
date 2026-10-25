@@ -19,7 +19,7 @@ Detaylı iş akışları ve standartlar `.agents/skills/` altındadır; ilgili g
 ## Mimari Özeti & Dokümantasyon Haritası
 - **Aktif Üretim Modelleri (`models/production/`):**
   - `goals_models_v1.joblib`: Bağımsız Poisson + Dixon-Coles 13x13 skor matrisi (`evaluate_goal_models` -> `train_goals`), API'de lojistik 1X2'ye hizalı.
-  - `outcome_models_v1.joblib`: 71 özellikli Lojistik Regresyon + sıcaklık kalibrasyonu (npxG + npBC + ceza sahası giriş üstünlüğü).
+  - `outcome_models_v1.joblib`: 74 özellikli Lojistik Regresyon + sıcaklık kalibrasyonu (npxG + npBC + ceza sahası giriş üstünlüğü + ilk 11 dakika ağırlığı/devamlılığı).
   - Sayım Modelleri (`corner`, `throws`, `offside`, `cards`, `saves`): CV kapısı + dış sezon kapısını (`apply_outer_season_gate`) geçemeyenler otomatik olarak `training_mean` döndürür.
 - **Referans Belgeler (Tek Kaynak Sırası):**
   1. `ARTIFACT_REGISTRY.md` — Veri, model ve rapor envanteri.

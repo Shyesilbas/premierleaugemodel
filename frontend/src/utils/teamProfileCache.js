@@ -4,8 +4,10 @@
  */
 
 import { getJson } from '../services/apiClient';
+import { registerLogosFrom } from '../data/teams';
 
-const CACHE_PREFIX = 'pl_team_cache_v6_'; // v6: drops match_detail entries frozen without stats
+const CACHE_PREFIX = 'pl_team_cache_v14_'; // v14: European matches on team, player and referee pages; Liverpool badge entry restored
+const LEGACY_CACHE_PREFIX = 'pl_team_cache_v';
 
 /**
  * Retrieve cached data for a given category, team and season.
@@ -33,6 +35,8 @@ export function getCachedTeamData(category, teamId, season) {
         return null;
       }
     }
+
+    registerLogosFrom(record.data);
 
     return {
       data: record.data,
@@ -136,6 +140,15 @@ export function clearAllCaches() {
 }
 
 const DATA_VERSION_KEY = 'pl_data_version';
+
+// Drop entries written under older cache versions so they cannot resurface.
+try {
+  Object.keys(localStorage)
+    .filter(key => key.startsWith(LEGACY_CACHE_PREFIX) && !key.startsWith(CACHE_PREFIX))
+    .forEach(key => localStorage.removeItem(key));
+} catch {
+  // storage unavailable
+}
 
 /**
  * Drop every cache when the backend reports reloaded data (e.g. a sync script run from the terminal).

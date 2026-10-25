@@ -21,11 +21,28 @@ export default function FixturesGameweeksView({ loading, filteredGameweeks, disp
         </div>
       ) : (
               <div className="space-y-8">
-                {filteredGameweeks.map(gwObj => (
-                  <div key={gwObj.gameweek} className="space-y-4">
-                    
-                    {/* Day Groups inside Gameweek */}
-                    <div className="space-y-5">
+                {filteredGameweeks.map(gwObj => {
+                  const showHeader = filteredGameweeks.length > 1 || (gwObj.stage && gwObj.stage !== 'league');
+                  const matchCount = gwObj.days.reduce((acc, d) => acc + d.matches.length, 0);
+
+                  return (
+                    <div key={gwObj.gameweek} className="space-y-4">
+                      {showHeader && (
+                        <div className="flex items-center justify-between pb-2 border-b border-border">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-text-primary">{gwObj.title || `Hafta ${gwObj.gameweek}`}</h3>
+                            {gwObj.stage && gwObj.stage !== 'league' && (
+                              <span className="text-xs px-2 py-0.5 rounded-sm bg-primary/10 text-primary font-medium">
+                                {gwObj.stage_title || 'Eleme Turu'}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-text-secondary tabular-nums">{matchCount} maç</span>
+                        </div>
+                      )}
+
+                      {/* Day Groups inside Gameweek */}
+                      <div className="space-y-5">
                       {gwObj.days.map((dayObj, dayIdx) => (
                         <div key={dayIdx} className="space-y-2.5">
                           
@@ -85,7 +102,8 @@ export default function FixturesGameweeksView({ loading, filteredGameweeks, disp
                     </div>
 
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
     </>

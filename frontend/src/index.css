@@ -3,6 +3,23 @@
 @tailwind utilities;
 
 @layer base {
+  :root,
+  :root[data-competition='premier_league'] {
+    --accent: 4 120 87;
+    --accent-hover: 6 95 70;
+    --accent-soft: 236 253 245;
+  }
+  :root[data-competition='champions_league'] {
+    --accent: 30 58 138;
+    --accent-hover: 23 37 84;
+    --accent-soft: 239 246 255;
+  }
+  :root[data-competition='europa_league'] {
+    --accent: 194 65 12;
+    --accent-hover: 154 52 3;
+    --accent-soft: 255 247 237;
+  }
+
   body {
     background-color: #f1f5f9; /* Slate 100 soft light gray */
     color: #0f172a; /* Slate 900 crisp black */

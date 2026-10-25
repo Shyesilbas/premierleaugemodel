@@ -2,11 +2,52 @@ import { ChevronDown, ChevronRight, MapPin, Search, X } from 'lucide-react';
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
 import TeamForm from '../TeamForm';
 import { formatSeasonLabel } from '../../utils/dateFormatters';
+import { useCompetition } from '../../context/CompetitionContext';
+import { seasonsFor } from '../../data/seasons';
 
-const SEASONS = ['2026_27', '2025_26', '2024_25', '2023_24', '2022_23', 'all'];
+function SeasonSelect({ value, options, onChange }) {
+  const shown = options.includes(value) ? options : [value, ...options];
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor="team-profile-season" className="text-xs text-text-secondary">Sezon</label>
+      <div className="relative">
+        <select
+          id="team-profile-season"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="appearance-none h-10 min-w-36 pl-3 pr-9 rounded border border-border bg-background-primary text-sm font-medium text-text-primary cursor-pointer transition-colors duration-150 ease-out hover:border-card-border-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+        >
+          {shown.map(season => (
+            <option key={season} value={season}>
+              {season === 'all' ? 'Tüm sezonlar' : `${formatSeasonLabel(season, '/')} sezonu`}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" strokeWidth={1.5} aria-hidden="true" />
+      </div>
+    </div>
+  );
+}
 
 export default function TeamProfileHero({ profile, currentMeta, selectedTeamId, onSelectTeam, teamSeason, setTeamSeason, setSelectedSeason, standingsMap, displayManager, onSelectManager, last5Matches, isTeamSelectorOpen, setIsTeamSelectorOpen, teamSearchQuery, setTeamSearchQuery, filteredClubs, teamSelectorRef, setShowMarketValueModal }) {
-  if (!profile) return null;
+  const { activeCompetition, competitionKey } = useCompetition();
+  const seasonsList = seasonsFor(competitionKey);
+  const changeSeason = (nextSeason) => {
+    setTeamSeason(nextSeason);
+    setSelectedSeason?.(nextSeason);
+  };
+
+  // No profile for this team and season (e.g. the club did not play in it): keep the season picker reachable.
+  if (!profile) {
+    return (
+      <div className="flex flex-wrap items-end justify-between gap-3 bg-background-primary border border-border rounded p-4">
+        <p className="text-sm text-text-secondary">
+          {currentMeta?.name ? `${currentMeta.name} için bu sezonda veri yok.` : 'Bu sezon için takım verisi yok.'}
+        </p>
+        <SeasonSelect value={teamSeason} options={seasonsList} onChange={changeSeason} />
+      </div>
+    );
+  }
 
   const marketValue = profile.market_value;
 
@@ -42,7 +83,7 @@ export default function TeamProfileHero({ profile, currentMeta, selectedTeamId, 
               {isTeamSelectorOpen && (
                 <div className="absolute left-0 top-full mt-2 w-72 sm:w-80 bg-background-primary border border-border rounded shadow-md p-3 z-50">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-border-light">
-                    <span className="text-sm font-semibold text-text-primary">Premier League kulüpleri</span>
+                    <span className="text-sm font-semibold text-text-primary">{activeCompetition?.name || 'Turnuva'} kulüpleri</span>
                     <button
                       type="button"
                       onClick={() => setIsTeamSelectorOpen(false)}
@@ -114,7 +155,7 @@ export default function TeamProfileHero({ profile, currentMeta, selectedTeamId, 
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-secondary">
             <MapPin className="w-4 h-4 text-text-tertiary shrink-0" strokeWidth={1.5} aria-hidden="true" />
-            <span>{currentMeta.stadium || 'Premier League stadyumu'}</span>
+            <span>{currentMeta.stadium || (competitionKey === 'premier_league' ? 'Premier League stadyumu' : 'Stadyum bilgisi yok')}</span>
             {displayManager?.name?.display && (
               <>
                 <span className="text-text-muted">·</span>
@@ -146,28 +187,7 @@ export default function TeamProfileHero({ profile, currentMeta, selectedTeamId, 
       </div>
 
       <div className="flex items-end gap-3 w-full lg:w-auto shrink-0">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="team-profile-season" className="text-xs text-text-secondary">Sezon</label>
-          <div className="relative">
-            <select
-              id="team-profile-season"
-              value={teamSeason}
-              onChange={(event) => {
-                const nextSeason = event.target.value;
-                setTeamSeason(nextSeason);
-                setSelectedSeason?.(nextSeason);
-              }}
-              className="appearance-none h-10 min-w-36 pl-3 pr-9 rounded border border-border bg-background-primary text-sm font-medium text-text-primary cursor-pointer transition-colors duration-150 ease-out hover:border-card-border-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              {SEASONS.map(season => (
-                <option key={season} value={season}>
-                  {season === 'all' ? 'Tüm sezonlar' : `${formatSeasonLabel(season, '/')} sezonu`}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" strokeWidth={1.5} aria-hidden="true" />
-          </div>
-        </div>
+        <SeasonSelect value={teamSeason} options={seasonsList} onChange={changeSeason} />
 
         {marketValue && (
           <button

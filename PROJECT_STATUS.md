@@ -24,7 +24,7 @@
 | Model | Üretimde | Değerlendirme | Rapor |
 | :--- | :--- | :--- | :--- |
 | Gol skor matrisi (`v1.6`) | Bağımsız Poisson × Dixon-Coles, `full` 60 özellik (`exp_match_xg_10` ve `exp_venue_match_xg` dahil), α=3, w_dc=0.0; eğitim/değerlendirme/API'de 1X2'ye (`v1.3`) hizalı; O1.5, O2.5, O3.5 ve KG kalibratörleri aktif; KG etiketi kapalı | Skor NLL 2.9686 (v1.5: 2.9737, v1.4: 2.9786); O2.5 LL 0.6767 (haftalık refit 0.6753), Δ prior −0.0080 CI [−0.0156, −0.00001] (3/3 negatif sezon); KG LL 0.6804 | [goals_model.md](docs/reports/models/goals_model.md) |
-| 1X2 (`v1.3`) | 71 özellikli lojistik (C=0.003; penaltı arındırılmış `npxG` + `npBC` + `sdiff_pa_entries_e02/r10` eklendi, 8 ham gol sütunu çıkarıldı) + ayrıştırılmış L2 cezalı OOF sıcaklık/bias kalibrasyonu (`reg_temp=0.10, reg_bias=0.50`) | 3 dış sezon (`N=1,140`) Pooled LL 0.9746 (v1.2: 0.9757, v1.1: 0.9789), Brier 0.5798, RPS 0.1980, İsabet %55.09 (v1.1: %54.12), CV LL 0.9709; 304 maç holdout LL 1.026 (`1.0256`) vs 1.092, Brier 0.617, RPS 0.2076, Acc %49.34 | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
+| 1X2 (`v1.4`) | 74 özellikli lojistik (C=0.003; penaltı arındırılmış `npxG` + `npBC` + `sdiff_pa_entries_e02/r10` ve İlk 11 dakika ağırlıklı istikrar/eksik as oyuncu farkları `xi_continuity_diff`, `xi_weighted_ov_diff`, `missing_reg_mins_diff` eklendi) + ayrıştırılmış L2 cezalı OOF sıcaklık/bias kalibrasyonu (`reg_temp=0.10, reg_bias=0.50`) | 3 dış sezon (`N=1,140`) Pooled LL 0.9732 (v1.3: 0.9746, v1.2: 0.9757, v1.1: 0.9789), Brier 0.5790, RPS 0.1977, CV LL 0.9674; 304 maç holdout LL 1.024 (`1.0240`) vs 1.092, Brier 0.616, RPS 0.2073, Acc %50.33 | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
 | Korner | `training_mean` | Geliştirme dış sezon 1/2 → ortalama (holdout RMSE 3.235) | [corners_model.md](docs/reports/models/corners_model.md) |
 | Taç | `poisson_10` | RMSE 6.941 vs 7.337; geliştirme dış sezon 2/2 | [throws_model.md](docs/reports/models/throws_model.md) |
 | Ofsayt | `ridge_250` | RMSE 1.906 vs 2.013; geliştirme dış sezon 2/2 | [offsides_model.md](docs/reports/models/offsides_model.md) |
@@ -52,7 +52,17 @@ Artifact tarihleri: tüm modeller 24 Ekim 2026, güncel özellik tablosuyla (1.5
 - **API'de model olmayan alanlar:** `shots.expected_total` sabit çarpandır (`kurtarış × 4.1`) ve API'de `model_skill: "heuristic_from_saves"` olarak açıkça etiketlenir. Ev/deplasman paylaşımları rolling oranlardan gelir. Bkz. [API Entegrasyonu §2.6](docs/model_api_integration.md).
 - **İleriye dönük kayıt:** `docs/reports/prospective_1x2_scorecard.json` ilk 15 tamamlanmış prospektif maç için üretildi; örneklem büyüdükçe istatistiksel güç artacak.
 
-## 5. Sıradaki İşler
+## 5. Çoklu Lig Mimari Altyapısı (Multi-League Readiness)
+
+- **Turnuva Kayıt Defteri (`config/competitions.yaml`):** Premier League (ID: 39), UEFA Champions League (ID: 2) ve UEFA Europa League (ID: 3) formatları, UEFA lig katsayıları ve sağlayıcı eşleştirmeleri merkezi olarak tanımlandı.
+- **Lig Priörleri (`config/priors.yaml`):** Soğuk başlangıç istatistik priörleri lig bazında ayrıştırıldı.
+- **Ortak Motor Katmanı (`src/core/`):** Dixon-Coles, Poisson/Goals modelleri, sayım modelleri ve değerlendirme metrikleri (RPS, Brier, Log-Loss) ligden bağımsız çekirdek katmanına taşındı.
+- **Çapraz Lig Güç Köprüsü (`src/competitions/normalizer.py`):** Farklı yerel lig takımlarının Avrupa kupalarındaki istatistiklerini UEFA lig katsayıları ve logaritmik piyasa değeri oranlarıyla ölçeklendiren normalizasyon motoru kuruldu.
+- **Veritabanı Hazırlığı:** SQLite `matches` tablosuna `competition_id` (varsayılan 39) kolonu ve indeksi eklendi.
+- **Sağlayıcı Mimarisi (`src/ingest/`):** `BaseIngestionProvider` arayüzü ile `PulseLiveProvider` (Premier Lig) ve `ApiFootballProvider` (Şampiyonlar Ligi / Avrupa Ligi) istemcileri ve `get_provider()` fabrikası kuruldu. Şema normalizasyon testleri tamamlandı (ağ çağrısı yapmaksızın çevrimdışı doğrulanabilir).
+- **Çoklu Lig İşleme Boru Hattı (`src/processing/process_competition_data.py`):** Şampiyonlar Ligi 2026/27 fikstürü, Lille 2 - 4 Galatasaray maçının saniyesi saniyesine 24 play-by-play olay akışı (`*_stream.json`), maç istatistikleri ve detayları başarıyla SQLite ve Parquet katmanına işlendi (`competition_id = 2`). API uç noktaları ve React arayüzü Şampiyonlar Ligi için canlı olarak doğrulandı.
+
+## 6. Sıradaki İşler
 
 1. Her oyun haftasından sonra `python3 run_full_pipeline.py` çalıştır, ardından API'yi yeniden başlat. Otomatik raporlar (`model_benchmarks.md`, `data_quality.md`, `team_*.md`) bu sırada yenilenir.
 2. Maç öncesi tahmin kaydını sürdür (`prospective_1x2_benchmark snapshot`) ve biten maçları puanla. Kısmi sezona bakarak modeli tekrar tekrar ayarlama.

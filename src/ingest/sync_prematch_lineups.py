@@ -62,7 +62,7 @@ def build_player_history_and_last_xi(
     Dict[int, Tuple[float, float, float]],
 ]:
     """Replays played matches chronologically to build exact point-in-time player history and each team's last played XI."""
-    match_starters, match_scores = _get_xi_match_lookup()
+    match_starters, match_scores, *rest = _get_xi_match_lookup()
 
     played = df_features[df_features["is_played"].fillna(False).astype(bool)].copy()
     played = played.sort_values(["kickoff_millis", "match_id"], kind="mergesort")

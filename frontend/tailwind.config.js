@@ -13,6 +13,11 @@ export default {
         background: { primary: '#ffffff', secondary: '#f8fafc', tertiary: '#f1f5f9' },
         text: { primary: '#0f172a', secondary: '#475569', tertiary: '#64748b', muted: '#94a3b8' },
         border: { DEFAULT: '#e2e8f0', light: '#f1f5f9', focus: '#0f172a' },
+        accent: {
+          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
+          hover: 'rgb(var(--accent-hover) / <alpha-value>)',
+          soft: 'rgb(var(--accent-soft) / <alpha-value>)',
+        },
         'card-border-hover': '#cbd5e1',
         pitch: '#1d6b3a',
         status: { success: '#047857', error: '#b91c1c', warning: '#b45309', info: '#1d4ed8', draw: '#facc15' },

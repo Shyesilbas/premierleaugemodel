@@ -14,6 +14,8 @@ import TeamFixturesSection from './team-profile/TeamFixturesSection';
 import { getPlayerCategory, getPositionOrder } from './team-profile/teamProfileUtils';
 import { getCachedTeamData, setCachedTeamData, calculateTeamExpiry, clearTeamCache } from '../utils/teamProfileCache';
 import { getStandings, getTeams } from '../services/competitionService';
+import { useCompetition } from '../context/CompetitionContext';
+import { seasonsFor } from '../data/seasons';
 import {
   getManagerChanges,
   getManagerPerformance,
@@ -25,6 +27,7 @@ import {
 } from '../services/teamService';
 
 export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onSelectMatch, selectedTeamId = 1, onSelectTeam }) {
+  const { competitionKey } = useCompetition();
   const [currentLeagueTeams, setCurrentLeagueTeams] = useState(null);
   const [teamSeason, setTeamSeason] = useState(selectedSeason || '2026_27');
   const [activeTeamTab, setActiveTeamTab] = useState('fixtures'); // 'fixtures' | 'profile' | 'squad' | 'managers'
@@ -74,13 +77,13 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
       setStandings([]);
       return;
     }
-    getStandings(teamSeason)
+    getStandings(teamSeason, competitionKey)
       .then(data => setStandings(data.standings || []))
       .catch(err => {
         console.error('Error fetching standings for team profile:', err);
         setStandings([]);
       });
-  }, [teamSeason]);
+  }, [teamSeason, competitionKey]);
 
   const standingsMap = useMemo(() => {
     const map = {};
@@ -110,13 +113,13 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
 
   useEffect(() => {
     const s = teamSeason === 'all' ? '2026_27' : teamSeason;
-    getTeams(s)
+    getTeams(s, competitionKey)
       .then(data => setCurrentLeagueTeams(data.teams || []))
       .catch(err => {
         console.error('Error fetching current season teams:', err);
         setCurrentLeagueTeams([]);
       });
-  }, [teamSeason]);
+  }, [teamSeason, competitionKey]);
 
   const currentSeasonTeams = (currentLeagueTeams || []).map(team =>
     getTeam(team.id, team.name)
@@ -144,8 +147,18 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
     }
   }, [selectedSeason]);
 
+  // UEFA competitions have no "all seasons" view (and nothing before 2022/23).
   useEffect(() => {
-    const cached = getCachedTeamData('profile', selectedTeamId, teamSeason);
+    if (!seasonsFor(competitionKey).includes(teamSeason)) {
+      const fallback = seasonsFor(competitionKey).includes(selectedSeason) ? selectedSeason : '2026_27';
+      setTeamSeason(fallback);
+      setSelectedSeason?.(fallback);
+    }
+  }, [competitionKey, teamSeason, selectedSeason, setSelectedSeason]);
+
+  useEffect(() => {
+    const cacheKey = `${selectedTeamId}_${competitionKey}`;
+    const cached = getCachedTeamData('profile', cacheKey, teamSeason);
     if (cached) {
       setProfile(cached.data);
       setLoading(false);
@@ -153,24 +166,25 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
     }
 
     setLoading(true);
-    getTeamProfile(selectedTeamId, teamSeason)
+    getTeamProfile(selectedTeamId, teamSeason, undefined, competitionKey)
       .then(data => {
         setProfile(data);
         const { expiresAt, label } = calculateTeamExpiry(data?.next_match, teamSeason);
-        setCachedTeamData('profile', selectedTeamId, teamSeason, data, expiresAt, label);
+        setCachedTeamData('profile', cacheKey, teamSeason, data, expiresAt, label);
         setLoading(false);
       })
       .catch(err => {
         console.error('Error fetching team profile:', err);
+        setProfile(null);
         setLoading(false);
       });
-  }, [selectedTeamId, teamSeason, refreshKey]);
+  }, [selectedTeamId, teamSeason, competitionKey, refreshKey]);
 
   useEffect(() => {
     const staffSeason = teamSeason === 'all' ? '2026_27' : teamSeason;
     const controller = new AbortController();
     setTeamStaff(null);
-    getTeamStaff(staffSeason, selectedTeamId, { signal: controller.signal })
+    getTeamStaff(staffSeason, selectedTeamId, { signal: controller.signal }, competitionKey)
       .then(data => setTeamStaff(data?.staff || null))
       .catch(err => {
         if (err.name !== 'AbortError') {
@@ -179,7 +193,7 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
         }
       });
     return () => controller.abort();
-  }, [selectedTeamId, teamSeason]);
+  }, [selectedTeamId, teamSeason, competitionKey]);
 
   useEffect(() => {
     const requestedSeason = teamSeason === 'all' ? 'all' : teamSeason;
@@ -330,7 +344,9 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
     return item ? { nextMatchLabel: item.nextMatchLabel, isPermanent: item.isPermanent } : null;
   }, [selectedTeamId, teamSeason, tacticalProfile, refreshKey]);
 
-  const currentMeta = getTeam(selectedTeamId);
+  const listedTeam = (currentLeagueTeams || []).find(team => Number(team.id) === Number(selectedTeamId));
+  const profileTeam = profile?.team && Number(profile.team.id) === Number(selectedTeamId) ? profile.team : null;
+  const currentMeta = getTeam(selectedTeamId, profileTeam?.name || listedTeam?.name || 'Takım');
   const teamOfficials = useMemo(() => {
     const uniqueOfficials = new Map();
     (teamStaff?.officials || []).forEach(official => {
@@ -451,7 +467,7 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
 
   const last5Matches = useMemo(() => {
     if (!profile?.matches?.length) return [];
-    const played = profile.matches.filter(m => m.team_score !== null && m.team_score !== undefined && m.result);
+    const played = profile.matches.filter(m => m.team_score !== null && m.team_score !== undefined && m.result && (!m.competition || m.competition.key === 'premier_league'));
     return played.slice(-5);
   }, [profile?.matches]);
 

@@ -2,6 +2,7 @@ import AuditMatchCard from './model-audit/AuditMatchCard';
 import { formatSeasonLabel } from '../utils/dateFormatters';
 import React, { useState, useEffect } from 'react';
 import { getModelAudit } from '../services/auditService';
+import { useCompetition } from '../context/CompetitionContext';
 import { ChevronDown, RotateCw, SearchX, ClipboardList } from 'lucide-react';
 import Skeleton from './common/Skeleton';
 import InlineError from './common/InlineError';
@@ -66,6 +67,7 @@ function AuditSkeleton() {
 }
 
 export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatch }) {
+  const { competitionKey } = useCompetition();
   const [auditSeason, setAuditSeason] = useState(selectedSeason || '2026_27');
   const [auditData, setAuditData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -79,14 +81,14 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
       setAuditSeason(selectedSeason);
       fetchAuditData(false, selectedSeason);
     }
-  }, [selectedSeason]);
+  }, [selectedSeason, competitionKey]);
 
   const fetchAuditData = (force = false, targetSeason = auditSeason) => {
     if (force) setRefreshing(true);
     else setLoading(true);
     setError(false);
 
-    getModelAudit(targetSeason, force)
+    getModelAudit(targetSeason, force, competitionKey)
       .then(data => {
         setAuditData(data);
         if (!force) setSelectedGw(pickCurrentGameweek(data?.gameweeks));

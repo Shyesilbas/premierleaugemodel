@@ -27,6 +27,35 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `start.sh` | `start.py`'yi çağıran ince sarmalayıcı (`exec python3 start.py "$@"`). |
 | `run_full_pipeline.py` | Ana pipeline, **aşamalı**: `rebuild` (işleme → oyuncu dizini → özellikler → veritabanı), `audits`, `counts` (köşe, atış, kurtarış, kart, ofsayt), `outcome` (1X2), `goals` (değerlendirme + eğitim). `--only goals`, `--skip rebuild,audits`; geçersiz aşama çıkış 2, hatada çıkış 1. Sağlayıcıya bağlanmaz. |
 
+## 1c. Çoklu turnuva altyapısı
+
+`config/competitions.yaml` turnuvaları (Premier League, Champions League, Europa League) ve sağlayıcılarını tanımlar. UCL/UEL fikstür ve sonuçları UEFA'nın herkese açık, anahtarsız maç API'sinden gelir; `python3 -m src.ingest.sync_competition_data --competition champions_league` (veya `europa_league`) `matches` tablosuna yalnızca o turnuvanın satırlarını yazar. Veri yoksa arayüz boş durum gösterir. İstatistik (korner, şut, xG) ve tahmin modelleri bu turnuvalar için yoktur.
+
+| Dosya | Ne yapar |
+|---|---|
+| `src/competitions/registry.py` | `config/competitions.yaml` ve `priors.yaml` dosyalarını okuyup turnuva kayıt defterini sunar. |
+| `src/competitions/normalizer.py` | Turnuvalar arası istatistik normalizasyonu. |
+| `src/ingest/base_provider.py` | Veri sağlayıcıları için soyut taban sınıf. |
+| `src/ingest/provider_factory.py` | Turnuvaya uygun sağlayıcı istemcisini (PulseLive veya API-Football) üretir. |
+| `src/ingest/providers/pulselive.py` | Premier League için PulseLive sağlayıcısı. |
+| `src/ingest/providers/uefa.py` | UCL/UEL için UEFA maç API'si sağlayıcısı: lig aşaması ve eleme turlarını, hakem, stadyum ve takım logo URL'lerini getirir; ön eleme turlarını atlar. |
+| `src/api/competition_squads.py` | UCL/UEL kulüpleri için saklanan TheStatsAPI verisinden kadro, takım piyasa değeri, oyuncu sezon toplamları, oyuncu dizini/profili ve teknik direktörleri üretir; eşleşmeyen kulüp için boş döner, tahmin üretmez. |
+| `src/api/competition_stats.py` | UCL/UEL istatistikler sekmesini saklanan TheStatsAPI verisinden kurar (golcüler, oyuncu notları, hücum/savunma, kaleciler, hakemler); ortak `build_league_stats` üreticisine PL biçiminde veri çevirir. |
+| `src/api/european_fixtures.py` | Premier Lig kulübünün takım profili fikstürüne UCL/UEL maçlarını ekler: kulüpleri UEFA ID'leriyle isimden eşler (veri yeniden çekilmez), maçı kulüp açısından çevirir, turnuva/tur etiketi ve kick-off zamanı ekler. Lig rekoru yalnızca PL maçlarından hesaplanır. Aynı modül PL hakemlerinin Avrupa maçlarını (isimden eşleşir, kart/faul yalnızca istatistiği olan maçlardan) ve PL oyuncularının Avrupa maç kayıtlarını (kulüp içinde isimle eşleşir) verir. |
+| `tests/test_european_fixtures.py` | Bu birleştirmenin çevrimdışı ve API testleri. |
+| `src/api/knockout.py` | UCL/UEL eleme turlarında maçları eşleşmelere (tie) toplar: iki ayağın toplam skoru, turu geçen takım ve nedeni (toplam skor/uzatma/penaltı), maç kartları için özet ve turnuva ağacı yerleşimi (`/api/fixtures/bracket`). |
+| `tests/test_knockout.py` | Eleme eşleşmesi toplama ve ağaç sıralamasının çevrimdışı testleri. |
+| `src/api/uefa_match_details.py` | UCL/UEL maç detayı: UEFA kadro ve olay akışından kadro, gol/kart/değişiklik zaman akışı ve olay sayımına dayalı takım istatistikleri (şut, korner, faul, ofsayt, kurtarış, kart) üretir; xG, pas ve topa sahip olma bu akışta yoktur. |
+| `tests/test_uefa_match_details.py` | UEFA maç detayı üreticisinin çevrimdışı testleri. |
+| `src/ingest/sync_thestatsapi_competition.py` | UCL/UEL için TheStatsAPI'den (`THESTATSAPI_API_KEY`, yalnızca ortam değişkeninden; dakikada 100 istek) oynanmış maçların takım istatistiklerini, kadrolarını, oyuncu istatistiklerini, olay akışını, şut haritasını ve oranlarını ham olarak `external_match_payloads` tablosuna, xG'yi `external_match_xg`'ye, toplamları `matches` satırına yazar; ayrıca puan durumu ve kadroları `external_competition_payloads`'a alır. Yeniden çalıştırılabilir: kayıtlı veriler atlanır, `--refresh` ile yeniden çeker. **Oranlar 2024/25'ten itibaren çekilir, 2023/24 ve öncesinde atlanır** (`--include-odds` ile açılır). |
+| `tests/test_statsapi_competition_sync.py` | TheStatsAPI senkronunun ve maç detayı katmanının çevrimdışı testleri. |
+| `src/ingest/sync_competition_data.py` | Seçilen turnuva ve sezonun maçlarını sağlayıcıdan çekip `matches` tablosuna yazar (yalnızca o `competition_id`). |
+| `src/ingest/providers/api_football.py` | UCL/UEL için API-Football sağlayıcısı (`API_FOOTBALL_KEY` gerekir). |
+| `src/processing/process_competition_data.py` | Bir turnuvanın ham fikstürlerini işleyip `competition_id` ile SQLite'a yazar; ham veri yoksa boş döner. |
+| `tests/test_competition_pipeline.py` | Turnuva izolasyonunu ve ham veri yokken DB'nin değişmediğini doğrular. |
+| `tests/test_competitions.py` | Turnuva kayıt defteri testleri. |
+| `tests/test_provider_clients.py` | Sağlayıcı istemci testleri. |
+
 ## 1b. `src/pipeline/`
 
 | Dosya | Ne yapar |

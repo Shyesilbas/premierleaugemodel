@@ -5,7 +5,9 @@ import PlayerMarketValueHistoryModal from './PlayerMarketValueHistoryModal';
 import PlayerSearchPanel from './player-profile/PlayerSearchPanel';
 import PlayerProfileHeader from './player-profile/PlayerProfileHeader';
 import PlayerMatchHistory from './player-profile/PlayerMatchHistory';
+import { kickoffSortKey } from '../utils/dateFormatters';
 import { getPlayerProfile, searchPlayers } from '../services/playerService';
+import { useCompetition } from '../context/CompetitionContext';
 
 function getPositionMeta(position) {
   const neutralClass = 'bg-background-tertiary text-text-primary border-border';
@@ -14,15 +16,37 @@ function getPositionMeta(position) {
 }
 
 export default function PlayerProfilesTab({ selectedSeason, setSelectedSeason, onSelectMatch }) {
+  const { competitionKey } = useCompetition();
   const [searchTerm, setSearchTerm] = useState('');
   const [playerList, setPlayerList] = useState([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState(65970);
   const [playerProfile, setPlayerProfile] = useState(null);
   const [playerSeason, setPlayerSeason] = useState(selectedSeason || '2026_27');
   const [selectedMatchGameweek, setSelectedMatchGameweek] = useState('all');
+  const [selectedCompetition, setSelectedCompetition] = useState('all');
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [activeModalMatch, setActiveModalMatch] = useState(null);
   const [showMarketValueModal, setShowMarketValueModal] = useState(false);
+
+  // A player id only exists inside one competition, so reset the selection when it changes.
+  useEffect(() => {
+    setPlayerProfile(null);
+    setSearchTerm('');
+    setPlayerList([]);
+    if (competitionKey === 'premier_league') {
+      setSelectedPlayerId(65970);
+      return undefined;
+    }
+    // Start on the competition's most valuable player instead of an empty page.
+    setSelectedPlayerId(null);
+    let cancelled = false;
+    searchPlayers({ season: '2026_27', competition: competitionKey, limit: 1 })
+      .then(data => {
+        if (!cancelled && data.players?.[0]) setSelectedPlayerId(data.players[0].id);
+      })
+      .catch(error => console.error('Error fetching default player:', error));
+    return () => { cancelled = true; };
+  }, [competitionKey]);
 
   useEffect(() => {
     if (selectedSeason) setPlayerSeason(selectedSeason);
@@ -37,52 +61,73 @@ export default function PlayerProfilesTab({ selectedSeason, setSelectedSeason, o
     searchPlayers({
       search: searchTerm.trim(),
       season: playerSeason && playerSeason !== 'all' ? playerSeason : undefined,
+      competition: competitionKey,
       limit: 20,
     })
       .then(data => setPlayerList(data.players || []))
       .catch(error => console.error('Error fetching player directory:', error));
-  }, [searchTerm, playerSeason]);
+  }, [searchTerm, playerSeason, competitionKey]);
 
   useEffect(() => {
-    if (!selectedPlayerId) return;
+    if (!selectedPlayerId) {
+      setLoadingProfile(false);
+      return;
+    }
     setLoadingProfile(true);
-    getPlayerProfile(selectedPlayerId, playerSeason)
+    getPlayerProfile(selectedPlayerId, playerSeason, competitionKey)
       .then(data => {
         setPlayerProfile(data);
         setLoadingProfile(false);
       })
       .catch(error => {
         console.error('Error fetching player profile:', error);
+        setPlayerProfile(null);
         setLoadingProfile(false);
       });
-  }, [selectedPlayerId, playerSeason]);
+  }, [selectedPlayerId, playerSeason, competitionKey]);
 
   const player = playerProfile?.player;
   const stats = playerProfile?.season_stats || {};
-  const playedMatches = useMemo(
+  const leagueMatches = useMemo(
     () => (playerProfile?.matches || []).filter(match => Number(match.minutes_played) > 0),
     [playerProfile?.matches],
   );
-  const lastPlayedMatch = playedMatches[playedMatches.length - 1];
+  // Champions League / Europa League appearances join the same history, ordered by kick-off.
+  const europeanMatches = useMemo(
+    () => (playerProfile?.european?.matches || []).filter(match => Number(match.minutes_played) > 0),
+    [playerProfile?.european?.matches],
+  );
+  const playedMatches = useMemo(
+    () => (europeanMatches.length
+      ? [...leagueMatches, ...europeanMatches].sort((a, b) => kickoffSortKey(a.kickoff) - kickoffSortKey(b.kickoff))
+      : leagueMatches),
+    [leagueMatches, europeanMatches],
+  );
+  const lastPlayedMatch = leagueMatches[leagueMatches.length - 1];
   const teamId = lastPlayedMatch?.team_id ?? player?.teamId;
   const teamName = lastPlayedMatch?.team_name ?? player?.teamName;
   const team = teamId ? getTeam(teamId, teamName) : (player ? getTeam(player.teamId, player.teamName) : null);
 
   const playedGameweeks = useMemo(() => {
     const weeks = new Set();
-    playedMatches.forEach(match => {
+    leagueMatches.forEach(match => {
       const week = Math.round(Number(match.gameweek));
       if (!Number.isNaN(week) && week > 0) weeks.add(week);
     });
     return [...weeks].sort((a, b) => a - b);
-  }, [playedMatches]);
+  }, [leagueMatches]);
 
-  useEffect(() => setSelectedMatchGameweek('all'), [selectedPlayerId, playerSeason]);
+  useEffect(() => { setSelectedMatchGameweek('all'); setSelectedCompetition('all'); }, [selectedPlayerId, playerSeason]);
 
   const filteredMatches = useMemo(() => {
-    if (selectedMatchGameweek === 'all') return playedMatches;
-    return playedMatches.filter(match => Math.round(Number(match.gameweek)) === Number(selectedMatchGameweek));
-  }, [playedMatches, selectedMatchGameweek]);
+    let list = playedMatches;
+    if (selectedCompetition !== 'all') list = list.filter(match => (match.competition?.key || 'premier_league') === selectedCompetition);
+    // gameweeks are a league concept: a chosen week narrows the list to that league round
+    if (selectedMatchGameweek !== 'all') {
+      list = list.filter(match => (match.competition?.key || 'premier_league') === 'premier_league' && Math.round(Number(match.gameweek)) === Number(selectedMatchGameweek));
+    }
+    return list;
+  }, [playedMatches, selectedMatchGameweek, selectedCompetition]);
 
   const handleSeasonChange = (season) => {
     setPlayerSeason(season);
@@ -124,6 +169,10 @@ export default function PlayerProfilesTab({ selectedSeason, setSelectedSeason, o
         weeks={playedGameweeks}
         selectedWeek={selectedMatchGameweek}
         onWeekChange={setSelectedMatchGameweek}
+        hasEuropean={europeanMatches.length > 0}
+        europeanStats={playerProfile?.european?.stats}
+        selectedCompetition={selectedCompetition}
+        onCompetitionChange={setSelectedCompetition}
         loading={loadingProfile}
         season={playerSeason}
         onSelectMatch={handleSelectMatch}

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Home, Plane } from 'lucide-react';
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
-import { RESULT_META } from './teamProfileUtils';
+import { COMPETITIONS, RESULT_META } from './teamProfileUtils';
+import CompetitionBadge from './CompetitionBadge';
 
 const MONTH_NAMES = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const WEEKDAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -27,7 +28,7 @@ function NavButton({ onClick, disabled, label, children }) {
 }
 
 function MatchCell({ entry, onOpen }) {
-  const { opponent, isHome, isPlayed, result, scoreLabel, time, dateLabel } = entry;
+  const { opponent, isHome, isPlayed, result, scoreLabel, time, dateLabel, competition } = entry;
   const venue = isHome ? 'ev sahibi' : 'deplasman';
   const outcome = isPlayed ? `${RESULT_META[result]?.title || ''} ${scoreLabel}` : time;
 
@@ -35,7 +36,7 @@ function MatchCell({ entry, onOpen }) {
     <button
       type="button"
       onClick={() => onOpen(entry.modalMatchObj)}
-      aria-label={`${dateLabel}, ${opponent.name}, ${venue}. ${outcome}`}
+      aria-label={`${dateLabel}, ${competition.name}, ${opponent.name}, ${venue}. ${outcome}`}
       className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pt-4 pb-1 cursor-pointer transition-colors duration-150 ease-out hover:bg-background-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-focus"
     >
       <span className="absolute top-1 right-1 text-text-tertiary" title={isHome ? 'Ev sahibi' : 'Deplasman'}>
@@ -43,6 +44,9 @@ function MatchCell({ entry, onOpen }) {
           ? <Home className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />
           : <Plane className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />}
       </span>
+      {competition.order > 0 && (
+        <span className="absolute bottom-1 left-1"><CompetitionBadge competition={competition} size="sm" /></span>
+      )}
       <img
         src={opponent.badge}
         alt=""
@@ -149,6 +153,11 @@ export default function TeamFixturesCalendar({ entries, onOpen }) {
         <span className="inline-flex items-center gap-1.5">
           <Plane className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" /> Deplasman
         </span>
+        {entries.some(entry => entry.competition.order > 0) && [COMPETITIONS.champions_league, COMPETITIONS.europa_league].map(competition => (
+          <span key={competition.abbr} className="inline-flex items-center gap-1.5">
+            <CompetitionBadge competition={competition} /> {competition.name}
+          </span>
+        ))}
         <span>Saatler İngiltere saatiyle</span>
         {undatedCount > 0 && <span>{undatedCount} maçın tarihi belli değil</span>}
       </div>

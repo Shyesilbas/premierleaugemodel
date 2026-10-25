@@ -1,11 +1,14 @@
 import { ChevronRight } from 'lucide-react';
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
+import { penaltyText, tieNote } from '../../utils/knockout';
 
 export default function FixtureMatchRow({ match: m, home, away, onMatchClick, onSelectTeam }) {
   const isCompleted = m.status === 'COMPLETED' && m.home_score !== null;
   const nameClass = (won, lost) => (won ? 'font-semibold text-text-primary' : lost ? 'font-normal text-text-secondary' : 'font-normal text-text-primary');
   const homeWon = isCompleted && m.home_score > m.away_score;
   const awayWon = isCompleted && m.away_score > m.home_score;
+  const note = tieNote(m);
+  const shootout = penaltyText(m.home_penalties, m.away_penalties);
   const hasXg = isCompleted && (m.home_xg != null || m.away_xg != null);
   const tag = m.prediction?.favorite_label
     ? m.prediction.favorite_label
@@ -26,7 +29,8 @@ export default function FixtureMatchRow({ match: m, home, away, onMatchClick, on
         {isCompleted ? 'Bitti' : (m.time_label || '')}
       </span>
 
-      <div className="grid grid-cols-versus items-center gap-2 sm:gap-4 flex-1 min-w-0">
+      <div className="flex-1 min-w-0">
+      <div className="grid grid-cols-versus items-center gap-2 sm:gap-4">
         <div className="flex items-center justify-end gap-2 min-w-0 text-right">
           <button
             type="button"
@@ -46,6 +50,7 @@ export default function FixtureMatchRow({ match: m, home, away, onMatchClick, on
 
         <span className={`min-w-12 text-center tabular-nums ${isCompleted ? 'font-semibold text-text-primary' : 'text-text-tertiary'}`}>
           {isCompleted ? `${m.home_score} - ${m.away_score}` : 'vs'}
+          {shootout && <span className="block text-xs font-normal text-text-secondary">{shootout}</span>}
         </span>
 
         <div className="flex items-center gap-2 min-w-0">
@@ -65,9 +70,18 @@ export default function FixtureMatchRow({ match: m, home, away, onMatchClick, on
           </button>
         </div>
       </div>
+      {m.group && !note && <p className="mt-1 text-center text-xs text-text-secondary">Grup {m.group}</p>}
+      {note && (note.leg || note.result) && (
+        <p className="mt-1 text-center text-xs truncate">
+          {note.leg && <span className="text-text-secondary">{note.leg}</span>}
+          {note.leg && note.result && <span className="text-text-muted"> · </span>}
+          {note.result && <span className="font-semibold text-accent">{note.result}</span>}
+        </p>
+      )}
+      </div>
 
       <div className="flex items-center gap-2 shrink-0 justify-end sm:w-32">
-        {tag && <span className="hidden sm:block text-xs text-text-secondary truncate tabular-nums">{tag}</span>}
+        {tag && <span className="hidden sm:block text-xs text-text-secondary truncate tabular-nums" title={tag}>{tag}</span>}
         <ChevronRight className="w-4 h-4 text-text-tertiary" strokeWidth={1.5} aria-hidden="true" />
       </div>
     </div>

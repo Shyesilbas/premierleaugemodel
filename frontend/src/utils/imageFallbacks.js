@@ -1,6 +1,7 @@
-export function handleImageFallback(event, fallbackSrc = '/badges/1.svg') {
+// Hide a broken image instead of swapping in another club's badge.
+export function handleImageFallback(event, fallbackSrc = null) {
   const image = event.currentTarget;
-  if (image.dataset.fallbackApplied) {
+  if (!fallbackSrc || image.dataset.fallbackApplied) {
     image.style.display = 'none';
     return;
   }

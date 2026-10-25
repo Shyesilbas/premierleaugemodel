@@ -777,6 +777,48 @@ def _build_key_timeline(
     return key_timeline
 
 
+def _find_non_premier_league_match(match_id: int) -> Optional[Dict[str, Any]]:
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT * FROM matches WHERE match_id = ? AND competition_id != 39", (match_id,)).fetchone()
+    finally:
+        conn.close()
+    return dict(row) if row else None
+
+
+def _load_statsapi_payloads(match_id: int) -> Dict[str, Dict[str, Any]]:
+    conn = get_db()
+    try:
+        rows = conn.execute("SELECT kind, payload FROM external_match_payloads WHERE match_id = ? AND provider = 'TheStatsAPI'", (match_id,)).fetchall()
+    finally:
+        conn.close()
+    payloads = {row["kind"]: json.loads(row["payload"]) for row in rows}
+    return {kind: data for kind, data in payloads.items() if not data.get("unavailable")}
+
+
+def _uefa_match_details(match: Dict[str, Any]) -> Dict[str, Any]:
+    from src.api.uefa_match_details import build_uefa_match_details
+    from src.competitions.registry import get_competition
+    from src.ingest.provider_factory import get_provider
+
+    provider = get_provider(get_competition(match["competition_id"]).key)
+    try:
+        lineups = provider.fetch_match_details(match["match_id"])
+        events = provider.fetch_match_stream(match["match_id"])
+        match_feed = provider.fetch_match(match["match_id"])
+    except Exception as exc:
+        logger.warning("UEFA match feed unavailable for %s: %s", match["match_id"], exc)
+        lineups = events = match_feed = None
+    result = build_uefa_match_details(match, lineups, events, match_feed)
+    payloads = _load_statsapi_payloads(match["match_id"])
+    if payloads:
+        from src.api.uefa_match_details import apply_statsapi_payloads
+        result = apply_statsapi_payloads(result, payloads, match, get_match_odds_list(match["match_id"]))
+    if match["status"] == "COMPLETED" and events and "stats" in payloads:
+        state._completed_match_details_cache[match["match_id"]] = result
+    return result
+
+
 @router.get("/api/match/{match_id}/details")
 def get_match_full_details(match_id: int):
     """
@@ -785,6 +827,10 @@ def get_match_full_details(match_id: int):
     """
     if match_id in state._completed_match_details_cache:
         return state._completed_match_details_cache[match_id]
+
+    uefa_match = _find_non_premier_league_match(match_id)
+    if uefa_match is not None:
+        return _uefa_match_details(uefa_match)
 
     raw_details = DATA_DIR / "raw" / "matches" / f"{match_id}_details.json"
     raw_stream = DATA_DIR / "raw" / "matches" / f"{match_id}_stream.json"

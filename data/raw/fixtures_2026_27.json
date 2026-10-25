@@ -9293,7 +9293,8 @@
           "teamType": "FIRST",
           "shortName": "Crystal Palace",
           "id": 6.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -9307,7 +9308,8 @@
           "teamType": "FIRST",
           "shortName": "Newcastle",
           "id": 23.0
-        }
+        },
+        "score": 2.0
       }
     ],
     "replay": false,
@@ -9318,23 +9320,43 @@
       "id": 9431.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "clock": {
+      "secs": 5940.0,
+      "label": "90+9'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 114590.0,
+        "assistId": 9662.0,
+        "clock": {
+          "secs": 2820.0,
+          "label": "47'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 14716.0,
+        "assistId": 68637.0,
+        "clock": {
+          "secs": 3480.0,
+          "label": "58'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128997.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Paul Tierney"
-        }
-      }
-    ]
+    "id": 128997.0
   },
   {
     "gameweek": {
@@ -9383,7 +9405,8 @@
           "teamType": "FIRST",
           "shortName": "Hull",
           "id": 41.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -9397,7 +9420,8 @@
           "teamType": "FIRST",
           "shortName": "Brentford",
           "id": 130.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -9408,23 +9432,43 @@
       "id": 9569.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "D",
+    "attendance": 24259.0,
+    "clock": {
+      "secs": 5640.0,
+      "label": "90+4'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 8107.0,
+        "clock": {
+          "secs": 1440.0,
+          "label": "24'00"
+        },
+        "phase": "1",
+        "type": "P",
+        "description": "P"
+      },
+      {
+        "personId": 133890.0,
+        "assistId": 124052.0,
+        "clock": {
+          "secs": 3780.0,
+          "label": "63'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 128998.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Robert Jones"
-        }
-      }
-    ]
+    "id": 128998.0
   },
   {
     "gameweek": {
@@ -9473,7 +9517,8 @@
           "teamType": "FIRST",
           "shortName": "Liverpool",
           "id": 10.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -9487,7 +9532,8 @@
           "teamType": "FIRST",
           "shortName": "Brighton",
           "id": 131.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -9498,23 +9544,42 @@
       "id": 7305.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 22542.0,
+        "clock": {
+          "secs": 1020.0,
+          "label": "17'00"
+        },
+        "phase": "1",
+        "type": "O",
+        "description": "O"
+      },
+      {
+        "personId": 21737.0,
+        "assistId": 68840.0,
+        "clock": {
+          "secs": 1260.0,
+          "label": "21'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129000.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Samuel Barrott"
-        }
-      }
-    ]
+    "id": 129000.0
   },
   {
     "gameweek": {
@@ -9563,7 +9628,8 @@
           "teamType": "FIRST",
           "shortName": "Man Utd",
           "id": 12.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -9577,7 +9643,8 @@
           "teamType": "FIRST",
           "shortName": "Bournemouth",
           "id": 127.0
-        }
+        },
+        "score": 3.0
       }
     ],
     "replay": false,
@@ -9588,23 +9655,54 @@
       "id": 9516.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "clock": {
+      "secs": 5760.0,
+      "label": "90+6'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 134234.0,
+        "assistId": 21519.0,
+        "clock": {
+          "secs": 2280.0,
+          "label": "38'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 14846.0,
+        "assistId": 74965.0,
+        "clock": {
+          "secs": 2580.0,
+          "label": "43'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 33032.0,
+        "assistId": 10766.0,
+        "clock": {
+          "secs": 4260.0,
+          "label": "71'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129001.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Jarred Gillett"
-        }
-      }
-    ]
+    "id": 129001.0
   },
   {
     "gameweek": {
@@ -9653,7 +9751,8 @@
           "teamType": "FIRST",
           "shortName": "Sunderland",
           "id": 29.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -9667,7 +9766,8 @@
           "teamType": "FIRST",
           "shortName": "Leeds",
           "id": 9.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -9678,23 +9778,19 @@
       "id": 2010.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "L",
+    "phase": "1",
+    "clock": {
+      "secs": 660.0,
+      "label": "11'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129002.0,
-    "matchOfficials": [
-      {
-        "role": "MAIN",
-        "name": {
-          "display": "Stuart Attwell"
-        }
-      }
-    ]
+    "id": 129002.0
   },
   {
     "gameweek": {

@@ -30,3 +30,13 @@ export const RESULT_META = {
   D: { label: 'B', title: 'Beraberlik', className: 'bg-status-draw text-text-primary' },
   L: { label: 'M', title: 'Mağlubiyet', className: 'bg-status-error text-white' },
 };
+
+// Competitions a Premier League club's fixture list can contain, in the order used by the "by league" sort.
+// Logos are the official emblems (cropped to the mark without the wordmark) kept under public/competitions.
+export const COMPETITIONS = {
+  premier_league: { key: 'premier_league', order: 0, abbr: 'PL', name: 'Premier League', logo: '/competitions/premier_league.svg', className: 'border-border text-text-secondary' },
+  champions_league: { key: 'champions_league', order: 1, abbr: 'ŞL', name: 'Şampiyonlar Ligi', logo: '/competitions/champions_league.svg', className: 'border-status-info text-status-info' },
+  europa_league: { key: 'europa_league', order: 2, abbr: 'AL', name: 'Avrupa Ligi', logo: '/competitions/europa_league.svg', className: 'border-status-warning text-status-warning' },
+};
+
+export const competitionOf = (match) => COMPETITIONS[match?.competition?.key] || COMPETITIONS.premier_league;

@@ -30,6 +30,26 @@ def get_data_version():
     return {"version": str(state._loaded_data_version)}
 
 
+@router.get("/api/competitions")
+def get_competitions():
+    """Returns list of registered football competitions and tournaments."""
+    from src.competitions.registry import CompetitionRegistry
+    return [
+        {
+            "key": c.key,
+            "id": c.id,
+            "name": c.name,
+            "type": c.type,
+            "country": c.country,
+            "uefa_coefficient": c.uefa_coefficient,
+            "format": c.format,
+            "default_season": c.default_season,
+            "has_npxg": c.has_npxg,
+        }
+        for c in CompetitionRegistry.list_all()
+    ]
+
+
 def _sync_command(kind: str, season: str) -> List[str]:
     sync_season_script = str(BASE_DIR / "src" / "ingest" / "sync_season_data.py")
     return {

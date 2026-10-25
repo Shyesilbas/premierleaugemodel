@@ -69,16 +69,28 @@ def get_quick_fixture_prediction(home_id: int, away_id: int, season: Optional[st
         return None
 
 
+# Bump when fixture fields are added so browsers drop their cached copies of older responses.
+FIXTURES_SCHEMA = 3
+
+
 @router.get("/api/fixtures/grouped")
-def get_grouped_fixtures(season: str = DEFAULT_SEASON):
+def get_grouped_fixtures(season: str = DEFAULT_SEASON, competition: Optional[str] = None):
     """
     Returns fixtures grouped by Gameweek, and within each Gameweek, grouped by match day.
     Uses indexed SQLite database with instant response time and attached referee cards data.
     """
-    if season not in (DEFAULT_SEASON, "current") and season in state._historical_fixtures_grouped_cache:
-        return state._historical_fixtures_grouped_cache[season]
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    comp_id = comp.id if comp else 39
+    comp_key = comp.key if comp else "premier_league"
 
-    db_fixtures = get_all_grouped_fixtures(season)
+    cache_key = f"{comp_key}_{season}"
+    if season not in (DEFAULT_SEASON, "current") and cache_key in state._historical_fixtures_grouped_cache:
+        return state._historical_fixtures_grouped_cache[cache_key]
+
+    db_fixtures = get_all_grouped_fixtures(season, competition_id=comp_id)
+    from src.api.knockout import tie_summaries
+    ties_by_match = tie_summaries(db_fixtures) if comp_id != 39 else {}
     raw_fixtures = []
 
     # Determine current active gameweek (the earliest gameweek with unplayed matches)
@@ -101,7 +113,7 @@ def get_grouped_fixtures(season: str = DEFAULT_SEASON):
         # Compute AI predictions strictly for uncompleted matches in the CURRENT gameweek only
         pred = (
             get_quick_fixture_prediction(h_id, a_id, r.get("season") or season)
-            if (not is_completed and gw == current_gw)
+            if (comp_id == 39 and not is_completed and gw == current_gw)
             else None
         )
 
@@ -123,10 +135,12 @@ def get_grouped_fixtures(season: str = DEFAULT_SEASON):
             "home_id": h_id,
             "home_name": r["home_name"],
             "home_abbr": r.get("home_abbr") or "",
+            "home_logo": r.get("home_logo"),
             "home_score": h_score,
             "away_id": a_id,
             "away_name": r["away_name"],
             "away_abbr": r.get("away_abbr") or "",
+            "away_logo": r.get("away_logo"),
             "away_score": a_score,
             "total_corners": r.get("total_corners"),
             "total_throws": r.get("total_throws"),
@@ -147,13 +161,19 @@ def get_grouped_fixtures(season: str = DEFAULT_SEASON):
             "total_fouls": r.get("total_fouls"),
             "ref_avg_cards": r.get("ref_avg_cards"),
             "ref_strictness": r.get("ref_strictness"),
-            "home_xg": round(float(r["statsapi_home_xg"]), 2) if r.get("statsapi_home_xg") is not None else None,
-            "away_xg": round(float(r["statsapi_away_xg"]), 2) if r.get("statsapi_away_xg") is not None else None,
+            "home_xg": round(float(r["statsapi_home_xg"]), 2) if r.get("statsapi_home_xg") is not None else (round(float(r["home_xg"]), 2) if r.get("home_xg") is not None else None),
+            "away_xg": round(float(r["statsapi_away_xg"]), 2) if r.get("statsapi_away_xg") is not None else (round(float(r["away_xg"]), 2) if r.get("away_xg") is not None else None),
             "total_xg": round(float(r["statsapi_home_xg"] + r["statsapi_away_xg"]), 2)
-                if r.get("statsapi_home_xg") is not None and r.get("statsapi_away_xg") is not None else None,
-            "xg_source": r.get("xg_provider") if r.get("statsapi_home_xg") is not None and r.get("statsapi_away_xg") is not None else None,
+                if r.get("statsapi_home_xg") is not None and r.get("statsapi_away_xg") is not None
+                else (round(float(r["total_xg"]), 2) if r.get("total_xg") is not None else None),
+            "xg_source": r.get("xg_provider") if r.get("statsapi_home_xg") is not None and r.get("statsapi_away_xg") is not None else ("Official" if r.get("home_xg") is not None else None),
             "xg_quality": r.get("statsapi_xg_quality"),
             "status": "COMPLETED" if is_completed else "UPCOMING",
+            "stage": r.get("stage") or "league",
+            "group": r.get("group_name"),
+            "tie": ties_by_match.get(mid),
+            "home_penalties": r.get("home_penalties"),
+            "away_penalties": r.get("away_penalties"),
             "season": r.get("season") or season,
             "prediction": pred,
         })
@@ -170,6 +190,15 @@ def get_grouped_fixtures(season: str = DEFAULT_SEASON):
         gw_groups[gw][day].append(fix)
 
     structured = []
+    stage_titles = {
+        "league": "Lig Aşaması",
+        "group": "Grup Aşaması",
+        "playoff": "Play-off Eleme Turu",
+        "r16": "Son 16 Turu",
+        "qf": "Çeyrek Final (Son 8)",
+        "sf": "Yarı Final",
+        "final": "Final",
+    }
     for gw in sorted(gw_groups.keys()):
         # Sort matches within each day chronologically
         for d in gw_groups[gw]:
@@ -182,7 +211,19 @@ def get_grouped_fixtures(season: str = DEFAULT_SEASON):
         )
 
         day_list = [{"day": d, "matches": gw_groups[gw][d]} for d in sorted_day_keys]
-        structured.append({"gameweek": gw, "days": day_list})
+        first_match = day_list[0]["matches"][0] if day_list and day_list[0]["matches"] else {}
+        gw_stage = first_match.get("stage", "league")
+        title_label = stage_titles.get(gw_stage, f"Hafta {gw}")
+        if gw_stage in ("league", "group"):
+            title_label = f"Hafta {gw}"
+
+        structured.append({
+            "gameweek": gw,
+            "stage": gw_stage,
+            "title": title_label,
+            "stage_title": stage_titles.get(gw_stage, "Lig Aşaması"),
+            "days": day_list
+        })
 
     # Determine current gameweek:
     current_gw = 1
@@ -206,80 +247,262 @@ def get_grouped_fixtures(season: str = DEFAULT_SEASON):
         }
 
     res = {
+        "schema": FIXTURES_SCHEMA,
         "season": season,
+        "competition": {
+            "key": comp.key if comp else "premier_league",
+            "id": comp_id,
+            "name": comp.name if comp else "Premier League",
+        },
         "gameweeks": structured,
         "total_matches": len(raw_fixtures),
         "current_gameweek": current_gw,
         "next_match": next_match_info,
     }
     if season not in (DEFAULT_SEASON, "current"):
-        state._historical_fixtures_grouped_cache[season] = res
+        state._historical_fixtures_grouped_cache[cache_key] = res
     return res
 
 
+@router.get("/api/fixtures/bracket")
+def get_knockout_bracket(season: str = DEFAULT_SEASON, competition: Optional[str] = None):
+    """Knockout bracket (play-off to final) of a UEFA competition; the league phase is not part of it."""
+    from src.api.knockout import build_bracket
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    if comp is None or comp.id == 39:
+        raise HTTPException(status_code=404, detail="This competition has no knockout bracket")
+    rows = [r for r in get_all_grouped_fixtures(season, competition_id=comp.id)]
+    return {"season": season, "competition": {"key": comp.key, "id": comp.id, "name": comp.name}, **build_bracket(rows)}
+
+
 @router.get("/api/referees")
-def get_referees(season: str = DEFAULT_SEASON, search: Optional[str] = None):
-    """Returns list of Premier League referees and card statistics from SQLite."""
+def get_referees(season: str = DEFAULT_SEASON, search: Optional[str] = None, competition: Optional[str] = None):
+    """Returns list of referees and card statistics from SQLite, filtered by competition."""
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    comp_id = comp.id if comp else 39
+
+    if comp_id != 39:
+        from src.db.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        query = """
+            SELECT 
+                referee_name,
+                COUNT(*) as matches_count,
+                ROUND(SUM(total_yellow_cards), 1) as total_yellow_cards,
+                ROUND(AVG(total_yellow_cards), 2) as avg_yellow_cards,
+                ROUND(SUM(total_red_cards), 1) as total_red_cards,
+                ROUND(AVG(total_red_cards), 2) as avg_red_cards,
+                ROUND(SUM(total_cards), 1) as total_cards,
+                ROUND(AVG(total_cards), 2) as avg_cards,
+                ROUND(SUM(total_fouls), 1) as total_fouls,
+                ROUND(AVG(total_fouls), 2) as avg_fouls,
+                SUM(CASE WHEN total_cards > 3.5 THEN 1 ELSE 0 END) as over_3_5_cards_count,
+                ROUND(SUM(CASE WHEN total_cards > 3.5 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as over_3_5_pct,
+                CASE 
+                    WHEN AVG(total_cards) >= 4.5 THEN 'Cok Sıkı'
+                    WHEN AVG(total_cards) >= 3.8 THEN 'Sıkı'
+                    WHEN AVG(total_cards) <= 2.8 THEN 'Cok Rahat'
+                    WHEN AVG(total_cards) <= 3.4 THEN 'Rahat'
+                    ELSE 'Dengeli'
+                END as strictness_label
+            FROM matches
+            WHERE competition_id = ? AND (season = ? OR ? = 'all')
+              AND referee_name IS NOT NULL AND referee_name != 'Atanmadı' AND status = 'COMPLETED'
+            GROUP BY referee_name
+        """
+        params = [comp_id, season, season]
+        if search:
+            query += " HAVING referee_name LIKE ?"
+            params.append(f"%{search}%")
+        query += " ORDER BY matches_count DESC, avg_cards DESC"
+        cursor.execute(query, params)
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return {"referees": rows}
+
     return {"referees": get_referees_list(season, search)}
 
 
 @router.get("/api/referees/{name}")
-def get_referee_profile(name: str, season: str = DEFAULT_SEASON):
+def get_referee_profile(name: str, season: str = DEFAULT_SEASON, competition: Optional[str] = None):
     """Returns detailed profile and matches officiated by referee from SQLite."""
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    comp_id = comp.id if comp else 39
+
+    if comp_id != 39:
+        from src.db.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM matches
+            WHERE referee_name = ? AND competition_id = ? AND (season = ? OR ? = 'all')
+            ORDER BY gameweek DESC, match_date DESC
+        """, (name, comp_id, season, season))
+        matches = [dict(r) for r in cursor.fetchall()]
+        completed = [m for m in matches if m.get("status") == "COMPLETED"]
+        m_count = len(completed)
+        tot_cards = sum(m.get("total_cards") or 0.0 for m in completed)
+        tot_fouls = sum(m.get("total_fouls") or 0.0 for m in completed)
+        tot_y = sum(m.get("total_yellow_cards") or 0.0 for m in completed)
+        tot_r = sum(m.get("total_red_cards") or 0.0 for m in completed)
+        avg_c = round(tot_cards / m_count, 2) if m_count > 0 else None
+        avg_f = round(tot_fouls / m_count, 2) if m_count > 0 else None
+        strictness = None if avg_c is None else "Sıkı" if avg_c >= 4.0 else ("Rahat" if avg_c < 3.0 else "Dengeli")
+
+        stats = {
+            "referee_name": name,
+            "season": season,
+            "matches_count": m_count,
+            "total_yellow_cards": tot_y,
+            "avg_yellow_cards": round(tot_y / m_count, 2) if m_count > 0 else 0.0,
+            "total_red_cards": tot_r,
+            "avg_red_cards": round(tot_r / m_count, 2) if m_count > 0 else 0.0,
+            "total_cards": tot_cards,
+            "avg_cards": avg_c,
+            "total_fouls": tot_fouls,
+            "avg_fouls": avg_f,
+            "strictness_label": strictness,
+        }
+        conn.close()
+        return {
+            "referee_name": name,
+            "selected_season": season,
+            "season_stats": stats,
+            "career_stats": stats,
+            "matches_count": len(matches),
+            "matches": matches,
+            "team_breakdown": [],
+        }
+
     return get_referee_detail(name, season)
 
 
+def _official_ranks(comp_id: int, season: str) -> Dict[str, Dict[str, Any]]:
+    from src.db.database import get_db
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT payload FROM external_competition_payloads WHERE competition_id = ? AND season = ? AND provider = 'UEFA' AND kind = 'standings'",
+            (comp_id, season),
+        ).fetchone()
+    finally:
+        conn.close()
+    return json.loads(row["payload"]) if row else {}
+
+
 @router.get("/api/standings")
-def get_standings(season: str = DEFAULT_SEASON):
+def get_standings(season: str = DEFAULT_SEASON, competition: Optional[str] = None):
     """
-    Computes Premier League standings table for the specified season.
+    Computes standings table for the specified season and competition.
     Includes Played, Won, Drawn, Lost, GF, GA, GD, Points, and Last 5 Form,
-    plus Home and Away breakdowns.
+    plus Home and Away breakdowns and tournament qualification zones.
     """
-    if season not in (DEFAULT_SEASON, "current") and season in state._historical_standings_cache:
-        return state._historical_standings_cache[season]
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    comp_id = comp.id if comp else 39
+    comp_key = comp.key if comp else "premier_league"
+
+    cache_key = f"{comp_key}_{season}"
+    if season not in (DEFAULT_SEASON, "current") and cache_key in state._historical_standings_cache:
+        return state._historical_standings_cache[cache_key]
 
     matches_to_process = []
+    teams_meta = {}
 
-    if season == DEFAULT_SEASON and state.raw_fixtures_2627:
-        for f in state.raw_fixtures_2627:
-            teams = f.get("teams", [])
-            if len(teams) < 2:
-                continue
-            h_score = teams[0].get("score")
-            a_score = teams[1].get("score")
-            if h_score is None or a_score is None:
-                continue
+    if comp_id != 39:
+        from src.db.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        # Fetch all teams in the competition
+        cursor.execute(
+            "SELECT DISTINCT home_id, home_name, home_abbr, home_logo, group_name FROM matches "
+            "WHERE competition_id = ? AND stage IN ('league', 'group') AND (season = ? OR ? = 'all')",
+            (comp_id, season, season),
+        )
+        for r in cursor.fetchall():
+            teams_meta[int(r[0])] = {"id": int(r[0]), "name": r[1], "abbr": r[2] or "", "logo": r[3], "group": r[4]}
+
+        # Fetch completed league phase matches
+        cursor.execute("""
+            SELECT gameweek, home_id, home_name, home_abbr, home_score, away_id, away_name, away_abbr, away_score
+            FROM matches
+            WHERE competition_id = ? AND (season = ? OR ? = 'all')
+              AND status = 'COMPLETED' AND home_score IS NOT NULL AND away_score IS NOT NULL
+              AND stage IN ('league', 'group')
+            ORDER BY gameweek ASC, match_date ASC
+        """, (comp_id, season, season))
+        for r in cursor.fetchall():
             matches_to_process.append({
-                "gameweek": int(f.get("gameweek", {}).get("gameweek", 1)),
-                "home_id": int(teams[0]["team"]["id"]),
-                "home_name": teams[0]["team"]["name"],
-                "away_id": int(teams[1]["team"]["id"]),
-                "away_name": teams[1]["team"]["name"],
-                "home_score": int(h_score),
-                "away_score": int(a_score),
+                "gameweek": int(r[0]),
+                "home_id": int(r[1]),
+                "home_name": r[2],
+                "away_id": int(r[5]),
+                "away_name": r[6],
+                "home_score": int(r[4]),
+                "away_score": int(r[8]),
             })
+        conn.close()
     else:
-        df = state.df_matches.copy()
-        if season != "all" and "season" in df.columns:
-            df = df[df["season"] == season]
-        for _, r in df.iterrows():
-            if pd.isnull(r.get("home_score")) or pd.isnull(r.get("away_score")):
-                continue
-            matches_to_process.append({
-                "gameweek": int(r.get("gameweek") or 1),
-                "home_id": int(r["home_id"]),
-                "home_name": str(r["home_name"]),
-                "away_id": int(r["away_id"]),
-                "away_name": str(r["away_name"]),
-                "home_score": int(r["home_score"]),
-                "away_score": int(r["away_score"]),
-            })
+        # Premier League logic
+        if season == DEFAULT_SEASON and state.raw_fixtures_2627:
+            for f in state.raw_fixtures_2627:
+                teams = f.get("teams", [])
+                if len(teams) < 2:
+                    continue
+                h_score = teams[0].get("score")
+                a_score = teams[1].get("score")
+                if h_score is None or a_score is None:
+                    continue
+                matches_to_process.append({
+                    "gameweek": int(f.get("gameweek", {}).get("gameweek", 1)),
+                    "home_id": int(teams[0]["team"]["id"]),
+                    "home_name": teams[0]["team"]["name"],
+                    "away_id": int(teams[1]["team"]["id"]),
+                    "away_name": teams[1]["team"]["name"],
+                    "home_score": int(h_score),
+                    "away_score": int(a_score),
+                })
+        else:
+            df = state.df_matches.copy()
+            if season != "all" and "season" in df.columns:
+                df = df[df["season"] == season]
+            for _, r in df.iterrows():
+                if pd.isnull(r.get("home_score")) or pd.isnull(r.get("away_score")):
+                    continue
+                matches_to_process.append({
+                    "gameweek": int(r.get("gameweek") or 1),
+                    "home_id": int(r["home_id"]),
+                    "home_name": str(r["home_name"]),
+                    "away_id": int(r["away_id"]),
+                    "away_name": str(r["away_name"]),
+                    "home_score": int(r["home_score"]),
+                    "away_score": int(r["away_score"]),
+                })
 
     # Sort matches chronologically by gameweek for accurate form
     matches_to_process.sort(key=lambda m: m["gameweek"])
 
     table = {}
+    # Initialize all known teams from meta if present
+    for tid, tmeta in teams_meta.items():
+        table[tid] = {
+            "id": tid,
+            "name": tmeta["name"],
+            "short": tmeta["name"],
+            "abbr": tmeta["abbr"],
+            "badge": tmeta.get("logo") or f"/badges/{tid}.svg",
+            "group": tmeta.get("group"),
+            "played": 0, "won": 0, "drawn": 0, "lost": 0,
+            "gf": 0, "ga": 0, "gd": 0, "points": 0,
+            "form": [],
+            "home": {"played": 0, "won": 0, "drawn": 0, "lost": 0, "gf": 0, "ga": 0, "gd": 0, "points": 0},
+            "away": {"played": 0, "won": 0, "drawn": 0, "lost": 0, "gf": 0, "ga": 0, "gd": 0, "points": 0},
+        }
+
     for m in matches_to_process:
         hid = m["home_id"]
         hname = m["home_name"]
@@ -359,19 +582,74 @@ def get_standings(season: str = DEFAULT_SEASON):
         t["form"] = t["form"][-5:]  # Keep last 5 matches for form
         standings_list.append(t)
 
-    # Sort standard PL rules: Points DESC -> GD DESC -> GF DESC
-    standings_list.sort(key=lambda x: (x["points"], x["gd"], x["gf"]), reverse=True)
+    # Sort standard rules: Points DESC -> GD DESC -> GF DESC (within a group when the phase is played in groups)
+    has_groups = comp_id != 39 and any(t.get("group") for t in standings_list)
+    official = _official_ranks(comp_id, season) if comp_id != 39 else {}
+    # UEFA's table applies the tie-break rules (head-to-head etc.); trust it only when it describes the same results.
+    use_official = bool(official) and all(
+        str(t["id"]) in official and official[str(t["id"])]["played"] == t["played"] and official[str(t["id"])]["points"] == t["points"]
+        for t in standings_list
+    )
+    if use_official:
+        standings_list.sort(key=lambda x: (x.get("group") or "", official[str(x["id"])]["rank"]))
+    else:
+        standings_list.sort(key=lambda x: (x.get("group") or "", -x["points"], -x["gd"], -x["gf"]) if has_groups else (-x["points"], -x["gd"], -x["gf"]))
 
+    rank_in_group: Dict[Any, int] = {}
     for rank, item in enumerate(standings_list, 1):
+        if has_groups:
+            rank_in_group[item["group"]] = rank = rank_in_group.get(item["group"], 0) + 1
         item["rank"] = rank
+        if comp_id != 39 and has_groups:
+            # Classic group stage: the winner goes straight to the last 16; a Champions League third place
+            # drops into the Europa League knockout play-offs, a Europa League runner-up plays the play-off round.
+            if rank == 1 or (rank == 2 and comp_id == 2):
+                item["zone"], item["zone_label"] = "direct_r16", "Son 16 Turu"
+            elif (rank == 3 and comp_id == 2) or (rank == 2 and comp_id == 3):
+                item["zone"] = "playoff"
+                item["zone_label"] = "Avrupa Ligi play-off" if comp_id == 2 else "Play-off Eleme Turu"
+            else:
+                item["zone"], item["zone_label"] = "eliminated", "Elendi"
+        elif comp_id in (2, 3):
+            # UEFA league phase (36 teams): top 8 straight to the last 16, 9-24 to the play-offs
+            if rank <= 8:
+                item["zone"] = "direct_r16"
+                item["zone_label"] = "Son 16 Turu (Doğrudan)"
+            elif rank <= 24:
+                item["zone"] = "playoff"
+                item["zone_label"] = "Play-off Eleme Turu"
+            else:
+                item["zone"] = "eliminated"
+                item["zone_label"] = "Elendi"
+        else:
+            # Premier League Zones
+            if rank <= 4:
+                item["zone"] = "champions_league"
+                item["zone_label"] = "UEFA Şampiyonlar Ligi"
+            elif rank == 5:
+                item["zone"] = "europa_league"
+                item["zone_label"] = "UEFA Avrupa Ligi"
+            elif rank >= 18:
+                item["zone"] = "relegation"
+                item["zone_label"] = "Küme Düşme"
+            else:
+                item["zone"] = "none"
+                item["zone_label"] = ""
 
     res = {
         "season": season,
+        "competition": {
+            "key": comp.key if comp else "premier_league",
+            "id": comp_id,
+            "name": comp.name if comp else "Premier League",
+        },
         "total_teams": len(standings_list),
+        "format": "groups" if has_groups else "league",
+        "groups": sorted({t["group"] for t in standings_list if t.get("group")}) if has_groups else [],
         "standings": standings_list
     }
     if season not in (DEFAULT_SEASON, "current"):
-        state._historical_standings_cache[season] = res
+        state._historical_standings_cache[cache_key] = res
     return res
 
 

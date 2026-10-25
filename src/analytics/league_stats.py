@@ -169,7 +169,7 @@ def build_league_stats(
             "id": int(team_id),
             "name": info.get("name") or f"Takım #{team_id}",
             "abbr": info.get("abbr") or "",
-            "badge": f"/badges/{int(team_id)}.svg",
+            "badge": info.get("badge") or f"/badges/{int(team_id)}.svg",
         }
 
     scope_ids = set(in_scope["match_id"].astype(int))
@@ -238,7 +238,10 @@ def build_league_stats(
         yellow, red = book(entry, pid)
         s["yellow"] += yellow
         s["red"] += red
-        scored = calculate_single_match_score(entry, positions.get(pid, "M"), bookings, pid)
+        if entry.get("provider_rating") is not None:  # competitions rated by their data provider
+            scored = {"overall": entry["provider_rating"]}
+        else:
+            scored = calculate_single_match_score(entry, positions.get(pid, "M"), bookings, pid)
         if scored and minutes >= 45:
             ratings[pid].append(scored["overall"])
 

@@ -18,7 +18,7 @@ from src.config import DATA_DIR, DB_PATH, DEFAULT_SEASON, RAW_DIR, SEASONS
 
 def get_db(db_path: Optional[Any] = None):
     """Returns a SQLite connection with row factory enabled."""
-    conn = sqlite3.connect(DB_PATH if db_path is None else db_path)
+    conn = sqlite3.connect(DB_PATH if db_path is None else db_path, timeout=120)  # sync jobs may write concurrently
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -74,6 +74,34 @@ def ensure_external_odds_table(conn: sqlite3.Connection) -> None:
         raw_markets_json TEXT,
         fetched_at_utc TEXT NOT NULL,
         PRIMARY KEY (match_id, provider, bookmaker)
+    );
+    """)
+    conn.commit()
+
+
+def ensure_external_payload_tables(conn: sqlite3.Connection) -> None:
+    """Raw provider payloads for matches (stats, lineups, ...) and for whole competitions (standings, squads)."""
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS external_match_payloads (
+        match_id INTEGER NOT NULL REFERENCES matches(match_id),
+        provider TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        provider_match_id TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        fetched_at_utc TEXT NOT NULL,
+        PRIMARY KEY (match_id, provider, kind)
+    );
+    """)
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS external_competition_payloads (
+        competition_id INTEGER NOT NULL,
+        season TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        ref TEXT NOT NULL DEFAULT '',
+        payload TEXT NOT NULL,
+        fetched_at_utc TEXT NOT NULL,
+        PRIMARY KEY (competition_id, season, provider, kind, ref)
     );
     """)
     conn.commit()
@@ -151,13 +179,33 @@ def init_db():
         away_total_red_card REAL,
         home_xg REAL,
         away_xg REAL,
-        total_xg REAL
+        total_xg REAL,
+        competition_id INTEGER NOT NULL DEFAULT 39
     );
     """)
+
+    # Migration guard: ensure competition_id exists on legacy tables
+    cursor.execute("PRAGMA table_info(matches);")
+    match_cols = {col[1] for col in cursor.fetchall()}
+    if "competition_id" not in match_cols:
+        cursor.execute("ALTER TABLE matches ADD COLUMN competition_id INTEGER NOT NULL DEFAULT 39;")
+    for logo_col in ("home_logo", "away_logo"):
+        if logo_col not in match_cols:
+            cursor.execute(f"ALTER TABLE matches ADD COLUMN {logo_col} TEXT;")
+    if "stage" not in match_cols:
+        cursor.execute("ALTER TABLE matches ADD COLUMN stage TEXT DEFAULT 'league';")
+    if "group_name" not in match_cols:
+        cursor.execute("ALTER TABLE matches ADD COLUMN group_name TEXT;")
+    # Two-legged knockout ties: which leg this is, who went through and how, and shoot-out scores.
+    for column, ddl in (("leg", "INTEGER"), ("advancing_team_id", "INTEGER"), ("advance_reason", "TEXT"),
+                        ("home_penalties", "REAL"), ("away_penalties", "REAL")):
+        if column not in match_cols:
+            cursor.execute(f"ALTER TABLE matches ADD COLUMN {column} {ddl};")
 
     # Provider-sourced xG and odds tables
     ensure_external_xg_table(conn)
     ensure_external_odds_table(conn)
+    ensure_external_payload_tables(conn)
 
     # Transfermarkt cache tables
     cursor.execute("""
@@ -218,6 +266,7 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_referee ON matches (referee_name, season);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_teams ON matches (home_id, away_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_referees_season ON referees (season);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_comp_season ON matches (competition_id, season);")
 
     conn.commit()
     conn.close()
@@ -381,7 +430,7 @@ def populate_db_from_sources():
             AVG(total_fouls) as avg_f,
             SUM(CASE WHEN total_cards >= 4 THEN 1 ELSE 0 END) as over_35_cnt
         FROM matches
-        WHERE referee_name != 'Unknown' AND referee_name != 'Atanmadı' AND status = 'COMPLETED' AND season = ?
+        WHERE competition_id = 39 AND referee_name != 'Unknown' AND referee_name != 'Atanmadı' AND status = 'COMPLETED' AND season = ?
         GROUP BY referee_name
         HAVING COUNT(*) > 0
         """, (s,))
@@ -432,7 +481,7 @@ def populate_db_from_sources():
         AVG(total_fouls) as avg_f,
         SUM(CASE WHEN total_cards >= 4 THEN 1 ELSE 0 END) as over_35_cnt
     FROM matches
-    WHERE referee_name != 'Unknown' AND referee_name != 'Atanmadı' AND status = 'COMPLETED'
+    WHERE competition_id = 39 AND referee_name != 'Unknown' AND referee_name != 'Atanmadı' AND status = 'COMPLETED'
     GROUP BY referee_name
     HAVING COUNT(*) > 0
     """)
@@ -524,13 +573,13 @@ def get_referee_detail(referee_name: str, season: str = DEFAULT_SEASON) -> Dict[
     if season != "all":
         cursor.execute("""
             SELECT * FROM matches 
-            WHERE referee_name = ? AND season = ? AND status = 'COMPLETED'
+            WHERE referee_name = ? AND season = ? AND status = 'COMPLETED' AND competition_id = 39
             ORDER BY gameweek DESC, match_date DESC
         """, (referee_name, season))
     else:
         cursor.execute("""
             SELECT * FROM matches 
-            WHERE referee_name = ? AND status = 'COMPLETED'
+            WHERE referee_name = ? AND status = 'COMPLETED' AND competition_id = 39
             ORDER BY season DESC, gameweek DESC, match_date DESC
         """, (referee_name,))
     matches = [dict(r) for r in cursor.fetchall()]
@@ -559,26 +608,34 @@ def get_referee_detail(referee_name: str, season: str = DEFAULT_SEASON) -> Dict[
 
     team_breakdown = sorted(list(team_card_counts.values()), key=lambda x: (x["yellows"] + x["reds"] * 2), reverse=True)
 
+    from src.api.european_fixtures import referee_european_matches
+    european = referee_european_matches(conn, referee_name, season)
     conn.close()
     return {
         "referee_name": referee_name,
         "selected_season": season,
         "season_stats": season_stats or career_stats or {
-            "referee_name": referee_name, "matches_count": 0, "avg_cards": 4.15, "avg_fouls": 21.5, "strictness_label": "Standart"
+            "referee_name": referee_name, "matches_count": 0, "avg_cards": None, "avg_fouls": None, "strictness_label": None
         },
         "career_stats": career_stats or season_stats,
         "matches_count": len(matches),
         "matches": matches,
-        "team_breakdown": team_breakdown[:8]
+        "team_breakdown": team_breakdown[:8],
+        "european": european,
     }
 
 
-def get_all_grouped_fixtures(season: str = DEFAULT_SEASON) -> List[Dict[str, Any]]:
-    """Fetches all matches from SQLite for the given season with referee stats pre-attached."""
+def get_all_grouped_fixtures(season: str = DEFAULT_SEASON, competition_id: Optional[int] = 39) -> List[Dict[str, Any]]:
+    """Fetches all matches from SQLite for the given season and competition with referee stats pre-attached."""
     conn = get_db()
     cursor = conn.cursor()
+    comp_clause = "AND m.competition_id = ?" if competition_id is not None else ""
+    params = [season] if season != "all" else []
+    if competition_id is not None:
+        params.append(competition_id)
+
     if season != "all":
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT m.*, x.provider AS xg_provider, x.home_xg AS statsapi_home_xg,
                    x.away_xg AS statsapi_away_xg, x.xg_quality AS statsapi_xg_quality,
                    r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
@@ -586,11 +643,12 @@ def get_all_grouped_fixtures(season: str = DEFAULT_SEASON) -> List[Dict[str, Any
             FROM matches m
             LEFT JOIN external_match_xg x ON x.match_id = m.match_id
             LEFT JOIN referees r ON m.referee_name = r.referee_name AND r.season = m.season
-            WHERE m.season = ?
+            WHERE m.season = ? {comp_clause}
             ORDER BY m.gameweek ASC, m.match_date ASC, m.match_id ASC
-        """, (season,))
+        """, tuple(params))
     else:
-        cursor.execute("""
+        where_sql = f"WHERE m.competition_id = ?" if competition_id is not None else ""
+        cursor.execute(f"""
             SELECT m.*, x.provider AS xg_provider, x.home_xg AS statsapi_home_xg,
                    x.away_xg AS statsapi_away_xg, x.xg_quality AS statsapi_xg_quality,
                    r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
@@ -598,8 +656,9 @@ def get_all_grouped_fixtures(season: str = DEFAULT_SEASON) -> List[Dict[str, Any
             FROM matches m
             LEFT JOIN external_match_xg x ON x.match_id = m.match_id
             LEFT JOIN referees r ON m.referee_name = r.referee_name AND r.season = 'all'
+            {where_sql}
             ORDER BY m.season DESC, m.gameweek ASC, m.match_date ASC
-        """)
+        """, tuple(params))
     rows = [dict(r) for r in cursor.fetchall()]
     conn.close()
     return rows

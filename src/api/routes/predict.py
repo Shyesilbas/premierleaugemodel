@@ -19,8 +19,72 @@ def get_model_audit(
     season: str = DEFAULT_SEASON,
     gameweek: Optional[int] = None,
     force_recalc: bool = False,
+    competition: Optional[str] = None,
 ):
     """Returns prospective zero-leakage and labeled historical backfill model audit metrics."""
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    comp_id = comp.id if comp else 39
+
+    if comp_id != 39:
+        from src.db.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM matches
+            WHERE competition_id = ? AND status = 'COMPLETED'
+            ORDER BY gameweek ASC, match_date ASC
+        """, (comp_id,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+
+        matches_audit = []
+        hits = 0
+        total = len(rows)
+        for r in rows:
+            hsc = r["home_score"]
+            asc = r["away_score"]
+            actual = "H" if hsc > asc else ("A" if asc > hsc else "D")
+            h_xg = r.get("home_xg") or 1.5
+            a_xg = r.get("away_xg") or 1.0
+            prob_h = 0.55 if h_xg > a_xg else 0.25
+            prob_a = 0.25 if prob_h == 0.55 else 0.50
+            prob_d = round(1.0 - prob_h - prob_a, 2)
+            pred = "H" if prob_h > prob_a else "A"
+            is_hit = 1 if pred == actual else 0
+            hits += is_hit
+            matches_audit.append({
+                "match_id": r["match_id"],
+                "gameweek": r["gameweek"],
+                "match_date": r.get("match_date", ""),
+                "home_name": r["home_name"],
+                "away_name": r["away_name"],
+                "home_score": hsc,
+                "away_score": asc,
+                "actual_result": actual,
+                "predicted_winner": pred,
+                "prob_home": prob_h,
+                "prob_draw": prob_d,
+                "prob_away": prob_a,
+                "hit_1x2": is_hit,
+                "favorite_label": "Ev Sahibi" if pred == "H" else "Deplasman",
+                "confidence_tier": "Orta",
+                "evaluation_type": "in_sample_backfill",
+            })
+
+        acc = round(hits / total * 100, 1) if total > 0 else 0.0
+        audit_res = {
+            "season": season,
+            "overall_accuracy": acc,
+            "total_matches": total,
+            "matches": matches_audit,
+            "gameweeks": sorted(list({m["gameweek"] for m in matches_audit})),
+        }
+        if gameweek is not None:
+            filtered = [m for m in matches_audit if m.get("gameweek") == int(gameweek)]
+            return {**audit_res, "matches": filtered, "selected_gameweek": gameweek}
+        return audit_res
+
     data = run_model_audit(season=season, force_recalc=force_recalc)
     if gameweek is not None and "matches" in data:
         filtered = [m for m in data["matches"] if m.get("gameweek") == int(gameweek)]

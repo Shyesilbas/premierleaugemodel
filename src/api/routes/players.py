@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Optional
+from typing import Dict, Optional
 
 from fastapi import APIRouter, HTTPException
 
@@ -15,8 +15,20 @@ router = APIRouter()
 logger = logging.getLogger("api_server")
 
 @router.get("/api/players")
-def get_players(team_id: Optional[int] = None, search: Optional[str] = None, season: Optional[str] = None, limit: int = 100):
+def get_players(team_id: Optional[int] = None, search: Optional[str] = None, season: Optional[str] = None, competition: Optional[str] = None, limit: int = 100):
     """Returns player directory with optional filters including season-accurate club rosters."""
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    comp_id = comp.id if comp else 39
+
+    if comp_id != 39:
+        from src.api.competition_squads import list_squad_players
+        conn = get_db()
+        try:
+            return list_squad_players(conn, comp_id, season if season and season != "all" else comp.default_season, team_id, search, limit)
+        finally:
+            conn.close()
+
     result = state.all_players
     if season and season != "all":
         s_map = state.get_season_players_map(season)
@@ -41,12 +53,25 @@ def get_players(team_id: Optional[int] = None, search: Optional[str] = None, sea
 
 
 @router.get("/api/players/profile")
-def get_player_profile(player_id: int, season: Optional[str] = "all"):
+def get_player_profile(player_id: str, season: Optional[str] = "all", competition: Optional[str] = None):
     """
     Returns player profile and their match-by-match preview log:
     including opponent, score, minutes played, goals, and assists.
     """
-    player = next((p for p in state.all_players if p["id"] == player_id), None)
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    if comp and comp.id != 39:
+        from src.api.competition_squads import build_player_profile
+        conn = get_db()
+        try:
+            profile = build_player_profile(conn, comp.id, season if season and season != "all" else comp.default_season, player_id)
+        finally:
+            conn.close()
+        if profile is None:
+            raise HTTPException(status_code=404, detail="Player not found in this competition")
+        return profile
+
+    player = next((p for p in state.all_players if str(p.get("id")) == str(player_id)), None)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
 
@@ -111,7 +136,20 @@ def get_player_profile(player_id: int, season: Optional[str] = "all"):
 
     avg_rating = round(sum(valid_ratings) / len(valid_ratings), 1) if valid_ratings else None
 
+    # Champions League / Europa League games, matched by name inside the clubs he played for that season.
+    from src.api.european_fixtures import player_european_log
+    clubs_by_season: Dict[str, set] = {}
+    for m in logs:
+        if m.get("season") and m.get("team_name"):
+            clubs_by_season.setdefault(m["season"], set()).add(m["team_name"])
+    conn = get_db()
+    try:
+        european = player_european_log(conn, p_name, clubs_by_season)
+    finally:
+        conn.close()
+
     return {
+        "european": european,
         "player": player_data,
         "season": season,
         "season_stats": {

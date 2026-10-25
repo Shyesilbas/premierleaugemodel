@@ -13,6 +13,8 @@ import {
   ShieldCheck,
   BarChart3
 } from 'lucide-react';
+import { useCompetition } from '../context/CompetitionContext';
+import CompetitionSelector from './common/CompetitionSelector';
 
 export default function Sidebar({
   activeTab,
@@ -23,6 +25,7 @@ export default function Sidebar({
   setCollapsed
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { activeCompetition } = useCompetition();
 
   const navItems = [
     { id: 'fixtures', label: 'Fikstür & Günler', icon: Calendar },
@@ -52,11 +55,11 @@ export default function Sidebar({
       {/* Mobile Top Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-background-primary border-b border-border z-40 px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-primary text-white flex items-center justify-center">
+          <div className={`w-8 h-8 rounded bg-accent text-white flex items-center justify-center transition-colors`}>
             <Trophy className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold text-text-primary leading-tight">Premier League</h1>
+            <h1 className="text-sm font-semibold text-text-primary leading-tight">{activeCompetition.name}</h1>
           </div>
         </div>
 
@@ -99,12 +102,13 @@ export default function Sidebar({
         <div className="p-5 flex flex-col h-full overflow-y-auto">
 
           {/* Logo & Branding */}
-          <div className="flex items-center gap-3.5 pb-6 border-b border-border-light">
-            <div className="w-9 h-9 rounded bg-primary text-white flex items-center justify-center">
+          <div className="flex items-center gap-3.5 pb-4 border-b border-border-light">
+            <div className={`w-9 h-9 rounded bg-accent text-white flex items-center justify-center transition-colors`}>
               <Trophy className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="font-semibold text-base tracking-tight text-text-primary">Premier League</h1>
+              <h1 className="font-semibold text-base tracking-tight text-text-primary leading-tight">{activeCompetition.name}</h1>
+              <p className="text-xs text-text-muted">{activeCompetition.country}</p>
             </div>
             <button
               onClick={() => setCollapsed(true)}
@@ -113,6 +117,14 @@ export default function Sidebar({
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* Turnuva Seçici */}
+          <div className="py-3 border-b border-border-light">
+            <label className="text-xs font-semibold text-text-secondary block mb-2">
+              Turnuva
+            </label>
+            <CompetitionSelector compact />
           </div>
 
           {/* Season Selector */}
@@ -153,7 +165,7 @@ export default function Sidebar({
                     onClick={() => handleNavClick(item.id)}
                     className={`w-full flex items-center justify-start px-3 py-2.5 rounded text-xs font-medium transition-colors duration-150 group ${
                       isActive
-                        ? 'bg-primary text-white'
+                        ? 'bg-accent text-white'
                         : 'text-text-secondary hover:text-text-primary hover:bg-background-tertiary'
                     }`}
                   >

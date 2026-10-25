@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BarChart3, ChevronDown } from 'lucide-react';
 import { getLeagueStats } from '../services/statsService';
 import { formatSeasonLabel } from '../utils/dateFormatters';
+import { useCompetition } from '../context/CompetitionContext';
 import Skeleton from './common/Skeleton';
 import InlineError from './common/InlineError';
 import EmptyState from './common/EmptyState';
@@ -378,16 +379,17 @@ export function StatsContent({ data, selectedSeason, pending, header, openMatch 
 }
 
 export default function StatsTab({ selectedSeason = '2026_27', setSelectedSeason, onSelectMatch }) {
+  const { competitionKey } = useCompetition();
   const [scope, setScope] = useState('week');
   const [gameweek, setGameweek] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [result, setResult] = useState(null);
 
-  const requestKey = `${selectedSeason}|${scope}|${gameweek ?? 'latest'}|${reloadKey}`;
+  const requestKey = `${competitionKey}|${selectedSeason}|${scope}|${gameweek ?? 'latest'}|${reloadKey}`;
 
   useEffect(() => {
     let active = true;
-    getLeagueStats(selectedSeason, scope, gameweek)
+    getLeagueStats(selectedSeason, scope, gameweek, competitionKey)
       .then(data => {
         if (active) setResult({ key: requestKey, data, error: false });
       })
@@ -398,7 +400,7 @@ export default function StatsTab({ selectedSeason = '2026_27', setSelectedSeason
     return () => {
       active = false;
     };
-  }, [selectedSeason, scope, gameweek, requestKey]);
+  }, [selectedSeason, scope, gameweek, competitionKey, requestKey]);
 
   const settled = result?.key === requestKey;
   const failed = settled && result.error;

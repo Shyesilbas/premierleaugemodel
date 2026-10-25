@@ -63,6 +63,9 @@ MARKET_VALUE_FEATURES = [
 XI_RATING_FEATURES = [
     "xi_rating_diff",
     "xi_att_vs_def_diff",
+    "xi_continuity_diff",
+    "xi_weighted_ov_diff",
+    "missing_reg_mins_diff",
 ]
 TACTICAL_1X2_FEATURES = [
     "home_pass_pct_roll_10",

@@ -21,7 +21,7 @@ database_architecture:
     upcoming_fixtures: 305
     current_season_played_matches: 75 (2026/27)
   tables:
-    matches: { rows: 1900, cols: 39, role: "Core fixtures, scores, kickoff_millis, ground, referees, match status" }
+    matches: { rows: 1900, cols: 40, role: "Core fixtures, scores, kickoff_millis, ground, referees, match status, competition_id" }
     external_match_xg: { rows: 1564, cols: 8, role: "TheStatsAPI / Opta verified shot-level xG backfill" }
     external_match_odds: { rows: 391, cols: 29, role: "Bookmaker opening and closing odds for 1X2, Over 2.5, BTTS" }
     player_market_values: { rows: 1771, cols: 10, role: "Transfermarkt player valuations, age, position, nationality" }
@@ -115,30 +115,30 @@ outcome_1x2_model:
     imputer: "SimpleImputer(strategy='median', keep_empty_features=True)"
     scaler: "StandardScaler()"
     classifier: "LogisticRegression(C=0.003, max_iter=5000)"
-  feature_count: 71  # v1.3 (2026-10-25): npxG + npBC (penalty inflation stripped) + sdiff_pa_entries_e02/r10 with Bayesian shrinkage (k=3.0)
+  feature_count: 74  # v1.4 (2026-10-25): Starting XI minute-weighting & continuity (xi_continuity_diff, xi_weighted_ov_diff, missing_reg_mins_diff)
   calibrator:
     method: "forward_oof_on_all_eligible_training_matches"
     regularization: { reg_temp: 0.10, reg_bias: 0.50 }
     oof_sample_size: 922
   outer_season_walk_forward_1140_matches:
-    seasons: { "2023_24": 0.9278, "2024_25": 0.9777, "2025_26": 1.0184 }
-    pooled_log_loss: 0.9746 (v1.2: 0.9757, v1.1: 0.9789, delta vs v1.1: -0.0043)
-    pooled_accuracy_pct: 55.09% (v1.2: 54.30%, v1.1: 54.12%)
-    pooled_brier: 0.5798 (v1.2: 0.5806, v1.1: 0.5826)
-    pooled_rps: 0.1980 (v1.2: 0.1985, v1.1: 0.1994)
-    cv_log_loss: 0.9709 (v1.2: 0.9739, v1.1: 0.9755)
+    seasons: { "2023_24": 0.9292, "2024_25": 0.9730, "2025_26": 1.0174 }
+    pooled_log_loss: 0.9732 (v1.3: 0.9746, v1.2: 0.9757, v1.1: 0.9789, delta vs v1.1: -0.0057)
+    pooled_accuracy_pct: 54.47% (v1.2: 54.30%, v1.1: 54.12%)
+    pooled_brier: 0.5790 (v1.3: 0.5798, v1.2: 0.5806, v1.1: 0.5826)
+    pooled_rps: 0.1977 (v1.3: 0.1980, v1.2: 0.1985, v1.1: 0.1994)
+    cv_log_loss: 0.9674 (v1.3: 0.9709, v1.2: 0.9739, v1.1: 0.9755)
   dc_comparator:
     team_count: 25
     intercept: 0.240819
     home_advantage: 0.144825
     rho: -0.046433
   benchmark_304_holdout_matches:
-    multiclass_log_loss: 1.0261 (prior: 1.0920)
+    multiclass_log_loss: 1.0240 (prior: 1.0920)
     class_prior_baseline_log_loss: 1.0920
-    paired_bootstrap_delta_ll: -0.0656 (95% CI: [-0.1041, -0.0263], p_superior = 0.9996)
-    multiclass_brier: 0.6172 (prior: 0.661)
-    rps: 0.2080 (prior: 0.2288)
-    accuracy_pct: 49.67% (prior: 40.79%)
+    paired_bootstrap_delta_ll: -0.0680 (95% CI: [-0.1062, -0.0285], p_superior = 0.9998)
+    multiclass_brier: 0.6160 (prior: 0.661)
+    rps: 0.2073 (prior: 0.2288)
+    accuracy_pct: 50.33% (prior: 40.79%)
     dixon_coles_holdout_ll: 1.0459 (calibrated; raw 1.0477)
   class_log_loss_breakdown:
     home_win: { matches: 124, model_ll: 0.7868, prior_ll: 0.8205, pred_mean_prob: 48.16% }

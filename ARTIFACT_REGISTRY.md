@@ -2,10 +2,21 @@
 
 This file describes the artifact ownership and refresh path. Snapshot counts and model scores live in the generated reports so they have one source of truth.
 
+## Configuration artifacts
+
+| Artifact | Purpose | Produced by |
+|---|---|---|
+| `config/competitions.yaml` | Turnuva kayıt defteri: desteklenen liglerin id, format, uefa katsayısı ve sağlayıcı tanımları | El ile sürdürülür |
+| `config/priors.yaml` | Turnuva bazlı soğuk başlangıç istatistik priörleri (sıfır sızıntı garantisi) | El ile sürdürülür |
+
 ## Data artifacts
 
 | Artifact | Purpose | Produced by |
 |---|---|---|
+| `data/raw/{competition}/fixtures_{season}.json` | Çoklu lig fikstür takvimi | Çoklu lig senkronizasyonu |
+| `data/raw/{competition}/matches/*_stream.json` | Çoklu lig play-by-play olay akışı | `src/processing/process_competition_data.py` |
+| `data/processed/{competition}/matches_summary_{season}.parquet` | Turnuva bazlı ayrıştırılmış maç özetleri | `src/processing/process_competition_data.py` |
+| `data/processed/{competition}/shots_events_{season}.parquet` | Turnuva bazlı şut ve olay koordinatları | `src/processing/process_competition_data.py` |
 | `data/raw/fixtures_{season}.json` | Cached season fixture lists | Incremental season sync |
 | `data/raw/matches/*_stats.json` | Raw team match statistics | Incremental season sync |
 | `data/raw/matches/*_stream.json` | Match event streams | Incremental season sync |

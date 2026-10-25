@@ -3,6 +3,8 @@ import { formatSeasonLabel } from '../../utils/dateFormatters';
 import { Calendar, ChevronRight, Clock } from 'lucide-react';
 import { getTeam } from '../../data/teams';
 import { parseKickoff } from '../../utils/dateFormatters';
+import CompetitionBadge from '../team-profile/CompetitionBadge';
+import { COMPETITIONS, competitionOf } from '../team-profile/teamProfileUtils';
 
 function ratingClass(rating) {
   if (rating == null) return 'bg-background-tertiary text-text-muted border border-border';
@@ -13,7 +15,33 @@ function ratingClass(rating) {
   return 'bg-background-tertiary text-status-error border border-border';
 }
 
+// European rows carry the UEFA ids of both sides; league rows only the club and the opponent.
+function sidesOf(match) {
+  if (competitionOf(match).order > 0) {
+    const home = getTeam(match.home_id, match.home_name);
+    const away = getTeam(match.away_id, match.away_name);
+    return { home, away, homeScore: match.home_score, awayScore: match.away_score };
+  }
+  const opponent = getTeam(match.opponent_id, match.opponent_name);
+  const team = getTeam(match.team_id, match.team_name);
+  const home = match.is_home ? team : opponent;
+  const away = match.is_home ? opponent : team;
+  return { home, away, homeScore: match.is_home ? match.team_score : match.opp_score, awayScore: match.is_home ? match.opp_score : match.team_score };
+}
+
 function toMatchModalData(match) {
+  if (competitionOf(match).order > 0) {
+    return {
+      match_id: match.match_id,
+      status: match.team_score !== null && match.team_score !== undefined ? 'COMPLETED' : 'UNPLAYED',
+      gameweek: match.gameweek,
+      kickoff_label: match.kickoff,
+      home_id: match.home_id, home_name: match.home_name, home_score: match.home_score,
+      away_id: match.away_id, away_name: match.away_name, away_score: match.away_score,
+      ground_name: match.ground_name || '',
+      stage: match.stage, group: match.group,
+    };
+  }
   const opponent = getTeam(match.opponent_id, match.opponent_name);
   const team = getTeam(match.team_id, match.team_name);
   const home = match.is_home ? team : opponent;
@@ -42,6 +70,10 @@ export default function PlayerMatchHistory({
   loading,
   season,
   onSelectMatch,
+  hasEuropean = false,
+  europeanStats = null,
+  selectedCompetition = 'all',
+  onCompetitionChange,
 }) {
   return (
     <section className="bg-background-primary border border-border rounded">
@@ -53,8 +85,31 @@ export default function PlayerMatchHistory({
             <p className="text-xs text-text-secondary">
               {playedMatchCount} oynanmış maç · {season === 'all' ? 'Tüm sezonlar' : formatSeasonLabel(season)}
             </p>
+            {europeanStats && (
+              <p className="text-xs text-text-secondary tabular-nums">
+                Avrupa: {europeanStats.appearances} maç · {europeanStats.minutes}' · {europeanStats.goals} gol · {europeanStats.assists} asist
+                {europeanStats.average_rating != null && ` · ort. ${europeanStats.average_rating.toFixed(1)}`}
+              </p>
+            )}
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-3">
+        {hasEuropean && (
+          <div className="flex items-center gap-2">
+            <label htmlFor="competition-filter-select" className="text-xs font-medium text-text-secondary">Turnuva:</label>
+            <select
+              id="competition-filter-select"
+              value={selectedCompetition}
+              onChange={event => onCompetitionChange?.(event.target.value)}
+              className="h-9 rounded border border-border bg-background-primary px-3 text-sm font-medium text-text-primary outline-none focus:border-border-focus transition-colors"
+            >
+              <option value="all">Tümü</option>
+              {Object.entries(COMPETITIONS).map(([key, competition]) => (
+                <option key={key} value={key}>{competition.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {weeks.length > 0 && (
           <div className="flex items-center gap-2">
             <label htmlFor="gameweek-filter-select" className="text-xs font-medium text-text-secondary">
@@ -73,6 +128,7 @@ export default function PlayerMatchHistory({
             </select>
           </div>
         )}
+        </div>
       </div>
 
       {loading ? (
@@ -92,14 +148,10 @@ export default function PlayerMatchHistory({
         <div className="divide-y divide-border-light">
           {matches.map(match => {
             const modalMatch = toMatchModalData(match);
-            const opponent = getTeam(match.opponent_id, match.opponent_name);
-            const team = getTeam(match.team_id, match.team_name);
-            const home = match.is_home ? team : opponent;
-            const away = match.is_home ? opponent : team;
+            const { home, away, homeScore, awayScore } = sidesOf(match);
+            const competition = competitionOf(match);
             const played = match.team_score !== null && match.team_score !== undefined;
             const kickoff = parseKickoff(match.kickoff);
-            const homeScore = match.is_home ? match.team_score : match.opp_score;
-            const awayScore = match.is_home ? match.opp_score : match.team_score;
 
             return (
               <button
@@ -115,14 +167,15 @@ export default function PlayerMatchHistory({
                   >
                     {match.rating != null ? match.rating.toFixed(1) : '—'}
                   </div>
-                  <div className="flex items-center justify-between gap-2 text-xs text-text-secondary sm:w-36 sm:shrink-0 sm:flex-col sm:items-start sm:gap-0.5">
+                  <div className="flex items-center justify-between gap-2 text-xs text-text-secondary sm:w-44 sm:shrink-0 sm:flex-col sm:items-start sm:gap-0.5">
                     <span className="inline-flex items-center gap-1.5 font-medium text-text-primary">
                       <Clock className="hidden h-3.5 w-3.5 text-text-tertiary sm:block" />
                       {kickoff.date}
                     </span>
                     <span className="flex items-center gap-2 text-text-tertiary text-xs">
                       {season === 'all' && <span>{formatSeasonLabel(match.season)}</span>}
-                      <span className="tabular-nums">H{Math.round(Number(match.gameweek) || 1)}</span>
+                      {hasEuropean && <CompetitionBadge competition={competition} />}
+                      <span className="tabular-nums">{competition.order > 0 ? match.round_label : `H${Math.round(Number(match.gameweek) || 1)}`}</span>
                       <span>{match.is_home ? 'İç Saha' : 'Deplasman'}</span>
                     </span>
                   </div>

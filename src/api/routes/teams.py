@@ -24,9 +24,51 @@ from fastapi import APIRouter
 router = APIRouter()
 logger = logging.getLogger("api_server")
 
+PREMIER_LEAGUE_ID = 39
+
+
+def _competition_id(competition: Optional[str]) -> int:
+    """Resolve a competition key to its id; no key means the Premier League."""
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    return comp.id if comp else PREMIER_LEAGUE_ID
+
+
+def _competition_team_name(team_id: Optional[int], comp_id: int) -> str:
+    if team_id is None:
+        return ""
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT home_name AS n FROM matches WHERE home_id = ? AND competition_id = ? "
+            "UNION SELECT away_name FROM matches WHERE away_id = ? AND competition_id = ? LIMIT 1",
+            (team_id, comp_id, team_id, comp_id),
+        ).fetchone()
+    finally:
+        conn.close()
+    return row["n"] if row else ""
+
 @router.get("/api/teams/staff")
-def get_team_staff(season: str = DEFAULT_SEASON, team_id: Optional[int] = None):
+def get_team_staff(season: str = DEFAULT_SEASON, team_id: Optional[int] = None, competition: Optional[str] = None):
     """Return season staff, falling back to archived source data for older seasons."""
+    comp_id = _competition_id(competition)
+    if comp_id != PREMIER_LEAGUE_ID:
+        from src.api.competition_squads import club_managers
+        conn = get_db()
+        try:
+            managers = club_managers(conn, comp_id, season)
+        finally:
+            conn.close()
+        if team_id is None:
+            return {"season": season, "managers": {str(tid): name for tid, name in managers.items()}}
+        manager = managers.get(team_id)
+        officials = [{"id": f"mgr_{team_id}", "role": "Manager", "active": True, "name": {"display": manager}}] if manager else []
+        return {
+            "season": season,
+            "team_id": team_id,
+            "staff": {"team_name": _competition_team_name(team_id, comp_id), "officials": officials, "players": []},
+        }
+
     staff_path = DATA_DIR / "processed" / "team_staff.json"
     raw_staff_path = DATA_DIR / "processed" / "team_staff_raw.json"
     manager_rosters_path = DATA_DIR / "processed" / "team_manager_rosters.json"
@@ -118,12 +160,32 @@ def get_team_staff(season: str = DEFAULT_SEASON, team_id: Optional[int] = None):
         )
         if display:
             managers[str(current_team_id)] = display
+
     return {"season": season, "managers": managers}
 
 
 @router.get("/api/teams")
-def get_teams(season: Optional[str] = None):
-    """Returns sorted list of teams, optionally filtered by season."""
+def get_teams(season: Optional[str] = None, competition: Optional[str] = None):
+    """Returns sorted list of teams, optionally filtered by season and competition."""
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    comp_id = comp.id if comp else 39
+
+    if comp_id != 39:
+        from src.db.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT home_id AS id, home_name AS name, home_abbr AS abbr, MAX(ground_name) AS ground_name, MAX(home_logo) AS logo
+            FROM matches
+            WHERE competition_id = ? AND (? IS NULL OR ? = 'all' OR season = ?)
+            GROUP BY home_id
+            ORDER BY home_name ASC
+        """, (comp_id, season, season, season))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return {"teams": rows, "count": len(rows)}
+
     if season == DEFAULT_SEASON:
         current_teams = {}
         for fixture in state.raw_fixtures_2627:
@@ -588,18 +650,163 @@ def _build_team_squad(
     return squad
 
 
+def _build_competition_team_profile(team_id: int, season: str, comp_id: int) -> Dict[str, Any]:
+    """Team profile for non-Premier-League competitions, built only from stored match rows.
+
+    Squad, market value and player totals come from stored TheStatsAPI payloads and stay empty
+    (never estimated) for clubs that have not been synced.
+    """
+    conn = get_db()
+    try:
+        params: List[Any] = [team_id, team_id, comp_id]
+        season_clause = ""
+        if season and season != "all":
+            season_clause = "AND season = ?"
+            params.append(season)
+        m_rows = [dict(r) for r in conn.execute(
+            f"SELECT * FROM matches WHERE (home_id = ? OR away_id = ?) AND competition_id = ? {season_clause} "
+            "ORDER BY match_date ASC, match_id ASC",
+            params,
+        ).fetchall()]
+    finally:
+        conn.close()
+
+    if not m_rows:
+        raise HTTPException(status_code=404, detail="Team not found in this competition")
+
+    first = m_rows[0]
+    is_home_first = int(first["home_id"]) == team_id
+    team_info = {
+        "id": team_id,
+        "name": first["home_name"] if is_home_first else first["away_name"],
+        "abbr": (first["home_abbr"] if is_home_first else first["away_abbr"]) or "",
+        "badge": (first.get("home_logo") if is_home_first else first.get("away_logo")) or None,
+        "ground": next((m["ground_name"] for m in m_rows if int(m["home_id"]) == team_id and m["ground_name"]), ""),
+        "market_value": None,
+    }
+
+    matches_list: List[Dict[str, Any]] = []
+    next_match = None
+    w = d = l = gf = ga = 0
+    for m in m_rows:
+        is_home = int(m["home_id"]) == team_id
+        completed = m["status"] == "COMPLETED" and m["home_score"] is not None and m["away_score"] is not None
+        item = {
+            "match_id": m["match_id"],
+            "gameweek": m["gameweek"],
+            "stage": m.get("stage") or "league",
+            "kickoff_label": m["kickoff_label"],
+            "status": "COMPLETED" if completed else "UPCOMING",
+            "is_home": is_home,
+            "home_id": int(m["home_id"]),
+            "home_name": m["home_name"],
+            "home_abbr": m["home_abbr"],
+            "home_logo": m.get("home_logo"),
+            "home_score": m["home_score"],
+            "away_id": int(m["away_id"]),
+            "away_name": m["away_name"],
+            "away_abbr": m["away_abbr"],
+            "away_logo": m.get("away_logo"),
+            "away_score": m["away_score"],
+            "opponent_id": int(m["away_id"]) if is_home else int(m["home_id"]),
+            "opponent_name": m["away_name"] if is_home else m["home_name"],
+            "opponent_logo": m.get("away_logo") if is_home else m.get("home_logo"),
+            "ground_name": m["ground_name"],
+            "home_xg": m["home_xg"],
+            "away_xg": m["away_xg"],
+            "team_score": None,
+            "opp_score": None,
+            "result": None,
+        }
+        if completed:
+            ts = int(m["home_score"] if is_home else m["away_score"])
+            os_ = int(m["away_score"] if is_home else m["home_score"])
+            gf, ga = gf + ts, ga + os_
+            item["team_score"], item["opp_score"] = ts, os_
+            if ts > os_:
+                w, item["result"] = w + 1, "W"
+            elif ts < os_:
+                l, item["result"] = l + 1, "L"
+            else:
+                d, item["result"] = d + 1, "D"
+        elif next_match is None:
+            next_match = item
+        matches_list.append(item)
+
+    from src.api.competition_squads import build_squad_profile
+    squad_season = season if season and season != "all" else first["season"]
+    conn = get_db()
+    try:
+        squad, market_value, provider_stats = build_squad_profile(conn, comp_id, squad_season, team_id, team_info["name"])
+    finally:
+        conn.close()
+    team_info["market_value"] = market_value
+
+    return {
+        "team": team_info,
+        "season": season,
+        "record": {"played": w + d + l, "won": w, "drawn": d, "lost": l, "gf": gf, "ga": ga, "gd": gf - ga, "points": w * 3 + d},
+        "market_value": market_value,
+        "matches": matches_list,
+        "next_match": next_match,
+        "squad": squad,
+        "provider_season_stats": (provider_stats or {}).get("data"),
+    }
+
+
+def _with_european_matches(
+    matches_list: List[Dict[str, Any]],
+    next_match: Optional[Dict[str, Any]],
+    club_name: str,
+    season: Optional[str],
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Add the club's Champions League and Europa League matches to its Premier League fixture list.
+
+    The record stays Premier League only; the merged list is ordered by kick-off and every match carries its
+    competition so the page can sort and label by it."""
+    from src.api.european_fixtures import COMPETITIONS, european_matches
+    for match in matches_list:
+        match["competition"] = COMPETITIONS[39]
+    conn = get_db()
+    try:
+        european = european_matches(conn, club_name, season)
+    finally:
+        conn.close()
+    if not european:
+        return matches_list, next_match
+
+    merged = sorted(matches_list + european, key=lambda m: (m.get("kickoff_millis") is None, m.get("kickoff_millis") or 0, m["match_id"]))
+    upcoming = next((m for m in merged if m["status"] == "UNPLAYED"), None)
+    if upcoming is not None:
+        next_match = {
+            "match_id": upcoming["match_id"],
+            "gameweek": upcoming["gameweek"],
+            "kickoff_label": upcoming["kickoff_label"],
+            "kickoff_millis": upcoming.get("kickoff_millis"),
+            "opponent_id": upcoming["opponent_id"],
+            "opponent_name": upcoming["opponent_name"],
+            "is_home": upcoming["is_home"],
+            "competition": upcoming["competition"],
+        }
+    return merged, next_match
+
+
 @router.get("/api/teams/profile")
-def get_team_profile(team_id: int, season: Optional[str] = "all"):
+def get_team_profile(team_id: int, season: Optional[str] = "all", competition: Optional[str] = None):
     """Returns team profile with match previews, W/D/L record, and squad roster."""
+    comp_id = _competition_id(competition)
+    if comp_id != PREMIER_LEAGUE_ID:
+        return _build_competition_team_profile(team_id, season or "all", comp_id)
+
     team_meta = state.teams_dict.get(team_id)
     if not team_meta:
         p_team = next((p for p in state.all_players if p.get("teamId") == team_id), None)
-        if p_team:
-            team_meta = {"id": team_id, "name": p_team.get("teamName", ""), "abbr": ""}
-        else:
+        if not p_team:
             raise HTTPException(status_code=404, detail="Team not found")
+        team_meta = {"id": team_id, "name": p_team.get("teamName", ""), "abbr": ""}
 
     matches_list, record, next_match = _build_team_match_history(team_id, season)
+    matches_list, next_match = _with_european_matches(matches_list, next_match, team_meta.get("name", ""), season)
     tm_team_data, player_values_map = _load_team_market_values(team_id, season)
     squad = _build_team_squad(team_id, season, player_values_map)
 

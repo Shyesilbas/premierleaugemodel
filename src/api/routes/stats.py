@@ -100,6 +100,7 @@ def get_league_stats(
     season: str = Query(DEFAULT_SEASON),
     scope: str = Query("week", pattern="^(week|season)$"),
     gameweek: Optional[int] = Query(None, ge=1, le=38),
+    competition: Optional[str] = Query(None),
 ):
     """Rankings for one gameweek (scope=week) or the whole season (scope=season).
 
@@ -107,6 +108,19 @@ def get_league_stats(
     young players, referees, form, movers, venue tables, goal minutes) cover everything up to
     and including the selected gameweek.
     """
+    from src.competitions.registry import get_competition
+    comp = get_competition(competition) if competition else None
+    comp_id = comp.id if comp else 39
+
+    if comp_id != 39:
+        from src.api.competition_stats import build_competition_stats
+        from src.db.database import get_db
+        conn = get_db()
+        try:
+            return build_competition_stats(conn, comp_id, season, scope, gameweek)
+        finally:
+            conn.close()
+
     if season not in SEASONS:
         raise HTTPException(status_code=404, detail=f"Unknown season: {season}")
 

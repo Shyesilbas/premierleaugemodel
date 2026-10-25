@@ -7,14 +7,17 @@ import RefereesTab from './components/RefereesTab';
 import MatchDetailPage from './components/MatchDetailPage';
 import ModelAuditTab from './components/ModelAuditTab';
 import StatsTab from './components/StatsTab';
+import { CompetitionProvider, useCompetition } from './context/CompetitionContext';
+import CompetitionSelector from './components/common/CompetitionSelector';
 
-export default function App() {
+function AppInner() {
   const [activeTab, setActiveTab] = useState('fixtures'); // Default to fixtures per user request
   const [selectedSeason, setSelectedSeason] = useState('2026_27'); // Default to current season
   const [selectedTeamId, setSelectedTeamId] = useState(1);
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [currentGameweek, setCurrentGameweek] = useState(6);
+  const [currentGameweek, setCurrentGameweek] = useState(1);
+  const { activeCompetition } = useCompetition();
 
   const handleSelectMatch = (match, gw = null) => {
     setSelectedMatch(match);
@@ -57,7 +60,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background-secondary text-text-primary flex">
+    <div className={`min-h-screen bg-background-secondary text-text-primary flex transition-colors duration-200`}>
       
       {/* Left Vertical Sticky Sidebar */}
       <Sidebar
@@ -74,6 +77,23 @@ export default function App() {
         
         {/* Main Content Body */}
         <main className="p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 max-w-7xl w-full mx-auto space-y-6">
+          
+          {/* Top Bar Tournament Selector (Desktop View) */}
+          <div className="hidden lg:flex items-center justify-between pb-2 border-b border-border-light">
+            <div className="flex items-center gap-2 text-xs text-text-secondary">
+              <span className="font-semibold text-text-primary">{activeCompetition.name}</span>
+              <span>·</span>
+              <span>{activeCompetition.country}</span>
+              {typeof activeCompetition.uefa_coefficient === 'number' && (
+                <>
+                  <span>·</span>
+                  <span className="font-mono">UEFA Katsayısı: {activeCompetition.uefa_coefficient.toFixed(3)}</span>
+                </>
+              )}
+            </div>
+            <CompetitionSelector />
+          </div>
+
           {selectedMatch ? (
             <MatchDetailPage 
               match={selectedMatch} 
@@ -144,3 +164,10 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <CompetitionProvider>
+      <AppInner />
+    </CompetitionProvider>
+  );
+}

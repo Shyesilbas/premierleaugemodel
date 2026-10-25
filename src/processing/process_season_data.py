@@ -136,14 +136,19 @@ def _event_counts_by_team(fixture: Dict[str, Any], stream_data: Optional[Dict[st
 
 
 def extract_team_metrics(raw_team_data: Dict[str, Any]) -> Dict[str, float]:
-    """Extracts known metrics dictionary from team stats M list."""
+    """Extracts known metrics dictionary from team stats M list or direct key-value map."""
     out = {}
-    metrics_list = raw_team_data.get("M", [])
-    for item in metrics_list:
-        name = item.get("name")
-        val = item.get("value")
-        if name and val is not None:
-            out[name] = float(val)
+    if "M" in raw_team_data:
+        metrics_list = raw_team_data.get("M", [])
+        for item in metrics_list:
+            name = item.get("name")
+            val = item.get("value")
+            if name and val is not None:
+                out[name] = float(val)
+    else:
+        for k, v in raw_team_data.items():
+            if v is not None and isinstance(v, (int, float)):
+                out[k] = float(v)
     return out
 
 

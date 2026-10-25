@@ -1,0 +1,38 @@
+competitions:
+  premier_league:
+    id: 39
+    name: "Premier League"
+    type: "domestic_league"
+    country: "England"
+    uefa_coefficient: 1.000
+    format: "round_robin"
+    default_season: "2026_27"
+    has_npxg: true
+    provider: "pulselive"
+    legacy_db_name: "premier_league.db"
+
+  champions_league:
+    id: 2
+    name: "UEFA Champions League"
+    type: "continental_cup"
+    country: "Europe"
+    uefa_coefficient: 1.000
+    format: "swiss_league_and_knockout"
+    default_season: "2026_27"
+    has_npxg: true
+    provider: "uefa"
+    cross_league_normalization: true
+
+  europa_league:
+    id: 3
+    name: "UEFA Europa League"
+    type: "continental_cup"
+    country: "Europe"
+    uefa_coefficient: 0.820
+    format: "swiss_league_and_knockout"
+    default_season: "2026_27"
+    has_npxg: true
+    provider: "uefa"
+    cross_league_normalization: true
+
+default_competition: "premier_league"

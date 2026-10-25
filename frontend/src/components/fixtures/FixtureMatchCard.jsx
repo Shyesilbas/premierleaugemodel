@@ -1,5 +1,6 @@
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
 import TeamForm from '../TeamForm';
+import { penaltyText, tieNote } from '../../utils/knockout';
 
 export default function FixtureMatchCard({
   match: m,
@@ -14,6 +15,8 @@ export default function FixtureMatchCard({
   const nameClass = (won, lost) => (won ? 'font-semibold text-text-primary' : lost ? 'font-normal text-text-secondary' : 'font-normal text-text-primary');
   const homeWon = isCompleted && m.home_score > m.away_score;
   const awayWon = isCompleted && m.away_score > m.home_score;
+  const note = tieNote(m);
+  const shootout = penaltyText(m.home_penalties, m.away_penalties);
   const hasXg = isCompleted && (m.home_xg != null || m.away_xg != null);
   const tag = m.prediction?.favorite_label
     ? `Öngörü: ${m.prediction.favorite_label}`
@@ -31,9 +34,16 @@ export default function FixtureMatchCard({
       className="bg-background-primary border border-border hover:border-card-border-hover rounded p-4 transition-colors duration-150 ease-out cursor-pointer flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
     >
       <div className="flex items-center justify-between gap-3 text-xs text-text-secondary">
-        <span className="truncate tabular-nums">{m.time_label || m.kickoff_label}</span>
+        <span className="truncate tabular-nums">{m.group ? `Grup ${m.group} · ` : ''}{m.time_label || m.kickoff_label}</span>
         {tag && <span className="shrink-0 truncate tabular-nums">{tag}</span>}
       </div>
+
+      {note && (note.leg || note.result) && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs border-l-2 border-accent pl-2">
+          {note.leg && <span className="text-text-secondary">{note.leg}</span>}
+          {note.result && <span className="font-semibold text-accent">{note.result}</span>}
+        </div>
+      )}
 
       <div className="grid grid-cols-versus items-center gap-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -55,6 +65,7 @@ export default function FixtureMatchCard({
 
         <span className={`min-w-12 text-center text-lg tabular-nums ${isCompleted ? 'font-semibold text-text-primary' : 'text-text-tertiary'}`}>
           {isCompleted ? `${m.home_score} - ${m.away_score}` : 'vs'}
+          {shootout && <span className="block text-xs font-normal text-text-secondary">{shootout}</span>}
         </span>
 
         <div className="flex items-center gap-2 min-w-0 justify-end">

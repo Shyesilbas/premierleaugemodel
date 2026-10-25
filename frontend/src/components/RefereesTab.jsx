@@ -8,13 +8,18 @@ import {
   X, 
   Calendar, 
   Flame, 
-  ArrowUpDown
+  ArrowUpDown,
+  Trophy
 } from 'lucide-react';
 import { getTeam } from '../data/teams';
 import MatchDetailModal from './MatchDetailModal';
 import { getRefereeDetails, getReferees } from '../services/refereeService';
+import { useCompetition } from '../context/CompetitionContext';
+import CompetitionBadge from './team-profile/CompetitionBadge';
+import { COMPETITIONS } from './team-profile/teamProfileUtils';
 
 export default function RefereesTab({ selectedSeason, onSelectMatch }) {
+  const { competitionKey } = useCompetition();
   const [referees, setReferees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -32,10 +37,15 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
     }
   }, [selectedSeason]);
 
+  useEffect(() => {
+    setSelectedReferee(null);
+    setRefereeDetail(null);
+  }, [competitionKey]);
+
   // Fetch Referees list
   useEffect(() => {
     setLoading(true);
-    getReferees(activeSeason)
+    getReferees(activeSeason, competitionKey)
       .then(data => {
         setReferees(data?.referees || []);
         setLoading(false);
@@ -44,14 +54,14 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
         console.error('Error fetching referees:', err);
         setLoading(false);
       });
-  }, [activeSeason]);
+  }, [activeSeason, competitionKey]);
 
   // Fetch Referee Detail when a referee is clicked
   const handleOpenDetail = (refName) => {
     setSelectedReferee(refName);
     setRefereeDetail(null);
     setLoadingDetail(true);
-    getRefereeDetails(refName, activeSeason)
+    getRefereeDetails(refName, activeSeason, competitionKey)
       .then(data => {
         setRefereeDetail(data);
         setLoadingDetail(false);
@@ -537,6 +547,90 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                     </div>
                   )}
                 </div>
+
+                {/* European matches this referee took charge of in the selected season */}
+                {refereeDetail.european?.matches?.length > 0 && (() => {
+                  const european = refereeDetail.european;
+                  const eStats = european.stats || {};
+                  const value = (number, digits = 0) => (number == null ? '—' : Number(number).toFixed(digits));
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 text-text-primary">
+                        <Trophy className="h-4 w-4 text-text-tertiary" />
+                        <h3 className="text-sm font-semibold">
+                          Avrupa Maçları <span className="text-xs font-normal text-text-secondary">({european.matches.length})</span>
+                        </h3>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {[
+                          ['Maç', eStats.matches_count],
+                          ['Sarı kart', eStats.matches_with_stats ? value(eStats.total_yellow_cards) : null],
+                          ['Kırmızı kart', eStats.matches_with_stats ? value(eStats.total_red_cards) : null],
+                          ['Kart / maç', value(eStats.avg_cards, 2)],
+                          ['Faul / maç', value(eStats.avg_fouls, 1)],
+                        ].map(([label, figure]) => (
+                          <div key={label} className="rounded border border-border bg-background-primary px-3 py-2">
+                            <span className="block text-xs text-text-secondary">{label}</span>
+                            <span className="mt-0.5 block text-base font-semibold tabular-nums text-text-primary">{figure ?? '—'}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {eStats.matches_with_stats < eStats.matches_count && (
+                        <p className="text-xs text-text-secondary">
+                          Kart ve faul sayıları istatistiği bulunan {eStats.matches_with_stats} maç üzerinden hesaplandı.
+                        </p>
+                      )}
+
+                      <div className="overflow-hidden rounded border border-border divide-y divide-border-light">
+                        {european.matches.map((m) => {
+                          const homeTeam = getTeam(m.home_id, m.home_name);
+                          const awayTeam = getTeam(m.away_id, m.away_name);
+                          const competition = COMPETITIONS[m.competition?.key] || COMPETITIONS.champions_league;
+                          const detailMatch = {
+                            match_id: m.match_id, status: 'COMPLETED', gameweek: m.gameweek, kickoff_label: m.kickoff_label || '',
+                            home_id: m.home_id, home_name: m.home_name, home_score: m.home_score,
+                            away_id: m.away_id, away_name: m.away_name, away_score: m.away_score,
+                            ground_name: m.ground_name || '', stage: m.stage, group: m.group,
+                          };
+                          const shootout = m.home_penalties != null && m.away_penalties != null ? ` (P ${m.home_penalties}-${m.away_penalties})` : '';
+                          return (
+                            <button
+                              key={m.match_id}
+                              type="button"
+                              onClick={() => (onSelectMatch ? onSelectMatch(detailMatch) : setActiveModalMatch(detailMatch))}
+                              className="group flex w-full flex-col gap-2.5 px-4 py-3 text-left transition-colors hover:bg-background-secondary sm:flex-row sm:items-center sm:gap-3 cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2 text-xs text-text-secondary sm:w-36 sm:shrink-0">
+                                <CompetitionBadge competition={competition} />
+                                <span className="truncate">{m.round_label}</span>
+                              </div>
+                              <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 sm:gap-3">
+                                <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
+                                  <span className="truncate text-xs font-medium text-text-primary">{homeTeam.short || m.home_name}</span>
+                                  <img src={homeTeam.badge} alt="" className="h-5 w-5 shrink-0 object-contain" onError={handleTeamBadgeError} />
+                                </div>
+                                <span className="min-w-16 shrink-0 text-center tabular-nums text-xs font-semibold text-text-primary">
+                                  {m.home_score ?? '—'} - {m.away_score ?? '—'}{shootout}
+                                </span>
+                                <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                                  <img src={awayTeam.badge} alt="" className="h-5 w-5 shrink-0 object-contain" onError={handleTeamBadgeError} />
+                                  <span className="truncate text-xs font-medium text-text-primary">{awayTeam.short || m.away_name}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-3 border-t border-border-light pt-2 text-xs text-text-secondary sm:w-44 sm:shrink-0 sm:justify-end sm:border-0 sm:pt-0">
+                                <span className="whitespace-nowrap">Sarı <strong className="font-medium text-text-primary tabular-nums">{m.total_yellow_cards ?? '—'}</strong></span>
+                                <span className="whitespace-nowrap">Kırmızı <strong className="font-medium text-text-primary tabular-nums">{m.total_red_cards ?? '—'}</strong></span>
+                                <span className="whitespace-nowrap">Faul <strong className="font-medium text-text-primary tabular-nums">{m.total_fouls ?? '—'}</strong></span>
+                                <ChevronRight className="hidden h-4 w-4 shrink-0 text-text-tertiary transition-transform group-hover:translate-x-0.5 sm:block" />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
               </div>
             ) : null}

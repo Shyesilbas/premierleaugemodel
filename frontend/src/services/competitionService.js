@@ -1,8 +1,15 @@
 import { getJson, requestJson, withQuery } from './apiClient';
+import { registerLogosFrom } from '../data/teams';
 
-export const getGroupedFixtures = (season) => getJson(withQuery('/api/fixtures/grouped', { season }));
-export const getStandings = (season) => getJson(withQuery('/api/standings', { season }));
-export const getTeams = (season) => getJson(withQuery('/api/teams', { season }));
+export const getCompetitions = () => getJson('/api/competitions');
+export const getGroupedFixtures = (season, competition = null) =>
+  getJson(withQuery('/api/fixtures/grouped', { season, ...(competition ? { competition } : {}) })).then(registerLogosFrom);
+export const getKnockoutBracket = (season, competition) =>
+  getJson(withQuery('/api/fixtures/bracket', { season, competition })).then(registerLogosFrom);
+export const getStandings = (season, competition = null) =>
+  getJson(withQuery('/api/standings', { season, ...(competition ? { competition } : {}) })).then(registerLogosFrom);
+export const getTeams = (season, competition = null) =>
+  getJson(withQuery('/api/teams', { season, ...(competition ? { competition } : {}) })).then(registerLogosFrom);
 
 // Admin routes need the token only when the server sets PLM_ADMIN_TOKEN; store it once with
 // localStorage.setItem('plm_admin_token', '<token>').
