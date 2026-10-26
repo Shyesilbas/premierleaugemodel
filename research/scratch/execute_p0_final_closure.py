@@ -54,11 +54,11 @@ class BetaCalibrator:
         return 1.0 / (1.0 + np.exp(-logit))
 
 def main():
-    artifact = joblib.load("models/production/goals_models_v1.joblib")
+    artifact = joblib.load("models/production/premier_league/goals_models_v1.joblib")
     features_58 = artifact["feature_names"]
     chosen = artifact["chosen"]
 
-    df = pd.read_parquet("data/processed/features_matches_all.parquet")
+    df = pd.read_parquet("data/competitions/premier_league/processed/features_matches_all.parquet")
     played = df[df["home_score"].notna() & df["away_score"].notna()].sort_values(["kickoff_millis", "match_id"]).reset_index(drop=True)
     seasons = list(pd.unique(played["season"].astype(str)))
 
@@ -175,7 +175,7 @@ def main():
     print("GÖREV I: Model vs Piyasa İstatistiksel Güç & Bootstrap Analizi")
     print("===================================================================")
     import sqlite3
-    conn = sqlite3.connect("data/premier_league.db")
+    conn = sqlite3.connect("data/football.db")
     odds_df = pd.read_sql_query("""
         SELECT match_id, bookmaker, over_25_open, under_25_open, btts_yes_open, btts_no_open
         FROM external_match_odds

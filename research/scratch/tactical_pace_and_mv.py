@@ -47,7 +47,7 @@ def engineer_tactical_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def run_tactical_benchmark():
     print("Loading feature dataset...")
-    df = pd.read_parquet("data/processed/features_matches_all.parquet")
+    df = pd.read_parquet("data/competitions/premier_league/processed/features_matches_all.parquet")
     df = engineer_tactical_features(df)
     
     base_feats = feature_set("o25", list(df.columns))

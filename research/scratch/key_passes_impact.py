@@ -89,7 +89,7 @@ def compute_key_pass_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def run_experiment():
     print("Loading feature dataset...")
-    df = pd.read_parquet("data/processed/features_matches_all.parquet")
+    df = pd.read_parquet("data/competitions/premier_league/processed/features_matches_all.parquet")
     print(f"Total rows in dataset: {len(df)}")
     
     print("Generating strictly lagging key pass features...")

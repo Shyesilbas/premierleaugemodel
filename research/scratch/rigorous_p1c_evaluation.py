@@ -18,11 +18,11 @@ from src.models.dixon_coles import DixonColesModel, matrix_from_lambdas, over_pr
 from src.models.goals_model import FeatureGoalModel, blend_lambdas
 
 def main():
-    artifact = joblib.load("models/production/goals_models_v1.joblib")
+    artifact = joblib.load("models/production/premier_league/goals_models_v1.joblib")
     features_base = list(artifact["feature_names"])
     chosen = artifact["chosen"]
 
-    df = pd.read_parquet("data/processed/features_matches_all.parquet")
+    df = pd.read_parquet("data/competitions/premier_league/processed/features_matches_all.parquet")
     played = df[df["home_score"].notna() & df["away_score"].notna()].sort_values(["kickoff_millis", "match_id"]).reset_index(drop=True)
     seasons = list(pd.unique(played["season"].astype(str)))
 

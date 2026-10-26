@@ -20,7 +20,7 @@ from src.models.dixon_coles import DixonColesModel, matrix_from_lambdas, over_pr
 from src.models.goals_model import FeatureGoalModel, blend_lambdas
 
 def run_deep_dive():
-    artifact = joblib.load("models/production/goals_models_v1.joblib")
+    artifact = joblib.load("models/production/premier_league/goals_models_v1.joblib")
     features_58 = artifact["feature_names"]
     chosen = artifact["chosen"]
     
@@ -31,7 +31,7 @@ def run_deep_dive():
         "match_pace_defensive_stretch_roll8"
     ]]
     
-    df = pd.read_parquet("data/processed/features_matches_all.parquet")
+    df = pd.read_parquet("data/competitions/premier_league/processed/features_matches_all.parquet")
     played = df[df["home_score"].notna() & df["away_score"].notna()].sort_values(["kickoff_millis", "match_id"]).reset_index(drop=True)
     seasons = list(pd.unique(played["season"].astype(str)))
     
@@ -227,7 +227,7 @@ def run_deep_dive():
     res_df["p_btts_prod"] = p_btts_prod
     
     import sqlite3
-    conn = sqlite3.connect("data/premier_league.db")
+    conn = sqlite3.connect("data/football.db")
     odds_df = pd.read_sql_query("""
         SELECT match_id, bookmaker, over_25_open, under_25_open, btts_yes_open, btts_no_open
         FROM external_match_odds

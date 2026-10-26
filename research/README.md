@@ -9,4 +9,6 @@ Tek seferlik denetim ve deney scriptleri. **Üretim pipeline'ında, cron'da ve t
 
 Kökten çalıştırın: `PYTHONPATH=. python3 research/audit/investigation_1.py`. Dosyalar `test_` ile başlamaz, böylece `pytest` bunları toplamaz.
 
+**Yollar:** Betikler 26 Ekim 2026'da yeni düzene taşındı (`data/competitions/premier_league/processed/`, `models/production/premier_league/`, `data/football.db`).
+
 **Eski adlar:** `audit/tune_blend.py` ve `audit/draw_calibration.py` `src.api.server`'dan (`predict_match`, `_predict_fixture_row` ...) içe aktarır. `server.py` 19 Ekim 2026'da bölündü (`src.api.state`, `src.api.routes.*`); bu betikler yeniden çalıştırılacaksa içe aktarmaları güncellenmeli.
