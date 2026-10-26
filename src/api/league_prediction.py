@@ -22,7 +22,7 @@ from scipy.stats import poisson
 from src.api.prediction_service import predict_count_market, regression_model_skill
 from src.competitions.registry import get_competition
 from src.config import DB_PATH, competition_paths
-from src.models.dixon_coles import align_to_outcome_probs, matrix_from_lambdas
+from src.models.dixon_coles import align_to_outcome_probs, expected_goals, matrix_from_lambdas
 from src.db.database import get_db
 from src.features.build_league_features import build_league_features, load_league_matches, load_player_lines
 from src.features.build_league_pl_features import build_parity_features
@@ -70,6 +70,11 @@ def _parity_table(competition_id: int, stamp: Tuple[int, int]) -> pd.DataFrame:
 @lru_cache(maxsize=4)
 def _artifact(path: str, mtime: float) -> Dict[str, Any]:
     return joblib.load(path)
+
+
+def goals_artifact_for(competition_key: str) -> Optional[Dict[str, Any]]:
+    path = competition_paths(competition_key).models / "goals_models_v1.joblib"
+    return _artifact(str(path), path.stat().st_mtime) if path.exists() else None
 
 
 def count_artifact_for(competition_key: str, market: str) -> Optional[Dict[str, Any]]:
@@ -139,13 +144,19 @@ def compute_league_prediction(home_id: int, away_id: int, match_id: Optional[int
         outcome = ordered_probabilities(artifact["elo_baseline"], rows[artifact["elo_columns"]], LABELS)
     p_home, p_draw, p_away = (float(x) for x in outcome[0])
 
-    lam_h = float(np.clip(artifact["goals_home"].predict(rows[columns])[0], 0.15, 5.5))
-    lam_a = float(np.clip(artifact["goals_away"].predict(rows[columns])[0], 0.15, 5.5))
-    matrix = align_to_outcome_probs(matrix_from_lambdas(np.array([lam_h]), np.array([lam_a]), rho=artifact["rho"], max_goals=MAX_GOALS), outcome)[0]
+    parity = _parity_table(comp.id, _stamp())
+    parity_row = parity[parity["match_id"] == row["match_id"]]
+    goals_artifact = goals_artifact_for(comp.key)
+    if goals_artifact is not None:  # the Premier League goal model on Premier League feature definitions, gated per market
+        matrix = align_to_outcome_probs(goals_artifact["model"].predict_matrices(parity_row), outcome)[0]
+        gates, rates = goals_artifact["skill_gate"], goals_artifact["base_rates"]
+    else:  # the fallback: two Poisson models stored with the 1X2 artifact
+        lam_fallback_h = float(np.clip(artifact["goals_home"].predict(rows[columns])[0], 0.15, 5.5))
+        lam_fallback_a = float(np.clip(artifact["goals_away"].predict(rows[columns])[0], 0.15, 5.5))
+        matrix = align_to_outcome_probs(matrix_from_lambdas(np.array([lam_fallback_h]), np.array([lam_fallback_a]), rho=artifact["rho"], max_goals=MAX_GOALS), outcome)[0]
+        gates, rates = artifact["decision"].get("goal_markets", {}), artifact.get("base_rates", {})
+    lam_h, lam_a = (float(v[0]) for v in expected_goals(matrix[None]))
     totals = np.arange(MAX_GOALS + 1)[:, None] + np.arange(MAX_GOALS + 1)[None, :]
-
-    gates = artifact["decision"].get("goal_markets", {})
-    rates = artifact.get("base_rates", {})
 
     def served(market: Optional[str], model_value: float) -> Tuple[float, str]:
         """A goal market that did not beat the training base rate serves the base rate, labelled as a baseline."""
@@ -173,8 +184,6 @@ def compute_league_prediction(home_id: int, away_id: int, match_id: Optional[int
         conn.close()
     names = (row["home_name"], row["away_name"])
     favorite = names[0] if p_home >= max(p_draw, p_away) else (names[1] if p_away >= max(p_home, p_draw) else "Beraberlik")
-    parity = _parity_table(comp.id, _stamp())
-    parity_row = parity[parity["match_id"] == row["match_id"]]
     counts = {name: _count_market(comp.key, name, parity_row, history) for name in ("corners", "cards", "throws", "saves", "shots", "offsides")}
     return {
         "home_team": {"id": int(row["home_id"]), "name": names[0], "abbr": (info["home_abbr"] if info else None) or names[0][:3].upper(), "logo": info["home_logo"] if info else None},

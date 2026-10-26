@@ -8,7 +8,7 @@
 
 Regresyon katsayıları önem olarak okunmadı (doğrusal modelde ilişkili özellikler büyük katsayı alıp kayba etki etmeyebilir). Özellikler ailelere ayrıldı; bir ailenin tüm sütunları, test maçlarında tek bir ortak satır permütasyonuyla birlikte karıştırıldı (ailenin iç ilişkisi korunur) ve kayıptaki artış önem sayıldı. 30 tekrar, tohum 42. Bir aile, ortalama artış tekrarlar arası yayılımın iki katını aşıyorsa "bilgi taşıyor" kabul edildi.
 
-- **1X2 (118 özellik, üretim modeli):** her dış sezon (2024/25, 2025/26), yalnızca öncesindeki sezonlarla seçilip kalibre edilmiş modelle tahmin edilir (walk-forward protokolüyle aynı); ölçü log-loss artışıdır (kalibratör dahil).
+- **1X2 (118 özellik, üretim modeli):** her dış sezon (2024/25, 2025/26), yalnızca öncesindeki sezonlarla seçilip kalibre edilmiş modelle tahmin edilir (walk-forward protokolüyle aynı); ölçü log-loss artışıdır. Hem kalibre olasılık hem de kalibratörden önceki ham model çıktısı için ayrı ölçüldü (JSON'da `mean_increase` ve `raw_mean_increase`).
 - **Sayım modelleri (taç, ofsayt):** seçilen model ilk %80'de yeniden eğitilir, son %20'de (taç 323, ofsayt 312 maç) karıştırılır; ölçü RMSE artışıdır. Üretim dosyasındaki model tüm maçlarla eğitildiği için kullanılmadı (örneklem içi olurdu).
 
 ## 2. 1X2: tek tek hiçbir aile ayırt edilemiyor, birlikte çok değerli
@@ -48,7 +48,7 @@ Regresyon katsayıları önem olarak okunmadı (doğrusal modelde ilişkili öze
 
 ## 4. Sınırlar
 
-- 1X2 permütasyonu kalibratör dahil ölçer; modelin ham olasılığı ile kalibre olasılığı ayrı raporlanmadı.
+- Ham ve kalibre olasılık ayrı ölçüldü ve aileler için sonuç aynı yöndedir (örneğin ceza sahasında dokunuş 2024/25: kalibre +0,0132, ham +0,0150; tümü birlikte: +0,2724 ve +0,2481). Kalibratör nötre yakındır: ham log-loss 2024/25'te 0,9713, kalibre 0,9750 (kalibratör 0,0037 kötüleştirdi); 2025/26'da 0,9722 ve 0,9725. Bu fark ayrıca sınanmadı.
 - Yayılım yalnızca permütasyon tekrarlarının değişkenliğidir; örneklemin (380 maçlık sezon) kendi belirsizliğini içermez. Aileler arası küçük farklar (örneğin +0,0132) bu nedenle yine de gürültü olabilir.
 - Aile ataması sütun adlarındaki ifadelere dayanır (`outcome_family`); farklar (ör. `diff_xg_for_roll_10`) ait olduğu istatistiğin ailesindedir.
 - Sayım modelleri için yalnızca taç ve ofsayt incelendi (kapıyı geçenler).

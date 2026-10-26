@@ -6,7 +6,7 @@ Usage: python3 -m src.analytics.league_feature_audit --competition la_liga
 Regression coefficients are not read as importance (collinear features can have large coefficients and no effect on the loss).
 For every outer season the 1X2 model is fitted on earlier seasons only (exactly as in ``train_league_model.walk_forward``), the
 family's columns are shuffled together (one permutation of the rows shared by all the family's columns, so their internal
-correlation survives) in that season's matches, and the increase in log-loss is the importance. For the count models (throws,
+correlation survives) in that season's matches, and the increase in log-loss is the importance (reported for the calibrated probabilities and, separately, for the raw model output before the calibrator). For the count models (throws,
 offsides) the selected model is refitted on the first 80% of the matches and the family is shuffled in the last 20%. 30 repeats,
 seed 42; a family is called informative only if its mean increase exceeds twice the spread over the repeats.
 
@@ -34,7 +34,8 @@ from src.features.build_league_pl_features import build_parity_features
 from src.models.count_model import build_count_candidates
 from src.models.eval_utils import per_match_log_loss
 from src.models.train_league_counts import premier_league_specs
-from src.models.train_league_model import OUTER_SEASONS, fit_outcome, outcome_label, predict_outcome
+from src.models.train_league_model import LABELS, OUTER_SEASONS, fit_outcome, outcome_label, predict_outcome
+from src.models.train_match_outcome import ordered_probabilities
 
 logger = logging.getLogger("league_feature_audit")
 REPEATS = 30
@@ -78,12 +79,16 @@ def outcome_importance(frame: pd.DataFrame, columns: List[str]) -> Dict[str, Any
         model, calibrator, name, _ = fit_outcome(train, columns)
         y = test["y"].to_numpy(dtype=int)
         base = float(per_match_log_loss(predict_outcome(model, calibrator, test, columns), y).mean())
-        entry: Dict[str, Any] = {"selected_model": name, "log_loss": base, "families": {}}
+        raw_base = float(per_match_log_loss(ordered_probabilities(model, test[columns], LABELS), y).mean())
+        entry: Dict[str, Any] = {"selected_model": name, "log_loss": base, "raw_log_loss": raw_base, "families": {}}
         for family, members in sorted(families.items()):
             rng = np.random.default_rng(SEED)
-            increases = [float(per_match_log_loss(predict_outcome(model, calibrator, permutation_rows(test, members, rng), columns), y).mean()) - base for _ in range(REPEATS)]
+            shuffled = [permutation_rows(test, members, rng) for _ in range(REPEATS)]
+            increases = [float(per_match_log_loss(predict_outcome(model, calibrator, frame_, columns), y).mean()) - base for frame_ in shuffled]
+            raw_increases = [float(per_match_log_loss(ordered_probabilities(model, frame_[columns], LABELS), y).mean()) - raw_base for frame_ in shuffled]
             entry["families"][family] = {"features": len(members), "mean_increase": float(np.mean(increases)), "spread": float(np.std(increases, ddof=1)),
-                                         "informative": bool(np.mean(increases) > 2.0 * np.std(increases, ddof=1))}
+                                         "informative": bool(np.mean(increases) > 2.0 * np.std(increases, ddof=1)),
+                                         "raw_mean_increase": float(np.mean(raw_increases)), "raw_spread": float(np.std(raw_increases, ddof=1))}
         result[season] = entry
         logger.info("1X2 %s: %s", season, {f: round(v["mean_increase"], 4) for f, v in entry["families"].items()})
     return result

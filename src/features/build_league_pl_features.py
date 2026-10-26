@@ -52,6 +52,8 @@ def _premier_league_frame(matches: pd.DataFrame, base: pd.DataFrame, player_line
         frame[f"statsapi_{side}_xg"] = frame["match_id"].map(raw[f"{side}_xg"])  # the Premier League names this one with the side in the middle
         frame[f"{side}_penalty_attempts"] = np.maximum(0.0, ((raw[f"{side}_xg"] - raw[f"{side}_np_xg"]) / PENALTY_XG).round()).reindex(frame["match_id"]).to_numpy()
     xi = _xi_features(base.assign(**{}), player_lines, with_missing=True)
+    for column in ("home_xi_att_vs_away_def", "away_xi_att_vs_home_def"):  # the Premier League goal-model feature set reads these two as well
+        frame[column] = xi[column].to_numpy()
     for column in ("xi_rating_diff", "xi_att_vs_def_diff", "xi_continuity_diff", "xi_weighted_ov_diff", "xi_missing_reg_mins_diff"):
         frame[column.replace("xi_missing_reg_mins_diff", "missing_reg_mins_diff")] = xi[column].to_numpy()
     return frame

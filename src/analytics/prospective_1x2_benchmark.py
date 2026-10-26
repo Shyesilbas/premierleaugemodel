@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, roc_auc_score
@@ -91,18 +92,21 @@ def _snapshot_league(horizon_days: int, target: Targets) -> int:
     artifact = artifact_for(comp.key)
     if artifact is None or not target.model.exists():
         raise FileNotFoundError(f"No production artifact for {comp.key}: {target.model}")
-    rates = artifact.get("base_rates", {})
+    goals_path = target.goals_model
+    rates = (joblib.load(goals_path) if goals_path.exists() else artifact).get("base_rates", {})  # the file whose model serves the goal markets
     now = datetime.now(timezone.utc)
     horizon = now + timedelta(days=horizon_days)
     artifact_hash = _artifact_fingerprint(target.model)
-    saved_today = {(str(r.get("match_id")), r.get("artifact_sha256"), str(r.get("prediction_made_at_utc", ""))[:10]) for r in _read_forecast_log(target.forecast_log)}
+    goal_hash = _artifact_fingerprint(goals_path) if goals_path.exists() else artifact_hash
+    saved_today = {(str(r.get("match_id")), r.get("artifact_sha256"), r.get("goal_artifact_sha256"), str(r.get("prediction_made_at_utc", ""))[:10])
+                   for r in _read_forecast_log(target.forecast_log)}
     table = _table(comp.id, _stamp())
     kickoff = pd.to_datetime(table["kickoff"]).dt.tz_localize("UTC")
     upcoming = table.loc[table["home_score"].isna() & (kickoff > pd.Timestamp(now)) & (kickoff <= pd.Timestamp(horizon))].assign(_kickoff_utc=kickoff).sort_values("_kickoff_utc")
     new_rows: List[Dict[str, Any]] = []
     for _, fixture in upcoming.iterrows():
         match_id = int(fixture["match_id"])
-        if (str(match_id), artifact_hash, now.date().isoformat()) in saved_today:
+        if (str(match_id), artifact_hash, goal_hash, now.date().isoformat()) in saved_today:
             continue
         try:
             result = compute_league_prediction(int(fixture["home_id"]), int(fixture["away_id"]), match_id, comp.key)
@@ -123,7 +127,7 @@ def _snapshot_league(horizon_days: int, target: Targets) -> int:
                 "match_id": match_id, "season": str(fixture["season"]), "home_id": int(fixture["home_id"]), "away_id": int(fixture["away_id"]),
                 "home_name": str(fixture.get("home_name", "")), "away_name": str(fixture.get("away_name", "")),
                 "kickoff_utc": fixture["_kickoff_utc"].isoformat(), "prediction_made_at_utc": datetime.now(timezone.utc).isoformat(),
-                "artifact_sha256": artifact_hash, "goal_artifact_sha256": artifact_hash, "class_order": ["home", "draw", "away"],
+                "artifact_sha256": artifact_hash, "goal_artifact_sha256": goal_hash, "class_order": ["home", "draw", "away"],
                 "probabilities": [round(float(v), 6) for v in probabilities], "goal_markets": goal_markets,
                 "model_skill": result.get("model_skill"),
             })

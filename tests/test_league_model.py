@@ -263,3 +263,16 @@ def test_feature_audit_assigns_every_feature_a_family_and_shuffles_a_family_with
     assert not shuffled["a"].equals(table["a"]) and sorted(shuffled["a"]) == sorted(table["a"])
     assert (shuffled["b"] == shuffled["a"] * 10.0).all()  # one permutation moves the whole family's rows together
     assert shuffled["keep"].equals(table["keep"])
+
+
+def test_goal_model_evaluation_trains_on_earlier_unlocked_seasons_only_and_the_production_gate_follows_the_decision():
+    from src.models.evaluate_league_goal_models import played_before
+    from src.models.train_league_model import GOAL_MARKETS
+
+    table = pd.DataFrame({"match_id": range(8), "season": ["2023_24", "2023_24", "2024_25", "2024_25", "2025_26", "2025_26", "2026_27", "2026_27"],
+                          "home_score": [1.0, 2.0, 0.0, 1.0, 3.0, np.nan, 1.0, 0.0], "away_score": [0.0, 2.0, 1.0, 1.0, 0.0, np.nan, 1.0, 2.0]})
+    assert played_before(table, "2025_26")["season"].unique().tolist() == ["2023_24", "2024_25"]
+    assert "2026_27" not in played_before(table, "2027_28")["season"].unique() and len(played_before(table, "2023_24")) == 0
+    decision = {m: {"serving": "pl_feature_model" if m in ("over_15", "over_25") else "baseline"} for m in GOAL_MARKETS}
+    gate = {m: "model" if decision[m]["serving"] == "pl_feature_model" else "baseline" for m in GOAL_MARKETS}
+    assert gate == {"over_15": "model", "over_25": "model", "over_35": "baseline", "btts": "baseline"}

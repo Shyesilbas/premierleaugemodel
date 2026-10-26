@@ -47,6 +47,8 @@ Sınama sezonu (2025/26) tek başına: taban orana karşı -0.0764 [-0.1187, -0.
 
 ## 5. Gol pazarları (760 dış sezon maçı)
 
+> **Güncelleme (26 Ekim 2026):** Bu bölümdeki model artık üretimde değildir; gol pazarları PL'nin gol modeliyle ve ayrı bir dış sezon değerlendirmesiyle sunuluyor (1.5 ve 2.5 üstü modelden, 3.5 üstü ve KG taban oranından). Ayrıntı: [la_liga_goals.md](la_liga_goals.md). Aşağıdaki tablo önceki modelin (beşli aile) sonucudur ve karşılaştırma için saklıdır.
+
 Aynı iki dış sezonda her pazar, eğitim taban oranına karşı eşli bootstrap (10.000 çekiliş, tohum 42) ile sınandı; beş testin ailesi üzerinde Benjamini-Hochberg düzeltmesi uygulandı. Fark negatifse model lehinedir.
 
 | Ölçü | Model | Taban / eğitim ortalaması | Fark [%95 aralık] | q | Servis |

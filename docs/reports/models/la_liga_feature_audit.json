@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-10-26T11:09:15+00:00",
+  "generated_at_utc": "2026-10-26T11:27:31+00:00",
   "competition": "la_liga",
   "protocol": {
     "repeats": 30,
@@ -14,144 +14,190 @@
     "2024_25": {
       "selected_model": "logreg_C0.001",
       "log_loss": 0.9749760139664283,
+      "raw_log_loss": 0.9713222442138748,
       "families": {
         "all_features_together": {
           "features": 118,
           "mean_increase": 0.2723920639408565,
           "spread": 0.03106183273858638,
-          "informative": true
+          "informative": true,
+          "raw_mean_increase": 0.24809768663321646,
+          "raw_spread": 0.028291458765496356
         },
         "elo_strength": {
           "features": 7,
           "mean_increase": 0.003390933066776795,
           "spread": 0.0035236771543785037,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.004915147428216756,
+          "raw_spread": 0.003206206833447967
         },
         "form_big_chances": {
           "features": 13,
           "mean_increase": -0.0027392745703246533,
           "spread": 0.0027062262040890186,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": -0.0013140269261956773,
+          "raw_spread": 0.0024669448624783817
         },
         "form_goals": {
           "features": 17,
           "mean_increase": -0.0021409576171008285,
           "spread": 0.0026237857531748125,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": -0.0010263373311155861,
+          "raw_spread": 0.002381343381243748
         },
         "form_possession_passing": {
           "features": 13,
           "mean_increase": 0.0034461458985851844,
           "spread": 0.00590765398467636,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.004995754927909982,
+          "raw_spread": 0.005367907208058503
         },
         "form_shots": {
           "features": 12,
           "mean_increase": 0.0009553866590495656,
           "spread": 0.002543036619895379,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.001582406631645187,
+          "raw_spread": 0.0023271657899007142
         },
         "form_shots_on_target": {
           "features": 17,
           "mean_increase": -0.0013710572516642872,
           "spread": 0.001913779438760792,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": -0.0004174882343084015,
+          "raw_spread": 0.0017435084983120545
         },
         "form_touches_box": {
           "features": 7,
           "mean_increase": 0.0132193255855848,
           "spread": 0.00751743552809525,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.015017380454734138,
+          "raw_spread": 0.006847404014009537
         },
         "form_xg": {
           "features": 21,
           "mean_increase": 0.0030465117515437196,
           "spread": 0.006078355180291287,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.005272014265763814,
+          "raw_spread": 0.005503898440919827
         },
         "points_goal_difference": {
           "features": 7,
           "mean_increase": -6.13176476118249e-05,
           "spread": 0.0025500443742255204,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.0011203815737622783,
+          "raw_spread": 0.0023197584176504814
         },
         "rest_and_promotion": {
           "features": 4,
           "mean_increase": 0.0012601288517205766,
           "spread": 0.0015386832108438579,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.001441226559056974,
+          "raw_spread": 0.0013926275923409085
         }
       }
     },
     "2025_26": {
       "selected_model": "logreg_C0.001",
       "log_loss": 0.9724531922321629,
+      "raw_log_loss": 0.972150010304106,
       "families": {
         "all_features_together": {
           "features": 118,
           "mean_increase": 0.17827460112758967,
           "spread": 0.02390270939244011,
-          "informative": true
+          "informative": true,
+          "raw_mean_increase": 0.17176780361637398,
+          "raw_spread": 0.023030290724821073
         },
         "elo_strength": {
           "features": 7,
           "mean_increase": 0.005421353920783515,
           "spread": 0.004712649380094484,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.005947427416767903,
+          "raw_spread": 0.004541478062643862
         },
         "form_big_chances": {
           "features": 13,
           "mean_increase": 0.0013373347703397414,
           "spread": 0.002242500211983276,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.0015589517691852572,
+          "raw_spread": 0.0021575313401095853
         },
         "form_goals": {
           "features": 17,
           "mean_increase": 0.003774037579077753,
           "spread": 0.002723039805344119,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.003924868279985135,
+          "raw_spread": 0.0026175482532567068
         },
         "form_possession_passing": {
           "features": 13,
           "mean_increase": -0.005961753339829383,
           "spread": 0.0049324109440545124,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": -0.0052480623336409165,
+          "raw_spread": 0.0047427392767947244
         },
         "form_shots": {
           "features": 12,
           "mean_increase": -0.0015870738683399388,
           "spread": 0.0031437192724701286,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": -0.0013007754070638886,
+          "raw_spread": 0.0030276171661213014
         },
         "form_shots_on_target": {
           "features": 17,
           "mean_increase": 0.00015136523703814797,
           "spread": 0.0027986183688463503,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.00048199562823731946,
+          "raw_spread": 0.002690018094739006
         },
         "form_touches_box": {
           "features": 7,
           "mean_increase": 0.0019235085889303893,
           "spread": 0.003210436904630651,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.00233204128451161,
+          "raw_spread": 0.0030932620001958987
         },
         "form_xg": {
           "features": 21,
           "mean_increase": 0.008682196900769419,
           "spread": 0.005073006907122262,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.009086330384841615,
+          "raw_spread": 0.004878733500830705
         },
         "points_goal_difference": {
           "features": 7,
           "mean_increase": 0.002280539474343964,
           "spread": 0.00293007768080517,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.002650400733365458,
+          "raw_spread": 0.0028225317278141597
         },
         "rest_and_promotion": {
           "features": 4,
           "mean_increase": 0.001444094776245027,
           "spread": 0.0013532264382310883,
-          "informative": false
+          "informative": false,
+          "raw_mean_increase": 0.0014516599046972038,
+          "raw_spread": 0.0013106790114484133
         }
       }
     }

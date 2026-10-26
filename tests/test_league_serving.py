@@ -33,13 +33,17 @@ def test_upcoming_match_prediction_is_coherent_and_labelled():
     assert lines["1.5"]["over_pct"] >= lines["2.5"]["over_pct"] >= lines["3.5"]["over_pct"]
     assert result["model_skill"] in ("model", "baseline")
     assert result["shots"]["model_skill"] == "baseline"
-    artifact = joblib.load(ARTIFACT)
-    gates, rates = artifact["decision"]["goal_markets"], artifact["base_rates"]
+    goals_artifact = joblib.load(ARTIFACT.with_name("goals_models_v1.joblib"))
+    gates, rates = goals_artifact["skill_gate"], goals_artifact["base_rates"]
     lines = result["goals"]["lines"]
-    if all(g == "baseline" for g in gates.values()):  # every goal market failed its gate: the base rates are served, labelled as such
-        for market, key in (("over_15", "1.5"), ("over_25", "2.5"), ("over_35", "3.5")):
-            assert lines[key]["source"] == "baseline" and lines[key]["over_pct"] == pytest.approx(rates[market] * 100.0, abs=0.06)
-        assert result["goals"]["btts_source"] == "baseline" and result["goals"]["btts_pct"] == pytest.approx(rates["btts"] * 100.0, abs=0.06)
+    for market, key in (("over_15", "1.5"), ("over_25", "2.5"), ("over_35", "3.5")):
+        assert lines[key]["source"] == ("model" if gates[market] == "model" else "baseline"), market
+        if gates[market] == "baseline":  # the base rate is served (a monotonic cap against a lower line can only lower it)
+            assert lines[key]["over_pct"] <= round(rates[market] * 100.0, 1) + 0.06
+    assert result["goals"]["btts_source"] == ("model" if gates["btts"] == "model" else "baseline")
+    if gates["btts"] == "baseline":
+        assert result["goals"]["btts_pct"] == pytest.approx(rates["btts"] * 100.0, abs=0.06)
+    assert lines["1.5"]["over_pct"] >= lines["2.5"]["over_pct"] >= lines["3.5"]["over_pct"]
     assert lines["0.5"]["over_pct"] >= lines["1.5"]["over_pct"]
     for market, (filename, *_rest) in COUNT_MODELS.items():
         artifact = joblib.load(ARTIFACT.with_name(filename))
