@@ -33,6 +33,14 @@ def test_upcoming_match_prediction_is_coherent_and_labelled():
     assert lines["1.5"]["over_pct"] >= lines["2.5"]["over_pct"] >= lines["3.5"]["over_pct"]
     assert result["model_skill"] in ("model", "baseline")
     assert result["shots"]["model_skill"] == "baseline"
+    artifact = joblib.load(ARTIFACT)
+    gates, rates = artifact["decision"]["goal_markets"], artifact["base_rates"]
+    lines = result["goals"]["lines"]
+    if all(g == "baseline" for g in gates.values()):  # every goal market failed its gate: the base rates are served, labelled as such
+        for market, key in (("over_15", "1.5"), ("over_25", "2.5"), ("over_35", "3.5")):
+            assert lines[key]["source"] == "baseline" and lines[key]["over_pct"] == pytest.approx(rates[market] * 100.0, abs=0.06)
+        assert result["goals"]["btts_source"] == "baseline" and result["goals"]["btts_pct"] == pytest.approx(rates["btts"] * 100.0, abs=0.06)
+    assert lines["0.5"]["over_pct"] >= lines["1.5"]["over_pct"]
     for market, (filename, *_rest) in COUNT_MODELS.items():
         artifact = joblib.load(ARTIFACT.with_name(filename))
         assert result[market]["model_skill"] == regression_model_skill(artifact), market

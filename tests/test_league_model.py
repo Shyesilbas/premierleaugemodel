@@ -214,3 +214,13 @@ def test_ablation_variants_only_swap_columns_or_the_grid_and_the_adoption_rule_n
     assert not ablation_decide(good, {"mean_delta": 0.001})["adopt"]  # last outer season worse
     assert not ablation_decide({**good, "ci_high": 0.003}, {"mean_delta": -0.01})["adopt"]  # interval includes zero
     assert not ablation_decide({**good, "q_fdr": 0.2}, {"mean_delta": -0.01})["adopt"]  # not significant across the family
+
+
+def test_goal_markets_are_served_as_model_only_when_they_beat_the_base_rate_after_fdr():
+    from src.models.train_league_model import goal_market_gates
+
+    win = {"vs_base_rate": {"mean_delta": -0.02, "significant_fdr_05": True}}
+    goals = {"over_15": win, "over_25": {"vs_base_rate": {"mean_delta": -0.02, "significant_fdr_05": False}},
+             "over_35": {"vs_base_rate": {"mean_delta": 0.01, "significant_fdr_05": True}}}  # btts missing
+    assert goal_market_gates(goals) == {"over_15": "model", "over_25": "baseline", "over_35": "baseline", "btts": "baseline"}
+    assert set(goal_market_gates({}).values()) == {"baseline"}

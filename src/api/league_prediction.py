@@ -130,12 +130,27 @@ def compute_league_prediction(home_id: int, away_id: int, match_id: Optional[int
     matrix = align_to_outcome_probs(matrix_from_lambdas(np.array([lam_h]), np.array([lam_a]), rho=artifact["rho"], max_goals=MAX_GOALS), outcome)[0]
     totals = np.arange(MAX_GOALS + 1)[:, None] + np.arange(MAX_GOALS + 1)[None, :]
 
-    def line(threshold: float) -> Dict[str, Any]:
-        over = float(matrix[totals > threshold].sum() * 100.0)
-        fair = lambda pct: round(100.0 / pct, 2) if pct > 0.5 else None
-        return {"over_pct": round(over, 1), "under_pct": round(100.0 - over, 1), "fair_odds_over": fair(over), "fair_odds_under": fair(100.0 - over)}
+    gates = artifact["decision"].get("goal_markets", {})
+    rates = artifact.get("base_rates", {})
 
-    lines = {str(t): line(t) for t in (0.5, 1.5, 2.5, 3.5)}
+    def served(market: Optional[str], model_value: float) -> Tuple[float, str]:
+        """A goal market that did not beat the training base rate serves the base rate, labelled as a baseline."""
+        if market in rates and gates.get(market, "model") == "baseline":
+            return float(rates[market]) * 100.0, "baseline"
+        return model_value, "model"
+
+    def line(threshold: float, over: float, source: str) -> Dict[str, Any]:
+        fair = lambda pct: round(100.0 / pct, 2) if pct > 0.5 else None
+        return {"over_pct": round(over, 1), "under_pct": round(100.0 - over, 1), "fair_odds_over": fair(over), "fair_odds_under": fair(100.0 - over), "source": source}
+
+    overs: Dict[float, Tuple[float, str]] = {}
+    for t in (0.5, 1.5, 2.5, 3.5):
+        overs[t] = served(f"over_{str(t).replace('.', '')}" if t > 1 else None, float(matrix[totals > t].sum() * 100.0))
+    for lower, upper in ((0.5, 1.5), (1.5, 2.5), (2.5, 3.5)):  # a higher line never exceeds a lower one, whichever source each comes from
+        if overs[upper][0] > overs[lower][0]:
+            overs[upper] = (overs[lower][0], overs[upper][1])
+    lines = {str(t): line(t, *overs[t]) for t in overs}
+    btts, btts_source = served("btts", float(matrix[1:, 1:].sum()) * 100.0)
     history = table[table["home_score"].notna() & (table["kickoff"] < row["kickoff"])]
     conn = get_db()
     try:
@@ -155,11 +170,13 @@ def compute_league_prediction(home_id: int, away_id: int, match_id: Optional[int
         "model_note": None if serving == "model" else BASELINE_NOTE,
         "data_cutoff": pd.Timestamp(row["kickoff"]).isoformat(),
         "outcome": {"home_win_pct": round(p_home * 100.0, 1), "draw_pct": round(p_draw * 100.0, 1), "away_win_pct": round(p_away * 100.0, 1),
-                    "over_2_5_goals_pct": lines["2.5"]["over_pct"], "over_2_5_source": "poisson_dixon_coles"},
+                    "over_2_5_goals_pct": lines["2.5"]["over_pct"],
+                    "over_2_5_source": "poisson_dixon_coles" if lines["2.5"]["source"] == "model" else "baseline"},
         "goals": {"expected_goals": round(lam_h + lam_a, 2), "expected_home": round(lam_h, 2), "expected_away": round(lam_a, 2),
                   "primary_line": "2.5", "primary_over_pct": lines["2.5"]["over_pct"], "primary_under_pct": lines["2.5"]["under_pct"],
                   "primary_fair_odds_over": lines["2.5"]["fair_odds_over"], "primary_fair_odds_under": lines["2.5"]["fair_odds_under"],
-                  "btts_pct": round(float(matrix[1:, 1:].sum()) * 100.0, 1), "lines": lines},
+                  "btts_pct": round(btts, 1), "btts_source": btts_source, "btts_prior_pct": round(float(rates.get("btts", 0.0)) * 100.0, 1) or None,
+                  "lines": lines},
         "corners": counts["corners"], "cards": counts["cards"],
         "referee": {"name": (info["referee_name"] if info else None) or "Atanmadı", "avg_cards": round(float(row["referee_avg_cards"]), 1),
                     "avg_fouls": round(float(row["referee_avg_fouls"]), 1)},

@@ -47,15 +47,19 @@ Sınama sezonu (2025/26) tek başına: taban orana karşı -0.0764 [-0.1187, -0.
 
 ## 5. Gol pazarları (760 dış sezon maçı)
 
-| Ölçü | Model | Taban / eğitim ortalaması |
-|---|---|---|
-| Toplam gol MAE | 1.2274 | 1.2537 |
-| Alt/üst 1.5 log-loss | 0.5512 | 0.563 |
-| Alt/üst 2.5 log-loss | 0.6766 | 0.694 |
-| Alt/üst 3.5 log-loss | 0.5483 | 0.5595 |
-| Karşılıklı gol log-loss | 0.6879 | 0.6917 |
+Aynı iki dış sezonda her pazar, eğitim taban oranına karşı eşli bootstrap (10.000 çekiliş, tohum 42) ile sınandı; beş testin ailesi üzerinde Benjamini-Hochberg düzeltmesi uygulandı. Fark negatifse model lehinedir.
 
-Bağımsız Poisson oranları, Dixon-Coles matrisi (rho = -0.04) kalibre edilmiş 1X2'ye hizalanır; böylece tüm pazarlar tek dağılımdan çıkar. İyileşmeler küçüktür; anlamlılık testi yapılmadı. Korner, taç, ofsayt, kart ve kurtarış için ayrı sayım modelleri vardır (bkz. [la_liga_counts.md](la_liga_counts.md)); yalnızca taç kapıyı geçti, diğerleri `baseline` etiketli ortalamadır. Şut için model yoktur, lig koşan ortalaması `baseline` etiketiyle gösterilir.
+| Ölçü | Model | Taban / eğitim ortalaması | Fark [%95 aralık] | q | Servis |
+|---|---|---|---|---|---|
+| Toplam gol MAE | 1.2274 | 1.2537 | -0.0263 [-0.0523, -0.0003] | 0.118 | beklenen gol gösterilir |
+| Alt/üst 1.5 log-loss | 0.5512 | 0.5630 | -0.0117 [-0.0236, +0.0009] | 0.118 | `baseline` |
+| Alt/üst 2.5 log-loss | 0.6766 | 0.6940 | -0.0174 [-0.0311, -0.0034] | 0.081 | `baseline` |
+| Alt/üst 3.5 log-loss | 0.5483 | 0.5595 | -0.0112 [-0.0264, +0.0040] | 0.152 | `baseline` |
+| Karşılıklı gol log-loss | 0.6879 | 0.6917 | -0.0038 [-0.0087, +0.0011] | 0.152 | `baseline` |
+
+Beş ölçünün beşinde de yön modelin lehine, ama düzeltmeden sonra hiçbiri q < 0.05 değil (en güçlüsü 2.5 üstü, q = 0.081; düzeltmesiz aralığı sıfırı dışarıda bırakıyor). Önceden yazılmış kapı kuralı (PL'deki pazar bazlı `skill_gate` mantığı): pazar, eğitim taban oranını FDR düzeltmeli olarak geçmedikçe serviste taban oranı sunulur ve `baseline` etiketi taşır. Bu yüzden şu an dört pazar da taban oranı gösteriyor (eğitim taban oranları: 1.5 üstü %73,2; 2.5 üstü %48,1; 3.5 üstü %24,8; KG %52,6); beklenen gol sayıları (ev/deplasman/toplam) ve 0.5 üstü modelden gelmeye devam eder. Bu farkı %80 güçle ayırt etmek için 2.5 üstünde yaklaşık 1.022, diğerlerinde 1.742 ile 2.846 maç gerekir; yani bir ila iki ek sezon.
+
+Bağımsız Poisson oranları, Dixon-Coles matrisi (rho = -0.04) kalibre edilmiş 1X2'ye hizalanır; böylece tüm pazarlar tek dağılımdan çıkar. Korner, taç, ofsayt, kart ve kurtarış için ayrı sayım modelleri vardır (bkz. [la_liga_counts.md](la_liga_counts.md)); yalnızca taç kapıyı geçti, diğerleri `baseline` etiketli ortalamadır. Şut için model yoktur, lig koşan ortalaması `baseline` etiketiyle gösterilir.
 
 ## 6. Bilinen sınırlar
 

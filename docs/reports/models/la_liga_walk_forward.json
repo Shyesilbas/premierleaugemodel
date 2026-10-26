@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-10-25T21:28:22+00:00",
+  "generated_at_utc": "2026-10-26T10:35:29+00:00",
   "competition": "la_liga",
   "protocol": {
     "warm_up_season": "2022_23",
@@ -232,27 +232,88 @@
     "n": 760,
     "total_goals_mae": {
       "model": 1.2274,
-      "training_mean": 1.2537
+      "training_mean": 1.2537,
+      "vs_training_mean": {
+        "mean_delta": -0.026252428665210246,
+        "ci_low": -0.05233769916534005,
+        "ci_high": -0.00027794192706958714,
+        "p_a_better": 0.976,
+        "n": 760,
+        "p_two_sided": 0.04800000000000004,
+        "n_required_80_power": 1511,
+        "q_fdr": 0.11799999999999995,
+        "significant_fdr_05": false
+      }
     },
     "over_15": {
       "model_log_loss": 0.5512,
-      "base_rate_log_loss": 0.563
+      "base_rate_log_loss": 0.563,
+      "vs_base_rate": {
+        "mean_delta": -0.011705816962619561,
+        "ci_low": -0.023555795868524926,
+        "ci_high": 0.000910385049878715,
+        "p_a_better": 0.9646,
+        "n": 760,
+        "p_two_sided": 0.07079999999999997,
+        "n_required_80_power": 1742,
+        "q_fdr": 0.11799999999999995,
+        "significant_fdr_05": false
+      }
     },
     "over_25": {
       "model_log_loss": 0.6766,
-      "base_rate_log_loss": 0.694
+      "base_rate_log_loss": 0.694,
+      "vs_base_rate": {
+        "mean_delta": -0.01739474174677491,
+        "ci_low": -0.031080437585339588,
+        "ci_high": -0.0033903483603517515,
+        "p_a_better": 0.9919,
+        "n": 760,
+        "p_two_sided": 0.016199999999999992,
+        "n_required_80_power": 1022,
+        "q_fdr": 0.08099999999999996,
+        "significant_fdr_05": false
+      }
     },
     "over_35": {
       "model_log_loss": 0.5483,
-      "base_rate_log_loss": 0.5595
+      "base_rate_log_loss": 0.5595,
+      "vs_base_rate": {
+        "mean_delta": -0.011151750590120406,
+        "ci_low": -0.026365978451008243,
+        "ci_high": 0.003970213828735833,
+        "p_a_better": 0.924,
+        "n": 760,
+        "p_two_sided": 0.1519999999999999,
+        "n_required_80_power": 2846,
+        "q_fdr": 0.1519999999999999,
+        "significant_fdr_05": false
+      }
     },
     "btts": {
       "model_log_loss": 0.6879,
-      "base_rate_log_loss": 0.6917
+      "base_rate_log_loss": 0.6917,
+      "vs_base_rate": {
+        "mean_delta": -0.003777354912222546,
+        "ci_low": -0.0087416040402066,
+        "ci_high": 0.0011385879707672486,
+        "p_a_better": 0.9333,
+        "n": 760,
+        "p_two_sided": 0.13339999999999996,
+        "n_required_80_power": 2655,
+        "q_fdr": 0.1519999999999999,
+        "significant_fdr_05": false
+      }
     }
   },
   "decision": {
     "serving": "model",
+    "goal_markets": {
+      "over_15": "baseline",
+      "over_25": "baseline",
+      "over_35": "baseline",
+      "btts": "baseline"
+    },
     "beats_base_rate_significantly": true,
     "not_worse_than_elo": true,
     "rule": "serve the model only if it beats the base rate (FDR-adjusted) and its mean log-loss is not above the Elo baseline's; otherwise serve the Elo baseline, labelled as a baseline"

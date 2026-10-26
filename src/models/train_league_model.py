@@ -64,6 +64,7 @@ RHO = -0.04
 POISSON_ALPHAS = (0.3, 1.0, 3.0, 10.0)
 MAX_GOALS = 12
 LOW_C_GRID = (0.0003, 0.0001)
+GOAL_MARKETS = ("over_15", "over_25", "over_35", "btts")
 MIN_ELO_NON_INFERIORITY = 0.0  # the model's mean log-loss may not exceed the Elo baseline's
 
 
@@ -248,13 +249,16 @@ def summarize(result: Dict[str, Any]) -> Dict[str, Any]:
         "total_goals_mae": {"model": round(float(np.abs(played_goals["lam_total"] - played_goals["total"]).mean()), 4),
                             "training_mean": round(float(np.abs(played_goals["train_total_mean"] - played_goals["total"]).mean()), 4)},
     }
-    for market, actual in (("over_15", played_goals["total"] > 1), ("over_25", played_goals["total"] > 2), ("over_35", played_goals["total"] > 3)):
+    family: Dict[str, Optional[Dict[str, Any]]] = {}
+    for market, actual in (("over_15", played_goals["total"] > 1), ("over_25", played_goals["total"] > 2), ("over_35", played_goals["total"] > 3), ("btts", played_goals["btts"] == 1)):
         y = actual.astype(int).to_numpy()
-        goal_summary[market] = {"model_log_loss": round(float(binary_log_loss(played_goals[market].to_numpy(), y).mean()), 4),
-                                "base_rate_log_loss": round(float(binary_log_loss(played_goals[f"train_{market}"].to_numpy(), y).mean()), 4)}
-    y = played_goals["btts"].to_numpy()
-    goal_summary["btts"] = {"model_log_loss": round(float(binary_log_loss(played_goals["btts_p"].to_numpy(), y).mean()), 4),
-                            "base_rate_log_loss": round(float(binary_log_loss(played_goals["train_btts"].to_numpy(), y).mean()), 4)}
+        probability, prior = played_goals["btts_p" if market == "btts" else market].to_numpy(), played_goals[f"train_{market}"].to_numpy()
+        model_loss, prior_loss = binary_log_loss(probability, y), binary_log_loss(prior, y)
+        goal_summary[market] = {"model_log_loss": round(float(model_loss.mean()), 4), "base_rate_log_loss": round(float(prior_loss.mean()), 4)}
+        family[market] = goal_summary[market]["vs_base_rate"] = with_inference(model_loss, prior_loss)
+    family["total_goals_mae"] = goal_summary["total_goals_mae"]["vs_training_mean"] = with_inference(
+        np.abs(played_goals["lam_total"] - played_goals["total"]).to_numpy(), np.abs(played_goals["train_total_mean"] - played_goals["total"]).to_numpy())
+    apply_fdr(family)  # one family: four markets and the total-goals error
     return {"per_season": per_season, "comparisons": comparisons, "goals": goal_summary}
 
 
@@ -271,14 +275,31 @@ def save_predictions(result: Dict[str, Any], path: Path) -> None:
     table.to_parquet(path, index=False)
 
 
+def goal_market_gates(goals: Dict[str, Any]) -> Dict[str, str]:
+    """``model`` for a goal market whose log-loss beats the training base rate (negative paired difference, FDR-adjusted q < 0.05), else ``baseline``."""
+    gates = {}
+    for market in GOAL_MARKETS:
+        test = (goals.get(market) or {}).get("vs_base_rate")
+        gates[market] = "model" if test and test["mean_delta"] < 0 and test.get("significant_fdr_05") else "baseline"
+    return gates
+
+
 def decide(summary: Dict[str, Any]) -> Dict[str, Any]:
     base = summary["comparisons"]["vs_base_rate"]["pooled_outer"]
     elo = summary["comparisons"]["vs_elo"]["pooled_outer"]
     beats_base = bool(base and base["mean_delta"] < 0 and base.get("significant_fdr_05"))
     not_worse_than_elo = bool(elo and elo["mean_delta"] <= MIN_ELO_NON_INFERIORITY)
     serving = "model" if beats_base and not_worse_than_elo else "elo_baseline"
-    return {"serving": serving, "beats_base_rate_significantly": beats_base, "not_worse_than_elo": not_worse_than_elo,
+    return {"serving": serving, "goal_markets": goal_market_gates(summary.get("goals", {})),
+            "beats_base_rate_significantly": beats_base, "not_worse_than_elo": not_worse_than_elo,
             "rule": "serve the model only if it beats the base rate (FDR-adjusted) and its mean log-loss is not above the Elo baseline's; otherwise serve the Elo baseline, labelled as a baseline"}
+
+
+def goal_base_rates(frame: pd.DataFrame) -> Dict[str, float]:
+    """Share of played matches with over 1.5 / 2.5 / 3.5 goals and both teams scoring; what a gated-out goal market serves."""
+    total = frame["home_score"] + frame["away_score"]
+    return {"over_15": float((total > 1).mean()), "over_25": float((total > 2).mean()), "over_35": float((total > 3).mean()),
+            "btts": float(((frame["home_score"] > 0) & (frame["away_score"] > 0)).mean())}
 
 
 def final_fit(frame: pd.DataFrame, columns: List[str]) -> Dict[str, Any]:
@@ -294,7 +315,7 @@ def final_fit(frame: pd.DataFrame, columns: List[str]) -> Dict[str, Any]:
     away = poisson_pipeline(alpha).fit(X, played["away_score"])
     return {"model_1x2": final_model, "calibrator": calibrator, "elo_baseline": elo, "elo_columns": ["elo_diff", "elo_venue_diff"],
             "goals_home": home, "goals_away": away, "rho": RHO, "selected_model": name, "cv_log_loss": scores, "poisson_alpha": alpha,
-            "training_matches": int(len(played))}
+            "base_rates": goal_base_rates(dev), "training_matches": int(len(played))}
 
 
 def main() -> None:
@@ -333,7 +354,10 @@ def main() -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(artifact, target)
         logger.info("Artifact: %s", target)
-    print(json.dumps({"decision": decision, "per_season": {s: v.get("model") for s, v in summary["per_season"].items()}}, indent=2))
+    goal_tests = {k: summary["goals"][k]["vs_base_rate"] for k in GOAL_MARKETS}
+    goal_tests["total_goals_mae"] = summary["goals"]["total_goals_mae"]["vs_training_mean"]
+    print(json.dumps({"decision": decision, "per_season": {s: v.get("model") for s, v in summary["per_season"].items()},
+                      "goals_vs_base_rate": {k: {x: v[x] for x in ("mean_delta", "ci_low", "ci_high", "q_fdr")} for k, v in goal_tests.items()}}, indent=2, default=float))
 
 
 if __name__ == "__main__":
