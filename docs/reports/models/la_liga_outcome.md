@@ -135,3 +135,21 @@ Fark (PL tanımları eksi üretim; pozitif PL tanımlarının daha kötü olduğ
 **Yorum (kanıtlanmış değil).** Fark yalnızca 2024/25'ten geliyor; o sezonu tahmin eden model yalnızca iki sezonluk (760 maç) geçmişle eğitiliyor. PL'nin tanımları 37 form ve venue sütunu içeriyor ve kayan pencerelerde `min_periods=1` kullanıyor; küçük örneklemde bu sütunlar gürültü ekliyor olabilir. 2025/26'da eğitim 1.140 maça çıkınca fark kayboluyor (+0.0009). Bu bir öğrenme eğrisi açıklamasıdır ve ayrı bir deneyle sınanmadı; yön, daha fazla veriyle PL tanımlarının eşitlenmesi yönündedir, ama bu da kanıtlanmış değildir.
 
 **Sonuç.** Aynı özellik kodunu LaLiga'ya taşımak 1X2 modelini iyileştirmedi, ilk sezonlarda zarar verdi. Sayım modelleri için ise aynı karşılaştırma farklı sonuç verdi ve orada PL tanımları benimsendi (bkz. [la_liga_counts.md](la_liga_counts.md) Bölüm 2). Bu yüzden LaLiga'da iki özellik tablosu vardır: 1X2 ve gol modeli kendi 118 özelliklidir; sayım modelleri PL tanımlıdır.
+
+## 10. Elo sabitlerini LaLiga için ayarlama (No Gain, Not Adopted)
+
+**Ham sonuçlar:** `docs/reports/models/la_liga_elo_tuning.json`. **Yeniden üretim:** `python3 -m src.models.tune_league_elo --competition la_liga` (yaklaşık 1 dakika).
+
+**Soru.** Model Elo taban çizgisinden ayırt edilemiyor (Bölüm 4), Elo ise PL için seçilmiş sabitlerle (K = 20, ev avantajı 60, sezon geri çekilmesi 0,20, yeni takım 1430, skor farkı ağırlığı `ln(fark + 1) + 1`) hesaplanıyor. LaLiga için başka sabitler Elo'yu, dolayısıyla Elo özelliklerini ve taban çizgisini iyileştirir mi?
+
+**Yöntem (koşudan önce yazıldı).** 720 konfigürasyon: K {10, 15, 20, 30, 40}, ev avantajı {40, 60, 80, 100}, geri çekilme {0,1, 0,2, 0,3, 0,4}, yeni takım {1380, 1430, 1480}, skor farkı ağırlığı {`log`, `none`, `sqrt`}. Her konfigürasyon, Elo farkı üzerine tek özellikli çok sınıflı lojistik regresyonun (önceki tüm sezonlarda eğitilmiş) log-loss'uyla puanlanır. Her dış sezon için sabitler yalnızca o sezondan önceki sezonlarda seçilir (2024/25 için 2023/24; 2025/26 için 2023/24 ve 2024/25; 2022/23 ısınma), sonra o sezon bu sabitlerle puanlanır. Kilitli 2026/27 yalnızca izlenir. Benimseme kuralı: havuzlanmış dış sezon farkı negatif, %95 aralığı sıfırın altında ve son dış sezon iyileşiyor.
+
+| Sezon | Seçilen sabitler | Ayarlı Elo | Mevcut sabitler |
+|---|---|---|---|
+| 2024/25 | K 10, ev 40, geri çekilme 0,1, `sqrt` | 0,9830 | 0,9771 |
+| 2025/26 | K 15, ev 40, geri çekilme 0,1, `sqrt` | 0,9840 | 0,9881 |
+| 2026/27 (izleme, 97 maç) | 2025/26 seçimi | 0,9433 | 0,9649 |
+
+Havuzlanmış dış sezon farkı (ayarlı eksi mevcut): +0,0009 [-0,0091; +0,0114], p = 0,87, 80% güç için yaklaşık 194.000 maç gerekir. **Karar: benimsenmedi; Elo sabitleri ve 118 özellikli üretim modeli aynı kaldı.**
+
+**Yorum (kanıtlanmış değil).** Ayar sezonlarında yön tutarlıdır: daha küçük K, daha az geri çekilme ve `sqrt` veya `none` ağırlık, tek tek bakıldığında mevcut ayardan hep biraz iyiydi (son kat ayar sezonlarında K 10: 0,9750; K 20: 0,9786; K 40: 0,9894; ev avantajı neredeyse etkisiz). Ancak seçilen konfigürasyon dış sezonda ilk katta mevcuttan kötü, ikincide daha iyi çıktı ve fark gürültü içinde kaldı. İzleme sezonundaki iyileşme (0,9433 karşı 0,9649) 97 maçlıktır, karar için kullanılmadı. Ayar sezonu sayısının küçüklüğü (1 ve 2 sezon) seçimi gürültüye açık bırakıyor; eksen eksen bakıldığında "daha yavaş, daha az sönümlü Elo" yönü bir sonraki sezon verisiyle yeniden sınanabilir.

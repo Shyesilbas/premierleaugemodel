@@ -276,3 +276,17 @@ def test_goal_model_evaluation_trains_on_earlier_unlocked_seasons_only_and_the_p
     decision = {m: {"serving": "pl_feature_model" if m in ("over_15", "over_25") else "baseline"} for m in GOAL_MARKETS}
     gate = {m: "model" if decision[m]["serving"] == "pl_feature_model" else "baseline" for m in GOAL_MARKETS}
     assert gate == {"over_15": "model", "over_25": "model", "over_35": "baseline", "btts": "baseline"}
+
+
+def test_elo_tuning_difference_ignores_the_match_itself_and_later_results():
+    from src.models.tune_league_elo import CURRENT, elo_difference
+
+    matches = pd.DataFrame({
+        "season": ["2022_23"] * 4, "home_id": [1, 2, 1, 2], "away_id": [2, 1, 2, 1],
+        "home_score": [2.0, 0.0, 1.0, 3.0], "away_score": [0.0, 1.0, 1.0, 0.0],
+    })
+    base = elo_difference(matches, CURRENT)
+    altered = matches.copy()
+    altered.loc[2:, ["home_score", "away_score"]] = [[5.0, 0.0], [0.0, 4.0]]
+    assert base[0] == 0.0
+    assert np.allclose(base[:3], elo_difference(altered, CURRENT)[:3])

@@ -1,0 +1,248 @@
+{
+  "generated_at_utc": "2026-10-26T11:44:12+00:00",
+  "competition": "la_liga",
+  "protocol": {
+    "outer_seasons": [
+      "2024_25",
+      "2025_26"
+    ],
+    "warm_up_season": "2022_23",
+    "grid": {
+      "k": [
+        10.0,
+        15.0,
+        20.0,
+        30.0,
+        40.0
+      ],
+      "home_adv": [
+        40.0,
+        60.0,
+        80.0,
+        100.0
+      ],
+      "regress": [
+        0.1,
+        0.2,
+        0.3,
+        0.4
+      ],
+      "newcomer": [
+        1380.0,
+        1430.0,
+        1480.0
+      ],
+      "margin": [
+        "log",
+        "none",
+        "sqrt"
+      ]
+    },
+    "configurations": 720,
+    "current": {
+      "k": 20.0,
+      "home_adv": 60.0,
+      "regress": 0.2,
+      "newcomer": 1430.0,
+      "margin": "log"
+    },
+    "bootstrap_draws": 10000,
+    "seed": 42,
+    "rule": "adopt only if the pooled outer delta is negative, its 95% interval is below zero and the last outer season improves"
+  },
+  "folds": {
+    "2024_25": {
+      "tuning_seasons": [
+        "2023_24"
+      ],
+      "chosen": {
+        "k": 10.0,
+        "home_adv": 40.0,
+        "regress": 0.1,
+        "newcomer": 1430.0,
+        "margin": "sqrt"
+      },
+      "tuning_log_loss": 0.9661416826175451,
+      "current_tuning_log_loss": 0.9801354323951518,
+      "top5": [
+        {
+          "params": {
+            "k": 10.0,
+            "home_adv": 40.0,
+            "regress": 0.1,
+            "newcomer": 1430.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.9661416826175451
+        },
+        {
+          "params": {
+            "k": 10.0,
+            "home_adv": 60.0,
+            "regress": 0.1,
+            "newcomer": 1430.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.966190103649046
+        },
+        {
+          "params": {
+            "k": 10.0,
+            "home_adv": 80.0,
+            "regress": 0.1,
+            "newcomer": 1430.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.9662236542412127
+        },
+        {
+          "params": {
+            "k": 10.0,
+            "home_adv": 100.0,
+            "regress": 0.1,
+            "newcomer": 1430.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.9662456587578764
+        },
+        {
+          "params": {
+            "k": 10.0,
+            "home_adv": 40.0,
+            "regress": 0.2,
+            "newcomer": 1430.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.9680403699104789
+        }
+      ],
+      "outer_log_loss": {
+        "tuned": 0.9829957613874428,
+        "current": 0.9770832911046871
+      }
+    },
+    "2025_26": {
+      "tuning_seasons": [
+        "2023_24",
+        "2024_25"
+      ],
+      "chosen": {
+        "k": 15.0,
+        "home_adv": 40.0,
+        "regress": 0.1,
+        "newcomer": 1430.0,
+        "margin": "sqrt"
+      },
+      "tuning_log_loss": 0.9732499667378961,
+      "current_tuning_log_loss": 0.9786093617499193,
+      "top5": [
+        {
+          "params": {
+            "k": 15.0,
+            "home_adv": 40.0,
+            "regress": 0.1,
+            "newcomer": 1430.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.9732499667378961
+        },
+        {
+          "params": {
+            "k": 15.0,
+            "home_adv": 60.0,
+            "regress": 0.1,
+            "newcomer": 1430.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.973375632559593
+        },
+        {
+          "params": {
+            "k": 15.0,
+            "home_adv": 80.0,
+            "regress": 0.1,
+            "newcomer": 1430.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.973519067635466
+        },
+        {
+          "params": {
+            "k": 20.0,
+            "home_adv": 40.0,
+            "regress": 0.1,
+            "newcomer": 1430.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.9736133505870618
+        },
+        {
+          "params": {
+            "k": 20.0,
+            "home_adv": 40.0,
+            "regress": 0.1,
+            "newcomer": 1380.0,
+            "margin": "sqrt"
+          },
+          "tuning_log_loss": 0.9736234607005785
+        }
+      ],
+      "outer_log_loss": {
+        "tuned": 0.9840276774796615,
+        "current": 0.9881004180810956
+      }
+    }
+  },
+  "pooled_outer": {
+    "n": 760,
+    "tuned": 0.9835117194335522,
+    "current": 0.9825918545928912
+  },
+  "tuned_vs_current": {
+    "mean_delta": 0.0009198648406608019,
+    "ci_low": -0.009108967765923237,
+    "ci_high": 0.011400958608846958,
+    "p_a_better": 0.4327,
+    "n": 760,
+    "p_two_sided": 0.8654,
+    "n_required_80_power": 193919
+  },
+  "marginal_tuning_log_loss": {
+    "k": {
+      "10.0": 0.9750105272797981,
+      "15.0": 0.976313779468032,
+      "20.0": 0.9786093617499193,
+      "30.0": 0.9839837766478475,
+      "40.0": 0.9893633636757673
+    },
+    "home_adv": {
+      "40.0": 0.978592723874031,
+      "60.0": 0.9786093617499193,
+      "80.0": 0.9785970284988394,
+      "100.0": 0.9785587375507562
+    },
+    "regress": {
+      "0.1": 0.9773907710549746,
+      "0.2": 0.9786093617499193,
+      "0.3": 0.9801630438477599,
+      "0.4": 0.9820363212615671
+    },
+    "newcomer": {
+      "1380.0": 0.9782118701105461,
+      "1430.0": 0.9786093617499193,
+      "1480.0": 0.9797806228110696
+    },
+    "margin": {
+      "log": 0.9786093617499193,
+      "none": 0.9761539330813369,
+      "sqrt": 0.974573120956302
+    }
+  },
+  "locked_monitoring": {
+    "2026_27": {
+      "tuned": 0.9432621670299312,
+      "current": 0.9648772001522474
+    }
+  },
+  "adopt": false
+}
