@@ -83,6 +83,7 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 | `src/api/league_prediction.py` | LaLiga maç tahmini (`/api/predict`): modeli ya da kapı kararına göre Elo referansını sunar, gol pazarlarını Dixon-Coles ile üretir, sayım pazarlarını `baseline` etiketler. |
 | `src/analytics/league_audit.py` | LaLiga Model Doğrulama sayfası verisi: kaydedilmiş walk-forward tahminlerden maç satırları, hafta özetleri, kıyas bloğu. |
 | `tests/test_league_model.py` | LaLiga özelliklerinin sızıntı testleri (kendi sonucu ve sonrası değiştirilince özellikler aynı kalır), kapı kararı, istatistik yardımcıları. |
+| `tests/test_prospective_league.py` | Ligin ileriye dönük tahmin kaydı: kendi kayıt, puan kartı ve artifact yolları; puanlamanın yalnızca kickoff öncesi ve her maçın son tahminini sayması. |
 | `tests/test_league_serving.py` | LaLiga tahmin ve denetim yanıtının tutarlılığı (yerel veri yoksa atlanır). |
 | `src/ingest/raw_store.py` | Ham sağlayıcı yanıtlarını `data/competitions/<anahtar>/raw/<sağlayıcı>/` altına atomik yazan yardımcılar ve yol kuralları. |
 | `src/ingest/export_competition_raw.py` | Tek seferlik: veritabanındaki UCL/UEL TheStatsAPI kayıtlarını dosyalara döker, UEFA fikstür ve puan durumu yanıtlarını yeniden çekip kaydeder. Sonraki senkronizasyonlar dosyaları kendisi yazar. |
@@ -150,7 +151,7 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 
 | Dosya | Ne yapar |
 |---|---|
-| `prospective_1x2_benchmark.py` | **İleriye dönük test:** `snapshot` maç öncesi 1X2 tahminini append-only `1x2_forecast_log.jsonl`'a kaydeder, `score` maçlar bitince puanlar. Paper trading protokolünün temeli. |
+| `prospective_1x2_benchmark.py` | **İleriye dönük test:** `snapshot` maç öncesi 1X2 tahminini append-only `1x2_forecast_log.jsonl`'a kaydeder, `score` maçlar bitince puanlar. Paper trading protokolünün temeli. | `--competition la_liga` ile LaLiga'nın kendi kaydı (`data/competitions/la_liga/processed/1x2_forecast_log.jsonl`) ve puan kartı (`docs/reports/prospective_1x2_scorecard_la_liga.json`) kullanılır; tahminler maç sayfasının kullandığı `compute_league_prediction` çıktısıdır, sonuçlar `data/football.db`'den okunur.
 | `model_audit.py` | Model çıktılarını gerçek sonuçlar ve kapanış oranlarıyla denetler: kalibrasyon, eşik, değer farkı. |
 | `data_quality_report.py` | Veri envanteri ve ham metrik kapsamı raporu (`data_quality.md`). |
 | `team_data_audit.py` | Ham takım istatistiklerinin eksiksizliğini denetler (eksik ile sıfırı ayırır). |

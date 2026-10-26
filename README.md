@@ -156,6 +156,7 @@ python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14
 
 # Oynanmis ve sonuclanmis maclari puanla:
 python3 -m src.analytics.prospective_1x2_benchmark score
+# LaLiga icin ayni komutlara --competition la_liga eklenir
 ```
 
 Tahminler `data/competitions/premier_league/processed/1x2_forecast_log.jsonl` dosyasina yalnizca ekleme (append-only) yontemiyle yazilir; puan karti `docs/reports/prospective_1x2_scorecard.json` uzerinden takip edilir. Protokol kurallari: [Paper Trading Protokolu](docs/reports/paper_trading_protocol_2026_27.md).

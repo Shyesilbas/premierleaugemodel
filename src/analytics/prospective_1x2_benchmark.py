@@ -5,6 +5,10 @@ Run ``python -m src.analytics.prospective_1x2_benchmark snapshot`` periodically
 while the API's local fixture/data snapshot is current. Each forecast is kept in
 an append-only JSONL log. ``score`` uses the latest saved forecast made before
 kickoff for each completed match, grouped by production-artifact fingerprint.
+
+``--competition`` picks the league (default ``premier_league``). A league fed by TheStatsAPI (``la_liga``) keeps its own
+log in ``data/competitions/<key>/processed/``, takes its forecasts from the same function that serves the match page
+(``compute_league_prediction``), reads results from ``data/football.db`` and writes ``prospective_1x2_scorecard_<key>.json``.
 """
 
 from __future__ import annotations
@@ -24,7 +28,9 @@ from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, roc_auc_
 from src.models.eval_utils import multiclass_report
 
 
-from src.config import FEATURES_PATH, MATCHES_SUMMARY_PATH as MATCHES_PATH, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR, display_path
+from dataclasses import dataclass
+
+from src.config import DEFAULT_COMPETITION, FEATURES_PATH, MATCHES_SUMMARY_PATH as MATCHES_PATH, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR, competition_paths, display_path
 
 MODEL_PATH = MODELS_DIR / "outcome_models_v1.joblib"
 GOALS_MODEL_PATH = MODELS_DIR / "goals_models_v1.joblib"
@@ -32,6 +38,25 @@ FORECAST_LOG = PROCESSED_DIR / "1x2_forecast_log.jsonl"
 SCORECARD_PATH = REPORTS_DIR / "prospective_1x2_scorecard.json"
 logger = logging.getLogger("prospective_1x2_benchmark")
 GOAL_MARKETS = ("over_1.5", "over_2.5", "over_3.5", "btts")
+
+
+@dataclass(frozen=True)
+class Targets:
+    """Files one competition's forecasts are read from and written to."""
+
+    key: str
+    model: Path
+    goals_model: Path
+    forecast_log: Path
+    scorecard: Path
+
+
+def targets(competition: str = DEFAULT_COMPETITION) -> Targets:
+    if competition == DEFAULT_COMPETITION:
+        return Targets(competition, MODEL_PATH, GOALS_MODEL_PATH, FORECAST_LOG, SCORECARD_PATH)
+    paths = competition_paths(competition)
+    return Targets(competition, paths.models / "outcome_models_v1.joblib", paths.models / "goals_models_v1.joblib",
+                   paths.processed / "1x2_forecast_log.jsonl", REPORTS_DIR / f"prospective_1x2_scorecard_{competition}.json")
 
 
 def _artifact_fingerprint(path: Path) -> str:
@@ -57,10 +82,68 @@ def _read_forecast_log(path: Path = FORECAST_LOG) -> List[Dict[str, Any]]:
     return rows
 
 
-def snapshot(horizon_days: int = 14) -> int:
+def _snapshot_league(horizon_days: int, target: Targets) -> int:
+    """League snapshot: the saved probabilities are exactly what the match page serves (``compute_league_prediction``)."""
+    from src.api.league_prediction import artifact_for, compute_league_prediction, _stamp, _table
+    from src.competitions.registry import get_competition
+
+    comp = get_competition(target.key)
+    artifact = artifact_for(comp.key)
+    if artifact is None or not target.model.exists():
+        raise FileNotFoundError(f"No production artifact for {comp.key}: {target.model}")
+    rates = artifact.get("base_rates", {})
+    now = datetime.now(timezone.utc)
+    horizon = now + timedelta(days=horizon_days)
+    artifact_hash = _artifact_fingerprint(target.model)
+    saved_today = {(str(r.get("match_id")), r.get("artifact_sha256"), str(r.get("prediction_made_at_utc", ""))[:10]) for r in _read_forecast_log(target.forecast_log)}
+    table = _table(comp.id, _stamp())
+    kickoff = pd.to_datetime(table["kickoff"]).dt.tz_localize("UTC")
+    upcoming = table.loc[table["home_score"].isna() & (kickoff > pd.Timestamp(now)) & (kickoff <= pd.Timestamp(horizon))].assign(_kickoff_utc=kickoff).sort_values("_kickoff_utc")
+    new_rows: List[Dict[str, Any]] = []
+    for _, fixture in upcoming.iterrows():
+        match_id = int(fixture["match_id"])
+        if (str(match_id), artifact_hash, now.date().isoformat()) in saved_today:
+            continue
+        try:
+            result = compute_league_prediction(int(fixture["home_id"]), int(fixture["away_id"]), match_id, comp.key)
+            outcome = result["outcome"]
+            probabilities = np.asarray([float(outcome["home_win_pct"]), float(outcome["draw_pct"]), float(outcome["away_win_pct"])]) / 100.0
+            if not np.isfinite(probabilities).all() or (probabilities < 0).any() or probabilities.sum() <= 0:
+                raise ValueError("invalid 1X2 probabilities")
+            probabilities /= probabilities.sum()
+            goals = result["goals"]
+            served = {"over_1.5": (goals["lines"]["1.5"]["over_pct"], goals["lines"]["1.5"]["source"], "over_15"),
+                      "over_2.5": (goals["lines"]["2.5"]["over_pct"], goals["lines"]["2.5"]["source"], "over_25"),
+                      "over_3.5": (goals["lines"]["3.5"]["over_pct"], goals["lines"]["3.5"]["source"], "over_35"),
+                      "btts": (goals["btts_pct"], goals["btts_source"], "btts")}
+            goal_markets = {market: {"probability": round(pct / 100.0, 6), "source": "baseline" if source == "baseline" else "model",
+                                     "baseline_probability": round(float(rates[key]), 6) if key in rates else None}
+                            for market, (pct, source, key) in served.items()}
+            new_rows.append({
+                "match_id": match_id, "season": str(fixture["season"]), "home_id": int(fixture["home_id"]), "away_id": int(fixture["away_id"]),
+                "home_name": str(fixture.get("home_name", "")), "away_name": str(fixture.get("away_name", "")),
+                "kickoff_utc": fixture["_kickoff_utc"].isoformat(), "prediction_made_at_utc": datetime.now(timezone.utc).isoformat(),
+                "artifact_sha256": artifact_hash, "goal_artifact_sha256": artifact_hash, "class_order": ["home", "draw", "away"],
+                "probabilities": [round(float(v), 6) for v in probabilities], "goal_markets": goal_markets,
+                "model_skill": result.get("model_skill"),
+            })
+        except Exception:
+            logger.exception("Could not save forecast for match_id=%s", match_id)
+    if new_rows:
+        target.forecast_log.parent.mkdir(parents=True, exist_ok=True)
+        with target.forecast_log.open("a", encoding="utf-8") as stream:
+            for row in new_rows:
+                stream.write(json.dumps(row, ensure_ascii=False) + "\n")
+    print(f"Saved {len(new_rows)} pre-kickoff forecasts within {horizon_days} days; log: {target.forecast_log}; artifact: {artifact_hash[:12]}")
+    return len(new_rows)
+
+
+def snapshot(horizon_days: int = 14, competition: str = DEFAULT_COMPETITION) -> int:
     """Append current production probabilities for upcoming fixtures."""
     if horizon_days < 1:
         raise ValueError("horizon-days must be positive")
+    if competition != DEFAULT_COMPETITION:
+        return _snapshot_league(horizon_days, targets(competition))
     if not FEATURES_PATH.exists() or not MODEL_PATH.exists():
         raise FileNotFoundError("Features or production 1X2 artifact is missing")
 
@@ -195,16 +278,30 @@ def snapshot(horizon_days: int = 14) -> int:
     return len(new_rows)
 
 
-def score() -> Dict[str, Any]:
+def _league_results(key: str) -> pd.DataFrame:
+    from src.competitions.registry import get_competition
+    from src.db.database import get_db
+
+    conn = get_db()
+    try:
+        return pd.read_sql_query("SELECT match_id, home_score, away_score FROM matches WHERE competition_id = ? AND status = 'COMPLETED'",
+                                 conn, params=(get_competition(key).id,))
+    finally:
+        conn.close()
+
+
+def score(competition: str = DEFAULT_COMPETITION) -> Dict[str, Any]:
     """Score the latest pre-kickoff forecast per completed match and artifact."""
-    if not MATCHES_PATH.exists():
+    target = targets(competition)
+    scorecard_path = target.scorecard
+    if competition == DEFAULT_COMPETITION and not MATCHES_PATH.exists():
         raise FileNotFoundError(f"Completed-match dataset not found: {MATCHES_PATH}")
-    forecasts = _read_forecast_log()
+    forecasts = _read_forecast_log(target.forecast_log)
     if not forecasts:
         print("No saved forecasts yet. Run the snapshot command before fixtures kick off.")
         return {"groups": []}
 
-    matches = pd.read_parquet(MATCHES_PATH)
+    matches = pd.read_parquet(MATCHES_PATH) if competition == DEFAULT_COMPETITION else _league_results(competition)
     completed = matches.loc[matches["home_score"].notna() & matches["away_score"].notna()].copy()
     completed["match_id"] = completed["match_id"].astype(int)
     outcomes = completed.set_index("match_id")
@@ -362,8 +459,8 @@ def score() -> Dict[str, Any]:
         "groups": results,
         "goal_market_groups": goal_results,
     }
-    SCORECARD_PATH.parent.mkdir(parents=True, exist_ok=True)
-    SCORECARD_PATH.write_text(json.dumps(scorecard, indent=2), encoding="utf-8")
+    scorecard_path.parent.mkdir(parents=True, exist_ok=True)
+    scorecard_path.write_text(json.dumps(scorecard, indent=2), encoding="utf-8")
     if not results:
         print("No saved forecasts have completed yet; scorecard is empty.")
     for row in results:
@@ -381,7 +478,7 @@ def score() -> Dict[str, Any]:
                 f"n={metrics['matches']} LL={metrics['log_loss']:.4f} "
                 f"Brier={metrics['brier']:.4f} baseline_LL_delta={baseline_delta}"
             )
-    print(f"Scorecard: {display_path(SCORECARD_PATH)}")
+    print(f"Scorecard: {display_path(scorecard_path)}")
     return scorecard
 
 
@@ -390,14 +487,16 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     snapshot_parser = commands.add_parser("snapshot", help="save upcoming API forecasts before kickoff")
     snapshot_parser.add_argument("--horizon-days", type=int, default=14)
-    commands.add_parser("score", help="score saved forecasts for matches with completed results")
+    score_parser = commands.add_parser("score", help="score saved forecasts for matches with completed results")
+    for sub in (snapshot_parser, score_parser):
+        sub.add_argument("--competition", default=DEFAULT_COMPETITION, help="competition key from config/competitions.yaml (default: premier_league)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if args.command == "snapshot":
-        snapshot(args.horizon_days)
+        snapshot(args.horizon_days, args.competition)
     else:
-        score()
+        score(args.competition)
 
 
 if __name__ == "__main__":
