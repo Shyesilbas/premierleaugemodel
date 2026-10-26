@@ -27,8 +27,6 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.environ.get("PLM_DATA_DIR") or ROOT / "data").resolve()
 COMPETITIONS_DIR = DATA_DIR / "competitions"
 DB_PATH = DATA_DIR / "football.db"
-if not DB_PATH.exists() and (DATA_DIR / "premier_league.db").exists():
-    DB_PATH = DATA_DIR / "premier_league.db"  # pre-rename installs (e.g. the server) keep working until the file is renamed
 MODELS_ROOT = Path(os.environ.get("PLM_MODELS_ROOT") or ROOT / "models" / "production").resolve()
 REPORTS_DIR = Path(os.environ.get("PLM_REPORTS_DIR") or ROOT / "docs" / "reports").resolve()
 DEFAULT_COMPETITION = "premier_league"
