@@ -63,6 +63,7 @@ ODDS_FIRST_SEASON = "2024_25"
 RHO = -0.04
 POISSON_ALPHAS = (0.3, 1.0, 3.0, 10.0)
 MAX_GOALS = 12
+LOW_C_GRID = (0.0003, 0.0001)
 MIN_ELO_NON_INFERIORITY = 0.0  # the model's mean log-loss may not exceed the Elo baseline's
 
 
@@ -98,13 +99,23 @@ def elo_baseline(train: pd.DataFrame, test: pd.DataFrame, y_train: np.ndarray) -
     return ordered_probabilities(model, test[columns], LABELS)
 
 
-def fit_outcome(train: pd.DataFrame, columns: List[str]) -> Tuple[Any, Dict[str, Any], str, Dict[str, float]]:
+def league_candidates(low_c: bool = False) -> Dict[str, Any]:
+    """The Premier League candidate grid; with ``low_c`` it also holds logistic regressions with stronger penalties (C below the old grid edge)."""
+    candidates = candidate_models()
+    if low_c:
+        candidates = {**{f"logreg_C{c}": make_pipeline(SimpleImputer(strategy="median", keep_empty_features=True), StandardScaler(),
+                                                       LogisticRegression(C=c, max_iter=5000)) for c in LOW_C_GRID}, **candidates}
+    return candidates
+
+
+def fit_outcome(train: pd.DataFrame, columns: List[str], candidates: Optional[Dict[str, Any]] = None) -> Tuple[Any, Dict[str, Any], str, Dict[str, float]]:
     """Candidate by chronological CV, calibrator from out-of-fold predictions; uses only ``train``."""
+    candidates = candidates or candidate_models()
     X, y, times = train[columns], outcome_label(train), train["kickoff_millis"]
-    best, scores = select_model("1x2", X, y, LABELS, times)
-    oof, targets = chronological_oof_predictions(candidate_models()[best], X, y, LABELS, kickoff_times=times)
+    best, scores = select_model("1x2", X, y, LABELS, times, candidates)
+    oof, targets = chronological_oof_predictions(candidates[best], X, y, LABELS, kickoff_times=times)
     calibrator = fit_probability_calibrator(oof, pd.Series(targets), LABELS)
-    return fit_model(candidate_models()[best], X, y), calibrator, best, scores
+    return fit_model(candidates[best], X, y), calibrator, best, scores
 
 
 def predict_outcome(model: Any, calibrator: Dict[str, Any], frame: pd.DataFrame, columns: List[str]) -> np.ndarray:
@@ -157,7 +168,7 @@ def score_block(probabilities: np.ndarray, y: np.ndarray) -> Dict[str, Any]:
     return {k: report[k] for k in ("n", "log_loss", "brier", "rps", "accuracy_pct")}
 
 
-def walk_forward(frame: pd.DataFrame, columns: List[str], market: Dict[int, np.ndarray]) -> Dict[str, Any]:
+def walk_forward(frame: pd.DataFrame, columns: List[str], market: Dict[int, np.ndarray], candidates: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     played = frame[frame["home_score"].notna()].copy()
     played["y"] = outcome_label(played)
     seasons = sorted(played["season"].unique())
@@ -170,7 +181,7 @@ def walk_forward(frame: pd.DataFrame, columns: List[str], market: Dict[int, np.n
         train = played[(played["season"] < season) & ~played["season"].isin(LOCKED_SEASONS)].reset_index(drop=True)
         test = played[played["season"] == season].reset_index(drop=True)
         y_train, y_test = train["y"].to_numpy(), test["y"].to_numpy()
-        model, calibrator, name, scores = fit_outcome(train, columns)
+        model, calibrator, name, scores = fit_outcome(train, columns, candidates)
         probs = predict_outcome(model, calibrator, test, columns)
         pool = {"model": probs, "base_rate": base_rate(y_train, len(test)), "elo": elo_baseline(train, test, y_train)}
         has_odds = test["match_id"].map(lambda m: m in market)

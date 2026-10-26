@@ -886,10 +886,11 @@ def select_model(
     y: pd.Series,
     labels: List[int],
     kickoff_times: pd.Series | np.ndarray | None = None,
+    candidates: Dict[str, Any] | None = None,
 ) -> Tuple[str, Dict[str, float]]:
-    """Walk-forward CV on the development set; returns best candidate name and all CV scores."""
+    """Walk-forward CV on the development set; returns best candidate name and all CV scores (``candidates`` defaults to ``candidate_models()``)."""
     scores: Dict[str, float] = {}
-    for name, model in candidate_models().items():
+    for name, model in (candidates or candidate_models()).items():
         fold_ll = []
         for tr_idx, va_idx in forward_time_splits(len(X), kickoff_times):
             m = fit_model(model, X.iloc[tr_idx], y.iloc[tr_idx])

@@ -1,0 +1,264 @@
+{
+  "generated_at_utc": "2026-10-26T10:27:51+00:00",
+  "competition": "la_liga",
+  "variants": [
+    "low_c",
+    "core",
+    "core_low_c"
+  ],
+  "protocol": {
+    "outer_seasons": [
+      "2024_25",
+      "2025_26"
+    ],
+    "locked_monitoring": [
+      "2026_27"
+    ],
+    "bootstrap_draws": 10000,
+    "seed": 42,
+    "base_feature_count": 118,
+    "base_selected_models": {
+      "2024_25": "logreg_C0.001",
+      "2025_26": "logreg_C0.001",
+      "2026_27": "logreg_C0.001"
+    },
+    "base_mean_log_loss": {
+      "2024_25": 0.9749760139664283,
+      "2025_26": 0.9724531922321629,
+      "2026_27": 0.9402189835705841
+    }
+  },
+  "candidate_minus_base": {
+    "low_c": {
+      "feature_count": 118,
+      "added_features": [],
+      "removed_feature_count": 0,
+      "mean_log_loss": {
+        "2024_25": 0.9749760139664283,
+        "2025_26": 0.9724531922321629,
+        "2026_27": 0.9402189835705841
+      },
+      "selected_models": {
+        "2024_25": "logreg_C0.001",
+        "2025_26": "logreg_C0.001",
+        "2026_27": "logreg_C0.001"
+      },
+      "cv_log_loss": {
+        "2024_25": {
+          "logreg_C0.0003": 1.0063,
+          "logreg_C0.0001": 1.0294,
+          "logreg_C0.001": 0.9921,
+          "logreg_C0.003": 0.997,
+          "logreg_C0.01": 1.0292,
+          "logreg_C0.03": 1.0911,
+          "logreg_C0.1": 1.2034,
+          "lgbm_n100": 1.0022,
+          "lgbm_n200": 1.0145,
+          "lgbm_n400": 1.0577
+        },
+        "2025_26": {
+          "logreg_C0.0003": 0.996,
+          "logreg_C0.0001": 1.0189,
+          "logreg_C0.001": 0.985,
+          "logreg_C0.003": 0.99,
+          "logreg_C0.01": 1.0145,
+          "logreg_C0.03": 1.059,
+          "logreg_C0.1": 1.1381,
+          "lgbm_n100": 0.9914,
+          "lgbm_n200": 1.0005,
+          "lgbm_n400": 1.035
+        },
+        "2026_27": {
+          "logreg_C0.0003": 0.9862,
+          "logreg_C0.0001": 1.0054,
+          "logreg_C0.001": 0.9796,
+          "logreg_C0.003": 0.9867,
+          "logreg_C0.01": 1.0112,
+          "logreg_C0.03": 1.0532,
+          "logreg_C0.1": 1.1197,
+          "lgbm_n100": 0.9896,
+          "lgbm_n200": 1.0016,
+          "lgbm_n400": 1.0369
+        }
+      },
+      "last_outer_season": {
+        "mean_delta": 0.0,
+        "ci_low": 0.0,
+        "ci_high": 0.0,
+        "p_a_better": 0.0,
+        "n": 380,
+        "p_two_sided": 0.0,
+        "n_required_80_power": null
+      },
+      "pooled_outer": {
+        "mean_delta": 0.0,
+        "ci_low": 0.0,
+        "ci_high": 0.0,
+        "p_a_better": 0.0,
+        "n": 760,
+        "p_two_sided": 0.0,
+        "n_required_80_power": null,
+        "q_fdr": 0.0,
+        "significant_fdr_05": true
+      },
+      "decision": {
+        "adopt": false,
+        "pooled_negative_and_significant": false,
+        "last_outer_season_negative": false,
+        "rule": "adopt only if the pooled outer-season difference is negative with a 95% interval below zero, q (Benjamini-Hochberg across the variants of the run) below 0.05, and the last outer season alone is also negative"
+      }
+    },
+    "core": {
+      "feature_count": 22,
+      "added_features": [],
+      "removed_feature_count": 96,
+      "mean_log_loss": {
+        "2024_25": 0.9769790249075413,
+        "2025_26": 0.9645579423369983,
+        "2026_27": 0.9538575968970645
+      },
+      "selected_models": {
+        "2024_25": "logreg_C0.003",
+        "2025_26": "logreg_C0.003",
+        "2026_27": "logreg_C0.003"
+      },
+      "cv_log_loss": {
+        "2024_25": {
+          "logreg_C0.001": 1.0086,
+          "logreg_C0.003": 0.9964,
+          "logreg_C0.01": 0.9998,
+          "logreg_C0.03": 1.0164,
+          "logreg_C0.1": 1.0468,
+          "lgbm_n100": 1.0058,
+          "lgbm_n200": 1.0187,
+          "lgbm_n400": 1.0663
+        },
+        "2025_26": {
+          "logreg_C0.001": 0.9975,
+          "logreg_C0.003": 0.9873,
+          "logreg_C0.01": 0.9908,
+          "logreg_C0.03": 1.0026,
+          "logreg_C0.1": 1.0194,
+          "lgbm_n100": 0.998,
+          "lgbm_n200": 1.0123,
+          "lgbm_n400": 1.0498
+        },
+        "2026_27": {
+          "logreg_C0.001": 0.9872,
+          "logreg_C0.003": 0.9792,
+          "logreg_C0.01": 0.9818,
+          "logreg_C0.03": 0.9899,
+          "logreg_C0.1": 1.0009,
+          "lgbm_n100": 0.9898,
+          "lgbm_n200": 1.0002,
+          "lgbm_n400": 1.0334
+        }
+      },
+      "last_outer_season": {
+        "mean_delta": -0.007895249895164366,
+        "ci_low": -0.019959299087566912,
+        "ci_high": 0.0045801195452752595,
+        "p_a_better": 0.8925,
+        "n": 380,
+        "p_two_sided": 0.21500000000000008,
+        "n_required_80_power": 1852
+      },
+      "pooled_outer": {
+        "mean_delta": -0.0029461194770257094,
+        "ci_low": -0.013722307522845168,
+        "ci_high": 0.007460403105183037,
+        "p_a_better": 0.7077,
+        "n": 760,
+        "p_two_sided": 0.5846,
+        "n_required_80_power": 20118,
+        "q_fdr": 0.5846,
+        "significant_fdr_05": false
+      },
+      "decision": {
+        "adopt": false,
+        "pooled_negative_and_significant": false,
+        "last_outer_season_negative": true,
+        "rule": "adopt only if the pooled outer-season difference is negative with a 95% interval below zero, q (Benjamini-Hochberg across the variants of the run) below 0.05, and the last outer season alone is also negative"
+      }
+    },
+    "core_low_c": {
+      "feature_count": 22,
+      "added_features": [],
+      "removed_feature_count": 96,
+      "mean_log_loss": {
+        "2024_25": 0.9769790249075413,
+        "2025_26": 0.9645579423369983,
+        "2026_27": 0.9538575968970645
+      },
+      "selected_models": {
+        "2024_25": "logreg_C0.003",
+        "2025_26": "logreg_C0.003",
+        "2026_27": "logreg_C0.003"
+      },
+      "cv_log_loss": {
+        "2024_25": {
+          "logreg_C0.0003": 1.0325,
+          "logreg_C0.0001": 1.0508,
+          "logreg_C0.001": 1.0086,
+          "logreg_C0.003": 0.9964,
+          "logreg_C0.01": 0.9998,
+          "logreg_C0.03": 1.0164,
+          "logreg_C0.1": 1.0468,
+          "lgbm_n100": 1.0058,
+          "lgbm_n200": 1.0187,
+          "lgbm_n400": 1.0663
+        },
+        "2025_26": {
+          "logreg_C0.0003": 1.0222,
+          "logreg_C0.0001": 1.0457,
+          "logreg_C0.001": 0.9975,
+          "logreg_C0.003": 0.9873,
+          "logreg_C0.01": 0.9908,
+          "logreg_C0.03": 1.0026,
+          "logreg_C0.1": 1.0194,
+          "lgbm_n100": 0.998,
+          "lgbm_n200": 1.0123,
+          "lgbm_n400": 1.0498
+        },
+        "2026_27": {
+          "logreg_C0.0003": 1.0093,
+          "logreg_C0.0001": 1.0332,
+          "logreg_C0.001": 0.9872,
+          "logreg_C0.003": 0.9792,
+          "logreg_C0.01": 0.9818,
+          "logreg_C0.03": 0.9899,
+          "logreg_C0.1": 1.0009,
+          "lgbm_n100": 0.9898,
+          "lgbm_n200": 1.0002,
+          "lgbm_n400": 1.0334
+        }
+      },
+      "last_outer_season": {
+        "mean_delta": -0.007895249895164366,
+        "ci_low": -0.019959299087566912,
+        "ci_high": 0.0045801195452752595,
+        "p_a_better": 0.8925,
+        "n": 380,
+        "p_two_sided": 0.21500000000000008,
+        "n_required_80_power": 1852
+      },
+      "pooled_outer": {
+        "mean_delta": -0.0029461194770257094,
+        "ci_low": -0.013722307522845168,
+        "ci_high": 0.007460403105183037,
+        "p_a_better": 0.7077,
+        "n": 760,
+        "p_two_sided": 0.5846,
+        "n_required_80_power": 20118,
+        "q_fdr": 0.5846,
+        "significant_fdr_05": false
+      },
+      "decision": {
+        "adopt": false,
+        "pooled_negative_and_significant": false,
+        "last_outer_season_negative": true,
+        "rule": "adopt only if the pooled outer-season difference is negative with a 95% interval below zero, q (Benjamini-Hochberg across the variants of the run) below 0.05, and the last outer season alone is also negative"
+      }
+    }
+  }
+}

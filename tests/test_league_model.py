@@ -199,3 +199,18 @@ def test_xi_features_fall_back_to_the_previous_xi_for_an_unplayed_match():
     row = built[built["match_id"] == last]
     assert row[xi_feature_columns(built)].notna().all().all()
     assert 6.0 < float(row["home_xi_rating"].iloc[0]) < 8.0 and 0.0 < float(row["home_xi_continuity"].iloc[0]) <= 1.0
+
+
+def test_ablation_variants_only_swap_columns_or_the_grid_and_the_adoption_rule_needs_every_condition():
+    from src.models.ablate_league_features import CORE_FEATURES, decide as ablation_decide
+    from src.models.train_league_model import LOW_C_GRID, league_candidates
+    from src.models.train_match_outcome import candidate_models
+
+    base, extended = candidate_models(), league_candidates(low_c=True)
+    assert set(base) < set(extended) and {f"logreg_C{c}" for c in LOW_C_GRID} == set(extended) - set(base)
+    assert set(league_candidates()) == set(base) and len(set(CORE_FEATURES)) == len(CORE_FEATURES)
+    good = {"mean_delta": -0.01, "ci_high": -0.002, "q_fdr": 0.01, "p_two_sided": 0.01}
+    assert ablation_decide(good, {"mean_delta": -0.01})["adopt"]
+    assert not ablation_decide(good, {"mean_delta": 0.001})["adopt"]  # last outer season worse
+    assert not ablation_decide({**good, "ci_high": 0.003}, {"mean_delta": -0.01})["adopt"]  # interval includes zero
+    assert not ablation_decide({**good, "q_fdr": 0.2}, {"mean_delta": -0.01})["adopt"]  # not significant across the family

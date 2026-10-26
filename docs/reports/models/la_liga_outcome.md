@@ -59,7 +59,7 @@ Bağımsız Poisson oranları, Dixon-Coles matrisi (rho = -0.04) kalibre edilmi�
 
 ## 6. Bilinen sınırlar
 
-- Seçilen düzenlileştirme (C = 0.001) adayların en güçlüsü; yani ızgara kenarında. Daha güçlü düzenlileştirmenin daha iyi olup olmadığına bakılmadı. Özellik sayısı (118) örneklem için fazla; özellik azaltma denemesi dış sezonlara bakmadan, yeni bir protokolle yapılmalı.
+- Seçilen düzenlileştirme (C = 0.001) eski ızgaranın en güçlü ucuydu; daha güçlü adaylar (C = 0.0003, 0.0001) Bölüm 8'de sınandı ve her sezonda CV'de daha kötü çıktı, yani 0.001 gerçek bir en iyidir. 118 özellik yerine 22 özellikli küme de sınandı ve anlamlı kazanç vermedi (Bölüm 8).
 - Elo'dan üstünlük kanıtlanamadığı için model, Elo'ya yakın bir yetenektedir; piyasa ise anlamlı derecede daha iyi.
 - Ceza sahası giriş sayısı ve piyasa değeri yoktur. İlk 11 özellikleri yazıldı ama üretim kümesinde değildir (Bölüm 7); serviste maç başlamadan önce resmi ilk 11 kullanılmaz.
 - Üretim dosyası oynanmış tüm maçlarla (kilitli sezonun oynanmış 97 maçı dahil) eğitildi; seçimler yalnızca kilitsiz sezonlarla yapıldı. Takvimden gelen yer tutucu maçların tarihleri değişebilir; saatleri belli değildir.
@@ -82,3 +82,30 @@ Bağımsız Poisson oranları, Dixon-Coles matrisi (rho = -0.04) kalibre edilmi�
 Fark (ilk 11 eklenmiş eksi taban, pozitif eklenmişin daha kötü olduğu anlamına gelir): iki dış sezon birlikte +0.0018 [-0.0005, +0.0041], p = 0.117; sınama sezonu tek başına +0.0003 [-0.0026, +0.0032]. Her iki durumda da seçilen aday `logreg_C0.001`. **Karar: kazanç yok, benimsenmedi; üretim özellik kümesi 118 olarak kaldı.**
 
 Yorum (kanıtlanmış değil): C = 0.001 ile model çok güçlü düzenlileştirilmiş olduğundan 12 yeni, birbirine ve mevcut form özelliklerine bağlı sütunun eklenebileceği ek bilgi çok az; oyuncu rating'i takım düzeyindeki xG ve şut formunda zaten büyük ölçüde görünüyor olabilir. Bu bir açıklama önerisidir; ayrı bir deneyle sınanmadı. İlk 11 özellikleri `feature_columns(frame, include_xi=True)` ile açılır; yeni bir protokolde (örneğin daha az, daha seçilmiş özellik kümesi) yeniden denenebilir.
+
+## 8. Reddedilen deneyler: daha güçlü düzenlileştirme ve özellik azaltma (No Gain, Not Adopted)
+
+**Ham sonuçlar:** `docs/reports/models/la_liga_ablation_low_c_core_core_low_c.json`. **Yeniden üretim:** `python3 -m src.models.ablate_league_features --competition la_liga --group low_c core core_low_c` (yaklaşık 1 dakika).
+
+Bölüm 6'daki iki açık soru, Bölüm 7'deki protokolle ve çalıştırmadan önce yazılmış kuralla sınandı (benimseme: iki dış sezonun toplam farkı negatif, %95 aralığı sıfırın altında, üç varyantın ailesi üzerinde Benjamini-Hochberg q < 0.05 ve sınama sezonu tek başına negatif):
+- **`low_c`:** aday ızgarasına C = 0.0003 ve 0.0001 eklendi. Adayı yine yalnızca önceki sezonlarla kronolojik CV seçti. CV log-loss (2024/25, 2025/26, 2026/27 için; düşük iyi):
+
+| C | 2024/25 | 2025/26 | 2026/27 |
+|---|---|---|---|
+| 0.0001 | 1.0294 | 1.0189 | 1.0054 |
+| 0.0003 | 1.0063 | 0.9960 | 0.9862 |
+| **0.001** | **0.9921** | **0.9850** | **0.9796** |
+| 0.003 | 0.9970 | 0.9900 | 0.9867 |
+
+CV eğrisi U şeklindedir: 0.001 her sezonda en iyidir, daha güçlü de daha zayıf düzenlileştirme de daha kötüdür. Seçim değişmediği için dış sezon sonuçları üretimle birebir aynıdır (fark 0). Sonuç: ızgara kenarı endişesi giderildi.
+- **`core`:** 118 özellik yerine, sonuçlara bakmadan yazılmış 22 özellik (Elo, puan ve averaj farkları, xG formu ve iç saha/deplasman farkı, büyük şans ve isabetli şut farkları, dinlenme ve terfi bayrakları; liste `src/models/ablate_league_features.py` içinde `CORE_FEATURES`). Seçilen aday `logreg_C0.003`.
+
+| Sezon | 118 özellik | 22 özellik |
+|---|---|---|
+| 2024/25 | 0.9750 | 0.9770 |
+| 2025/26 (sınama) | 0.9725 | 0.9646 |
+| 2026/27 (izleme) | 0.9402 | 0.9539 |
+
+İki dış sezon birlikte fark (22 eksi 118; negatif 22 özelliğin lehine) -0.0029 [-0.0137, +0.0075], q = 0.585; sınama sezonu tek başına -0.0079 [-0.0200, +0.0046], p = 0.215. Yön sezondan sezona değişiyor (2024/25 ve izleme sezonunda daha kötü, sınama sezonunda daha iyi) ve aralık sıfırı geniş biçimde içeriyor; bu farkı %80 güçle ayırt etmek için yaklaşık 20.000 maç gerekirdi. `core_low_c` aynı adayı seçtiği için `core` ile aynı sonucu verir.
+
+**Karar: ikisi de benimsenmedi; üretim modeli 118 özellik ve `logreg_C0.001` olarak kaldı.** Daha az özellikli modelin eşit derecede iyi çıkması, 118 özelliğin bilgi eklemediğini düşündürür ama bunu kanıtlamıyor; iki kümeyi ayırt edecek veri yok. Bu, Bölüm 4'teki "Elo'ya yakın yetenek" bulgusuyla tutarlıdır: bu veri boyutunda form özelliklerinin Elo'nun ötesinde eklediği bilgi, ölçülebilir değildir.
