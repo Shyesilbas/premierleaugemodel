@@ -69,6 +69,7 @@ Dizin düzeni ve ortam değişkenleri: [scripts_reference.md §0](scripts_refere
 - **Oranlar:** 2024/25 öncesi sezonlar için çekilmez (istek tasarrufu); `--old-extras` ile açılabilir.
 - **Şut haritası:** Hiçbir turnuva, sezon ya da maç için yeni çekilmez (25 Ekim 2026 kararı). 1X2 modeli bu veriden beslenmiyor; takım düzeyindeki xG ve şut sayıları zaten istatistik yanıtında geliyor.
 - **Tahmin modeli:** Yalnızca Premier League. UCL/UEL için denenen yürüyen pencere modeli taban orandan iyi, ülke öncüllü Elo'dan ayırt edilemez, piyasadan kötü çıktığı için kaldırıldı. LaLiga için `src/models/train_league_model.py` ile walk-forward model eğitildi (taban orandan anlamlı iyi, Elo'dan ayırt edilemez; kapı kuralı modeli seçti).
+- **LaLiga oyuncu rating'i ve ilk 11:** `player_stats` ve `match` yanıtlarından okunur (ek istek yok). 1X2 modeline eklendiğinde kazanç vermedi (`la_liga_outcome.md` Bölüm 7), bu yüzden üretim kümesinde değil; özellikler `include_xi=True` ile açılabilir.
 - **Tek veritabanı:** `data/football.db` ortaktır (PL takım sayfalarında Avrupa maçlarını birleştirmek için); ham veri ise turnuva klasörlerinde dosya olarak tutulur.
 
 ## 5. Yeni bir lig eklerken

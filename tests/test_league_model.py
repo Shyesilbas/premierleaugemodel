@@ -152,3 +152,50 @@ def test_count_features_and_referee_history_ignore_the_match_itself_and_later_on
                                   rebuilt.loc[rebuilt["match_id"] < altered["match_id"].iloc[cut], columns].reset_index(drop=True))
     # first match of a referee equals the league prior; later ones move toward the referee's own record
     assert built["referee_prior_matches"].iloc[0] == 0 and built["referee_prior_matches"].iloc[-1] > 0
+
+
+def synthetic_player_lines(frame, seed=0, squad=14):
+    rng = np.random.default_rng(seed)
+    rows = []
+    for match in frame.itertuples():
+        for side, team in (("home", match.home_id), ("away", match.away_id)):
+            for slot in range(squad):
+                rows.append({"match_id": match.match_id, "side": side, "player_id": f"p{team}_{slot}", "position": "GDDDMMMFFFF"[slot % 11],
+                             "rating": float(rng.normal(6.9, 0.5)), "started": slot < 11, "minutes": 90.0 if slot < 11 else 15.0 + slot})
+    return pd.DataFrame(rows)
+
+
+def test_xi_features_ignore_the_match_itself_and_later_matches_and_stay_out_of_the_default_set():
+    from src.features.build_league_features import xi_feature_columns
+
+    frame = synthetic_matches(seed=5)
+    lines = synthetic_player_lines(frame)
+    built = build_league_features(frame, lines)
+    columns = xi_feature_columns(built)
+    assert len(columns) == 12 and not set(columns) & set(feature_columns(built)) and set(columns) <= set(feature_columns(built, include_xi=True))
+    cut = 40
+    later_ids = set(frame["match_id"].iloc[cut:])
+    altered = lines.copy()
+    later = altered["match_id"].isin(later_ids)
+    altered.loc[later, "rating"] = altered.loc[later, "rating"] * 0.5 + 4.0
+    altered.loc[later, "minutes"] = 5.0
+    rebuilt = build_league_features(frame, altered)
+    early = ~built["match_id"].isin(later_ids)
+    pd.testing.assert_frame_equal(built.loc[early, columns].reset_index(drop=True), rebuilt.loc[rebuilt["match_id"].isin(set(frame["match_id"].iloc[:cut])), columns].reset_index(drop=True))
+    # the first match of the cut sees only earlier matches, so its own (altered) ratings must not move it
+    first_later = frame["match_id"].iloc[cut]
+    pd.testing.assert_series_equal(built.loc[built["match_id"] == first_later, columns].iloc[0], rebuilt.loc[rebuilt["match_id"] == first_later, columns].iloc[0])
+
+
+def test_xi_features_fall_back_to_the_previous_xi_for_an_unplayed_match():
+    from src.features.build_league_features import xi_feature_columns
+
+    frame = synthetic_matches(seed=6)
+    lines = synthetic_player_lines(frame, seed=6)
+    last = frame["match_id"].iloc[-1]
+    future = frame.copy()
+    future.loc[future["match_id"] == last, ["home_score", "away_score"]] = np.nan
+    built = build_league_features(future, lines[lines["match_id"] != last])
+    row = built[built["match_id"] == last]
+    assert row[xi_feature_columns(built)].notna().all().all()
+    assert 6.0 < float(row["home_xi_rating"].iloc[0]) < 8.0 and 0.0 < float(row["home_xi_continuity"].iloc[0]) <= 1.0

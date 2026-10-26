@@ -62,6 +62,7 @@ The API loads these files from `models/production/premier_league/`. Each artifac
 | Artifact | Purpose | Produced by |
 |---|---|---|
 | `models/production/la_liga/{corner,throws,offside,cards,saves}_model_v1.joblib` | LaLiga count models (same gated selection as the Premier League; only throws passed the gate, the rest serve `training_mean`) | `python3 -m src.models.train_league_counts --competition la_liga` |
+| `docs/reports/models/la_liga_xi_ablation.json` | LaLiga first-XI feature ablation (No Gain, Not Adopted; production 1X2 set stays at 118 features) | `python3 -m src.models.ablate_league_features --competition la_liga --group xi` |
 | `docs/reports/models/la_liga_count_models.json`, `docs/reports/models/la_liga_counts.md` | Raw metrics and the report of the LaLiga count models | same command |
 | `models/production/la_liga/outcome_models_v1.joblib` | LaLiga 1X2 model, calibrator, Elo baseline, Poisson goal models and the gate decision | `python3 -m src.models.train_league_model --competition la_liga` |
 | `docs/reports/models/la_liga_walk_forward.json` | Walk-forward results (single source of the numbers in `la_liga_outcome.md`) | same |

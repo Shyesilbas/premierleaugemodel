@@ -9,6 +9,10 @@ The set follows the Premier League model where the data allows it (Elo, points a
 goals, shots on target, big chances, possession, passing, touches in the box, rest days). It leaves out what the
 provider cannot give for past seasons: squad market values (only today's roster is available) and
 penalty-area entries.
+
+First-XI features (``xi_*``, built from the provider's per-player match ratings) are built when ``player_lines`` are
+passed to ``build_league_features``; they stay out of ``feature_columns`` unless asked for, so the production 1X2 set only
+changes after an ablation shows a gain (``src/models/ablate_league_features.py``).
 """
 
 from __future__ import annotations
@@ -68,6 +72,13 @@ COUNT_TEAM_STATS = (
 COUNT_TARGETS = {"total_corners": "corners", "total_offsides": "offsides", "total_throws": "throws", "total_fouls": "fouls",
                  "total_cards": "cards", "total_saves": "saves"}
 REFEREE_SHRINKAGE_MATCHES = 8
+XI_MIN_MINUTES = 20  # appearances shorter than this carry too little of a rating to count as a player's form
+XI_RECENT_WEIGHTS = (0.10, 0.15, 0.20, 0.25, 0.30)  # oldest to newest of the last five appearances (as in the Premier League model)
+XI_CONTINUITY_MATCHES = 12
+XI_PRIOR_CONTINUITY = 0.75
+XI_PRIOR_RATING = 6.85
+ATTACK_POSITIONS = ("F", "M")
+DEFENCE_POSITIONS = ("D", "G")
 VENUE_STEMS = ("goals_for", "goals_against", "xg_for", "xg_against", "sot_for", "sot_against")
 FALLBACK_PRIOR = {"goals_for": 1.4, "goals_against": 1.4, "xg_for": 1.4, "xg_against": 1.4, "sot_for": 4.6, "sot_against": 4.6,
                   "shots_for": 12.5, "shots_against": 12.5, "big_chances_for": 2.2, "big_chances_against": 2.2,
@@ -107,6 +118,108 @@ def load_league_matches(conn: sqlite3.Connection, competition_id: int) -> pd.Dat
     played = frame["status"].eq("COMPLETED") & frame["home_score"].notna() & frame["away_score"].notna()
     frame.loc[~played, ["home_score", "away_score"]] = np.nan
     return frame.sort_values(["kickoff", "match_id"], kind="mergesort").reset_index(drop=True)
+
+
+def load_player_lines(conn: sqlite3.Connection, competition_id: int) -> pd.DataFrame:
+    """One row per player and match from the provider's player statistics: rating, minutes, position and whether he started."""
+    lines = pd.read_sql_query(
+        """SELECT m.match_id, json_extract(mp.payload, '$.data.home_team.id') AS home_provider, json_extract(j.value, '$.team_id') AS team_provider,
+                  json_extract(j.value, '$.player_id') AS player_id, json_extract(j.value, '$.position') AS position,
+                  json_extract(j.value, '$.rating') AS rating, json_extract(j.value, '$.started') AS started,
+                  json_extract(j.value, '$.minutes_played') AS minutes
+           FROM matches m
+           JOIN external_match_payloads ps ON ps.match_id = m.match_id AND ps.provider = 'TheStatsAPI' AND ps.kind = 'player_stats'
+           JOIN external_match_payloads mp ON mp.match_id = m.match_id AND mp.provider = 'TheStatsAPI' AND mp.kind = 'match'
+           JOIN json_each(ps.payload, '$.data') j
+           WHERE m.competition_id = ?""",
+        conn, params=(competition_id,),
+    )
+    lines["side"] = np.where(lines["team_provider"] == lines["home_provider"], "home", "away")
+    lines["started"] = lines["started"].fillna(0).astype(int).astype(bool)
+    lines["minutes"] = lines["minutes"].fillna(0.0)
+    return lines.drop(columns=["home_provider", "team_provider"])
+
+
+def _player_form(history: List[tuple], season: str, fallback: float) -> float:
+    """Rating a player is expected to bring: 70% weighted last five appearances, 30% mean of the season (all history if fewer than 3 this season)."""
+    if not history:
+        return fallback
+    this_season = [r for s, r in history if s == season]
+    pool = this_season if len(this_season) >= 3 else [r for _, r in history]
+    recent = [r for _, r in history[-5:]]
+    weights = XI_RECENT_WEIGHTS if len(recent) == 5 else tuple((i + 1) / (len(recent) * (len(recent) + 1) / 2.0) for i in range(len(recent)))
+    return 0.70 * sum(w * r for w, r in zip(weights, recent)) + 0.30 * float(np.mean(pool))
+
+
+def _xi_features(matches: pd.DataFrame, player_lines: pd.DataFrame) -> pd.DataFrame:
+    """Starting-XI strength of both sides, from player ratings of earlier matches only.
+
+    The XI of a played match is the one that started; for a match without a recorded XI it is the team's previous XI. A player's form
+    uses appearances before this match (``_player_form``); a player with no history gets the league mean rating so far.
+    """
+    starters: Dict[tuple, List[tuple]] = {}
+    rosters: Dict[tuple, Dict[str, float]] = {}
+    ratings: Dict[tuple, Dict[str, float]] = {}
+    for (match_id, side), part in player_lines.groupby(["match_id", "side"], sort=False):
+        starters[(match_id, side)] = [(r.player_id, r.position) for r in part[part["started"]].itertuples()]
+        rosters[(match_id, side)] = {r.player_id: float(r.minutes) for r in part[part["minutes"] > 0].itertuples()}
+        ratings[(match_id, side)] = {r.player_id: float(r.rating) for r in part[(part["minutes"] >= XI_MIN_MINUTES) & part["rating"].notna()].itertuples()}
+    history: Dict[str, List[tuple]] = {}
+    recent_rosters: Dict[int, List[Dict[str, float]]] = {}
+    last_xi: Dict[int, List[tuple]] = {}
+    league = [0.0, 0]
+    rows = []
+    for row in matches.itertuples(index=False):
+        fallback = league[0] / league[1] if league[1] else XI_PRIOR_RATING
+        out: Dict[str, float] = {}
+        for side, team in (("home", int(row.home_id)), ("away", int(row.away_id))):
+            xi = starters.get((row.match_id, side))
+            if not xi or not 7 <= len(xi) <= 11:
+                xi = last_xi.get(team)
+            if xi:
+                form = [(position, _player_form(history.get(pid, []), row.season, fallback)) for pid, position in xi]
+                overall = float(np.mean([f for _, f in form]))
+                attack = [f for p, f in form if p in ATTACK_POSITIONS]
+                defence = [f for p, f in form if p in DEFENCE_POSITIONS]
+                recent = recent_rosters.get(team, [])
+                if len(recent) >= 3 and len(xi) >= 7:
+                    minutes: Dict[str, float] = {}
+                    for roster in recent:
+                        for pid, m in roster.items():
+                            minutes[pid] = minutes.get(pid, 0.0) + m
+                    shares = [minutes.get(pid, 0.0) / (len(recent) * 90.0) for pid, _ in xi]
+                    continuity, weights = float(np.mean(shares)), [max(0.10, x) for x in shares]
+                    weighted = float(np.average([f for _, f in form], weights=weights))
+                else:
+                    continuity, weighted = XI_PRIOR_CONTINUITY, overall
+                out.update({f"{side}_xi_rating": overall, f"{side}_xi_att": float(np.mean(attack)) if attack else overall,
+                            f"{side}_xi_def": float(np.mean(defence)) if defence else overall,
+                            f"{side}_xi_continuity": continuity, f"{side}_xi_weighted_ov": weighted})
+            else:
+                out.update({f"{side}_xi_rating": fallback, f"{side}_xi_att": fallback, f"{side}_xi_def": fallback,
+                            f"{side}_xi_continuity": XI_PRIOR_CONTINUITY, f"{side}_xi_weighted_ov": fallback})
+        rows.append(out)
+        if pd.isna(row.home_score) or pd.isna(row.away_score):
+            continue
+        for side, team in (("home", int(row.home_id)), ("away", int(row.away_id))):
+            for pid, rating in ratings.get((row.match_id, side), {}).items():
+                history.setdefault(pid, []).append((row.season, rating))
+                league[0] += rating
+                league[1] += 1
+            if rosters.get((row.match_id, side)):
+                recent_rosters.setdefault(team, []).append(rosters[(row.match_id, side)])
+                recent_rosters[team] = recent_rosters[team][-XI_CONTINUITY_MATCHES:]
+            xi = starters.get((row.match_id, side))
+            if xi and 7 <= len(xi) <= 11:
+                last_xi[team] = xi
+    xi = pd.DataFrame(rows, index=matches.index)
+    xi["xi_rating_diff"] = xi["home_xi_rating"] - xi["away_xi_rating"]
+    xi["home_xi_att_vs_away_def"] = xi["home_xi_att"] - xi["away_xi_def"]
+    xi["away_xi_att_vs_home_def"] = xi["away_xi_att"] - xi["home_xi_def"]
+    xi["xi_att_vs_def_diff"] = xi["home_xi_att_vs_away_def"] - xi["away_xi_att_vs_home_def"]
+    xi["xi_continuity_diff"] = xi["home_xi_continuity"] - xi["away_xi_continuity"]
+    xi["xi_weighted_ov_diff"] = xi["home_xi_weighted_ov"] - xi["away_xi_weighted_ov"]
+    return xi.drop(columns=["home_xi_att", "home_xi_def", "away_xi_att", "away_xi_def"])
 
 
 def _long_table(matches: pd.DataFrame) -> pd.DataFrame:
@@ -242,8 +355,8 @@ def _referee_features(frame: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out, index=frame.index)
 
 
-def build_league_features(matches: pd.DataFrame) -> pd.DataFrame:
-    """Feature table of ``load_league_matches`` output: one row per match, played or not."""
+def build_league_features(matches: pd.DataFrame, player_lines: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+    """Feature table of ``load_league_matches`` output: one row per match, played or not (``xi_*`` columns when ``player_lines`` is given)."""
     matches = matches.sort_values(["kickoff", "match_id"], kind="mergesort").reset_index(drop=True)
     long = _long_table(matches)
     history = pd.concat([_history_features(long), _history_features(long, COUNT_TEAM_STATS)], axis=1)
@@ -255,6 +368,8 @@ def build_league_features(matches: pd.DataFrame) -> pd.DataFrame:
     frame = matches.set_index("match_id").join(sides["home"]).join(sides["away"]).reset_index()
     strength = _strength(matches)
     frame = pd.concat([frame.reset_index(drop=True), strength.reset_index(drop=True)], axis=1)
+    if player_lines is not None:
+        frame = pd.concat([frame, _xi_features(matches, player_lines).reset_index(drop=True)], axis=1)
     for stem in ("xg_for", "xg_against", "sot_for", "goals_for", "big_chances_for", "touches_box", "possession"):
         frame[f"diff_{stem}_roll_10"] = frame[f"home_{stem}_roll_10"] - frame[f"away_{stem}_roll_10"]
     frame["xg_diff_10"] = (frame["home_xg_for_roll_10"] - frame["home_xg_against_roll_10"]) - (frame["away_xg_for_roll_10"] - frame["away_xg_against_roll_10"])
@@ -271,6 +386,10 @@ def build_league_features(matches: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+def _is_xi_column(name: str) -> bool:
+    return "xi_" in name
+
+
 def _is_count_column(name: str) -> bool:
     stem = name.split("_", 1)[1] if name.startswith(("home_", "away_")) else name
     return name.startswith("referee_") or any(stem.startswith(f"{s}_") for s, _, _ in COUNT_TEAM_STATS)
@@ -282,13 +401,21 @@ def _raw_columns() -> set:
     return raw | {f"{side}_{stat}" for side in ("home", "away") for stat in STAT_PATHS}
 
 
-def feature_columns(frame: pd.DataFrame) -> List[str]:
-    """1X2 and goal model inputs: everything the builder adds for them, none of the raw per-match numbers, identifiers or count-model histories."""
+def feature_columns(frame: pd.DataFrame, include_xi: bool = False) -> List[str]:
+    """1X2 and goal model inputs: everything the builder adds for them, none of the raw per-match numbers, identifiers or count-model histories.
+
+    The first-XI columns are left out unless ``include_xi`` is set (they are adopted only after an ablation shows a gain).
+    """
     raw = _raw_columns()
-    return [c for c in frame.columns if c not in raw and not _is_count_column(c)]
+    return [c for c in frame.columns if c not in raw and not _is_count_column(c) and (include_xi or not _is_xi_column(c))]
+
+
+def xi_feature_columns(frame: pd.DataFrame) -> List[str]:
+    """First-XI columns of a table built with ``player_lines``."""
+    return [c for c in frame.columns if _is_xi_column(c) and c not in _raw_columns()]
 
 
 def count_feature_columns(frame: pd.DataFrame) -> List[str]:
     """Count-model inputs added on top of the 1X2 set: team histories of corners, offsides, throws, fouls, cards, saves and referee tendencies."""
     raw = _raw_columns()
-    return [c for c in frame.columns if c not in raw and _is_count_column(c)]
+    return [c for c in frame.columns if c not in raw and _is_count_column(c) and not _is_xi_column(c)]

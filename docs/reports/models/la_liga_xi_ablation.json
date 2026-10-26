@@ -1,0 +1,83 @@
+{
+  "generated_at_utc": "2026-10-26T10:18:08+00:00",
+  "competition": "la_liga",
+  "group": "xi",
+  "protocol": {
+    "outer_seasons": [
+      "2024_25",
+      "2025_26"
+    ],
+    "locked_monitoring": [
+      "2026_27"
+    ],
+    "bootstrap_draws": 10000,
+    "seed": 42,
+    "base_feature_count": 118,
+    "added_features": [
+      "home_xi_rating",
+      "home_xi_continuity",
+      "home_xi_weighted_ov",
+      "away_xi_rating",
+      "away_xi_continuity",
+      "away_xi_weighted_ov",
+      "xi_rating_diff",
+      "home_xi_att_vs_away_def",
+      "away_xi_att_vs_home_def",
+      "xi_att_vs_def_diff",
+      "xi_continuity_diff",
+      "xi_weighted_ov_diff"
+    ]
+  },
+  "mean_log_loss": {
+    "2024_25": {
+      "base": 0.9749760139664283,
+      "xi": 0.9783079343465718
+    },
+    "2025_26": {
+      "base": 0.9724531922321629,
+      "xi": 0.9727502985659056
+    },
+    "2026_27": {
+      "base": 0.9402189835705841,
+      "xi": 0.9401902392574154
+    }
+  },
+  "selected_models": {
+    "base": {
+      "2024_25": "logreg_C0.001",
+      "2025_26": "logreg_C0.001",
+      "2026_27": "logreg_C0.001"
+    },
+    "xi": {
+      "2024_25": "logreg_C0.001",
+      "2025_26": "logreg_C0.001",
+      "2026_27": "logreg_C0.001"
+    }
+  },
+  "candidate_minus_base": {
+    "pooled_outer": {
+      "mean_delta": 0.0018145133569431962,
+      "ci_low": -0.0004585662023929907,
+      "ci_high": 0.004091825074260429,
+      "p_a_better": 0.0585,
+      "n": 760,
+      "p_two_sided": 0.117,
+      "n_required_80_power": 2405
+    },
+    "last_outer_season": {
+      "mean_delta": 0.0002971063337428682,
+      "ci_low": -0.002556524157948711,
+      "ci_high": 0.003171111048563638,
+      "p_a_better": 0.4246,
+      "n": 380,
+      "p_two_sided": 0.8492,
+      "n_required_80_power": 73296
+    }
+  },
+  "decision": {
+    "adopt": false,
+    "pooled_negative_and_significant": false,
+    "last_outer_season_negative": false,
+    "rule": "adopt only if the pooled outer-season difference is negative with a 95% interval below zero and the last outer season alone is also negative"
+  }
+}

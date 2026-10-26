@@ -15,7 +15,7 @@ LaLiga maçları için maç sonucu (1X2), toplam gol (alt/üst 1.5, 2.5, 3.5) ve
 Hepsi maç başlamadan önce bilinen bilgidir: her takımın geçmişi bir maç kaydırılır (`shift(1)`) ve ancak sonra kayan ortalama ya da üstel ortalama alınır; Elo ve puan tablosu sonuç kaydedildikten sonra güncellenir; lig geneli öncüller yalnızca önceki günlerden gelir.
 - Elo (genel ve iç saha/deplasman), maç başına puan ve averaj, terfi bayrağı, dinlenme günü (PL modeliyle aynı sabitler).
 - Gol, xG, isabetli şut, şut, büyük şans, topa sahip olma, pas isabeti, rakip ceza sahasında dokunuş: son 5 ve 10 maç ortalaması, üstel ortalama (0.2), iç saha/deplasmana özgü 5 maçlık ortalama, farklar.
-- Dışarıda bırakılanlar: kadro piyasa değerleri (sağlayıcı yalnızca bugünkü kadroyu verir, geçmiş sezonlara uygulamak gelecek bilgisini sızdırır), ceza sahası giriş sayısı (kaynakta yok; PL modelinde de katkısı ölçülebilir değildi), ilk 11 derecelendirmesi ve devamlılığı (henüz yazılmadı).
+- Dışarıda bırakılanlar: kadro piyasa değerleri (sağlayıcı yalnızca bugünkü kadroyu verir, geçmiş sezonlara uygulamak gelecek bilgisini sızdırır), ceza sahası giriş sayısı (kaynakta yok; PL modelinde de katkısı ölçülebilir değildi), ilk 11 derecelendirmesi ve devamlılığı (yazıldı ve sınandı; kazanç getirmediği için üretim kümesine alınmadı, bkz. Bölüm 7).
 
 ## 3. Protokol
 
@@ -61,6 +61,24 @@ Bağımsız Poisson oranları, Dixon-Coles matrisi (rho = -0.04) kalibre edilmi�
 
 - Seçilen düzenlileştirme (C = 0.001) adayların en güçlüsü; yani ızgara kenarında. Daha güçlü düzenlileştirmenin daha iyi olup olmadığına bakılmadı. Özellik sayısı (118) örneklem için fazla; özellik azaltma denemesi dış sezonlara bakmadan, yeni bir protokolle yapılmalı.
 - Elo'dan üstünlük kanıtlanamadığı için model, Elo'ya yakın bir yetenektedir; piyasa ise anlamlı derecede daha iyi.
-- İlk 11 ve oyuncu rating özellikleri, ceza sahası giriş sayısı ve piyasa değeri yoktur. Maç başlamadan önce resmi ilk 11 kullanılmaz.
+- Ceza sahası giriş sayısı ve piyasa değeri yoktur. İlk 11 özellikleri yazıldı ama üretim kümesinde değildir (Bölüm 7); serviste maç başlamadan önce resmi ilk 11 kullanılmaz.
 - Üretim dosyası oynanmış tüm maçlarla (kilitli sezonun oynanmış 97 maçı dahil) eğitildi; seçimler yalnızca kilitsiz sezonlarla yapıldı. Takvimden gelen yer tutucu maçların tarihleri değişebilir; saatleri belli değildir.
 - Model doğrulama sayfası yalnızca dış sezonları (2024/25, 2025/26) ve izleme sezonunu gösterir; 2022/23-2023/24 eğitim verisidir, bağımsız tahmin yoktur. Oynanmamış maç tahminleri sayfada yoktur, maç sayfasında vardır.
+
+## 7. Reddedilen deney: ilk 11 ve oyuncu rating özellikleri (No Gain, Not Adopted)
+
+**Ham sonuçlar:** `docs/reports/models/la_liga_xi_ablation.json`. **Yeniden üretim:** `python3 -m src.models.ablate_league_features --competition la_liga --group xi` (yaklaşık 1 dakika).
+
+**Eklenen 12 özellik** (PL'nin ilk 11 özelliklerinin karşılığı, `src/features/build_league_features.py` içinde `_xi_features`): ilk 11'in oyuncu formu ortalaması (`home/away_xi_rating`, `xi_rating_diff`), hücum oyuncularının formu ile rakip savunmanın formu (`home_xi_att_vs_away_def`, `away_xi_att_vs_home_def`, `xi_att_vs_def_diff`), ilk 11 devamlılığı (son 12 maçta ilk 11 oyuncularının dakika payı ortalaması; `*_xi_continuity`, `xi_continuity_diff`) ve dakika payıyla ağırlıklı form (`*_xi_weighted_ov`, `xi_weighted_ov_diff`). Oyuncu formu yalnızca o maçtan önceki görünümlerden gelir: son 5 görünümün ağırlıklı ortalamasının %70'i ile sezon ortalamasının %30'u, en az 20 dakikalık görünümler, geçmişi olmayan oyuncuya o ana kadarki lig ortalaması. Kaynak, sağlayıcının oyuncu başına `rating` alanıdır; PL'deki gibi ayrı hücum ve savunma puanı yoktur, hücum/savunma ayrımı pozisyonla (F, M / D, G) yapılır. Sızıntı testi: `test_xi_features_ignore_the_match_itself_and_later_matches_and_stay_out_of_the_default_set`.
+
+**Protokol ve karar kuralı (çalıştırmadan önce yazıldı):** Her dış sezon yalnızca ondan önceki sezonlarla seçilmiş ve kalibre edilmiş modelle tahmin edildi; üretim kümesi (118) ile üretim kümesi + 12 ilk 11 özelliği aynı yürüyen protokolde karşılaştırıldı; maç başına log-loss farkı eşli bootstrap (10.000 çekiliş, tohum 42). Benimseme: iki dış sezonun toplam farkı negatif ve %95 aralığı sıfırın altında olmalı, ayrıca sınama sezonu tek başına da negatif olmalı.
+
+| Sezon | 118 özellik | 118 + ilk 11 |
+|---|---|---|
+| 2024/25 | 0.9750 | 0.9783 |
+| 2025/26 (sınama) | 0.9725 | 0.9728 |
+| 2026/27 (izleme) | 0.9402 | 0.9402 |
+
+Fark (ilk 11 eklenmiş eksi taban, pozitif eklenmişin daha kötü olduğu anlamına gelir): iki dış sezon birlikte +0.0018 [-0.0005, +0.0041], p = 0.117; sınama sezonu tek başına +0.0003 [-0.0026, +0.0032]. Her iki durumda da seçilen aday `logreg_C0.001`. **Karar: kazanç yok, benimsenmedi; üretim özellik kümesi 118 olarak kaldı.**
+
+Yorum (kanıtlanmış değil): C = 0.001 ile model çok güçlü düzenlileştirilmiş olduğundan 12 yeni, birbirine ve mevcut form özelliklerine bağlı sütunun eklenebileceği ek bilgi çok az; oyuncu rating'i takım düzeyindeki xG ve şut formunda zaten büyük ölçüde görünüyor olabilir. Bu bir açıklama önerisidir; ayrı bir deneyle sınanmadı. İlk 11 özellikleri `feature_columns(frame, include_xi=True)` ile açılır; yeni bir protokolde (örneğin daha az, daha seçilmiş özellik kümesi) yeniden denenebilir.

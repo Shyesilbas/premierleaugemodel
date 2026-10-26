@@ -52,6 +52,7 @@ Artifact tarihleri: tüm modeller 24 Ekim 2026, o günkü özellik tablosuyla (1
 
 ## 3. Son Değişiklikler (26 Ekim 2026)
 
+- **LaLiga ilk 11 ve oyuncu rating özellikleri sınandı, benimsenmedi (26 Ekim 2026):** 12 özellik (`xi_*`, sağlayıcının oyuncu rating'inden, sızıntısız) üretim kümesine eklenip iki dış sezonda aynı yürüyen protokolde karşılaştırıldı: fark +0,0018 [-0,0005, +0,0041] (eklenmiş daha kötü, anlamsız); önceden yazılan benimseme kuralı sağlanmadı. Üretim 1X2 kümesi 118 özellikte kaldı. Rapor: [la_liga_outcome.md](docs/reports/models/la_liga_outcome.md) Bölüm 7, ham sayılar `la_liga_xi_ablation.json`.
 - **LaLiga sayım modelleri ve hakem özellikleri (26 Ekim 2026):** `src/models/train_league_counts.py` korner, taç, ofsayt, kart ve kurtarış modellerini PL'nin kendi seçim kodu ve kapılarıyla (`train_count_model`) LaLiga verisiyle eğitir; özellik üretici `build_league_features.py` sayım geçmişlerini ve hakem ortalamalarını ayrı sütun kümesi (`count_feature_columns`) olarak üretir, 1X2 modelinin 118 özelliği değişmedi. Sonuç: taç modeli kapıyı geçti, diğer dördü `training_mean`. API bu modelleri `predict_count_market` ile servis eder. Rapor: [la_liga_counts.md](docs/reports/models/la_liga_counts.md), ham sayılar `la_liga_count_models.json`.
 - **Kod tabanı sadeleştirme:** `src/core/` (kopya) kaldırıldı; `src/models/` ve `src/features/` tek kaynak. `apply_fdr`, `benjamini_hochberg`, `with_inference` `src/models/eval_utils.py`'ye taşındı; tüm `src.core` import'ları güncellendi. Eski `data/processed`, `data/raw` ve `models/production/*.joblib` takipten çıkarıldı (yeni yer: `data/competitions/<anahtar>/`, `models/production/<anahtar>/`). `research/scratch/*` betikleri de yeni yollara taşındı; kodda eski yol kalmadı (`premier_league.db` yedeği 2026-10-26 kaldırıldı; sunucuda DB `football.db` olmalı).
 
@@ -67,7 +68,7 @@ Artifact tarihleri: tüm modeller 24 Ekim 2026, o günkü özellik tablosuyla (1
 - **Yeni lig hazırlığı (ablasyon):** PL 1X2 modelinde sağlayıcıya özgü ceza sahası giriş ve dokunuş özelliklerinin çıkarılması dış sezonlarda ölçülebilir kayıp vermedi (toplu log-loss farkı ≤ 0.0009, hiçbiri anlamlı değil). Ayrıntı: [yeni lig hazırlığı](docs/reports/experiments/2026-10-25_new_league_readiness.md).
 - **Doküman senkronu kuralı:** `AGENTS.md` ve üç skill dosyası, her ekleme/değişiklik/silme sonrası ilgili belgelerin kullanıcı istemeden güncellenmesini zorunlu kılar (değişiklik türü → güncellenecek belgeler tablosu). `tests/test_docs.py` bunu kısmen otomatik denetler: her turnuva `docs/data_sources.md`'de olmalı, her veri aracı `src.ingest` dizininde listelenmeli, her script `scripts_reference.md`'de yer almalı, buradaki test sayısı gerçek sayıyla eşleşmeli.
 - **Kaynak haritası ve yardım metinleri:** `docs/data_sources.md` hangi turnuva için hangi verinin nereden, hangi script'le ve nereye geldiğini, dış servis sınırlarını, karar günlüğünü ve yeni script kataloğunu içerir. Tüm veri araçlarının `--help` çıktısı kullanım, girdi, çıktı ve gereksinimi anlatır; `python3 -m src.ingest --help` hepsini tek yerde listeler.
-- **Testler:** 234/234 geçiyor.
+- **Testler:** 236/236 geçiyor.
 
 ### 24 Ekim 2026
 
@@ -102,7 +103,7 @@ Artifact tarihleri: tüm modeller 24 Ekim 2026, o günkü özellik tablosuyla (1
 1. Her oyun haftasından sonra `python3 run_full_pipeline.py` çalıştır, ardından API'yi yeniden başlat. Otomatik raporlar (`model_benchmarks.md`, `data_quality.md`, `team_*.md`) bu sırada yenilenir.
 2. Maç öncesi tahmin kaydını sürdür (`prospective_1x2_benchmark snapshot`) ve biten maçları puanla. Kısmi sezona bakarak modeli tekrar tekrar ayarlama.
 3. Korner, ofsayt ve taç modellerine kart modelindeki gibi derin denetim yap: özellik ablasyonu, kazancın "seviye uyumu" ile "maçlar arası ayrım" arasında ayrıştırılması.
-4. LaLiga modeli: özellik azaltma ve daha zayıf düzenlileştirme (seçilen C ızgara kenarında) için yeni protokol; ilk 11 ve oyuncu rating özellikleri; sayım pazarı modelleri.
+4. LaLiga modeli: özellik azaltma ve daha zayıf düzenlileştirme (seçilen C ızgara kenarında) için yeni protokol; (ilk 11 ve oyuncu rating özellikleri ve sayım modelleri yapıldı; ilk 11 kazanç getirmedi); ofsayt modelini 2027/28 verisiyle yeniden değerlendir; LaLiga'yı ileriye dönük tahmin kaydına ekle.
 5. 1X2 denetimini güncel artifact (74 özellik) üzerinde yenile; [1x2_model_audit.md](docs/reports/1x2_model_audit.md) 14 Ekim tarihli.
 5. Python bağımlılıklarını bir `requirements.txt` dosyasına sabitle; `pytest`'i geliştirme bağımlılığı olarak ekle.
 6. Kart hedefinde `total_yellow_cards_target_usable` bayrağının eğitimde filtrelenmesi gerekip gerekmediğini doğrula.
