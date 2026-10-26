@@ -40,6 +40,11 @@ STAT_PATHS = {
     "touches_box": "$.data.attack.touches_in_penalty_area.all",
     "corners": "$.data.overview.corner_kicks.all",
     "offsides": "$.data.attack.offsides.all",
+    "throws": "$.data.passes.throw_ins.all",
+    "fouls": "$.data.overview.fouls.all",
+    "yellow": "$.data.overview.yellow_cards.all",
+    "red": "$.data.overview.red_cards.all",
+    "saves": "$.data.overview.goalkeeper_saves.all",
 }
 # (feature stem, own-side stat, opponent-side stat or None)
 TEAM_STATS = (
@@ -50,10 +55,26 @@ TEAM_STATS = (
     ("big_chances_for", "big_chances", None), ("big_chances_against", "big_chances_opp", None),
     ("possession", "possession", None), ("pass_pct", "pass_pct", None), ("touches_box", "touches_box", None),
 )
+# Histories only the count models (corners, throws, offsides, cards, saves) read; the 1X2 model leaves them out.
+COUNT_TEAM_STATS = (
+    ("corners_for", "corners", None), ("corners_against", "corners_opp", None),
+    ("offsides_for", "offsides", None), ("offsides_against", "offsides_opp", None),
+    ("throws_for", "throws", None), ("throws_against", "throws_opp", None),
+    ("fouls_committed", "fouls", None), ("fouls_drawn", "fouls_opp", None),
+    ("cards_for", "cards", None), ("cards_against", "cards_opp", None),
+    ("saves_for", "saves", None),
+)
+# Match totals the count models predict (sum of both sides).
+COUNT_TARGETS = {"total_corners": "corners", "total_offsides": "offsides", "total_throws": "throws", "total_fouls": "fouls",
+                 "total_cards": "cards", "total_saves": "saves"}
+REFEREE_SHRINKAGE_MATCHES = 8
 VENUE_STEMS = ("goals_for", "goals_against", "xg_for", "xg_against", "sot_for", "sot_against")
 FALLBACK_PRIOR = {"goals_for": 1.4, "goals_against": 1.4, "xg_for": 1.4, "xg_against": 1.4, "sot_for": 4.6, "sot_against": 4.6,
                   "shots_for": 12.5, "shots_against": 12.5, "big_chances_for": 2.2, "big_chances_against": 2.2,
-                  "possession": 50.0, "pass_pct": 82.0, "touches_box": 24.0}
+                  "possession": 50.0, "pass_pct": 82.0, "touches_box": 24.0,
+                  "corners_for": 5.0, "corners_against": 5.0, "offsides_for": 2.0, "offsides_against": 2.0, "throws_for": 22.0,
+                  "throws_against": 22.0, "fouls_committed": 12.5, "fouls_drawn": 12.5, "cards_for": 2.2, "cards_against": 2.2,
+                  "saves_for": 3.0}
 
 
 def kickoff(match_date: Optional[str], time_label: Optional[str]) -> pd.Timestamp:
@@ -101,6 +122,8 @@ def _long_table(matches: pd.DataFrame) -> pd.DataFrame:
             part[stat] = matches[f"{side}_{stat}"]
             part[f"{stat}_opp"] = matches[f"{other}_{stat}"]
         part["pass_pct"] = 100.0 * part["accurate_passes"] / part["passes"].where(part["passes"] > 0)
+        part["cards"] = part["yellow"] + part["red"]
+        part["cards_opp"] = part["yellow_opp"] + part["red_opp"]
         rows.append(part)
     return pd.concat(rows, ignore_index=True).sort_values(["kickoff", "match_id", "is_home"], kind="mergesort").reset_index(drop=True)
 
@@ -114,11 +137,11 @@ def _expanding_daily_prior(long: pd.DataFrame, column: str) -> pd.Series:
     return day.map(mean)
 
 
-def _history_features(long: pd.DataFrame) -> pd.DataFrame:
+def _history_features(long: pd.DataFrame, stats=TEAM_STATS) -> pd.DataFrame:
     """Rolling and exponential histories of every team, shifted so a match never sees itself."""
     out = pd.DataFrame(index=long.index)
     long = long.copy()
-    for stem, column, _ in TEAM_STATS:
+    for stem, column, _ in stats:
         series = long[column]
         grouped = series.groupby(long["team_id"])
         shifted = grouped.shift(1)
@@ -198,11 +221,32 @@ def _strength(matches: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, index=matches.index)
 
 
+def _referee_features(frame: pd.DataFrame) -> pd.DataFrame:
+    """Cards and fouls per match the referee gave in earlier kick-off batches, shrunk toward the league mean of earlier days."""
+    out = {"referee_avg_cards": [np.nan] * len(frame), "referee_avg_fouls": [np.nan] * len(frame), "referee_prior_matches": [0] * len(frame)}
+    history: Dict[str, List[tuple]] = {}
+    league = [0.0, 0.0, 0]  # cards, fouls, matches seen so far
+    for _, batch in frame.groupby("kickoff", sort=True):
+        prior_cards = league[0] / league[2] if league[2] else FALLBACK_PRIOR["cards_for"] * 2
+        prior_fouls = league[1] / league[2] if league[2] else FALLBACK_PRIOR["fouls_committed"] * 2
+        for index, row in batch.iterrows():
+            seen = history.get(row["referee_name"] or "", [])
+            n = len(seen)
+            out["referee_avg_cards"][index] = (sum(c for c, _ in seen) + REFEREE_SHRINKAGE_MATCHES * prior_cards) / (n + REFEREE_SHRINKAGE_MATCHES)
+            out["referee_avg_fouls"][index] = (sum(f for _, f in seen) + REFEREE_SHRINKAGE_MATCHES * prior_fouls) / (n + REFEREE_SHRINKAGE_MATCHES)
+            out["referee_prior_matches"][index] = n
+        for _, row in batch.iterrows():
+            if row["referee_name"] and pd.notna(row["total_cards"]) and pd.notna(row["total_fouls"]):
+                history.setdefault(row["referee_name"], []).append((float(row["total_cards"]), float(row["total_fouls"])))
+                league[0] += float(row["total_cards"]); league[1] += float(row["total_fouls"]); league[2] += 1
+    return pd.DataFrame(out, index=frame.index)
+
+
 def build_league_features(matches: pd.DataFrame) -> pd.DataFrame:
     """Feature table of ``load_league_matches`` output: one row per match, played or not."""
     matches = matches.sort_values(["kickoff", "match_id"], kind="mergesort").reset_index(drop=True)
     long = _long_table(matches)
-    history = _history_features(long)
+    history = pd.concat([_history_features(long), _history_features(long, COUNT_TEAM_STATS)], axis=1)
     long = pd.concat([long[["match_id", "team_id", "is_home"]], history], axis=1)
     sides = {}
     for side, flag in (("home", True), ("away", False)):
@@ -215,15 +259,36 @@ def build_league_features(matches: pd.DataFrame) -> pd.DataFrame:
         frame[f"diff_{stem}_roll_10"] = frame[f"home_{stem}_roll_10"] - frame[f"away_{stem}_roll_10"]
     frame["xg_diff_10"] = (frame["home_xg_for_roll_10"] - frame["home_xg_against_roll_10"]) - (frame["away_xg_for_roll_10"] - frame["away_xg_against_roll_10"])
     frame["venue_xg_diff"] = (frame["home_xg_for_venue_roll_5"] - frame["home_xg_against_venue_roll_5"]) - (frame["away_xg_for_venue_roll_5"] - frame["away_xg_against_venue_roll_5"])
+    for target, stat in COUNT_TARGETS.items():
+        home = frame[f"home_{stat}"] if stat != "cards" else frame["home_yellow"] + frame["home_red"]
+        away = frame[f"away_{stat}"] if stat != "cards" else frame["away_yellow"] + frame["away_red"]
+        frame[target] = home + away
+    frame["is_played"] = frame["home_score"].notna() & frame["away_score"].notna()
+    frame = pd.concat([frame, _referee_features(frame)], axis=1)
     frame["abs_elo_diff"] = frame["elo_diff"].abs()
     frame["abs_ppg_diff"] = frame["ppg_diff"].abs()
     frame["abs_xg_diff_10"] = frame["xg_diff_10"].abs()
     return frame
 
 
-def feature_columns(frame: pd.DataFrame) -> List[str]:
-    """Model inputs: everything the builder adds, none of the raw per-match numbers or identifiers."""
+def _is_count_column(name: str) -> bool:
+    stem = name.split("_", 1)[1] if name.startswith(("home_", "away_")) else name
+    return name.startswith("referee_") or any(stem.startswith(f"{s}_") for s, _, _ in COUNT_TEAM_STATS)
+
+
+def _raw_columns() -> set:
     raw = {"match_id", "season", "gameweek", "match_date", "time_label", "home_id", "away_id", "home_name", "away_name", "home_score",
-           "away_score", "status", "referee_name", "kickoff", "kickoff_millis"}
-    raw |= {f"{side}_{stat}" for side in ("home", "away") for stat in STAT_PATHS}
-    return [c for c in frame.columns if c not in raw]
+           "away_score", "status", "referee_name", "kickoff", "kickoff_millis", "is_played", *COUNT_TARGETS}
+    return raw | {f"{side}_{stat}" for side in ("home", "away") for stat in STAT_PATHS}
+
+
+def feature_columns(frame: pd.DataFrame) -> List[str]:
+    """1X2 and goal model inputs: everything the builder adds for them, none of the raw per-match numbers, identifiers or count-model histories."""
+    raw = _raw_columns()
+    return [c for c in frame.columns if c not in raw and not _is_count_column(c)]
+
+
+def count_feature_columns(frame: pd.DataFrame) -> List[str]:
+    """Count-model inputs added on top of the 1X2 set: team histories of corners, offsides, throws, fouls, cards, saves and referee tendencies."""
+    raw = _raw_columns()
+    return [c for c in frame.columns if c not in raw and _is_count_column(c)]

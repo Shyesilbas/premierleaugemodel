@@ -5,7 +5,7 @@
 > **Documentation Network:** [README](README.md) | [Rapor Merkezi](docs/reports/README.md) | [Ana Kapsamlı Rapor](docs/reports/premier_league_models_comprehensive_report.md) | [Paper Trading 2026/27](docs/reports/paper_trading_protocol_2026_27.md) | [API Entegrasyonu](docs/model_api_integration.md) | [Veri Kataloğu](VERI_VE_GOSTERIM_KATALOGU.md)  
 > **Last Updated:** 2026-10-25  
 > **Database:** `data/football.db` (SQLite3, shared by all competitions via `competition_id`: Premier League 1,900 fixtures / 1,600 completed / 300 upcoming; Champions League 772 / 682; Europa League 804 / 714; LaLiga 139 / 97 so far, older seasons loading)  
-> **Active Production Models:** `models/production/premier_league/*.joblib` (Premier League) and `models/production/la_liga/outcome_models_v1.joblib` (LaLiga walk-forward model; UCL and UEL are data-only, no prediction model)
+> **Active Production Models:** `models/production/premier_league/*.joblib` (Premier League) and `models/production/la_liga/outcome_models_v1.joblib` (LaLiga walk-forward model) and `models/production/la_liga/{corner,throws,offside,cards,saves}_model_v1.joblib` (LaLiga count models, gated like the Premier League's; UCL and UEL are data-only, no prediction model)
 > **Layout:** `data/competitions/<key>/{raw,processed}/`, `models/production/<key>/`, paths via `src.config.competition_paths(key)`
 
 ---

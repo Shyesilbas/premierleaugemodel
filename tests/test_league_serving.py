@@ -20,7 +20,10 @@ def upcoming_match():
 
 @needs_laliga
 def test_upcoming_match_prediction_is_coherent_and_labelled():
-    from src.api.league_prediction import compute_league_prediction
+    import joblib
+
+    from src.api.league_prediction import COUNT_MODELS, compute_league_prediction
+    from src.api.prediction_service import regression_model_skill
 
     match_id, home_id, away_id = upcoming_match()
     result = compute_league_prediction(home_id, away_id, match_id, "la_liga")
@@ -29,7 +32,12 @@ def test_upcoming_match_prediction_is_coherent_and_labelled():
     lines = result["goals"]["lines"]
     assert lines["1.5"]["over_pct"] >= lines["2.5"]["over_pct"] >= lines["3.5"]["over_pct"]
     assert result["model_skill"] in ("model", "baseline")
-    assert all(result[k]["model_skill"] == "baseline" for k in ("corners", "cards", "throws", "saves", "shots", "offsides"))
+    assert result["shots"]["model_skill"] == "baseline"
+    for market, (filename, *_rest) in COUNT_MODELS.items():
+        artifact = joblib.load(ARTIFACT.with_name(filename))
+        assert result[market]["model_skill"] == regression_model_skill(artifact), market
+        assert result[market]["expected_home"] + result[market]["expected_away"] == pytest.approx(result[market]["expected_total"], abs=0.2)
+    assert result["referee"]["avg_cards"] > 0 and result["referee"]["avg_fouls"] > 0
     assert result["home_team"]["id"] == home_id and result["data_cutoff"]
 
 

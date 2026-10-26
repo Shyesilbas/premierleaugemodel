@@ -55,7 +55,7 @@ Sınama sezonu (2025/26) tek başına: taban orana karşı -0.0764 [-0.1187, -0.
 | Alt/üst 3.5 log-loss | 0.5483 | 0.5595 |
 | Karşılıklı gol log-loss | 0.6879 | 0.6917 |
 
-Bağımsız Poisson oranları, Dixon-Coles matrisi (rho = -0.04) kalibre edilmiş 1X2'ye hizalanır; böylece tüm pazarlar tek dağılımdan çıkar. İyileşmeler küçüktür; anlamlılık testi yapılmadı. Korner, kart, taç, kurtarış, şut ve ofsayt için model yoktur; arayüzde lig koşan ortalamaları `baseline` etiketiyle gösterilir.
+Bağımsız Poisson oranları, Dixon-Coles matrisi (rho = -0.04) kalibre edilmiş 1X2'ye hizalanır; böylece tüm pazarlar tek dağılımdan çıkar. İyileşmeler küçüktür; anlamlılık testi yapılmadı. Korner, taç, ofsayt, kart ve kurtarış için ayrı sayım modelleri vardır (bkz. [la_liga_counts.md](la_liga_counts.md)); yalnızca taç kapıyı geçti, diğerleri `baseline` etiketli ortalamadır. Şut için model yoktur, lig koşan ortalaması `baseline` etiketiyle gösterilir.
 
 ## 6. Bilinen sınırlar
 

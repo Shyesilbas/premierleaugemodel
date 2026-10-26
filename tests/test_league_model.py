@@ -120,3 +120,35 @@ def test_inference_helpers_report_power_and_adjust_p_values():
     entries = {"x": {"p_two_sided": 0.001}, "y": {"p_two_sided": 0.9}, "z": None}
     apply_fdr(entries)
     assert entries["x"]["significant_fdr_05"] and not entries["y"]["significant_fdr_05"]
+
+
+def test_count_model_columns_stay_out_of_the_1x2_set_and_targets_are_sums():
+    from src.features.build_league_features import COUNT_TARGETS, count_feature_columns
+
+    built, columns = feature_rows(synthetic_matches(seed=3))
+    counts = count_feature_columns(built)
+    assert counts and not set(counts) & set(columns)
+    assert not set(COUNT_TARGETS) & (set(columns) | set(counts))
+    assert {"referee_avg_cards", "referee_avg_fouls", "home_corners_for_roll_5", "away_offsides_against_roll_10"} <= set(counts)
+    np.testing.assert_allclose(built["total_corners"], built["home_corners"] + built["away_corners"])
+    np.testing.assert_allclose(built["total_cards"], built["home_yellow"] + built["home_red"] + built["away_yellow"] + built["away_red"])
+
+
+def test_count_features_and_referee_history_ignore_the_match_itself_and_later_ones():
+    from src.features.build_league_features import count_feature_columns
+
+    frame = synthetic_matches(seed=4)
+    frame["referee_name"] = ["R1", "R2", "R3"] * (len(frame) // 3)
+    built = build_league_features(frame)
+    columns = count_feature_columns(built)
+    cut = 45
+    altered = frame.copy()
+    later = altered["match_id"] >= altered["match_id"].iloc[cut]
+    for column in [f"{s}_{stat}" for s in ("home", "away") for stat in STAT_PATHS]:
+        altered.loc[later, column] = altered.loc[later, column] * 4.0 + 9.0
+    rebuilt = build_league_features(altered)
+    early = built["match_id"] < altered["match_id"].iloc[cut]
+    pd.testing.assert_frame_equal(built.loc[early, columns].reset_index(drop=True),
+                                  rebuilt.loc[rebuilt["match_id"] < altered["match_id"].iloc[cut], columns].reset_index(drop=True))
+    # first match of a referee equals the league prior; later ones move toward the referee's own record
+    assert built["referee_prior_matches"].iloc[0] == 0 and built["referee_prior_matches"].iloc[-1] > 0

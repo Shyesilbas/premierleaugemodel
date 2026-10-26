@@ -3,8 +3,9 @@
 The features of every match, played or not, come from ``build_league_features`` (the same function that built the
 training table), so a prediction for an upcoming match uses exactly what the model was trained on. What is served depends
 on the walk-forward gate stored in the artifact: the fitted model, or - when the model was not shown to beat the Elo
-baseline - the Elo baseline, labelled as a baseline. Count markets (corners, cards ...) are league running averages and
-are labelled ``baseline``; no count model exists for these leagues.
+baseline - the Elo baseline, labelled as a baseline. Count markets (corners, cards, throws, offsides, saves) come from the count models of
+``train_league_counts`` through the Premier League's own ``predict_count_market``; a market whose model did not pass the
+skill gate (or has no artifact) is the training mean (or the league running average) and is labelled ``baseline``.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import poisson
 
+from src.api.prediction_service import predict_count_market, regression_model_skill
 from src.competitions.registry import get_competition
 from src.config import DB_PATH, competition_paths
 from src.models.dixon_coles import align_to_outcome_probs, matrix_from_lambdas
@@ -31,6 +33,12 @@ MAX_GOALS = 12
 COUNT_PRIORS = {"corners": 9.8, "cards": 4.2, "throws": 33.0, "saves": 7.0, "shots": 24.0, "offsides": 3.5}
 COUNT_COLUMNS = {"corners": "total_corners", "cards": "total_cards", "throws": "total_throws", "saves": "total_saves", "shots": "total_shots"}
 LINES = {"corners": (8.5, 9.5, 10.5), "cards": (3.5, 4.5, 5.5), "throws": (33.5, 34.5, 36.5), "offsides": (2.5, 3.5, 4.5)}
+# market -> (artifact file, share stem for the home/away split, clip range, thresholds whose over probabilities are served)
+COUNT_MODELS = {"corners": ("corner_model_v1.joblib", "corners_for", 0.0, 40.0, (8, 9, 10)),
+                "cards": ("cards_model_v1.joblib", "cards_for", 0.0, 20.0, (3, 4, 5)),
+                "throws": ("throws_model_v1.joblib", "throws_for", 10.0, 80.0, (33, 34, 36)),
+                "saves": ("saves_model_v1.joblib", "saves_for", 0.0, 25.0, ()),
+                "offsides": ("offside_model_v1.joblib", "offsides_for", 0.0, 20.0, (2, 3, 4))}
 BASELINE_NOTE = "Model, Elo temelli referans olasılıklarından ayırt edilemedi; Elo temelli referans gösteriliyor."
 
 
@@ -53,6 +61,11 @@ def _artifact(path: str, mtime: float) -> Dict[str, Any]:
     return joblib.load(path)
 
 
+def count_artifact_for(competition_key: str, market: str) -> Optional[Dict[str, Any]]:
+    path = competition_paths(competition_key).models / COUNT_MODELS[market][0]
+    return _artifact(str(path), path.stat().st_mtime) if path.exists() else None
+
+
 def artifact_for(competition_key: str) -> Optional[Dict[str, Any]]:
     path = competition_paths(competition_key).models / "outcome_models_v1.joblib"
     return _artifact(str(path), path.stat().st_mtime) if path.exists() else None
@@ -67,12 +80,28 @@ def _running_mean(history: pd.DataFrame, name: str) -> float:
     return float((values.sum() + prior * 10.0) / (len(values) + 10.0))
 
 
-def _count_block(name: str, expected: float) -> Dict[str, Any]:
-    block: Dict[str, Any] = {"model_skill": "baseline", "expected_total": round(expected, 1),
-                             "expected_home": round(expected / 2.0, 1), "expected_away": round(expected / 2.0, 1)}
+def _count_block(name: str, expected: float, skill: str = "baseline", home_share: float = 0.5,
+                 probs: Optional[Dict[int, float]] = None) -> Dict[str, Any]:
+    block: Dict[str, Any] = {"model_skill": skill, "expected_total": round(expected, 1),
+                             "expected_home": round(expected * home_share, 1), "expected_away": round(expected * (1.0 - home_share), 1)}
     for line in LINES.get(name, ()):
-        block[f"prob_over_{str(line).replace('.', '_')}_pct"] = round(float(1.0 - poisson.cdf(int(line), expected)) * 100.0, 1)
+        pct = probs[int(line)] if probs and int(line) in probs else float(1.0 - poisson.cdf(int(line), expected)) * 100.0
+        block[f"prob_over_{str(line).replace('.', '_')}_pct"] = round(pct, 1)
     return block
+
+
+def _count_market(competition_key: str, name: str, rows: pd.DataFrame, history: pd.DataFrame) -> Dict[str, Any]:
+    """One count market: the model's expectation when an artifact exists, otherwise the league running average."""
+    running = _running_mean(history, name)
+    spec = COUNT_MODELS.get(name)
+    artifact = count_artifact_for(competition_key, name) if spec else None
+    if artifact is None:
+        return _count_block(name, running)
+    _, stem, low, high, thresholds = spec
+    expected, probs, _ = predict_count_market(rows, artifact, min_val=low, max_val=high, fallback_total=running, thresholds=thresholds)
+    home, away = float(rows[f"home_{stem}_roll_10"].iloc[0]), float(rows[f"away_{stem}_roll_10"].iloc[0])
+    share = home / (home + away) if home + away > 0 else 0.5
+    return _count_block(name, expected, regression_model_skill(artifact), share, probs)
 
 
 def compute_league_prediction(home_id: int, away_id: int, match_id: Optional[int], competition_key: str) -> Dict[str, Any]:
@@ -115,7 +144,7 @@ def compute_league_prediction(home_id: int, away_id: int, match_id: Optional[int
         conn.close()
     names = (row["home_name"], row["away_name"])
     favorite = names[0] if p_home >= max(p_draw, p_away) else (names[1] if p_away >= max(p_home, p_draw) else "Beraberlik")
-    counts = {name: _count_block(name, _running_mean(history, name)) for name in ("corners", "cards", "throws", "saves", "shots", "offsides")}
+    counts = {name: _count_market(comp.key, name, rows, history) for name in ("corners", "cards", "throws", "saves", "shots", "offsides")}
     return {
         "home_team": {"id": int(row["home_id"]), "name": names[0], "abbr": (info["home_abbr"] if info else None) or names[0][:3].upper(), "logo": info["home_logo"] if info else None},
         "away_team": {"id": int(row["away_id"]), "name": names[1], "abbr": (info["away_abbr"] if info else None) or names[1][:3].upper(), "logo": info["away_logo"] if info else None},
@@ -132,7 +161,8 @@ def compute_league_prediction(home_id: int, away_id: int, match_id: Optional[int
                   "primary_fair_odds_over": lines["2.5"]["fair_odds_over"], "primary_fair_odds_under": lines["2.5"]["fair_odds_under"],
                   "btts_pct": round(float(matrix[1:, 1:].sum()) * 100.0, 1), "lines": lines},
         "corners": counts["corners"], "cards": counts["cards"],
-        "referee": {"name": (info["referee_name"] if info else None) or "Atanmadı", "avg_cards": counts["cards"]["expected_total"]},
+        "referee": {"name": (info["referee_name"] if info else None) or "Atanmadı", "avg_cards": round(float(row["referee_avg_cards"]), 1),
+                    "avg_fouls": round(float(row["referee_avg_fouls"]), 1)},
         "throws": counts["throws"], "saves": counts["saves"], "shots": counts["shots"], "offsides": counts["offsides"],
         "lineup_analysis": None,
     }

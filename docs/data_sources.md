@@ -93,6 +93,7 @@ Hepsi `--help` ile kullanım, girdi, çıktı ve gereksinimi yazar. Hepsinin diz
 | `python3 -m src.ingest.sync_competition_data --competition <anahtar> --season <sezon>` | Fikstür, sonuç ve resmi tabloyu veritabanına yazar (UEFA kupaları için UEFA'dan, ligler için kaydedilmiş dosyalardan) | Gerekmez | `football.db`, `raw/uefa/` |
 | `python3 -m src.ingest.sync_thestatsapi_competition --competition champions_league --season <sezon>` | UCL/UEL maçları için TheStatsAPI ayrıntısını çekip yazar | Gerekli | `football.db`, `raw/thestatsapi/` |
 | `python3 -m src.ingest.export_competition_raw` | Tek seferlik: veritabanındaki UCL/UEL TheStatsAPI kayıtlarını dosyalara döker, UEFA yanıtlarını yeniden çekip kaydeder | Gerekmez | `raw/uefa/`, `raw/thestatsapi/` |
+| `python3 -m src.models.train_league_counts --competition la_liga` | Ulusal lig korner, taç, ofsayt, kart ve kurtarış sayım modellerini PL ile aynı kapılarla eğitir, rapor JSON'u ve üretim dosyalarını yazar | Gerekmez | `docs/reports/models/`, `models/production/la_liga/` |
 | `python3 -m src.models.train_league_model --competition la_liga` | Ulusal lig 1X2 ve gol modelini walk-forward eğitir, kıyaslar, rapor ve üretim dosyası yazar | Gerekmez | `docs/reports/models/`, `models/production/la_liga/` |
 | `python3 research/box_features_ablation.py` | PL 1X2 modelinde ceza sahası giriş ve dokunuş özelliklerinin dış sezon ablasyonu | Gerekmez | `docs/reports/experiments/` |
 

@@ -329,7 +329,7 @@ Oynanmış her maç için, maç öncesi üretilen saf tahminlerin gerçekleşen 
   - `is_value_bet`: %5+ değer avantajı olan bahisler.
   - `confidence_tier`: Model güven derecesi (`high`, `medium`, `low`).
   - `is_balanced`: Maçın dengeli olup olmadığı.
-* **La Liga (`competition=la_liga`):** `GET /api/model-audit` ve `GET /api/predict` `src/analytics/league_audit.py` ve `src/api/league_prediction.py` üzerinden çalışır (`has_model` bayrağı olan turnuvalar). Yanıt: walk-forward 1X2 olasılıkları, taban oran / Elo / piyasa kıyas şeridi (`benchmark`) ve model Elo'ya düşerse `model_note`. Korner, kart gibi sayım pazarları `baseline` etiketlidir; değerli oran filtresi yalnızca `hasRichData` turnuvalarında görünür. Rapor: `docs/reports/models/la_liga_outcome.md`.
+* **La Liga (`competition=la_liga`):** `GET /api/model-audit` ve `GET /api/predict` `src/analytics/league_audit.py` ve `src/api/league_prediction.py` üzerinden çalışır (`has_model` bayrağı olan turnuvalar). Yanıt: walk-forward 1X2 olasılıkları, taban oran / Elo / piyasa kıyas şeridi (`benchmark`) ve model Elo'ya düşerse `model_note`. Sayım pazarları (korner, kart, taç, ofsayt, kurtarış) `models/production/la_liga/*_model_v1.joblib` ile üretilir ve kapıyı geçmeyenler `baseline` etiketlidir (şu an yalnızca taç `model`); `referee` bloğu `avg_cards` ve `avg_fouls` döner; şut pazarı `baseline`dır; değerli oran filtresi yalnızca `hasRichData` turnuvalarında görünür. Rapor: `docs/reports/models/la_liga_outcome.md`.
 
 ---
 
