@@ -5,6 +5,7 @@ import { getTeam } from '../../data/teams';
 import { parseKickoff } from '../../utils/dateFormatters';
 import CompetitionBadge from '../team-profile/CompetitionBadge';
 import { COMPETITIONS, competitionOf } from '../team-profile/teamProfileUtils';
+import { useCompetition } from '../../context/CompetitionContext';
 
 function ratingClass(rating) {
   if (rating == null) return 'bg-background-tertiary text-text-muted border border-border';
@@ -57,7 +58,7 @@ function toMatchModalData(match) {
     away_id: away.id,
     away_name: away.name,
     away_score: match.is_home ? match.opp_score : match.team_score,
-    ground_name: 'Premier League',
+    ground_name: competitionOf(match).name,
   };
 }
 
@@ -75,6 +76,7 @@ export default function PlayerMatchHistory({
   selectedCompetition = 'all',
   onCompetitionChange,
 }) {
+  const { competitionKey } = useCompetition();
   return (
     <section className="bg-background-primary border border-border rounded">
       <div className="flex flex-col gap-3 border-b border-border-light p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -104,7 +106,7 @@ export default function PlayerMatchHistory({
               className="h-9 rounded border border-border bg-background-primary px-3 text-sm font-medium text-text-primary outline-none focus:border-border-focus transition-colors"
             >
               <option value="all">Tümü</option>
-              {Object.entries(COMPETITIONS).map(([key, competition]) => (
+              {Object.entries(COMPETITIONS).filter(([key, competition]) => competition.order > 0 || key === competitionKey).map(([key, competition]) => (
                 <option key={key} value={key}>{competition.name}</option>
               ))}
             </select>
@@ -149,7 +151,7 @@ export default function PlayerMatchHistory({
           {matches.map(match => {
             const modalMatch = toMatchModalData(match);
             const { home, away, homeScore, awayScore } = sidesOf(match);
-            const competition = competitionOf(match);
+            const competition = competitionOf(match, competitionKey);
             const played = match.team_score !== null && match.team_score !== undefined;
             const kickoff = parseKickoff(match.kickoff);
 

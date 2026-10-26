@@ -1021,6 +1021,7 @@ def train_match_outcome_models(
     model_output_dir: str = str(MODELS_DIR),
     include_legacy_o25: bool = False,
     write_diagnostic_jsons: bool = True,
+    diagnostics_dir: str = str(PROCESSED_DIR),
 ) -> Dict[str, Any]:
     if not Path(data_path).exists():
         raise FileNotFoundError(f"Feature dataset not found: {data_path}. Run the full pipeline to rebuild it.")
@@ -1322,9 +1323,9 @@ def train_match_outcome_models(
         dev["season"].reset_index(drop=True) if "season" in dev else pd.Series(["all"] * len(dev)),
     )
     if write_diagnostic_jsons:
-        _write_diagnostic_json(PROCESSED_DIR / "1x2_draw_propensity_outer_eval.json", draw_propensity_gate)
-        _write_diagnostic_json(PROCESSED_DIR / "1x2_ensemble_outer_eval.json", metrics["1x2_ensemble_outer_eval"])
-        _write_diagnostic_json(PROCESSED_DIR / "1x2_calibration_drift_outer_eval.json", metrics["1x2_calibration_drift_outer_eval"])
+        _write_diagnostic_json(Path(diagnostics_dir) / "1x2_draw_propensity_outer_eval.json", draw_propensity_gate)
+        _write_diagnostic_json(Path(diagnostics_dir) / "1x2_ensemble_outer_eval.json", metrics["1x2_ensemble_outer_eval"])
+        _write_diagnostic_json(Path(diagnostics_dir) / "1x2_calibration_drift_outer_eval.json", metrics["1x2_calibration_drift_outer_eval"])
 
     selected_recency_half_life = metrics["1x2_calibration_drift_outer_eval"]["selected_half_life_rows"]
     if selected_recency_half_life is not None:
@@ -1438,4 +1439,16 @@ def train_match_outcome_models(
 
 if __name__ == "__main__":
     configure_logging()
-    train_match_outcome_models()
+    import argparse
+    from src.config import competition_paths
+    parser = argparse.ArgumentParser(description="Train match outcome models for a competition.")
+    parser.add_argument("--competition", type=str, default="premier_league", help="Competition key (premier_league, etc.)")
+    parser.add_argument("--features", type=str, default=None, help="Features parquet path")
+    parser.add_argument("--output-dir", type=str, default=None, help="Model output directory")
+    args = parser.parse_args()
+
+    paths = competition_paths(args.competition)
+    feat_path = args.features or str(paths.features)
+    out_dir = args.output_dir or str(paths.models)
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    train_match_outcome_models(data_path=feat_path, model_output_dir=out_dir, diagnostics_dir=str(paths.processed))

@@ -43,8 +43,8 @@ def gameweek_block_bootstrap_delta(df_holdout, loss_a, loss_b, n_boot=5000, seed
 def test_bootstrap_uncertainty():
     print("=== 1. CALIBRATION & BOOTSTRAP UNCERTAINTY COMPARISON ===")
     
-    pkg = joblib.load("models/production/outcome_models_v1.joblib")
-    df = pd.read_parquet("data/processed/features_matches_all.parquet")
+    pkg = joblib.load("models/production/premier_league/outcome_models_v1.joblib")
+    df = pd.read_parquet("data/competitions/premier_league/processed/features_matches_all.parquet")
     df_played = df[df["home_score"].notna() & df["away_score"].notna()].copy()
     
     sort_cols = [c for c in ["kickoff_millis", "match_id"] if c in df_played.columns]

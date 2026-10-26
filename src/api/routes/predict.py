@@ -27,63 +27,13 @@ def get_model_audit(
     comp_id = comp.id if comp else 39
 
     if comp_id != 39:
-        from src.db.database import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT * FROM matches
-            WHERE competition_id = ? AND status = 'COMPLETED'
-            ORDER BY gameweek ASC, match_date ASC
-        """, (comp_id,))
-        rows = [dict(r) for r in cursor.fetchall()]
-        conn.close()
+        if comp is not None and comp.has_model:
+            from src.analytics.league_audit import build_league_audit
 
-        matches_audit = []
-        hits = 0
-        total = len(rows)
-        for r in rows:
-            hsc = r["home_score"]
-            asc = r["away_score"]
-            actual = "H" if hsc > asc else ("A" if asc > hsc else "D")
-            h_xg = r.get("home_xg") or 1.5
-            a_xg = r.get("away_xg") or 1.0
-            prob_h = 0.55 if h_xg > a_xg else 0.25
-            prob_a = 0.25 if prob_h == 0.55 else 0.50
-            prob_d = round(1.0 - prob_h - prob_a, 2)
-            pred = "H" if prob_h > prob_a else "A"
-            is_hit = 1 if pred == actual else 0
-            hits += is_hit
-            matches_audit.append({
-                "match_id": r["match_id"],
-                "gameweek": r["gameweek"],
-                "match_date": r.get("match_date", ""),
-                "home_name": r["home_name"],
-                "away_name": r["away_name"],
-                "home_score": hsc,
-                "away_score": asc,
-                "actual_result": actual,
-                "predicted_winner": pred,
-                "prob_home": prob_h,
-                "prob_draw": prob_d,
-                "prob_away": prob_a,
-                "hit_1x2": is_hit,
-                "favorite_label": "Ev Sahibi" if pred == "H" else "Deplasman",
-                "confidence_tier": "Orta",
-                "evaluation_type": "in_sample_backfill",
-            })
-
-        acc = round(hits / total * 100, 1) if total > 0 else 0.0
-        audit_res = {
-            "season": season,
-            "overall_accuracy": acc,
-            "total_matches": total,
-            "matches": matches_audit,
-            "gameweeks": sorted(list({m["gameweek"] for m in matches_audit})),
-        }
-        if gameweek is not None:
-            filtered = [m for m in matches_audit if m.get("gameweek") == int(gameweek)]
-            return {**audit_res, "matches": filtered, "selected_gameweek": gameweek}
-        return audit_res
+            payload = build_league_audit(comp.key, season, gameweek)
+            return {**payload, "selected_gameweek": gameweek} if gameweek is not None else payload
+        # Competitions without a prediction model show data only.
+        return {"season": season, "competition_id": comp_id, "overall": {}, "gameweeks": [], "matches": [], "model_available": False}
 
     data = run_model_audit(season=season, force_recalc=force_recalc)
     if gameweek is not None and "matches" in data:
@@ -102,6 +52,24 @@ def predict_match(
     """Computes real-time micro-metrics and match predictions between two teams."""
     if home_id == away_id:
         raise HTTPException(status_code=400, detail="Home and Away teams must be different.")
+    if home_id not in state.teams_dict or away_id not in state.teams_dict:
+        from src.api.league_prediction import compute_league_prediction
+        from src.competitions.registry import get_competition
+        from src.db.database import get_db
+
+        conn = get_db()
+        try:
+            row = (conn.execute("SELECT competition_id FROM matches WHERE match_id = ?", (match_id,)).fetchone() if match_id is not None else None) or conn.execute(
+                "SELECT competition_id FROM matches WHERE home_id = ? AND away_id = ? ORDER BY match_date DESC LIMIT 1", (home_id, away_id)).fetchone()
+        finally:
+            conn.close()
+        comp = get_competition(row["competition_id"]) if row else None
+        if comp is None or not comp.has_model or comp.provider != "thestatsapi":
+            raise HTTPException(status_code=404, detail="No prediction model exists for this competition.")
+        try:
+            return compute_league_prediction(home_id, away_id, match_id, comp.key)
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
     try:
         return compute_match_prediction(
             home_id=home_id,

@@ -3,9 +3,10 @@
 > **Target Audience:** AI Agents, Copilots, Automated CI/CD Pipelines, and Quantitative Developers.  
 > **Purpose:** Canonical single-file ground-truth context for the entire repository. No conversational prose; dense factual reference data.  
 > **Documentation Network:** [README](README.md) | [Rapor Merkezi](docs/reports/README.md) | [Ana Kapsamlı Rapor](docs/reports/premier_league_models_comprehensive_report.md) | [Paper Trading 2026/27](docs/reports/paper_trading_protocol_2026_27.md) | [API Entegrasyonu](docs/model_api_integration.md) | [Veri Kataloğu](VERI_VE_GOSTERIM_KATALOGU.md)  
-> **Last Updated:** 2026-10-24  
-> **Database:** `data/premier_league.db` (SQLite3, 1,900 fixtures, 1,595 completed matches, 305 upcoming)  
-> **Active Production Models:** `models/production/*.joblib`
+> **Last Updated:** 2026-10-25  
+> **Database:** `data/football.db` (SQLite3, shared by all competitions via `competition_id`: Premier League 1,900 fixtures / 1,600 completed / 300 upcoming; Champions League 772 / 682; Europa League 804 / 714; LaLiga 139 / 97 so far, older seasons loading)  
+> **Active Production Models:** `models/production/premier_league/*.joblib` (Premier League) and `models/production/la_liga/outcome_models_v1.joblib` (LaLiga walk-forward model; UCL and UEL are data-only, no prediction model)
+> **Layout:** `data/competitions/<key>/{raw,processed}/`, `models/production/<key>/`, paths via `src.config.competition_paths(key)`
 
 ---
 
@@ -13,13 +14,15 @@
 
 ```yaml
 database_architecture:
-  sqlite_path: "data/premier_league.db"
+  sqlite_path: "data/football.db"
   total_seasons: 5 (2022/23, 2023/24, 2024/25, 2025/26, 2026/27)
+  competition_layout: "data/competitions/<key>/raw|processed, models/production/<key>; premier_league is the only one with processed tables, features and models; UCL/UEL keep raw provider responses under raw/uefa and raw/thestatsapi"
+  european_cups: "competition_id 2 (UCL) and 3 (UEL), 2022/23-2026/27, UEFA API + TheStatsAPI payloads in external_match_payloads / external_competition_payloads; no model"
   fixture_counts:
     total_fixtures: 1900
-    completed_matches: 1595
-    upcoming_fixtures: 305
-    current_season_played_matches: 75 (2026/27)
+    completed_matches: 1600
+    upcoming_fixtures: 300
+    current_season_played_matches: 80 (2026/27)
   tables:
     matches: { rows: 1900, cols: 40, role: "Core fixtures, scores, kickoff_millis, ground, referees, match status, competition_id" }
     external_match_xg: { rows: 1564, cols: 8, role: "TheStatsAPI / Opta verified shot-level xG backfill" }
@@ -34,9 +37,9 @@ database_architecture:
     player_market_value_history_cache: { rows: 3, cols: 4, role: "Player historical valuation trajectory cache" }
     predictions_cache: { rows: 0, cols: 6, role: "In-memory dynamic match prediction cache" }
   processed_parquet_layer:
-    matches_summary_all: "data/processed/matches_summary_all.parquet (1,580 matches, 244+ Opta metrics)"
-    shots_events_all: "data/processed/shots_events_all.parquet (all shot coordinates, events, outcome tags)"
-    features_matches_all: "data/processed/features_matches_all.parquet (58 tactical features, strict shift(1))"
+    matches_summary_all: "data/competitions/premier_league/processed/matches_summary_all.parquet (1,580 matches, 244+ Opta metrics)"
+    shots_events_all: "data/competitions/premier_league/processed/shots_events_all.parquet (all shot coordinates, events, outcome tags)"
+    features_matches_all: "data/competitions/premier_league/processed/features_matches_all.parquet (58 tactical features, strict shift(1))"
   event_stream_reconstruction:
     won_corners_recovered: 67 matches recovered from timeline event streams
     saves_reconstruction: cross-verified against opponent shots on target minus goals
@@ -110,7 +113,7 @@ goal_model:
 ```yaml
 outcome_1x2_model:
   type: "Multinomial Logistic Regression with Softmax Temperature Calibration"
-  artifact_path: "models/production/outcome_models_v1.joblib"
+  artifact_path: "models/production/premier_league/outcome_models_v1.joblib"
   pipeline:
     imputer: "SimpleImputer(strategy='median', keep_empty_features=True)"
     scaler: "StandardScaler()"
@@ -156,7 +159,7 @@ outcome_1x2_model:
 
 ---
 
-## 4. Model 3: Secondary Count & Dynamics Models (`models/production/`)
+## 4. Model 3: Secondary Count & Dynamics Models (`models/production/premier_league/`)
 
 ```yaml
 count_and_dynamics_models:
@@ -170,7 +173,7 @@ count_and_dynamics_models:
     source_of_truth: "artifact['metrics'] in each joblib; per-model reports in docs/reports/models/"
   models:  # retrained 2026-10-24 on the 2026-10-24 feature parquet (conditional NB2 dispersion, dev-only outer gate)
     corners:
-      artifact: "models/production/corner_model_v1.joblib"
+      artifact: "models/production/premier_league/corner_model_v1.joblib"
       report: "docs/reports/models/corners_model.md"
       algorithm: "training_mean (elastic_0.05_0.8 passed CV gate, failed dev outer-season gate 1/2)"
       features_count: 10
@@ -179,7 +182,7 @@ count_and_dynamics_models:
       holdout_rmse: 3.2345 (baseline: 3.2345)
       holdout_mae: 2.6693 (baseline: 2.6693)
     throws:
-      artifact: "models/production/throws_model_v1.joblib"
+      artifact: "models/production/premier_league/throws_model_v1.joblib"
       report: "docs/reports/models/throws_model.md"
       algorithm: "poisson_10"
       features_count: 14
@@ -188,7 +191,7 @@ count_and_dynamics_models:
       holdout_rmse: 6.9409 (baseline: 7.3368)
       holdout_mae: 5.5210 (baseline: 5.9405)
     offsides:
-      artifact: "models/production/offside_model_v1.joblib"
+      artifact: "models/production/premier_league/offside_model_v1.joblib"
       report: "docs/reports/models/offsides_model.md"
       algorithm: "ridge_250"
       features_count: 10
@@ -197,7 +200,7 @@ count_and_dynamics_models:
       holdout_rmse: 1.9060 (baseline: 2.0133)
       holdout_mae: 1.5177 (baseline: 1.6161)
     cards:
-      artifact: "models/production/cards_model_v1.joblib"
+      artifact: "models/production/premier_league/cards_model_v1.joblib"
       report: "docs/reports/models/cards_model.md"
       algorithm: "training_mean (poisson_1 passed CV gate, failed dev outer-season gate 1/2)"
       candidate_features_count: 11
@@ -206,7 +209,7 @@ count_and_dynamics_models:
       target_definition: "total_cards = total_yellow_cards + total_red_cards (equal 1.0 weight)"
       referee_feature: "referee_avg_cards / referee_avg_fouls: leakage-free historical averages, 10-match shrinkage to 4.15 / 21.5; referee identity carries no significant card signal in this data (ANOVA p=0.28)"
     saves:
-      artifact: "models/production/saves_model_v1.joblib"
+      artifact: "models/production/premier_league/saves_model_v1.joblib"
       report: "docs/reports/models/saves_model.md"
       algorithm: "training_mean (ridge_500 failed CV gate: 0.59% gain but only 2/4 folds)"
       candidate_features_count: 13
@@ -240,7 +243,7 @@ api_endpoints:
       metrics_offsides: "metrics.offsides"
       metrics_throws: "metrics.throws"
   prospective_logging:
-    log_file: "data/processed/1x2_forecast_log.jsonl"
+    log_file: "data/competitions/premier_league/processed/1x2_forecast_log.jsonl"
     scorecard_file: "docs/reports/prospective_1x2_scorecard.json"
     command: "python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14"
 ```

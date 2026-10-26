@@ -1,7 +1,7 @@
 # Gol / 2.5 Üst / KG Modelleri — Problem Analizi ve Çözüm Yöntemi
 
 **Tarih:** 19 Ekim 2026
-**Kapsam:** `models/production/goals_models_v1.joblib`, `src/models/goals_model.py`, `src/models/dixon_coles.py`, `src/models/train_goals.py`, `src/models/evaluate_goal_models.py`, `src/api/server.py`
+**Kapsam:** `models/production/premier_league/goals_models_v1.joblib`, `src/models/goals_model.py`, `src/models/dixon_coles.py`, `src/models/train_goals.py`, `src/models/evaluate_goal_models.py`, `src/api/server.py`
 **Durum:** Analiz. Kodda değişiklik yapılmadı.
 
 ## Yöntem

@@ -64,7 +64,7 @@ export function registerLogosFrom(data) {
   (data.teams || []).forEach(t => registerTeamInfo(t.id, { logo: t.logo, abbr: t.abbr, stadium: t.ground_name }));
   if (data.team) registerTeamInfo(data.team.id, { logo: data.team.badge, abbr: data.team.abbr, stadium: data.team.ground });
   (Array.isArray(data) ? data : data.standings || []).forEach(t => {
-    if (typeof t?.badge === 'string' && t.badge.startsWith('http')) registerTeamInfo(t.id, { logo: t.badge, abbr: t.abbr });
+    if (typeof t?.badge === 'string' && t.badge) registerTeamInfo(t.id, { logo: t.badge, abbr: t.abbr });
   });
   return data;
 }
@@ -108,7 +108,7 @@ function resolveTeam(teamId, fallbackName) {
     abbr: fallbackName ? fallbackName.substring(0, 3).toUpperCase() : 'PL',
     badge: teamId ? `/badges/${teamId}.svg` : '/badges/premier-league.svg',
     color: '#38003c',
-    accent: '#059669',
+    accent: '#38003c',
     stadium: 'Premier League Ground',
   };
 }

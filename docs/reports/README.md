@@ -19,6 +19,7 @@ Ana rapor sistemin indeksidir (özet karne, veri/ETL, edge denetimi, metodolojik
 | **[Kurtarış](models/saves_model.md)** | Sabit ortalama (CV kapısı) |
 | **[Ofsayt](models/offsides_model.md)** | `ridge_250`, dış sezon 3/3 |
 | **[Taç](models/throws_model.md)** | `poisson_10`, dış sezon 3/3 |
+| **[La Liga 1X2](models/la_liga_outcome.md)** | 118 özellikli lojistik, walk-forward; taban orandan anlamlı iyi, Elo'dan ayırt edilemez, piyasadan kötü (26 Ekim 2026) |
 
 | Belge | Tür | Kapsam & Özet |
 | :--- | :---: | :--- |
@@ -51,7 +52,7 @@ Bu raporlar `python3 run_full_pipeline.py` çalıştırıldığında yerel ham v
 | **[Repository Audit](repository_audit.md)** | Kod tabanı mimarisi, test kapsamı, teknik borç analizi ve geliştirme yol haritası. |
 | **[Script Envanteri ve Denetimi](scripts_audit.md)** | Tüm scriptlerin rolü, çalışma akışı, bağımlılıkları, test örtüsü, riskler ve öncelikli öneriler (19 Ekim 2026). |
 | **[Project Status](../../PROJECT_STATUS.md)** | Veri anlık görüntüsü, tamamlanan maçlar, bilinen model sınırları ve sıradaki mühendislik adımları. |
-| **[Artifact Registry](../../ARTIFACT_REGISTRY.md)** | Veri setleri ve `models/production/*.joblib` artefaktları: amaç, üreten kod, yenileme yolu. |
+| **[Artifact Registry](../../ARTIFACT_REGISTRY.md)** | Veri setleri ve `models/production/premier_league/*.joblib` artefaktları: amaç, üreten kod, yenileme yolu. |
 
 ---
 

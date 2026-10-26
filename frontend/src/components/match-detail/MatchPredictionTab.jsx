@@ -60,6 +60,10 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                           </span>
                         </div>
 
+                        {prediction.model_note && (
+                          <p className="text-xs text-text-secondary">{prediction.model_note}</p>
+                        )}
+
                         <div className="grid grid-cols-3 gap-3 pt-1 text-center">
                           <div className="bg-background-tertiary p-3 rounded">
                             <span className="text-xs font-semibold text-text-secondary truncate block">{homeTeam.name}</span>

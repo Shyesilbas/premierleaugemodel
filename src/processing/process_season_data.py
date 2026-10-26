@@ -3,10 +3,10 @@
 Premier League Data Processing & Tabulation Pipeline
 Converts cached provider JSON into season and combined Parquet tables.
 Outputs:
-  - data/processed/matches_summary_{season}.parquet
-  - data/processed/shots_events_{season}.parquet
-  - data/processed/matches_summary_all.parquet
-  - data/processed/shots_events_all.parquet
+  - data/competitions/premier_league/processed/matches_summary_{season}.parquet
+  - data/competitions/premier_league/processed/shots_events_{season}.parquet
+  - data/competitions/premier_league/processed/matches_summary_all.parquet
+  - data/competitions/premier_league/processed/shots_events_all.parquet
 """
 
 import json

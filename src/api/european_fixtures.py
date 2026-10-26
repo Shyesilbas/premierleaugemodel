@@ -17,6 +17,7 @@ LONDON = ZoneInfo("Europe/London")
 MATCH_THRESHOLD = 0.95
 COMPETITIONS = {
     39: {"key": "premier_league", "name": "Premier League", "abbr": "PL"},
+    140: {"key": "la_liga", "name": "LaLiga", "abbr": "LL"},
     2: {"key": "champions_league", "name": "UEFA Şampiyonlar Ligi", "abbr": "ŞL"},
     3: {"key": "europa_league", "name": "UEFA Avrupa Ligi", "abbr": "AL"},
 }

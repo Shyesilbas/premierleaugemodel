@@ -4,18 +4,34 @@ Projedeki tüm çalıştırılabilir script ve modüllerin ne işe yaradığı. 
 
 Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQLite) → **features** (sızıntısız özellikler) → **models** (eğitim) → **api** (servis) → **frontend**.
 
+Turnuva başına veri kaynakları: [data_sources.md](data_sources.md). Tüm veri çekme araçlarının listesi: `python3 -m src.ingest --help`.
+
 ## 0. Yapılandırma ve ortam değişkenleri
 
-`src/config.py` projedeki tüm yolların ve sezon politikasının tek kaynağıdır (`ROOT`, `DATA_DIR`, `RAW_DIR`, `PROCESSED_DIR`, `DB_PATH`, `MODELS_DIR`, `REPORTS_DIR`, `LOCKED_SEASONS`, `EXCLUDED_1X2_TRAINING_SEASONS`).
+`src/config.py` projedeki tüm yolların ve sezon politikasının tek kaynağıdır (`ROOT`, `DATA_DIR`, `COMPETITIONS_DIR`, `DB_PATH`, `MODELS_ROOT`, `REPORTS_DIR`, `LOCKED_SEASONS`, `EXCLUDED_1X2_TRAINING_SEASONS`). Bir turnuvanın klasörlerine `competition_paths("la_liga")` ile ulaşılır; `RAW_DIR`, `MATCHES_RAW_DIR`, `PROCESSED_DIR`, `FEATURES_PATH`, `MATCHES_SUMMARY_PATH`, `MODELS_DIR` sabitleri Premier League'in yollarıdır.
+
+### Dizin düzeni (turnuva bazlı)
+
+```
+data/football.db                          ortak SQLite (ayrıştırılmış satırlar); her maç satırı competition_id taşır (39 PL, 2 UCL, 3 UEL)
+data/competitions/<anahtar>/raw/          sağlayıcıdan inen ham dosyalar. Premier League: fixtures_<sezon>.json, matches/<id>_*.json (PulseLive).
+                                          Avrupa kupaları: <sağlayıcı>/fixtures_<sezon>.json, standings_<sezon>.json, matches/<id>_<tür>.json, competition/<sezon>_<tür>.json (uefa, thestatsapi)
+data/competitions/<anahtar>/processed/    parquet tabloları, özellikler, değerlendirme JSON'ları, tahmin günlüğü
+models/production/<anahtar>/              o turnuvanın eğitilmiş .joblib dosyaları
+models/backup/<anahtar>/                  eski sürüm yedekleri
+```
+
+Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_match_outcome` ve `train_goals` `--competition` ile çalışır ve tanı JSON'larını o turnuvanın `processed/` klasörüne yazar.
 
 | Değişken | Etkisi |
 |---|---|
-| `PLM_DATA_DIR` | Veri dizinini (`raw/`, `processed/`, SQLite) değiştirir; pipeline'ı izole bir veri kopyasında çalıştırmak için. Varsayılan `<repo>/data`. |
-| `PLM_SEASON` | Betiklerin varsayılan sezonu. Verilmezse `data/raw/fixtures_*.json` içindeki en yeni sezon (`config.DEFAULT_SEASON`); tüm önbellek sezonları `config.SEASONS`. |
+| `PLM_DATA_DIR` | Veri dizinini (`competitions/`, SQLite) değiştirir; pipeline'ı izole bir veri kopyasında çalıştırmak için. Varsayılan `<repo>/data`. |
+| `PLM_SEASON` | Betiklerin varsayılan sezonu. Verilmezse `data/competitions/premier_league/raw/fixtures_*.json` içindeki en yeni sezon (`config.DEFAULT_SEASON`); tüm önbellek sezonları `config.SEASONS`. |
 | `PLM_ADMIN_TOKEN` | Tanımlıysa `/api/admin/*` uçları (senkron başlat/durum, model yenile) `X-Admin-Token` başlığında bu değeri ister (ASCII, örn. `openssl rand -hex 24`); tanımsızsa uçlar açık kalır ve bir kez uyarı loglanır. **Sunucuda `/opt/plm/.env` içine ekleyin.** Arayüz jetonu `localStorage.setItem('plm_admin_token', '<jeton>')` ile okur. |
 | `PLM_CORS_ORIGINS` | API'yi tarayıcıdan çağırabilecek kökenler (virgülle). Varsayılan yerel geliştirme sunucuları (`localhost:5173`, `localhost:8080`); `*` artık varsayılan değil. Aynı kökenden gelen trafik (Vite proxy, Caddy) CORS gerektirmez. |
 | `PLM_REPORTS_DIR` | Üretilen raporların (`data_quality.md`, `prospective_1x2_scorecard.json` ...) yazıldığı dizin. Varsayılan `docs/reports`. İzole denemelerde gerçek raporları ezmemek için. |
-| `PLM_MODELS_DIR` | Model dizinini değiştirir. Varsayılan `<repo>/models/production`. |
+| `PLM_MODELS_ROOT` | Tüm turnuvaların model kökünü değiştirir. Varsayılan `<repo>/models/production`. |
+| `PLM_MODELS_DIR` | Yalnızca Premier League'in model klasörünü değiştirir. Varsayılan `<repo>/models/production/premier_league`. |
 
 Örnek: `PLM_DATA_DIR=/tmp/veri python3 -m src.processing.process_season_data --season-name all`.
 
@@ -29,7 +45,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 
 ## 1c. Çoklu turnuva altyapısı
 
-`config/competitions.yaml` turnuvaları (Premier League, Champions League, Europa League) ve sağlayıcılarını tanımlar. UCL/UEL fikstür ve sonuçları UEFA'nın herkese açık, anahtarsız maç API'sinden gelir; `python3 -m src.ingest.sync_competition_data --competition champions_league` (veya `europa_league`) `matches` tablosuna yalnızca o turnuvanın satırlarını yazar. Veri yoksa arayüz boş durum gösterir. İstatistik (korner, şut, xG) ve tahmin modelleri bu turnuvalar için yoktur.
+`config/competitions.yaml` turnuvaları (Premier League, Champions League, Europa League) ve sağlayıcılarını tanımlar. UCL/UEL fikstür ve sonuçları UEFA'nın herkese açık, anahtarsız maç API'sinden gelir; `python3 -m src.ingest.sync_competition_data --competition champions_league` (veya `europa_league`) `matches` tablosuna yalnızca o turnuvanın satırlarını yazar. Veri yoksa arayüz boş durum gösterir. Maç istatistikleri, xG, oyuncu ve oran verisi TheStatsAPI'den gelir (`python3 -m src.ingest.sync_thestatsapi_competition`); tahmin modeli bu turnuvalar için yoktur (denendi, sızıntısız sınamada ülke öncüllü Elo'dan ayırt edilemedi ve piyasadan kötüydü).
 
 | Dosya | Ne yapar |
 |---|---|
@@ -42,6 +58,9 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `src/api/competition_squads.py` | UCL/UEL kulüpleri için saklanan TheStatsAPI verisinden kadro, takım piyasa değeri, oyuncu sezon toplamları, oyuncu dizini/profili ve teknik direktörleri üretir; eşleşmeyen kulüp için boş döner, tahmin üretmez. |
 | `src/api/competition_stats.py` | UCL/UEL istatistikler sekmesini saklanan TheStatsAPI verisinden kurar (golcüler, oyuncu notları, hücum/savunma, kaleciler, hakemler); ortak `build_league_stats` üreticisine PL biçiminde veri çevirir. |
 | `src/api/european_fixtures.py` | Premier Lig kulübünün takım profili fikstürüne UCL/UEL maçlarını ekler: kulüpleri UEFA ID'leriyle isimden eşler (veri yeniden çekilmez), maçı kulüp açısından çevirir, turnuva/tur etiketi ve kick-off zamanı ekler. Lig rekoru yalnızca PL maçlarından hesaplanır. Aynı modül PL hakemlerinin Avrupa maçlarını (isimden eşleşir, kart/faul yalnızca istatistiği olan maçlardan) ve PL oyuncularının Avrupa maç kayıtlarını (kulüp içinde isimle eşleşir) verir. |
+| `tests/test_cli_help.py` | Veri araçlarının `--help` çıktısının çalıştığını, kullanım/girdi/çıktı/gereksinim anlattığını, `python3 -m src.ingest` dizininin tüm araçları listelediğini ve `docs/data_sources.md`'nin hepsinden bahsettiğini doğrular. |
+| `tests/test_thestatsapi_league.py` | Kimlik aralıkları, fikstür satırı, kısaltmalar, kayıt defteri girdisi ve zaman akışı (gol, kendi kalesine, penaltı, değişiklik eşleme) testleri. |
+| `tests/test_raw_store.py` | Ham dosya yollarının turnuva ve sağlayıcı bazlı ayrımı, atomik yazma ve turnuvalar arası maç kimliği çakışma koruması. |
 | `tests/test_european_fixtures.py` | Bu birleştirmenin çevrimdışı ve API testleri. |
 | `src/api/knockout.py` | UCL/UEL eleme turlarında maçları eşleşmelere (tie) toplar: iki ayağın toplam skoru, turu geçen takım ve nedeni (toplam skor/uzatma/penaltı), maç kartları için özet ve turnuva ağacı yerleşimi (`/api/fixtures/bracket`). |
 | `tests/test_knockout.py` | Eleme eşleşmesi toplama ve ağaç sıralamasının çevrimdışı testleri. |
@@ -49,6 +68,22 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `tests/test_uefa_match_details.py` | UEFA maç detayı üreticisinin çevrimdışı testleri. |
 | `src/ingest/sync_thestatsapi_competition.py` | UCL/UEL için TheStatsAPI'den (`THESTATSAPI_API_KEY`, yalnızca ortam değişkeninden; dakikada 100 istek) oynanmış maçların takım istatistiklerini, kadrolarını, oyuncu istatistiklerini, olay akışını, şut haritasını ve oranlarını ham olarak `external_match_payloads` tablosuna, xG'yi `external_match_xg`'ye, toplamları `matches` satırına yazar; ayrıca puan durumu ve kadroları `external_competition_payloads`'a alır. Yeniden çalıştırılabilir: kayıtlı veriler atlanır, `--refresh` ile yeniden çeker. **Oranlar 2024/25'ten itibaren çekilir, 2023/24 ve öncesinde atlanır** (`--include-odds` ile açılır). |
 | `tests/test_statsapi_competition_sync.py` | TheStatsAPI senkronunun ve maç detayı katmanının çevrimdışı testleri. |
+| `src/ingest/providers/thestatsapi_league.py` | TheStatsAPI'yi ulusal ligin fikstür kaynağı yapar (LaLiga ve aynı yolla eklenen ligler): sağlayıcı kimliklerini yerel tamsayı aralıklarına kaydırır (`match_id` +100.000.000, `team_id` +10.000.000), Londra saatiyle etiket üretir, 3 harfli kısaltma ve rozet yolunu bulur. |
+| `src/ingest/fetch_thestatsapi_league.py` | Bir ulusal ligin fikstür listesini, bitmiş maçların 7 türdeki yanıtlarını (maç, istatistik, kadro, oyuncu istatistiği, zaman akışı, şut haritası, oran) ve kulüp kadro/sezon istatistiklerini `data/competitions/<anahtar>/raw/thestatsapi/` altına indirir. Var olanı atlar, 100 istek/dakika sınırını aşmaz; oranlar yalnızca 2024/25'ten itibaren (`--old-extras` eski sezonlar için de çeker); şut haritası hiçbir sezon için çekilmez. Anahtar yalnızca ortam değişkeninden. |
+| `src/ingest/fetch_openfootball_schedule.py` | Ligin tam sezon takvimini openfootball'dan (kamu malı, anahtarsız) `raw/openfootball/` altına indirir. TheStatsAPI yalnızca yaklaşık 4 hafta ilerisini yayınladığı için, yayınlanmamış haftalar bu takvimden yer tutucu maç olarak eklenir; sağlayıcı o maçı yayınlayınca yer tutucu gerçeğiyle değişir (`schedule_source` alanı `competitions.yaml`'da). |
+| `src/ingest/load_thestatsapi_league.py` | Yukarıdaki ham dosyaları ağ kullanmadan ortak veritabanına yükler: maç satırları, ham yanıt kayıtları, maç toplamları (korner, şut, kart, xG), oranlar, kadro/takım istatistikleri ve teknik direktörler. Tekrar çalıştırılabilir. |
+| `src/ingest/sync_competition.py` | "Veri güncelle" düğmesinin Premier League dışındaki turnuvalar için çalıştırdığı boru hattı: TheStatsAPI ligi için eksik dosyaları indirir ve yükler; UEFA kupası için fikstür, sonuç ve resmi tabloyu UEFA'dan (anahtar varsa TheStatsAPI ayrıntısını) tazeler. Turnuva başına kilit kullanır; son satırda `SYNC_RESULT` yazar. |
+| `src/ingest/fetch_team_badges.py` | Bir turnuvanın kulüp rozetlerini TheSportsDB'den `frontend/public/badges/<anahtar>/<takım id>.png` olarak indirir; eşleşmeyenleri tahmin etmez, listeler. |
+| `src/api/statsapi_match_details.py` | Yalnızca TheStatsAPI ile beslenen liglerde maç sayfası: kadro ve zaman akışından (gol, penaltı, kart, değişiklik çiftleri, uzatma) temel yapıyı kurar, istatistik/rating/şut/oran katmanını UEFA maçlarıyla ortak olarak ekler. |
+| `src/ingest/__main__.py` | `python3 -m src.ingest --help`: tüm veri çekme araçlarının tek satırlık dizini. |
+| `src/features/build_league_features.py` | TheStatsAPI ligleri (LaLiga) için maç öncesi özellikler: Elo, puan/averaj, xG, şut, büyük şans, sahip olma, pas, dokunuş kayan ve üstel ortalamaları; hepsi `shift(1)` ile sızıntısız, eğitim ve servis aynı fonksiyonu kullanır. |
+| `src/models/train_league_model.py` | Ulusal lig için walk-forward 1X2 ve gol modeli eğitimi/denetimi: taban oran, Elo ve piyasa kıyası, bootstrap + FDR, kapı kararı, rapor JSON'u ve üretim dosyası (`--competition la_liga`). |
+| `src/api/league_prediction.py` | LaLiga maç tahmini (`/api/predict`): modeli ya da kapı kararına göre Elo referansını sunar, gol pazarlarını Dixon-Coles ile üretir, sayım pazarlarını `baseline` etiketler. |
+| `src/analytics/league_audit.py` | LaLiga Model Doğrulama sayfası verisi: kaydedilmiş walk-forward tahminlerden maç satırları, hafta özetleri, kıyas bloğu. |
+| `tests/test_league_model.py` | LaLiga özelliklerinin sızıntı testleri (kendi sonucu ve sonrası değiştirilince özellikler aynı kalır), kapı kararı, istatistik yardımcıları. |
+| `tests/test_league_serving.py` | LaLiga tahmin ve denetim yanıtının tutarlılığı (yerel veri yoksa atlanır). |
+| `src/ingest/raw_store.py` | Ham sağlayıcı yanıtlarını `data/competitions/<anahtar>/raw/<sağlayıcı>/` altına atomik yazan yardımcılar ve yol kuralları. |
+| `src/ingest/export_competition_raw.py` | Tek seferlik: veritabanındaki UCL/UEL TheStatsAPI kayıtlarını dosyalara döker, UEFA fikstür ve puan durumu yanıtlarını yeniden çekip kaydeder. Sonraki senkronizasyonlar dosyaları kendisi yazar. |
 | `src/ingest/sync_competition_data.py` | Seçilen turnuva ve sezonun maçlarını sağlayıcıdan çekip `matches` tablosuna yazar (yalnızca o `competition_id`). |
 | `src/ingest/providers/api_football.py` | UCL/UEL için API-Football sağlayıcısı (`API_FOOTBALL_KEY` gerekir). |
 | `src/processing/process_competition_data.py` | Bir turnuvanın ham fikstürlerini işleyip `competition_id` ile SQLite'a yazar; ham veri yoksa boş döner. |
@@ -69,8 +104,8 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 | `files.py` | `atomic_write_json`: JSON'u geçici dosyaya yazıp yerine taşır (iki senkron scripti paylaşır). |
 | `fetch_season_data.py` | PulseLive API'den bir sezonun fikstürünü, maç istatistiklerini, olay akışını (stream) ve maç detaylarını indirir. Diğer ingest scriptlerinin kullandığı ortak istemci fonksiyonları burada (`build_session`, `fetch_match_details` vb.). |
 | `sync_season_data.py` | Artımlı senkronizasyon: fikstürü yeniler, **önümüzdeki 14 gün için hakem atamalarını** çeker, yeni biten veya eksik maçların verisini indirir, sonra Parquet/özellik/SQLite'ı yeniden kurar. Tekrar çalıştırmak güvenlidir. |
-| `sync_prematch_lineups.py` | Maç öncesi **resmi ilk 11'i** çeker, `data/raw/matches/*_details.json` önbelleğini günceller, özellik tablosundaki ilk 11 reytinglerini yazar ve "son maç 11'i" ile "resmi 11" tahminlerini yan yana yazdırır. `--match-id`, `--team`, `--gameweek`, `--hours-ahead` seçenekleri var. |
-| `fetch_team_staff.py` | Takımların kadro ve teknik ekip (görevli) bilgisini çeker, `data/processed/team_staff.json`'a yazar. |
+| `sync_prematch_lineups.py` | Maç öncesi **resmi ilk 11'i** çeker, `data/competitions/premier_league/raw/matches/*_details.json` önbelleğini günceller, özellik tablosundaki ilk 11 reytinglerini yazar ve "son maç 11'i" ile "resmi 11" tahminlerini yan yana yazdırır. `--match-id`, `--team`, `--gameweek`, `--hours-ahead` seçenekleri var. |
+| `fetch_team_staff.py` | Takımların kadro ve teknik ekip (görevli) bilgisini çeker, `data/competitions/premier_league/processed/team_staff.json`'a yazar. |
 | `fetch_transfermarkt_market_values.py` | Transfermarkt'tan takım ve oyuncu piyasa değerlerini çeker, SQLite'a (`team_market_values`, `player_market_values`) ve JSON'a yazar. |
 | `import_thestatsapi_odds.py` | TheStatsAPI'den açılış/kapanış bahis oranlarını (1X2, O/U 2.5, BTTS, köşe, kart) içe aktarır. Hız sınırı: ~5.2 sn/istek. |
 | `import_thestatsapi_xg.py` | TheStatsAPI'den maç bazlı xG'yi, mevcut alanların üzerine yazmadan, ayrı bir kaynak tablosuna aktarır. Anahtar `THESTATSAPI_API_KEY` ortam değişkeninden okunur. |
@@ -86,7 +121,7 @@ Tipik veri akışı: **ingest** (ham JSON indir) → **processing** (Parquet/SQL
 
 | Dosya | Ne yapar |
 |---|---|
-| `database.py` | SQLite katmanı (`data/premier_league.db`): şema, kaynaklardan doldurma (`populate_db_from_sources`), hakem özetleri, gruplanmış fikstür sorguları, xG ekleme. API'nin çalışma anında ağır Parquet/JSON okumasını önler. |
+| `database.py` | SQLite katmanı (`data/football.db`): şema, kaynaklardan doldurma (`populate_db_from_sources`), hakem özetleri, gruplanmış fikstür sorguları, xG ekleme. API'nin çalışma anında ağır Parquet/JSON okumasını önler. |
 
 ## 5. `src/features/` — özellik mühendisliği
 
@@ -205,6 +240,7 @@ Tek seferlik analizler; üretim pipeline'ında kullanılmaz. Çoğu 1.200 maçl�
 | `key_passes_impact.py` | Key pass özelliklerinin gol modellerine etkisi (A/B). |
 | `tactical_pace_and_mv.py` | Piyasa değeri ağırlığı düşürme, tempo ve savunma hattı özellikleri (A/B). |
 | `extract_all_goal_metrics.py` | `goals_models_v1.joblib` için tüm metrikleri toplu çıkarır. |
+| `box_features_ablation.py` | PL 1X2 modelinde sağlayıcıya özgü ceza sahası giriş ve dokunuş özelliklerinin dış sezon ablasyonu; sonuç `docs/reports/experiments/` altına yazılır, üretim dosyalarına dokunmaz. |
 | `lineup_feature_pilot.py` | İlk 11 sürekliliği özelliği 1X2'ye sinyal katıyor mu, üretimi değiştirmeden dener (`research/` altında). |
 
 ## 12. `deploy/` — sunucu dosyaları (yeni)

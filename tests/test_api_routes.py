@@ -60,7 +60,9 @@ def test_reload_rebinds_the_shared_state_and_routes_follow_it(client):
 
     assert state.df_features is not old_features and state.df_matches is not old_matches
     assert client.get("/api/predict", params=params).json() == before   # same data, read through the new objects
-    assert client.get("/api/data-version").json()["version"] == str(state._loaded_data_version)
+    version = client.get("/api/data-version").json()["version"]
+    # the reload counter, plus the database file's change time so a load from the command line also invalidates caches
+    assert version.startswith(f"{state._loaded_data_version}-")
 
 
 def test_admin_routes_need_the_token_when_one_is_configured(client):

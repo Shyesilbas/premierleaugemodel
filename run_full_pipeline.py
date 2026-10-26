@@ -375,7 +375,7 @@ def generate_benchmark_report(corner_res, throws_res, saves_res, cards_res, offs
         "",
         "## Production artifacts",
         "",
-        f"The API loads the current `.joblib` files from `models/production/`. Holdout metrics use a development-only calibrator. Production calibrators use forward OOF predictions from all eligible training matches (1X2: {outcome_res['model_1x2']['production_calibration_oof_samples']}/{outcome_res['model_1x2']['n_train_final']}"
+        f"The API loads the current `.joblib` files from `models/production/premier_league/`. Holdout metrics use a development-only calibrator. Production calibrators use forward OOF predictions from all eligible training matches (1X2: {outcome_res['model_1x2']['production_calibration_oof_samples']}/{outcome_res['model_1x2']['n_train_final']}"
         + (f"; Over 2.5: {outcome_res['model_over_2_5']['production_calibration_oof_samples']}/{outcome_res['model_over_2_5']['n_train_final']}" if "model_over_2_5" in outcome_res else "")
         + "). Run the full pipeline after data changes to rebuild features, retrain models, and refresh this report.",
         "",
@@ -444,7 +444,14 @@ def run_pipeline(stages: list[str]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     configure_logging()
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "This pipeline covers the Premier League (data/competitions/premier_league, models/production/premier_league).\n"
+            "Data tools for every competition (download, load, calendar, badges): python3 -m src.ingest --help\n"
+            "Which source feeds which competition: docs/data_sources.md"
+        ),
+    )
     parser.add_argument("--only", help=f"comma-separated stages to run; choose from {', '.join(STAGES)}")
     parser.add_argument("--skip", help="comma-separated stages to leave out")
     args = parser.parse_args(argv)

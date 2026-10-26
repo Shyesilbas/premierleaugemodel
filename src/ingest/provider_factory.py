@@ -8,6 +8,7 @@ from src.competitions.registry import CompetitionRegistry, get_competition
 from src.ingest.base_provider import BaseIngestionProvider
 from src.ingest.providers.api_football import ApiFootballProvider
 from src.ingest.providers.pulselive import PulseLiveProvider
+from src.ingest.providers.thestatsapi_league import TheStatsApiLeagueProvider
 from src.ingest.providers.uefa import UefaProvider
 
 
@@ -25,6 +26,8 @@ def get_provider(
         )
     elif comp.provider == "uefa":
         return UefaProvider(competition_id=comp.id, competition_key=comp.key)
+    elif comp.provider == "thestatsapi":
+        return TheStatsApiLeagueProvider(competition_id=comp.id, competition_key=comp.key)
     elif comp.provider == "api_football":
         return ApiFootballProvider(
             competition_id=comp.id,

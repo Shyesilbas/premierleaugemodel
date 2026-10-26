@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { getTeams } from '../services/competitionService';
 
 export const COMPETITIONS = {
   premier_league: {
@@ -9,6 +10,23 @@ export const COMPETITIONS = {
     shortName: 'Premier League',
     abbr: 'EPL',
     country: 'İngiltere',
+    kind: 'league',
+    richData: true,
+    hasModel: true,
+    syncKinds: ['matches', 'referees', 'lineups'],
+  },
+  la_liga: {
+    key: 'la_liga',
+    logo: '/competitions/la_liga.png',
+    id: 140,
+    name: 'LaLiga',
+    shortName: 'LaLiga',
+    abbr: 'LL',
+    country: 'İspanya',
+    kind: 'league',
+    richData: false,
+    hasModel: true,
+    syncKinds: ['matches'],
   },
   champions_league: {
     key: 'champions_league',
@@ -18,6 +36,10 @@ export const COMPETITIONS = {
     shortName: 'Champions League',
     abbr: 'UCL',
     country: 'Avrupa',
+    kind: 'cup',
+    richData: false,
+    hasModel: false,
+    syncKinds: ['matches'],
   },
   europa_league: {
     key: 'europa_league',
@@ -27,6 +49,10 @@ export const COMPETITIONS = {
     shortName: 'Europa League',
     abbr: 'UEL',
     country: 'Avrupa',
+    kind: 'cup',
+    richData: false,
+    hasModel: false,
+    syncKinds: ['matches'],
   },
 };
 
@@ -44,6 +70,14 @@ export function CompetitionProvider({ children }) {
   const activeCompetition = useMemo(() => {
     return COMPETITIONS[competitionKey] || COMPETITIONS.premier_league;
   }, [competitionKey]);
+
+  // Club badges are registered from the responses that carry them. Load every non-Premier-League competition's clubs up
+  // front, so a page opened directly (statistics, a lineup, a player) still knows each club's badge.
+  useEffect(() => {
+    Object.values(COMPETITIONS)
+      .filter(competition => !competition.richData)
+      .forEach(competition => { getTeams('all', competition.key).catch(() => {}); });
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.competition = activeCompetition.key;
@@ -63,6 +97,11 @@ export function CompetitionProvider({ children }) {
     activeCompetition,
     selectCompetition,
     isPremierLeague: competitionKey === 'premier_league',
+    // Capabilities drive the tabs, so a competition added to COMPETITIONS gets the same pages without more checks.
+    isCup: activeCompetition.kind === 'cup',
+    isLeague: activeCompetition.kind === 'league',
+    hasModel: activeCompetition.hasModel,
+    hasRichData: activeCompetition.richData,
     isChampionsLeague: competitionKey === 'champions_league',
     isEuropaLeague: competitionKey === 'europa_league',
     competitionsList: Object.values(COMPETITIONS),

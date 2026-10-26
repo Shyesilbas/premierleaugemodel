@@ -13,7 +13,7 @@ import logging
 
 logger = logging.getLogger("db_layer")
 
-from src.config import DATA_DIR, DB_PATH, DEFAULT_SEASON, RAW_DIR, SEASONS
+from src.config import DATA_DIR, DB_PATH, DEFAULT_SEASON, MATCHES_SUMMARY_PATH, RAW_DIR, SEASONS
 
 
 def get_db(db_path: Optional[Any] = None):
@@ -278,7 +278,7 @@ def populate_db_from_sources():
     conn = get_db()
     cursor = conn.cursor()
 
-    parquet_path = DATA_DIR / "processed" / "matches_summary_all.parquet"
+    parquet_path = MATCHES_SUMMARY_PATH
     if not parquet_path.exists():
         logger.warning(f"{parquet_path} not found. Skipping parquet import.")
         return

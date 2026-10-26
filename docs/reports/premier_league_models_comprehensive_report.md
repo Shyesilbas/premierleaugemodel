@@ -4,10 +4,10 @@
 > 🗂️ **Yapı (17 Ekim 2026'dan itibaren):** Bu belge **ana indekstir**: özet karne, veri/ETL, edge denetimi, metodolojik anayasa, API ve yol haritası. Her modelin ayrıntısı kendi raporundadır: [Gol](models/goals_model.md) · [1X2](models/outcome_1x2_model.md) · [Korner](models/corners_model.md) · [Kart](models/cards_model.md) · [Kurtarış](models/saves_model.md) · [Ofsayt](models/offsides_model.md) · [Taç](models/throws_model.md). Bir model değiştiğinde önce kendi raporu, sonra aşağıdaki özet karne güncellenir.
 
 **Kapsanan Tüm Modeller:**
-- ⚽ **Gol Modeli (`v1.4`, 19 Ekim 2026):** 58 Özellikli (`full`, α=3) Poisson skor matrisi + Dixon-Coles düzeltmesi ($w_{dc}=0$), lojistik 1X2'ye hizalı skor matrisi (`models/production/goals_models_v1.joblib`)
-- 🎯 **1X2 Maç Sonucu Modeli (`v1.1`):** 77 Özellikli L2 Çok Terimli Lojistik Regresyon & Sıcaklık Kalibrasyonu (`models/production/outcome_models_v1.joblib`)
+- ⚽ **Gol Modeli (`v1.4`, 19 Ekim 2026):** 58 Özellikli (`full`, α=3) Poisson skor matrisi + Dixon-Coles düzeltmesi ($w_{dc}=0$), lojistik 1X2'ye hizalı skor matrisi (`models/production/premier_league/goals_models_v1.joblib`)
+- 🎯 **1X2 Maç Sonucu Modeli (`v1.1`):** 77 Özellikli L2 Çok Terimli Lojistik Regresyon & Sıcaklık Kalibrasyonu (`models/production/premier_league/outcome_models_v1.joblib`)
 - 📊 **Sayım & Maç Dinamikleri Modelleri:** Korner (`corner_model_v1`), Kart (`cards_model_v1`), Kurtarış (`saves_model_v1`), Ofsayt (`offside_model_v1`), Taç (`throws_model_v1`)
-- 🗄️ **Veritabanı & ETL Altyapısı:** `data/premier_league.db` (SQLite3, 12 tablo, 1.900 fikstür) & Parquet katmanı  
+- 🗄️ **Veritabanı & ETL Altyapısı:** `data/football.db` (SQLite3, 12 tablo, 1.900 fikstür) & Parquet katmanı  
 **Değerlendirilen Maç Havuzu:** 1.140 İleri Holdout Maçı (2023/24, 2024/25, 2025/26) + 60 maçlık kilitli canlı test (2026/27, yalnızca raporlama).  
 > ⚠️ **17 Ekim 2026 Bağımsız Denetimi:** Önceki sürümdeki "1.200 maç" rakamları kilitli 2026/27 sezonunu da içeriyordu ve bazı metrikler (ECE %2.17, "Bivariate Poisson" adı, `POST /api/predict`) hatalıydı. Düzeltilmiş rakamlar ve tüm bulgular için bkz. **[Gol Model Raporu — Bölüm 11](models/goals_model.md#bölüm-11-bağımsız-denetim-17-ekim-2026--gol-modeli--api-bulguları)**.  
 **Dokümantasyon Ağı:** [Ana Sayfa (README)](../../README.md) · [Paper Trading Protokolü](paper_trading_protocol_2026_27.md) · [AI Context & Parametreler](../../AI_CONTEXT.md) · [API Entegrasyonu](../model_api_integration.md) · [Veri Kataloğu](../../VERI_VE_GOSTERIM_KATALOGU.md)
@@ -51,7 +51,7 @@ Premier League Model platformu; İngiltere Premier League maçları için maç �
 
 ## BÖLÜM 2: Veritabanı, Veri Kaynakları ve ETL Mimarisi
 
-Sistem `data/premier_league.db` SQLite3 veritabanı (12 tablo, 1.900 fikstür) ve yüksek performanslı Parquet katmanı üzerinde çalışır.
+Sistem `data/football.db` SQLite3 veritabanı (12 tablo, 1.900 fikstür) ve yüksek performanslı Parquet katmanı üzerinde çalışır.
 
 ### 2.1. Varlık İlişkileri ve Veritabanı Şeması (ERD)
 

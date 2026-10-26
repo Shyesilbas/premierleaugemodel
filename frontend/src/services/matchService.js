@@ -7,11 +7,12 @@ export async function getRecentMatchForm(matchId) {
   return response.ok ? data : { form: {} };
 }
 
-export function getMatchPrediction(homeId, awayId, matchId, season) {
+export function getMatchPrediction(homeId, awayId, matchId, season, competition) {
   return getJson(withQuery('/api/predict', {
     home_id: homeId,
     away_id: awayId,
     match_id: matchId,
     season: season && season !== '2026_27' ? season : undefined,
+    competition: competition && competition !== 'premier_league' ? competition : undefined,
   }));
 }

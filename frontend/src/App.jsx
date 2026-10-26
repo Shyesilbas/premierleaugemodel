@@ -17,7 +17,9 @@ function AppInner() {
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentGameweek, setCurrentGameweek] = useState(1);
-  const { activeCompetition } = useCompetition();
+  const { activeCompetition, hasModel } = useCompetition();
+  // The audit tab belongs to competitions with a prediction model.
+  const visibleTab = !hasModel && activeTab === 'audit' ? 'fixtures' : activeTab;
 
   const handleSelectMatch = (match, gw = null) => {
     setSelectedMatch(match);
@@ -64,7 +66,7 @@ function AppInner() {
       
       {/* Left Vertical Sticky Sidebar */}
       <Sidebar
-        activeTab={activeTab}
+        activeTab={visibleTab}
         setActiveTab={handleTabChange}
         selectedSeason={selectedSeason}
         setSelectedSeason={setSelectedSeason}
@@ -103,7 +105,7 @@ function AppInner() {
             />
           ) : (
             <>
-              {activeTab === 'fixtures' && (
+              {visibleTab === 'fixtures' && (
                 <FixturesTab 
                   selectedSeason={selectedSeason} 
                   setSelectedSeason={setSelectedSeason}
@@ -115,7 +117,7 @@ function AppInner() {
                 />
               )}
 
-              {activeTab === 'teams' && (
+              {visibleTab === 'teams' && (
                 <TeamProfilesTab 
                   selectedSeason={selectedSeason} 
                   setSelectedSeason={setSelectedSeason}
@@ -125,7 +127,7 @@ function AppInner() {
                 />
               )}
 
-              {activeTab === 'players' && (
+              {visibleTab === 'players' && (
                 <PlayerProfilesTab 
                   selectedSeason={selectedSeason} 
                   setSelectedSeason={setSelectedSeason}
@@ -133,14 +135,14 @@ function AppInner() {
                 />
               )}
 
-              {activeTab === 'referees' && (
+              {visibleTab === 'referees' && (
                 <RefereesTab 
                   selectedSeason={selectedSeason} 
                   onSelectMatch={handleSelectMatch}
                 />
               )}
 
-              {activeTab === 'stats' && (
+              {visibleTab === 'stats' && (
                 <StatsTab
                   selectedSeason={selectedSeason}
                   setSelectedSeason={setSelectedSeason}
@@ -148,7 +150,7 @@ function AppInner() {
                 />
               )}
 
-              {activeTab === 'audit' && (
+              {visibleTab === 'audit' && (
                 <ModelAuditTab 
                   selectedSeason={selectedSeason} 
                   onSelectMatch={handleSelectMatch}

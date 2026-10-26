@@ -5,9 +5,14 @@
 @layer base {
   :root,
   :root[data-competition='premier_league'] {
-    --accent: 4 120 87;
-    --accent-hover: 6 95 70;
-    --accent-soft: 236 253 245;
+    --accent: 56 0 60;
+    --accent-hover: 75 0 80;
+    --accent-soft: 248 240 250;
+  }
+  :root[data-competition='la_liga'] {
+    --accent: 185 28 28;
+    --accent-hover: 153 27 27;
+    --accent-soft: 254 242 242;
   }
   :root[data-competition='champions_league'] {
     --accent: 30 58 138;

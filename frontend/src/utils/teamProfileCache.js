@@ -6,7 +6,7 @@
 import { getJson } from '../services/apiClient';
 import { registerLogosFrom } from '../data/teams';
 
-const CACHE_PREFIX = 'pl_team_cache_v14_'; // v14: European matches on team, player and referee pages; Liverpool badge entry restored
+const CACHE_PREFIX = 'pl_team_cache_v15_'; // v15: LaLiga responses cached before its badges existed carried no logos
 const LEGACY_CACHE_PREFIX = 'pl_team_cache_v';
 
 /**

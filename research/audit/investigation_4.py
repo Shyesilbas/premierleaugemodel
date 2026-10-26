@@ -10,7 +10,7 @@ from pathlib import Path
 
 def trace_production_model():
     print("=== 1. PRODUCTION INFERENCE ARTIFACT INSPECTION ===")
-    pkg = joblib.load("models/production/outcome_models_v1.joblib")
+    pkg = joblib.load("models/production/premier_league/outcome_models_v1.joblib")
     
     print(f"Has standalone logreg ('model_1x2')? {'model_1x2' in pkg}")
     print(f"Has Dixon-Coles ('model_dc')? {'model_dc' in pkg}")

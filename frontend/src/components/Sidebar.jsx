@@ -5,27 +5,22 @@ import {
   User, 
   Menu, 
   X, 
-  ChevronDown,
   ChevronLeft,
-  Database,
   Trophy,
   Scale,
   ShieldCheck,
   BarChart3
 } from 'lucide-react';
 import { useCompetition } from '../context/CompetitionContext';
-import CompetitionSelector from './common/CompetitionSelector';
 
 export default function Sidebar({
   activeTab,
   setActiveTab,
-  selectedSeason,
-  setSelectedSeason,
   collapsed,
   setCollapsed
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { activeCompetition } = useCompetition();
+  const { activeCompetition, hasModel } = useCompetition();
 
   const navItems = [
     { id: 'fixtures', label: 'Fikstür & Günler', icon: Calendar },
@@ -33,16 +28,7 @@ export default function Sidebar({
     { id: 'players', label: 'Oyuncu Profilleri', icon: User },
     { id: 'referees', label: 'Hakem Profilleri', icon: Scale },
     { id: 'stats', label: 'İstatistikler', icon: BarChart3 },
-    { id: 'audit', label: 'Model Doğrulama', icon: ShieldCheck },
-  ];
-
-  const seasons = [
-    { value: '2026_27', label: '2026-27 (Güncel Sezon)', note: 'Fikstür' },
-    { value: '2025_26', label: '2025-26 (Tam Sezon)', note: '380 Maç' },
-    { value: '2024_25', label: '2024-25 (Tam Sezon)', note: '380 Maç' },
-    { value: '2023_24', label: '2023-24 (Tam Sezon)', note: '380 Maç' },
-    { value: '2022_23', label: '2022-23 (Tam Sezon)', note: '380 Maç' },
-    { value: 'all', label: 'Tüm Sezonlar', note: '1,520+ Maç' },
+    ...(hasModel ? [{ id: 'audit', label: 'Model Doğrulama', icon: ShieldCheck }] : []),
   ];
 
   const handleNavClick = (tabId) => {
@@ -119,35 +105,7 @@ export default function Sidebar({
             </button>
           </div>
 
-          {/* Turnuva Seçici */}
-          <div className="py-3 border-b border-border-light">
-            <label className="text-xs font-semibold text-text-secondary block mb-2">
-              Turnuva
-            </label>
-            <CompetitionSelector compact />
-          </div>
 
-          {/* Season Selector */}
-          <div className="py-5 border-b border-border-light">
-            <label className="text-xs font-semibold text-text-secondary block mb-2 flex items-center justify-between">
-              <span>Sezon Filtresi</span>
-              <Database className="w-3.5 h-3.5 text-text-muted" />
-            </label>
-            <div className="relative">
-              <select
-                value={selectedSeason}
-                onChange={(e) => setSelectedSeason(e.target.value)}
-                className="w-full appearance-none bg-background-primary hover:bg-background-tertiary border border-border rounded px-3 py-2 text-xs font-medium text-text-primary outline-none focus:border-border-focus transition-all cursor-pointer"
-              >
-                {seasons.map(s => (
-                  <option key={s.value} value={s.value} className="text-text-primary">
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
 
           {/* Navigation Links */}
           <div className="py-5 flex-1">

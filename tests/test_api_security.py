@@ -21,12 +21,10 @@ def _env(**values):
     return mock.patch.dict(os.environ, values, clear=False)
 
 
-def test_admin_route_is_open_without_a_configured_token_and_warns_once():
-    with _env(PLM_ADMIN_TOKEN=""), mock.patch.object(security, "_warned_open", False), \
-         mock.patch.object(security.logger, "warning") as warning:
+def test_admin_route_is_open_without_a_configured_token():
+    with _env(PLM_ADMIN_TOKEN=""):
         assert client.post("/admin").status_code == 200
         assert client.post("/admin").status_code == 200
-    assert warning.call_count == 1
 
 
 def test_admin_route_requires_the_exact_token_once_configured():

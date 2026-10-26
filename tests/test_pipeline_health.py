@@ -19,10 +19,11 @@ def _build(root: Path, raw_missing: bool = False, xg_ids=(1, 2)):
     })
     matches.to_parquet(root / "features.parquet")
     with sqlite3.connect(root / "db.sqlite") as conn:
-        conn.execute("CREATE TABLE matches (match_id INTEGER)")
+        conn.execute("CREATE TABLE matches (match_id INTEGER, competition_id INTEGER)")
         conn.execute("CREATE TABLE external_match_xg (match_id INTEGER)")
         conn.execute("CREATE TABLE external_match_odds (match_id INTEGER, bookmaker TEXT)")
-        conn.executemany("INSERT INTO matches VALUES (?)", [(i,) for i in (1, 2, 3, 4)])
+        conn.executemany("INSERT INTO matches VALUES (?, 39)", [(i,) for i in (1, 2, 3, 4)])
+        conn.execute("INSERT INTO matches VALUES (900, 2)")  # a European match is not a Premier League feature row
         conn.executemany("INSERT INTO external_match_xg VALUES (?)", [(i,) for i in xg_ids])
         conn.executemany("INSERT INTO external_match_odds VALUES (?, 'Bet365')", [(i,) for i in (1, 2, 3)])
     (root / "raw").mkdir()

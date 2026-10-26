@@ -19,7 +19,7 @@ import CompetitionBadge from './team-profile/CompetitionBadge';
 import { COMPETITIONS } from './team-profile/teamProfileUtils';
 
 export default function RefereesTab({ selectedSeason, onSelectMatch }) {
-  const { competitionKey } = useCompetition();
+  const { competitionKey, activeCompetition } = useCompetition();
   const [referees, setReferees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -139,7 +139,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
           <div>
             <div className="flex items-center gap-2 mb-1.5 text-text-secondary">
               <Scale className="w-4 h-4 text-text-tertiary" />
-              <span className="text-xs font-medium">Premier League · Hakem Merkezi</span>
+              <span className="text-xs font-medium">{activeCompetition.name} · Hakem Merkezi</span>
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Hakem Profilleri</h1>
             <p className="max-w-2xl mt-1 text-sm text-text-secondary">
@@ -390,7 +390,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
                 <div>
                   <h2 className="text-lg sm:text-xl font-semibold text-text-primary">{selectedReferee}</h2>
                   <span className="text-xs text-text-secondary">
-                    Premier League · {activeSeason === 'all' ? 'Kariyer' : `${formatSeasonLabel(activeSeason)} sezonu`}
+                    {activeCompetition.name} · {activeSeason === 'all' ? 'Kariyer' : `${formatSeasonLabel(activeSeason)} sezonu`}
                   </span>
                 </div>
               </div>

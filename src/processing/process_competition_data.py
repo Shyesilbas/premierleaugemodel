@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Tuple
 import pandas as pd
 
 from src.competitions.registry import get_competition
-from src.config import DATA_DIR, configure_logging
+from src.config import competition_paths, configure_logging
 from src.db.database import get_db, init_db
 from src.processing.process_season_data import (
     parse_match,
@@ -31,10 +31,8 @@ def process_competition_season(
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Process a single season for a given competition."""
     comp = get_competition(competition_key)
-    comp_raw_dir = DATA_DIR / "raw" / comp.key
-    if not comp_raw_dir.exists() and comp.key == "premier_league":
-        # Fallback to root raw dir for legacy premier_league layout
-        comp_raw_dir = DATA_DIR / "raw"
+    paths = competition_paths(comp.key)
+    comp_raw_dir = paths.raw
 
     if not comp_raw_dir.exists():
         logger.warning(f"No raw data directory for {comp.key}: {comp_raw_dir}")
@@ -105,7 +103,7 @@ def process_competition_season(
     df_events = pd.DataFrame(events_rows)
 
     # Save to processed directory
-    comp_processed_dir = DATA_DIR / "processed" / comp.key
+    comp_processed_dir = paths.processed
     comp_processed_dir.mkdir(parents=True, exist_ok=True)
 
     matches_parquet = comp_processed_dir / f"matches_summary_{season_name}.parquet"

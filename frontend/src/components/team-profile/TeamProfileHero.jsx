@@ -155,7 +155,7 @@ export default function TeamProfileHero({ profile, currentMeta, selectedTeamId, 
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-secondary">
             <MapPin className="w-4 h-4 text-text-tertiary shrink-0" strokeWidth={1.5} aria-hidden="true" />
-            <span>{currentMeta.stadium || (competitionKey === 'premier_league' ? 'Premier League stadyumu' : 'Stadyum bilgisi yok')}</span>
+            <span>{currentMeta.stadium || 'Stadyum bilgisi yok'}</span>
             {displayManager?.name?.display && (
               <>
                 <span className="text-text-muted">·</span>

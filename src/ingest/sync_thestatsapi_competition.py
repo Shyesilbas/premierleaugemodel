@@ -5,7 +5,7 @@ Usage:
         --competition champions_league --season 2026_27
 
 For every finished match it can map to a local fixture it stores the raw payloads (team stats, lineups,
-player stats, timeline, shotmap), writes xG and odds into their existing tables and copies headline team
+player stats, timeline), writes xG and odds into their existing tables and copies headline team
 totals onto the ``matches`` row. It also stores the season standings and each club's squad. The API key is
 read from the environment only. Runs are resumable: stored payloads are skipped unless --refresh is given.
 """
@@ -29,6 +29,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.config import DB_PATH
+from src.ingest.raw_store import competition_payload_path, match_payload_path, write_json
 from src.db.database import ensure_external_payload_tables, ensure_external_xg_table, get_db, init_db
 from src.ingest.import_thestatsapi_odds import store_bookmaker_odds
 from src.ingest.import_thestatsapi_xg import API_BASE, PROVIDER, TheStatsApiClient, fetch_all_matches
@@ -45,7 +46,6 @@ MATCH_ENDPOINTS = {
     "lineups": "/lineups",
     "player_stats": "/player-stats",
     "timeline": "/timeline",
-    "shotmap": "/shotmap",
     "odds": "/odds",
 }
 CLUB_ALIASES = {
@@ -241,7 +241,7 @@ def sync_matches(client: TheStatsApiClient, conn: sqlite3.Connection, comp_key: 
                 continue
             if kind in have and not refresh:
                 counts["skipped_existing"] += 1
-            elif (kind == "odds" and api.get("odds_available") is False) or (kind == "shotmap" and api.get("shotmap_available") is False):
+            elif (kind == "odds" and api.get("odds_available") is False):
                 continue
             else:
                 kinds.append(kind)
@@ -263,6 +263,7 @@ def sync_matches(client: TheStatsApiClient, conn: sqlite3.Connection, comp_key: 
             api, row, kind = futures[future]
             payload = future.result()
             stored = payload if payload is not None else {"unavailable": True}
+            write_json(match_payload_path(comp_key, PROVIDER, row["match_id"], kind), stored)
             conn.execute(
                 "INSERT OR REPLACE INTO external_match_payloads (match_id, provider, kind, provider_match_id, payload, fetched_at_utc) VALUES (?,?,?,?,?,?)",
                 (row["match_id"], PROVIDER, kind, api["id"], json.dumps(stored, ensure_ascii=False), _now()),
@@ -306,6 +307,7 @@ def sync_competition_level(client: TheStatsApiClient, conn: sqlite3.Connection, 
     counts = {"standings": 0, "squads": 0, "team_stats": 0, "managers": 0}
 
     def store(kind: str, ref: str, payload: Dict[str, Any]) -> None:
+        write_json(competition_payload_path(comp_key, PROVIDER, season, kind, ref), payload)
         conn.execute(
             "INSERT OR REPLACE INTO external_competition_payloads (competition_id, season, provider, kind, ref, payload, fetched_at_utc) VALUES (?,?,?,?,?,?,?)",
             (comp_id, season, PROVIDER, kind, ref, json.dumps(payload, ensure_ascii=False), _now()),

@@ -142,7 +142,7 @@ Bu çalışma boyunca bahis oranları kullanılmadı; model girdisi veya sonuç 
 3. **Tamamlandı — eşit Dixon–Coles kıyası:** ana holdout ve eğitim satırları lojistik modelle aynı. DC holdout log-loss'u **1,0428**, lojistik model **1,0295**; DC üretim modeli olarak seçilmedi.
 4. **Kısmen tamamlandı — xG proxy:** proxy var/yok dış sezonlarda kıyaslandı ve gözlem yaşı özelliği eklendi. Proxy'nin doğrulanmış xG ile karşılaştırılması açık.
 5. **Tamamlandı — API eksik değer yolu:** 1X2 eksikleri artık sıfır yerine NaN kalıyor ve eğitimdeki imputera bırakılıyor; helper için otomatik test eklendi. Uçtan uca API/offline parity testi açık.
-6. **Başlatıldı — ileriye dönük holdout:** `src/analytics/prospective_1x2_benchmark.py` gerçek API tahminlerini maçtan önce kaydediyor. 13 Ekim 2026'da güncel üretim artefaktıyla önümüzdeki 14 gün içindeki 20 maç için tahmin saklandı (SHA-256 öneki `d9cb30d28d02`); aynı maçların önceki artefakt kayıtları korunuyor. Tahminler `data/processed/1x2_forecast_log.jsonl` içinde tutuluyor ve maç sonucu geldiğinde yeniden tahmin edilmiyor.
+6. **Başlatıldı — ileriye dönük holdout:** `src/analytics/prospective_1x2_benchmark.py` gerçek API tahminlerini maçtan önce kaydediyor. 13 Ekim 2026'da güncel üretim artefaktıyla önümüzdeki 14 gün içindeki 20 maç için tahmin saklandı (SHA-256 öneki `d9cb30d28d02`); aynı maçların önceki artefakt kayıtları korunuyor. Tahminler `data/competitions/premier_league/processed/1x2_forecast_log.jsonl` içinde tutuluyor ve maç sonucu geldiğinde yeniden tahmin edilmiyor.
 7. **Bekliyor — yeni sonuçlar:** veri eşitlendikten sonra `python3 -m src.analytics.prospective_1x2_benchmark score` komutu, maç öncesi kaydedilmiş tahminleri tamamlanmış sonuçlarla eşleştirip log-loss, çok sınıflı/beraberlik Brier'ı, beraberlik AUC'si ve oran uyumunu hesaplar. 2026/27 tamamlanınca sezonun kalan bölümünü kilitli dış test olarak kullan; ilk 60 maçtan kesin sonuç çıkarma.
 
 İleriye dönük tahminleri düzenli yenilemek için veri güncellemesinden sonra `python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14` çalıştır. Aynı gün, aynı maç ve aynı model artefaktı için yinelenen kayıt eklenmez. Sonuçlar gelmeden performans metrikleri hesaplanamaz.
@@ -166,7 +166,7 @@ Tam pipeline 14 Ekim'de yeniden çalıştırıldı; test paketi **18/18** geçti
 | F6 — Zaman ağırlıklı kalibrasyon | Tek uygun sezonda 150/300/600 satır yarı ömürleri için log-loss farkı **−0,00300 / −0,00201 / −0,00113**. | Üç sezon koşulu karşılanmadı; hiçbir yarı ömür seçilmedi ve standart kalibrasyon korundu. |
 | F7 — xG proxy ve sağlayıcı xG | Düşük kapsamalı aggregate proxy kaldırıldı. TheStatsAPI xG ayrı kaynak tablosuna ve maç gösterimine bağlandı. | Gerçekleşmiş xG ön-tahmin girdisi değil; lag'li xG form sütunları da model/parquet feature setinden kaldırıldı. |
 
-F4–F6 ölçümlerinin sayısal kaynağı [Model Benchmarks](model_benchmarks.md) ve `data/processed/` altındaki JSON'lardır. F10 ile `data/processed/1x2_forecast_log.jsonl` maç öncesi tahminleri ve model SHA-256 değerlerini saklıyor. Tahminler maç sonuçları geldikçe `reports/prospective_1x2_scorecard.json` içinde 1X2 ve gol pazarları için skorlanır.
+F4–F6 ölçümlerinin sayısal kaynağı [Model Benchmarks](model_benchmarks.md) ve `data/competitions/premier_league/processed/` altındaki JSON'lardır. F10 ile `data/competitions/premier_league/processed/1x2_forecast_log.jsonl` maç öncesi tahminleri ve model SHA-256 değerlerini saklıyor. Tahminler maç sonuçları geldikçe `reports/prospective_1x2_scorecard.json` içinde 1X2 ve gol pazarları için skorlanır.
 
 ---
 

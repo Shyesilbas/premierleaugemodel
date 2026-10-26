@@ -1,7 +1,7 @@
 # 1X2 Maç Sonucu Modeli — Model Raporu
 
 **Rapor tarihi:** 25 Ekim 2026 (`v1.4`)
-**Artifact:** `models/production/outcome_models_v1.joblib` · **Kod:** `src/models/train_match_outcome.py`, `src/models/model_utils.py`, `src/features/build_features.py`, `src/processing/process_season_data.py`
+**Artifact:** `models/production/premier_league/outcome_models_v1.joblib` · **Kod:** `src/models/train_match_outcome.py`, `src/models/model_utils.py`, `src/features/build_features.py`, `src/processing/process_season_data.py`
 **Dokümantasyon:** [Ana Rapor](../premier_league_models_comprehensive_report.md) · [Metodolojik Anayasa (Bölüm 8)](../premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage) · [Gol Model Raporu](goals_model.md) · **[Detaylı uçtan uca denetim (14 Ekim 2026)](../1x2_model_audit.md)**
 
 > Bu içerik 17 Ekim 2026'da ana rapordan taşındı ve 25 Ekim 2026 (`v1.3 -> v1.4`) dış sezon deneyleriyle güncellendi. API'de ve Gol modelinin kalibrasyon/değerlendirme hattında 13x13 gol skor matrisi bu modelin 1X2 olasılıklarına hizalanır — bkz. [Gol Model Raporu §11.11](goals_model.md).
@@ -10,7 +10,7 @@
 
 ## Mimari ve Değerlendirme Sonuçları (`v1.4`)
 
-> Değerler üretim artifact'ının (`models/production/outcome_models_v1.joblib`, 25 Ekim 2026) `metrics['model_1x2']` alanından alındı.
+> Değerler üretim artifact'ının (`models/production/premier_league/outcome_models_v1.joblib`, 25 Ekim 2026) `metrics['model_1x2']` alanından alındı.
 
 - **Mimari:** 74 özellik (`v1.3`'teki 71 özelliğe ek olarak: (1) son 12 maçtaki dakika paylarına göre ilk 11 kadro istikrarı ve uyum üstünlüğü `xi_continuity_diff`, (2) ilk 11 oyuncularının maç önü reytinglerinin son 12 maç dakika paylarıyla ağırlıklandırılmış net farkı `xi_weighted_ov_diff`, (3) son 12 maçta >=%40 dakika alıp bugünkü ilk 11'de yer almayan eksik as oyuncuların toplam dakika payı net farkı `missing_reg_mins_diff`) → `SimpleImputer(median, keep_empty_features=True)` → `StandardScaler` → `LogisticRegression(C=0.003, max_iter=5000)` → ayrıştırılmış L2 cezalı ileri OOF sıcaklık + sınıf kesişimi kalibrasyonu (`reg_temp=0.10`, `reg_bias=0.50`; `922` OOF maçı). Draw-propensity özellikleri (`draw_propensity_enabled: false`) ve Dixon-Coles ensemble (`1x2_ensemble_production.enabled: false`) dış sezon kapısını geçemediği için kapalıdır.
 - **Seçim:** `logreg_C0.003`, geliştirme CV log-loss **`0.9674`** (`v1.3`: `0.9709`, `v1.2`: `0.9739`, `v1.1`: `0.9755`; 836 maç, `2022/23` sabit dışlama sonrası). Final üretim fit `1.215` oynanmış maç (`2026/27` kilitli sezon kalibrasyon ve model seçiminden hariç).

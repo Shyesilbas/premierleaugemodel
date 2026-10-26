@@ -33,6 +33,10 @@ class CompetitionConfig:
     provider: str
     cross_league_normalization: bool = False
     legacy_db_name: Optional[str] = None
+    provider_competition_id: Optional[str] = None
+    has_model: bool = False
+    zones: tuple = ()
+    schedule_source: Optional[str] = None
 
     @property
     def is_continental(self) -> bool:
@@ -41,6 +45,11 @@ class CompetitionConfig:
     @property
     def is_domestic(self) -> bool:
         return self.type == "domestic_league"
+
+    @property
+    def sync_kinds(self) -> tuple:
+        """What the data-update button offers: the Premier League has three feeds, every other competition one."""
+        return ("matches", "referees", "lineups") if self.provider == "pulselive" else ("matches",)
 
     def get_priors(self) -> Dict[str, float]:
         """Fetch cold-start statistical priors for this competition."""
@@ -86,6 +95,10 @@ class CompetitionRegistry:
                 provider=info.get("provider", "pulselive"),
                 cross_league_normalization=bool(info.get("cross_league_normalization", False)),
                 legacy_db_name=info.get("legacy_db_name"),
+                provider_competition_id=info.get("provider_competition_id"),
+                has_model=bool(info.get("has_model", False)),
+                zones=tuple(info.get("zones") or ()),
+                schedule_source=info.get("schedule_source"),
             )
             cls._competitions[key] = cfg
             cls._id_to_key[cfg.id] = key

@@ -9,7 +9,7 @@ from fastapi import APIRouter
 
 from src.analytics.player_ratings import calculate_detailed_match_score, get_player_dynamic_rating
 from src.api import state
-from src.config import DATA_DIR
+from src.config import MATCHES_RAW_DIR
 from src.db.database import get_db
 
 router = APIRouter()
@@ -796,12 +796,24 @@ def _load_statsapi_payloads(match_id: int) -> Dict[str, Dict[str, Any]]:
     return {kind: data for kind, data in payloads.items() if not data.get("unavailable")}
 
 
-def _uefa_match_details(match: Dict[str, Any]) -> Dict[str, Any]:
-    from src.api.uefa_match_details import build_uefa_match_details
+def _database_match_details(match: Dict[str, Any]) -> Dict[str, Any]:
+    """Match page of a competition without PulseLive data: UEFA feeds for the cups, TheStatsAPI for national leagues."""
     from src.competitions.registry import get_competition
+
+    comp = get_competition(match["competition_id"])
+    payloads = _load_statsapi_payloads(match["match_id"])
+    if comp.provider == "thestatsapi":
+        from src.api.statsapi_match_details import build_statsapi_match_details
+
+        result = build_statsapi_match_details(match, payloads, get_match_odds_list(match["match_id"]))
+        if match["status"] == "COMPLETED" and "stats" in payloads and "timeline" in payloads:
+            state._completed_match_details_cache[match["match_id"]] = result
+        return result
+
+    from src.api.uefa_match_details import build_uefa_match_details
     from src.ingest.provider_factory import get_provider
 
-    provider = get_provider(get_competition(match["competition_id"]).key)
+    provider = get_provider(comp.key)
     try:
         lineups = provider.fetch_match_details(match["match_id"])
         events = provider.fetch_match_stream(match["match_id"])
@@ -810,7 +822,6 @@ def _uefa_match_details(match: Dict[str, Any]) -> Dict[str, Any]:
         logger.warning("UEFA match feed unavailable for %s: %s", match["match_id"], exc)
         lineups = events = match_feed = None
     result = build_uefa_match_details(match, lineups, events, match_feed)
-    payloads = _load_statsapi_payloads(match["match_id"])
     if payloads:
         from src.api.uefa_match_details import apply_statsapi_payloads
         result = apply_statsapi_payloads(result, payloads, match, get_match_odds_list(match["match_id"]))
@@ -830,11 +841,11 @@ def get_match_full_details(match_id: int):
 
     uefa_match = _find_non_premier_league_match(match_id)
     if uefa_match is not None:
-        return _uefa_match_details(uefa_match)
+        return _database_match_details(uefa_match)
 
-    raw_details = DATA_DIR / "raw" / "matches" / f"{match_id}_details.json"
-    raw_stream = DATA_DIR / "raw" / "matches" / f"{match_id}_stream.json"
-    raw_stats = DATA_DIR / "raw" / "matches" / f"{match_id}_stats.json"
+    raw_details = MATCHES_RAW_DIR / f"{match_id}_details.json"
+    raw_stream = MATCHES_RAW_DIR / f"{match_id}_stream.json"
+    raw_stats = MATCHES_RAW_DIR / f"{match_id}_stats.json"
 
     h_xg, a_xg, tot_xg, xg_source, xg_quality = _fetch_match_xg_info(match_id)
 

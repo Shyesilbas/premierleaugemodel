@@ -66,6 +66,8 @@ Follow this workflow whenever evaluating new features, tuning model hyperparamet
 
 ## 5. Documentation & Registry Synchronization Chain
 
+This chain runs automatically after every model, feature, threshold, ablation or rejected experiment, without the user asking. `AGENTS.md` ("Her Değişiklikten Sonra: Doküman ve Rapor Senkronu") lists the same obligation for data, path, API and UI changes.
+
 Whenever a model changes, an audit concludes, or a backtest is finalized, update documents in this exact order using metrics read directly from the generated artifact/JSON files (never copy-paste stale numbers from prose):
 
 1. **Experiment / Model Report**:

@@ -71,17 +71,18 @@ lerna-debug.log*
 *.sqlite
 *.sqlite3
 *.db
+data/football.db
 data/premier_league.db
 
 # ------------------------------------------------------------------------------
 # 5. Projeye Özel Büyük Veri ve Ham Dosyalar (Large Project Data & Raw Files)
 # binlerce JSON dosyası ve multi-MB veri setlerinin context'i şişirmesini engeller
 # ------------------------------------------------------------------------------
-data/raw/matches/
-data/raw/matches/*
-data/raw/*.json
-data/processed/*.parquet
-data/processed/player_match_logs.json
+data/competitions/*/raw/matches/
+data/competitions/*/raw/matches/*
+data/competitions/*/raw/*.json
+data/competitions/*/processed/*.parquet
+data/competitions/*/processed/player_match_logs.json
 *.parquet
 
 # ------------------------------------------------------------------------------
@@ -89,7 +90,7 @@ data/processed/player_match_logs.json
 # Metin olarak okunamayan ikili (binary) modeller
 # ------------------------------------------------------------------------------
 models/backup/
-models/production/*.joblib
+models/production/**/*.joblib
 models/**/*.joblib
 *.joblib
 *.pkl

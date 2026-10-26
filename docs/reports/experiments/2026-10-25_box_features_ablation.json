@@ -1,0 +1,108 @@
+{
+  "generated_at_utc": "2026-10-25T20:59:40+00:00",
+  "protocol": {
+    "estimator": "logreg_C0.003",
+    "outer_seasons": [
+      "2023_24",
+      "2024_25",
+      "2025_26"
+    ],
+    "locked_excluded": [
+      "2026_27"
+    ],
+    "bootstrap_draws": 10000,
+    "seed": 42,
+    "matches_scored": 1140
+  },
+  "feature_counts": {
+    "full": 74,
+    "without_pa_entries": 72,
+    "without_touches_in_opp_box": 70,
+    "without_both": 68
+  },
+  "removed_features": {
+    "full": [],
+    "without_pa_entries": [
+      "sdiff_pa_entries_e02",
+      "sdiff_pa_entries_r10"
+    ],
+    "without_touches_in_opp_box": [
+      "away_touches_in_opp_box_ewma_02",
+      "away_touches_in_opp_box_roll_10",
+      "home_touches_in_opp_box_ewma_02",
+      "home_touches_in_opp_box_roll_10"
+    ],
+    "without_both": [
+      "away_touches_in_opp_box_ewma_02",
+      "away_touches_in_opp_box_roll_10",
+      "home_touches_in_opp_box_ewma_02",
+      "home_touches_in_opp_box_roll_10",
+      "sdiff_pa_entries_e02",
+      "sdiff_pa_entries_r10"
+    ]
+  },
+  "log_loss_per_season": {
+    "2023_24": {
+      "full": 0.9292,
+      "without_pa_entries": 0.9294,
+      "without_touches_in_opp_box": 0.9306,
+      "without_both": 0.9312
+    },
+    "2024_25": {
+      "full": 0.973,
+      "without_pa_entries": 0.9736,
+      "without_touches_in_opp_box": 0.9711,
+      "without_both": 0.972
+    },
+    "2025_26": {
+      "full": 1.0174,
+      "without_pa_entries": 1.0184,
+      "without_touches_in_opp_box": 1.0177,
+      "without_both": 1.019
+    }
+  },
+  "log_loss_pooled": {
+    "full": 0.9732,
+    "without_pa_entries": 0.9738,
+    "without_touches_in_opp_box": 0.9731,
+    "without_both": 0.974
+  },
+  "removal_minus_full": {
+    "without_pa_entries": {
+      "mean_delta": 0.000585552346017735,
+      "ci_low": -0.0008259834985236049,
+      "ci_high": 0.001995964904509055,
+      "p_a_better": 0.2068,
+      "n": 1140,
+      "p_two_sided": 0.4136,
+      "n_required_80_power": 13608,
+      "seasons_where_full_is_better": 3,
+      "q_fdr": 0.7248,
+      "significant_fdr_05": false
+    },
+    "without_touches_in_opp_box": {
+      "mean_delta": -4.0055202643600314e-05,
+      "ci_low": -0.0014728922459736362,
+      "ci_high": 0.0013917712368032317,
+      "p_a_better": 0.5234,
+      "n": 1140,
+      "p_two_sided": 0.9532,
+      "n_required_80_power": 3009546,
+      "seasons_where_full_is_better": 2,
+      "q_fdr": 0.9532000000000002,
+      "significant_fdr_05": false
+    },
+    "without_both": {
+      "mean_delta": 0.0008656593412485639,
+      "ci_low": -0.0016578712230758833,
+      "ci_high": 0.003457620099609116,
+      "p_a_better": 0.2416,
+      "n": 1140,
+      "p_two_sided": 0.4832,
+      "n_required_80_power": 19624,
+      "seasons_where_full_is_better": 2,
+      "q_fdr": 0.7248,
+      "significant_fdr_05": false
+    }
+  }
+}

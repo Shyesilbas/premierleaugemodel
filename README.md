@@ -115,7 +115,7 @@ npm run build
 
 ### Adim 6: (Opsiyonel) Veri ve Model Pipeline'ini Calistirin
 
-Depo icerisinde egitilmis uretim modelleri (`models/production/*.joblib`) ve islenmis yerel veritabani (`data/premier_league.db`) hazir olarak bulunmaktadir. Uygulamayi calistirmak icin pipeline'i tekrar kosturmaniz **gerekmez**.
+Depo icerisinde egitilmis uretim modelleri (`models/production/premier_league/*.joblib`) ve islenmis yerel veritabani (`data/football.db`) hazir olarak bulunmaktadir. Uygulamayi calistirmak icin pipeline'i tekrar kosturmaniz **gerekmez**.
 
 Eger ham veriden ozellik cikarimini, model egitimlerini ve otomatik benchmark raporlarini sifirdan yeniden uretmek isterseniz:
 
@@ -139,6 +139,7 @@ python3 run_full_pipeline.py
 | **Ofsayt** | Ridge (alpha=250.0), 10 ozellik | [Uretimde] Gelistirme dis sezon 2/2 basarim (RMSE 1.906 vs 2.013) | [offsides_model.md](docs/reports/models/offsides_model.md) |
 | **Kart** | Sabit ortalama (`training_mean`) | [Baseline] Ozellikli aday dis sezon kapisini gecemedigi (1/2) icin durust ortalama korundu | [cards_model.md](docs/reports/models/cards_model.md) |
 | **Kurtaris** | Sabit ortalama (`training_mean`) | [Baseline] Capraz dogrulama kapisi gecilemedigi icin durust ortalama korundu | [saves_model.md](docs/reports/models/saves_model.md) |
+| **La Liga 1X2** | 118 ozellikli lojistik (C=0.001) + Elo referansi; kapi: taban orani anlamli gecmeli ve log-loss Elo'dan kotu olmamali; yoksa Elo `baseline` olarak sunulur | [Uretimde] 760 dis sezon macinda taban orani anlamli geciyor (-0.086), Elo'dan ayirt edilemiyor (-0.008, N_req ~6,619), piyasadan kotu (+0.019); sayim pazarlari `baseline` | [la_liga_outcome.md](docs/reports/models/la_liga_outcome.md) |
 
 Sayim modellerinde ozellikli bir model ancak hem CV kapisini hem de kronolojik dis sezon test kapisini gecerse uretim modeline alinir. Gecemezse sabit ortalama kullanilir ve API `model_skill: "baseline"` degeri doner.
 
@@ -156,7 +157,7 @@ python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14
 python3 -m src.analytics.prospective_1x2_benchmark score
 ```
 
-Tahminler `data/processed/1x2_forecast_log.jsonl` dosyasina yalnizca ekleme (append-only) yontemiyle yazilir; puan karti `docs/reports/prospective_1x2_scorecard.json` uzerinden takip edilir. Protokol kurallari: [Paper Trading Protokolu](docs/reports/paper_trading_protocol_2026_27.md).
+Tahminler `data/competitions/premier_league/processed/1x2_forecast_log.jsonl` dosyasina yalnizca ekleme (append-only) yontemiyle yazilir; puan karti `docs/reports/prospective_1x2_scorecard.json` uzerinden takip edilir. Protokol kurallari: [Paper Trading Protokolu](docs/reports/paper_trading_protocol_2026_27.md).
 
 ---
 
@@ -180,7 +181,12 @@ PROJECT_STATUS.md              <- Guncel proje durumu, bilinen sinirlar, yol har
 CLAUDE.md / AI_CONTEXT.md      <- Ajanlar icin talimatlar ve makine-okunur parametre referansi
 ARTIFACT_REGISTRY.md           <- Veri setleri ve model artefaktlari kayit defteri
 VERI_VE_GOSTERIM_KATALOGU.md   <- Veri semasi, taktik metrikler ve arayuz gosterimleri
+data/
+├── football.db                <- Ortak SQLite; her mac satiri competition_id tasir (39 PL, 2 UCL, 3 UEL)
+└── competitions/<anahtar>/    <- Turnuva basina raw/ (saglayici ciktilari) ve processed/ (parquet, ozellikler, degerlendirme JSON'lari)
+models/production/<anahtar>/   <- Turnuva basina egitilmis modeller (yalnizca premier_league icin mevcut)
 docs/
+├── data_sources.md            <- Hangi turnuva icin hangi veri nereden geliyor (kaynak haritasi)
 ├── model_api_integration.md   <- Model ciktilari -> FastAPI uclari -> React bilesenleri
 ├── scripts_reference.md       <- Tum scriptlerin gorevleri ve kullanim referansi
 └── reports/

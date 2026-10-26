@@ -42,7 +42,7 @@ function FilterRow({ label, children }) {
 const FIXTURES_SCHEMA = 3;
 
 export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelectMatch, onSelectTeam }) {
-  const { competitionKey } = useCompetition();
+  const { competitionKey, isCup, activeCompetition } = useCompetition();
   const [data, setData] = useState({ gameweeks: [], total_matches: 0, current_gameweek: 1 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -89,11 +89,11 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
 
   // Leaving a UEFA competition for the Premier League must not leave the bracket view selected.
   useEffect(() => {
-    if (competitionKey === 'premier_league' && activeView === 'bracket') setActiveView('fixtures');
-  }, [competitionKey, activeView]);
+    if (!isCup && activeView === 'bracket') setActiveView('fixtures');
+  }, [isCup, activeView]);
 
   useEffect(() => {
-    if (activeView !== 'bracket' || competitionKey === 'premier_league') return undefined;
+    if (activeView !== 'bracket' || !isCup) return undefined;
     let cancelled = false;
     setBracketLoading(true);
     setBracketError(false);
@@ -102,11 +102,11 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
       .catch(() => { if (!cancelled) setBracketError(true); })
       .finally(() => { if (!cancelled) setBracketLoading(false); });
     return () => { cancelled = true; };
-  }, [activeView, competitionKey, selectedSeason, bracketReload, dataRefreshVersion]);
+  }, [activeView, competitionKey, isCup, selectedSeason, bracketReload, dataRefreshVersion]);
 
   // Open on the stage that holds the current gameweek (a finished season ends in the final, not in the league phase).
   const selectDefaultView = (resData, curGw) => {
-    if (competitionKey === 'premier_league') {
+    if (!isCup) {
       setSelectedStage('all');
       setSelectedGameweek(String(curGw));
       return;
@@ -242,7 +242,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
     setSyncMessage('Başlandı...');
     try {
       const season = selectedSeason && selectedSeason !== 'all' ? selectedSeason : '2026_27';
-      const job = await startSeasonSync(season, kind);
+      const job = await startSeasonSync(season, kind, competitionKey);
       setSyncStatus(job.status === 'completed' ? 'completed' : 'running');
       setSyncMessage(job.message || (job.already_running ? 'Başka bir güncelleme devam ediyor...' : 'Başlandı...'));
     } catch (error) {
@@ -271,8 +271,8 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
   ), [standingsData]);
 
   const allGwNumbers = (data.gameweeks || []).map(g => g.gameweek);
-  // UEFA competitions always use the league phase + knockout navigation, even before the knockout rounds exist.
-  const hasStages = competitionKey !== 'premier_league';
+  // Cups always use the league phase + knockout navigation, even before the knockout rounds exist.
+  const hasStages = isCup;
   const availableStages = useMemo(
     () => new Set((data.gameweeks || []).map(gw => gw.stage || 'league')),
     [data.gameweeks]
@@ -411,7 +411,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                 <Trophy className="w-3.5 h-3.5" />
                 <span>Puan Tablosu</span>
               </button>
-              {competitionKey !== 'premier_league' && (
+              {isCup && (
                 <button
                   type="button"
                   onClick={() => setActiveView('bracket')}
@@ -529,7 +529,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
               </button>
             )}
 
-            {activeView === 'table' && competitionKey === 'premier_league' && (
+            {activeView === 'table' && !isCup && (
               <div className="flex items-center gap-2.5 text-xs font-medium text-text-secondary ml-1">
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-sm bg-status-info" />
@@ -646,8 +646,8 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
                         {[
                           { kind: 'referees', label: 'Hakemler', hint: 'Atanan hakemleri çek' },
                           { kind: 'lineups', label: 'Kadrolar', hint: 'Önümüzdeki 2 saatteki maçların resmi kadroları' },
-                          { kind: 'matches', label: 'Maç verisi', hint: 'Biten maçların istatistikleri' },
-                        ].map(({ kind, label, hint }) => (
+                          { kind: 'matches', label: 'Maç verisi', hint: `${activeCompetition.name}: sonuçlar, istatistikler, kadrolar` },
+                        ].filter(({ kind }) => activeCompetition.syncKinds.includes(kind)).map(({ kind, label, hint }) => (
                           <button
                             key={kind}
                             type="button"

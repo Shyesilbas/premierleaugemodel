@@ -456,4 +456,16 @@ def train_goals_models(
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    train_goals_models()
+    import argparse
+    from src.config import competition_paths
+    parser = argparse.ArgumentParser(description="Train goals models for a competition.")
+    parser.add_argument("--competition", type=str, default="premier_league", help="Competition key (premier_league, etc.)")
+    parser.add_argument("--features", type=str, default=None, help="Features parquet path")
+    parser.add_argument("--output-dir", type=str, default=None, help="Model output directory")
+    args = parser.parse_args()
+
+    paths = competition_paths(args.competition)
+    feat_path = args.features or str(paths.features)
+    out_dir = args.output_dir or str(paths.models)
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    train_goals_models(data_path=feat_path, model_output_dir=out_dir, evaluation_path=str(paths.processed / "goal_model_outer_eval.json"))

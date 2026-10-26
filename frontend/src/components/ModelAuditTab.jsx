@@ -67,7 +67,7 @@ function AuditSkeleton() {
 }
 
 export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatch }) {
-  const { competitionKey } = useCompetition();
+  const { competitionKey, hasRichData } = useCompetition();
   const [auditSeason, setAuditSeason] = useState(selectedSeason || '2026_27');
   const [auditData, setAuditData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -163,7 +163,7 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
     { id: 'all', label: 'Tümü', count: gwMatches.length },
     { id: 'high_conf', label: 'Net favoriler' },
     { id: 'balanced', label: 'Dengeli' },
-    { id: 'value_edge_5', label: 'Değerli oran' },
+    ...(hasRichData ? [{ id: 'value_edge_5', label: 'Değerli oran' }] : []),
     { id: 'upcoming', label: 'Oynanmamış', count: gwMatches.length - playedInGw },
     { id: '1x2_hits', label: 'Tuttu' },
     { id: '1x2_misses', label: 'Yanıldı' },
@@ -179,7 +179,9 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
           <h2 className="text-2xl font-semibold text-text-primary">Model doğrulama</h2>
           <p className="text-sm text-text-secondary max-w-2xl">
             Maç öncesi tahminlerin gerçek sonuçlar ve kapanış oranlarıyla karşılaştırması.{' '}
-            {isLive ? 'Canlı sezon, sızıntısız (out-of-sample).' : 'Geçmiş sezon, backtest.'}
+            {auditData?.method === 'walk_forward'
+              ? 'Her maç, yalnızca kendisinden önce oynanmış sezonlarla eğitilen modelle tahmin edilir (walk-forward, sızıntısız).'
+              : isLive ? 'Canlı sezon, sızıntısız (out-of-sample).' : 'Geçmiş sezon, backtest.'}
           </p>
         </div>
 
@@ -257,6 +259,28 @@ export default function ModelAuditTab({ selectedSeason = '2026_27', onSelectMatc
           meta="Ortalama sapma"
         />
       </section>
+
+      {auditData?.benchmark?.scores && (
+        <section aria-label="Karşılaştırma" className="flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+            <h3 className="text-sm font-semibold text-text-primary">Log-loss karşılaştırması</h3>
+            <p className="text-xs text-text-secondary">
+              {auditData.benchmark.role === 'monitor' ? 'Canlı izleme: karar için kullanılmaz' : auditData.benchmark.role === 'hold_out' ? 'Sınama sezonu' : 'Geçmiş sezon'}
+              {auditData.benchmark.serving === 'elo_baseline' ? '. Gösterilen tahmin Elo temelli referanstır' : ''}. Düşük değer daha iyi.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border rounded overflow-hidden">
+            <KpiCell label="Model" value={fmt(auditData.benchmark.scores.model?.log_loss)} meta={`RPS ${fmt(auditData.benchmark.scores.model?.rps)}`} />
+            <KpiCell label="Taban oran" value={fmt(auditData.benchmark.scores.base_rate?.log_loss)} meta="Ev / beraberlik / deplasman sıklığı" />
+            <KpiCell label="Elo referansı" value={fmt(auditData.benchmark.scores.elo?.log_loss)} meta="Elo farkı ve ev sahibi avantajı" />
+            <KpiCell
+              label="Piyasa"
+              value={fmt(auditData.benchmark.scores.market?.log_loss)}
+              meta={auditData.benchmark.scores.market ? `${auditData.benchmark.scores.market.n} maç, kapanış oranı` : 'Bu sezon için oran yok'}
+            />
+          </div>
+        </section>
+      )}
 
       <div className="flex flex-col gap-3 pb-6 border-b border-border">
         <div className="flex items-center gap-2 overflow-x-auto" role="group" aria-label="Maç filtresi">

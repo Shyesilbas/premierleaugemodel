@@ -10,8 +10,8 @@ from src.competitions.registry import (
     get_competition,
     get_priors,
 )
-from src.core.models.dixon_coles import matrix_from_lambdas, outcome_probs
-from src.core.models.eval_utils import per_match_log_loss, per_match_rps
+from src.models.dixon_coles import matrix_from_lambdas, outcome_probs
+from src.models.eval_utils import per_match_log_loss, per_match_rps
 import numpy as np
 
 

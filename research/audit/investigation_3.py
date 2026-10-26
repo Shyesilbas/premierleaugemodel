@@ -14,7 +14,7 @@ def inspect_saved_production_metrics():
     print("=== 1. AUDIT OF SAVED METRICS IN PRODUCTION ARTIFACTS ===")
     
     # 1X2 and O25
-    pkg_outcome = joblib.load("models/production/outcome_models_v1.joblib")
+    pkg_outcome = joblib.load("models/production/premier_league/outcome_models_v1.joblib")
     m_1x2 = pkg_outcome["metrics"]["model_1x2"]
     m_o25 = pkg_outcome["metrics"]["model_over_2_5"]
     
@@ -37,9 +37,9 @@ def inspect_saved_production_metrics():
     print(f"Dev rows: {m_o25.get('development_samples')}, Holdout rows: {m_o25.get('test_samples')}")
     
     # Secondary Count Models
-    pkg_corners = joblib.load("models/production/corner_model_v1.joblib")
-    pkg_cards = joblib.load("models/production/cards_model_v1.joblib")
-    pkg_offsides = joblib.load("models/production/offside_model_v1.joblib")
+    pkg_corners = joblib.load("models/production/premier_league/corner_model_v1.joblib")
+    pkg_cards = joblib.load("models/production/premier_league/cards_model_v1.joblib")
+    pkg_offsides = joblib.load("models/production/premier_league/offside_model_v1.joblib")
     
     print("\n--- Count Models Artifact Metrics ---")
     m_corn = pkg_corners["metrics"]
@@ -53,12 +53,12 @@ def inspect_saved_production_metrics():
 def verify_reproducibility_table():
     print("\n=== 2. COMPARISON TABLE: REPORTED vs REPRODUCED ===")
     
-    pkg_outcome = joblib.load("models/production/outcome_models_v1.joblib")
+    pkg_outcome = joblib.load("models/production/premier_league/outcome_models_v1.joblib")
     m_1x2 = pkg_outcome["metrics"]["model_1x2"]
     m_o25 = pkg_outcome["metrics"]["model_over_2_5"]
-    pkg_corners = joblib.load("models/production/corner_model_v1.joblib")["metrics"]
-    pkg_cards = joblib.load("models/production/cards_model_v1.joblib")["metrics"]
-    pkg_offsides = joblib.load("models/production/offside_model_v1.joblib")["metrics"]
+    pkg_corners = joblib.load("models/production/premier_league/corner_model_v1.joblib")["metrics"]
+    pkg_cards = joblib.load("models/production/premier_league/cards_model_v1.joblib")["metrics"]
+    pkg_offsides = joblib.load("models/production/premier_league/offside_model_v1.joblib")["metrics"]
     
     comparisons = [
         ("1X2 Multiclass Log-Loss", 1.026, round(m_1x2.get("log_loss"), 4), "VERIFIED", 304),

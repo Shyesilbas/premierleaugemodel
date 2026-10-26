@@ -1518,9 +1518,15 @@ def build_feature_dataset(
 if __name__ == "__main__":
     configure_logging()
     import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, default=str(MATCHES_SUMMARY_PATH))
-    parser.add_argument("--output", type=str, default=str(FEATURES_PATH))
+    from src.config import competition_paths
+    parser = argparse.ArgumentParser(description="Build feature dataset for a competition.")
+    parser.add_argument("--competition", type=str, default="premier_league", help="Competition key (premier_league, champions_league, europa_league, etc.)")
+    parser.add_argument("--input", type=str, default=None, help="Input summary parquet path (defaults to competition summary path)")
+    parser.add_argument("--output", type=str, default=None, help="Output feature parquet path (defaults to competition feature path)")
     args = parser.parse_args()
 
-    build_feature_dataset(Path(args.input), Path(args.output))
+    paths = competition_paths(args.competition)
+    input_file = Path(args.input) if args.input else paths.summary
+    output_file = Path(args.output) if args.output else paths.features
+
+    build_feature_dataset(input_file, output_file)

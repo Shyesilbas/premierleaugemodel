@@ -16,9 +16,9 @@ def test_mathematical_consistency():
     print("=== 1. MATHEMATICAL CONSISTENCY ACROSS FIXTURES ===")
     
     # Load goals artifact and features
-    goals_pkg = joblib.load("models/production/goals_models_v1.joblib")
-    outcome_pkg = joblib.load("models/production/outcome_models_v1.joblib")
-    df_feat = pd.read_parquet("data/processed/features_matches_all.parquet")
+    goals_pkg = joblib.load("models/production/premier_league/goals_models_v1.joblib")
+    outcome_pkg = joblib.load("models/production/premier_league/outcome_models_v1.joblib")
+    df_feat = pd.read_parquet("data/competitions/premier_league/processed/features_matches_all.parquet")
     
     # Select 20 diverse played and unplayed fixtures
     sample_df = df_feat.dropna(subset=["home_id", "away_id"]).iloc[-20:].copy()

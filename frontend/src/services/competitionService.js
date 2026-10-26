@@ -28,8 +28,8 @@ export async function getSeasonSyncStatus() {
   return data;
 }
 
-export async function startSeasonSync(season, kind = 'matches') {
-  const { response, data } = await requestJson(withQuery('/api/admin/sync-season', { season, kind }), { method: 'POST', headers: adminHeaders() });
+export async function startSeasonSync(season, kind = 'matches', competition = 'premier_league') {
+  const { response, data } = await requestJson(withQuery('/api/admin/sync-season', { season, kind, competition }), { method: 'POST', headers: adminHeaders() });
   if (!response.ok) throw new Error(data.detail || data.message || 'Güncelleme başlatılamadı.');
   return data;
 }

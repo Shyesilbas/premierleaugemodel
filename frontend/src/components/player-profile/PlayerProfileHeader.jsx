@@ -1,6 +1,9 @@
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
 import { Coins, Star, TrendingUp } from 'lucide-react';
 import PlayerAvatar from '../PlayerAvatar';
+import { useCompetition } from '../../context/CompetitionContext';
+import { seasonsFor } from '../../data/seasons';
+import { formatSeasonLabel } from '../../utils/dateFormatters';
 
 const SEASONS = [
   ['2026_27', '2026-27'],
@@ -37,6 +40,8 @@ function SummaryMetric({ label, value, className = '' }) {
 }
 
 export default function PlayerProfileHeader({ player, stats, team, position, season, onSeasonChange, onOpenMarketValue }) {
+  const { activeCompetition, competitionKey, hasRichData } = useCompetition();
+  const seasonChoices = SEASONS.filter(([value]) => seasonsFor(competitionKey).includes(value));
   return (
     <section className="bg-background-primary border border-border rounded">
       <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -78,10 +83,10 @@ export default function PlayerProfileHeader({ player, stats, team, position, sea
             </div>
 
             <p className="mt-2 text-xs text-text-tertiary">
-              Premier League kariyeri <span className="mx-1">·</span>
-              {player.total_appearances || 0} maç <span className="mx-1">·</span>
-              {player.total_goals || 0} gol <span className="mx-1">·</span>
-              {player.total_assists || 0} asist
+              {hasRichData ? `${activeCompetition.name} kariyeri` : `${activeCompetition.name} · ${formatSeasonLabel(season)}`} <span className="mx-1">·</span>
+              {(hasRichData ? player.total_appearances : stats.appearances) || 0} maç <span className="mx-1">·</span>
+              {(hasRichData ? player.total_goals : stats.goals) || 0} gol <span className="mx-1">·</span>
+              {(hasRichData ? player.total_assists : stats.assists) || 0} asist
             </p>
           </div>
         </div>
@@ -96,7 +101,7 @@ export default function PlayerProfileHeader({ player, stats, team, position, sea
             onChange={event => onSeasonChange(event.target.value)}
             className="h-9 rounded border border-border bg-background-primary px-3 text-sm font-medium text-text-primary outline-none focus:border-border-focus transition-colors"
           >
-            {SEASONS.map(([value, label]) => (
+            {seasonChoices.map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </select>

@@ -9,7 +9,11 @@ competitions:
     default_season: "2026_27"
     has_npxg: true
     provider: "pulselive"
-    legacy_db_name: "premier_league.db"
+    has_model: true
+    zones:
+      - { from: 1, to: 4, key: champions_league, label: "UEFA Şampiyonlar Ligi" }
+      - { from: 5, to: 5, key: europa_league, label: "UEFA Avrupa Ligi" }
+      - { from: 18, to: 20, key: relegation, label: "Küme Düşme" }
 
   champions_league:
     id: 2
@@ -34,5 +38,23 @@ competitions:
     has_npxg: true
     provider: "uefa"
     cross_league_normalization: true
+
+  la_liga:
+    id: 140
+    name: "LaLiga"
+    type: "domestic_league"
+    country: "Spain"
+    uefa_coefficient: 0.910
+    format: "round_robin"
+    default_season: "2026_27"
+    has_npxg: true
+    provider: "thestatsapi"
+    provider_competition_id: "comp_8814"
+    schedule_source: "openfootball:es.1"  # full-season calendar for the weeks the provider has not published yet
+    has_model: true
+    zones:
+      - { from: 1, to: 4, key: champions_league, label: "UEFA Şampiyonlar Ligi" }
+      - { from: 5, to: 5, key: europa_league, label: "UEFA Avrupa Ligi" }
+      - { from: 18, to: 20, key: relegation, label: "Küme Düşme" }
 
 default_competition: "premier_league"

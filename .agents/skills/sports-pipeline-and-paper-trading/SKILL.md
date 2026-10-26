@@ -10,13 +10,15 @@ description: >-
 
 Follow this workflow when operating or modifying the data ingestion pipeline, feature builders, early-season transitions, pre-game paper trading ledgers, or frontend SQLite stores.
 
+**Documentation sync is part of the task.** After any change to a source, script, path, table or competition, update the documents listed in the table "Her Değişiklikten Sonra: Doküman ve Rapor Senkronu" in `AGENTS.md` before reporting completion (`docs/data_sources.md`, `docs/scripts_reference.md`, `ARTIFACT_REGISTRY.md`, `PROJECT_STATUS.md`, the script's `--help` and the `src/ingest/__main__.py` index). Do not wait to be asked.
+
 ## 1. Data Inspection & File Hygiene Rules
 
 1. **Never Dump Raw Data into Context**:
    - Never read full `.csv`, `.parquet`, `.jsonl`, or `.db` files directly into context.
    - To inspect schemas or sample rows, use `head -n 5 <file>`, Python one-liners printing `.columns` and `.shape`, or `sqlite3 <db> "SELECT ... LIMIT 5;"`.
 2. **Centralized Path Resolution**:
-   - Never hardcode season directory strings. Always use the project's path resolver (`src.core.data_paths.get_data_paths(season)` or `src/config.py`) and accept `--season` in CLI scripts.
+   - Never hardcode season directory strings. Always use the project's path resolver (`src/config.py` (`competition_paths(key)`)) and accept `--season` in CLI scripts.
 3. **No Silent Historical Fetching**:
    - Do not re-fetch historical completed seasons from external APIs unless explicitly requested by the user.
 
@@ -31,7 +33,7 @@ Follow this workflow when operating or modifying the data ingestion pipeline, fe
    - Map official injury/status reports to deterministic availability weights (e.g., `OUT = 0.0`, `DOUBTFUL = 0.25`, `QUESTIONABLE = 0.60`, `PROBABLE = 0.90`).
    - For unmentioned players in live inference, apply the carry-forward participation rule consistently across Win, Score, and Player projections.
 3. **Frontend SQLite Store Packaging**:
-   - Package processed data into the frontend SQLite store (`data/frontend_store/` or `data/premier_league.db`).
+   - Package processed data into the frontend SQLite store (`data/frontend_store/` or `data/football.db`).
    - **Sealed Seasons**: Once a historical season is complete (`status = closed`), skip rebuilding it on daily runs unless the schema version (`STORE_VERSION`) changes or `--force` is passed.
 
 ## 3. Early-Season Hand-Over & Prior Transitions
@@ -46,7 +48,7 @@ When modifying early-season inference or feature generation (`first 3 to 6 games
 
 ## 4. Append-Only Pre-Game Paper Trading Ledger
 
-When maintaining or querying forward-testing ledgers (`data/predictions/paper_ledger_*.jsonl` or `data/processed/1x2_forecast_log.jsonl`):
+When maintaining or querying forward-testing ledgers (`data/predictions/paper_ledger_*.jsonl` or `data/competitions/premier_league/processed/1x2_forecast_log.jsonl`):
 1. **Strict Pre-Game Locking (First Write Wins)**:
    - Freeze one prediction record per regular-season/playoff match **before** tip-off / kickoff.
    - Once a game's prediction is written to the `.jsonl` ledger, never overwrite it on subsequent runs.

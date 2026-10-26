@@ -157,3 +157,41 @@ def expected_calibration_error(
         sum(row["n"] * abs(row["mean_predicted"] - row["observed_rate"]) for row in rows)
         / total
     )
+
+
+Z_ALPHA = 1.96
+Z_BETA = 0.8416
+
+
+def with_inference(loss_a: np.ndarray, loss_b: np.ndarray, n_boot: int = 10000, seed: int = 42) -> dict[str, float | int | None]:
+    """``paired_bootstrap_delta`` plus a two-sided p-value and the sample size that would give 80% power.
+
+    A negative ``mean_delta`` means A has the lower loss."""
+    result = paired_bootstrap_delta(loss_a, loss_b, n_boot=n_boot, seed=seed)
+    delta = np.asarray(loss_a, dtype=float) - np.asarray(loss_b, dtype=float)
+    result["p_two_sided"] = float(min(1.0, 2.0 * min(result["p_a_better"], 1.0 - result["p_a_better"])))
+    mean = abs(result["mean_delta"])
+    sigma = float(delta.std(ddof=1)) if len(delta) > 1 else 0.0
+    result["n_required_80_power"] = int(np.ceil(((Z_ALPHA + Z_BETA) ** 2) * sigma ** 2 / mean ** 2)) if mean > 1e-9 else None
+    return result
+
+
+def benjamini_hochberg(p_values: list[float]) -> list[float]:
+    """Benjamini-Hochberg adjusted p-values, in the input order."""
+    order = np.argsort(p_values)
+    ranked = np.asarray(p_values, dtype=float)[order]
+    m = len(ranked)
+    adjusted = np.minimum.accumulate((ranked * m / np.arange(1, m + 1))[::-1])[::-1]
+    out = np.empty(m)
+    out[order] = np.minimum(adjusted, 1.0)
+    return out.tolist()
+
+
+def apply_fdr(entries: dict[str, dict | None]) -> None:
+    """Add ``q_fdr`` and ``significant_fdr_05`` (in place) across a family of comparisons."""
+    live = {k: v for k, v in entries.items() if v}
+    if not live:
+        return
+    for (_, value), q in zip(live.items(), benjamini_hochberg([v["p_two_sided"] for v in live.values()])):
+        value["q_fdr"] = q
+        value["significant_fdr_05"] = bool(q < 0.05)

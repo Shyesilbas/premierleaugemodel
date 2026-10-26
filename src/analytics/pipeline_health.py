@@ -42,7 +42,7 @@ def collect(
     matches["played"] = matches["home_score"].notna()
     xg = _ids(db_path, "SELECT match_id FROM external_match_xg")
     odds = _ids(db_path, "SELECT match_id FROM external_match_odds WHERE bookmaker = 'Bet365'")
-    db_matches = _ids(db_path, "SELECT match_id FROM matches")
+    db_matches = _ids(db_path, "SELECT match_id FROM matches WHERE competition_id = 39")
 
     seasons: dict[str, dict[str, Any]] = {}
     for season, group in matches.groupby("season"):

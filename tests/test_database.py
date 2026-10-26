@@ -43,7 +43,7 @@ def _populate(tmp: str) -> sqlite3.Connection:
 def test_populate_loads_matches_upcoming_fixtures_and_referee_aggregates_and_is_idempotent():
     with tempfile.TemporaryDirectory() as tmp:
         root = _populate(tmp)
-        with mock.patch.multiple(database, DATA_DIR=root, DB_PATH=root / "db.sqlite", RAW_DIR=root / "raw", SEASONS=[PAST_SEASON]):
+        with mock.patch.multiple(database, DATA_DIR=root, DB_PATH=root / "db.sqlite", RAW_DIR=root / "raw", MATCHES_SUMMARY_PATH=root / "processed" / "matches_summary_all.parquet", SEASONS=[PAST_SEASON]):
             database.populate_db_from_sources()
             database.populate_db_from_sources()  # a second run must change nothing
             conn = sqlite3.connect(root / "db.sqlite")
@@ -62,7 +62,7 @@ def test_populate_loads_matches_upcoming_fixtures_and_referee_aggregates_and_is_
 def test_populate_keeps_provider_xg_and_odds_tables():
     with tempfile.TemporaryDirectory() as tmp:
         root = _populate(tmp)
-        with mock.patch.multiple(database, DATA_DIR=root, DB_PATH=root / "db.sqlite", RAW_DIR=root / "raw", SEASONS=[PAST_SEASON]):
+        with mock.patch.multiple(database, DATA_DIR=root, DB_PATH=root / "db.sqlite", RAW_DIR=root / "raw", MATCHES_SUMMARY_PATH=root / "processed" / "matches_summary_all.parquet", SEASONS=[PAST_SEASON]):
             database.init_db()
             conn = sqlite3.connect(root / "db.sqlite")
             conn.execute("INSERT INTO external_match_xg VALUES (10, 'TheStatsAPI', 'm1', 's1', 1.4, 0.6, 'full', 'x')")

@@ -1,7 +1,17 @@
 """Project paths and season policy: the single place that knows where things live.
 
-Data paths follow ``PLM_DATA_DIR`` (default ``<repo>/data``), so a pipeline run can
-be pointed at an isolated copy of the data. Models follow ``PLM_MODELS_DIR`` and
+Every competition owns one folder per kind of artifact, so leagues never share files::
+
+    data/football.db                            shared SQLite store; every match row carries competition_id
+    data/competitions/<key>/raw/                provider downloads (fixtures_<season>.json, matches/<id>_*.json)
+    data/competitions/<key>/processed/          parquet tables, features, evaluation JSON, forecast log
+    models/production/<key>/                    trained .joblib artifacts of that competition
+
+``competition_paths(key)`` is the way to reach them. The module-level constants (``RAW_DIR``, ``PROCESSED_DIR``,
+``FEATURES_PATH``, ``MODELS_DIR`` ...) are the Premier League's paths, which most of the pipeline still uses.
+
+``PLM_DATA_DIR`` moves everything under ``data/`` (so a run can use an isolated copy), ``PLM_MODELS_ROOT`` moves
+``models/production`` and ``PLM_MODELS_DIR`` points the Premier League at one specific artifact folder.
 ``PLM_REPORTS_DIR`` moves the generated reports (default ``docs/reports``). Importing this module has no side effects.
 """
 
@@ -9,19 +19,65 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.environ.get("PLM_DATA_DIR") or ROOT / "data").resolve()
-RAW_DIR = DATA_DIR / "raw"
-MATCHES_RAW_DIR = RAW_DIR / "matches"
-PROCESSED_DIR = DATA_DIR / "processed"
-DB_PATH = DATA_DIR / "premier_league.db"
-MATCHES_SUMMARY_PATH = PROCESSED_DIR / "matches_summary_all.parquet"
-FEATURES_PATH = PROCESSED_DIR / "features_matches_all.parquet"
-MODELS_DIR = Path(os.environ.get("PLM_MODELS_DIR") or ROOT / "models" / "production").resolve()
+COMPETITIONS_DIR = DATA_DIR / "competitions"
+DB_PATH = DATA_DIR / "football.db"
+if not DB_PATH.exists() and (DATA_DIR / "premier_league.db").exists():
+    DB_PATH = DATA_DIR / "premier_league.db"  # pre-rename installs (e.g. the server) keep working until the file is renamed
+MODELS_ROOT = Path(os.environ.get("PLM_MODELS_ROOT") or ROOT / "models" / "production").resolve()
 REPORTS_DIR = Path(os.environ.get("PLM_REPORTS_DIR") or ROOT / "docs" / "reports").resolve()
+DEFAULT_COMPETITION = "premier_league"
+
+
+@dataclass(frozen=True)
+class CompetitionPaths:
+    """Where one competition keeps its raw downloads, processed tables and trained models."""
+
+    key: str
+    raw: Path
+    matches_raw: Path
+    processed: Path
+    summary: Path
+    features: Path
+    models: Path
+
+    def fixtures(self, season: str) -> Path:
+        return self.raw / f"fixtures_{season}.json"
+
+    def fixture_seasons(self) -> list[str]:
+        return sorted(path.stem.removeprefix("fixtures_") for path in self.raw.glob("fixtures_*.json"))
+
+
+def competition_paths(key: str = DEFAULT_COMPETITION) -> CompetitionPaths:
+    """Paths of one competition; nothing is created on disk."""
+    root = COMPETITIONS_DIR / key
+    if key == DEFAULT_COMPETITION and os.environ.get("PLM_MODELS_DIR"):
+        models = Path(os.environ["PLM_MODELS_DIR"]).resolve()
+    else:
+        models = MODELS_ROOT / key
+    return CompetitionPaths(
+        key=key,
+        raw=root / "raw",
+        matches_raw=root / "raw" / "matches",
+        processed=root / "processed",
+        summary=root / "processed" / "matches_summary_all.parquet",
+        features=root / "processed" / "features_matches_all.parquet",
+        models=models,
+    )
+
+
+_PL = competition_paths(DEFAULT_COMPETITION)
+RAW_DIR = _PL.raw
+MATCHES_RAW_DIR = _PL.matches_raw
+PROCESSED_DIR = _PL.processed
+MATCHES_SUMMARY_PATH = _PL.summary
+FEATURES_PATH = _PL.features
+MODELS_DIR = _PL.models
 
 
 def _fixture_seasons() -> list[str]:

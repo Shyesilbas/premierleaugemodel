@@ -9778,11 +9778,13 @@
       "id": 2010.0
     },
     "neutralGround": false,
-    "status": "L",
-    "phase": "1",
+    "status": "C",
+    "phase": "F",
+    "outcome": "D",
+    "attendance": 46182.0,
     "clock": {
-      "secs": 660.0,
-      "label": "11'00"
+      "secs": 5760.0,
+      "label": "90+6'00"
     },
     "fixtureType": "REGULAR",
     "extraTime": false,

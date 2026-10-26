@@ -46,18 +46,25 @@ lerna-debug.log*
 *.swp
 *.swo
 
-# Raw downloaded API json cache
-data/raw/matches/
+# Raw downloaded API json cache (per competition)
+data/competitions/*/raw/matches/
 
 graphify-out/
 
 # Regenerable data and binaries (rebuilt by run_full_pipeline.py / sync_season_data.py)
+data/football.db
 data/premier_league.db
-data/processed/*.parquet
-data/processed/player_match_logs.json
-data/processed/players_registry.json
-data/processed/model_audit_summary*.json
-data/processed/match_player_bookings_cache.json
+data/competitions/*/raw/*/matches/
+data/competitions/*/processed/*.parquet
+data/competitions/*/processed/player_match_logs.json
+data/competitions/*/processed/players_registry.json
+data/competitions/*/processed/model_audit_summary*.json
+data/competitions/*/processed/match_player_bookings_cache.json
+data/competitions/*/raw/.sync.lock
 models/backup/
-models/production/*.backup_*.joblib
-data/raw/.sync.lock
+models/production/**/*.backup_*.joblib
+
+# Provider downloads of non-PL competitions (re-fetchable via src.ingest; API-limited, so kept on disk)
+data/competitions/champions_league/raw/
+data/competitions/europa_league/raw/
+data/competitions/la_liga/raw/

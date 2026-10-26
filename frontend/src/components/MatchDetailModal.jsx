@@ -24,13 +24,17 @@ import {
 import { getTeam } from '../data/teams';
 import { getCachedTeamData, setCachedTeamData } from '../utils/teamProfileCache';
 import { getMatchDetails, getMatchOdds, getMatchPrediction } from '../services/matchService';
+import { useCompetition } from '../context/CompetitionContext';
+import { hasModelPrediction } from '../utils/matchModel';
 
 export default function MatchDetailModal({ match, onClose, currentGameweek }) {
   const isCompleted = Boolean(
     match.status === 'COMPLETED' || 
     (match.home_score !== null && match.home_score !== undefined && match.home_score !== '')
   );
-  const isPredictable = !isCompleted && (
+  const { hasModel: competitionHasModel, competitionKey } = useCompetition();
+  const hasModel = hasModelPrediction(match, competitionHasModel);
+  const isPredictable = hasModel && !isCompleted && (
     currentGameweek ? Number(match.gameweek) === Number(currentGameweek) : true
   );
   const [activeTab, setActiveTab] = useState(
@@ -90,7 +94,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
     if (isCompleted || !isPredictable) return;
     if (!match.home_id || !match.away_id) return;
     setLoadingPrediction(true);
-    getMatchPrediction(match.home_id, match.away_id, match?.match_id)
+    getMatchPrediction(match.home_id, match.away_id, match?.match_id, match?.season, competitionKey)
       .then(data => {
         setPrediction(data);
         setLoadingPrediction(false);
@@ -279,7 +283,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
           <div className="text-center text-xs text-text-secondary mt-2 font-medium flex items-center justify-center gap-2">
             <span>{match.kickoff_label || meta.kickoff_label}</span>
             <span>•</span>
-            <span className="truncate max-w-48">{match.ground_name || meta.ground || 'Premier League Stadı'}</span>
+            <span className="truncate max-w-48">{match.ground_name || meta.ground || 'Stadyum bilgisi yok'}</span>
             {meta.attendance && (
               <>
                 <span>•</span>
@@ -318,7 +322,7 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
               </button>
             )}
 
-            {!isCompleted && !isPredictable && (
+            {!isCompleted && hasModel && !isPredictable && (
               <span className="px-3 py-1 rounded text-xs font-semibold bg-background-tertiary border border-border text-status-warning flex items-center gap-1.5" title="Model tahminleri takım formu ve sakatlık güncelliği için yalnızca mevcut haftanın maçlarında aktiftir">
                 <AlertCircle className="w-3.5 h-3.5 text-status-warning" />
                 <span>Tahminler {match.gameweek}. Haftada Açılacak</span>

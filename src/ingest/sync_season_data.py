@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # works for `python3 src/...py` and `python -m`
-from src.config import DATA_DIR, DEFAULT_SEASON  # noqa: E402
+from src.config import DEFAULT_SEASON, MATCHES_RAW_DIR, RAW_DIR  # noqa: E402
 from src.ingest.files import atomic_write_json  # noqa: E402
 from src.pipeline.rebuild import rebuild_derived_data  # noqa: E402
 from src.ingest.fetch_season_data import (  # noqa: E402
@@ -45,7 +45,7 @@ class SyncAlreadyRunning(RuntimeError):
 @contextmanager
 def sync_lock():
     """Cross-process lock, so the API button, cron and a terminal run cannot overlap."""
-    lock_path = DATA_DIR / "raw" / ".sync.lock"
+    lock_path = RAW_DIR / ".sync.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("w") as handle:
         try:
@@ -248,7 +248,7 @@ def fetch_one(session, match_id: int, kind: str) -> bool:
         if not result:
             logger.warning("No %s data returned for match %s", kind, match_id)
             return False
-        path = DATA_DIR / "raw" / "matches" / f"{match_id}_{kind}.json"
+        path = MATCHES_RAW_DIR / f"{match_id}_{kind}.json"
         atomic_write_json(path, result)
         return True
     except Exception:
@@ -265,7 +265,7 @@ def sync_season(
     rebuild: bool = True,
     referees_only: bool = False,
 ) -> Dict[str, int]:
-    raw_dir = DATA_DIR / "raw"
+    raw_dir = RAW_DIR
     matches_dir = raw_dir / "matches"
     fixture_path = raw_dir / f"fixtures_{season_name}.json"
     pending_path = raw_dir / f".sync_pending_{season_name}"

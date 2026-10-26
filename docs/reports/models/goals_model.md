@@ -1,7 +1,7 @@
 # Gol Modeli (Bağımsız Poisson + Dixon-Coles Skor Matrisi) — Model Raporu
 
 **Rapor tarihi:** 19 Ekim 2026 (`v1.4`)
-**Artifact:** `models/production/goals_models_v1.joblib` · **Kod:** `src/models/goals_model.py`, `src/models/dixon_coles.py`, `src/models/train_goals.py`, `src/models/evaluate_goal_models.py`
+**Artifact:** `models/production/premier_league/goals_models_v1.joblib` · **Kod:** `src/models/goals_model.py`, `src/models/dixon_coles.py`, `src/models/train_goals.py`, `src/models/evaluate_goal_models.py`
 **Dokümantasyon:** [Ana Rapor](../premier_league_models_comprehensive_report.md) · [Metodolojik Anayasa (Bölüm 8)](../premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage) · [1X2 Model Raporu](outcome_1x2_model.md) · [API Entegrasyonu](../../model_api_integration.md)
 
 > **Bölüm numaraları:** Bu içerik 17 Ekim 2026'da ana rapordan taşındı. "Bölüm 3" ve "Bölüm 11.x" numaraları, AI_CONTEXT ve diğer belgelerdeki atıflar bozulmasın diye korunmuştur. **Güncel değerler: [11.11](#1111-gol-modeli--güncel-değerler-v14-19-ekim-2026)** · **İş akışı: [11.12](#1112-gol-modeli-iş-akışı-workflow)**
@@ -77,7 +77,7 @@ Model olasılıkları $\%41.09$ ile $\%74.55$ arasındadır; model aşırı güv
 
 ## BÖLÜM 11: Bağımsız Denetim (17 Ekim 2026) — Gol Modeli & API Bulguları
 
-**Kapsam:** `src/models/goals_model.py`, `src/models/dixon_coles.py`, `src/models/train_goals.py`, `src/models/evaluate_goal_models.py`, `src/api/server.py` (`predict_match`), `data/processed/goal_model_outer_eval.json`, `models/production/goals_models_v1.joblib` ve `scratch/goal_model_comprehensive_metrics.json`.  
+**Kapsam:** `src/models/goals_model.py`, `src/models/dixon_coles.py`, `src/models/train_goals.py`, `src/models/evaluate_goal_models.py`, `src/api/server.py` (`predict_match`), `data/competitions/premier_league/processed/goal_model_outer_eval.json`, `models/production/premier_league/goals_models_v1.joblib` ve `scratch/goal_model_comprehensive_metrics.json`.  
 **Yöntem:** Üretim konfigürasyonu (`hl=365`, `alpha=10`, `w_dc=0.25`) genişleyen sezon bazlı ileri değerlendirme ile yeniden üretildi (her sezon yalnızca önceki sezonlarla eğitildi). 2026/27 kilitli sezonu **yalnızca raporlandı**, hiçbir seçim kararında kullanılmadı. Bootstrap: 2.000 eşleşmeli örnek, `seed=42`.
 
 ### 11.1. Gerçek Holdout Rakamları (Kilitli Sezon Hariç, N = 1.140)
@@ -200,7 +200,7 @@ Gol modeli **kullanılabilir ama abartılmıştır**: prior'u küçük ve anlaml
 2. `src/models/train_goals.py` — sabit `CHOSEN` kaldırıldı; tek arama uzayı `BLEND_GRID` (α ∈ {1, 3, 10, 30}, w_dc ∈ {0, 0.25, 0.5}, hl=365). Yeni `select_blend_config()` α ve w_dc'yi yalnızca verilen verinin ileri katlarında O2.5 log-loss'a göre seçiyor. Kalibrasyon değerlendirmesi karışık `KFold` yerine `forward_time_splits` kullanıyor; kalibratör yalnızca ileri katlarda kazanç varsa kaydediliyor ve meta veri gerçeği yansıtıyor.
 3. `src/models/evaluate_goal_models.py` — sabit kodlanmış `10.0 / 0.25` kaldırıldı; `blend_dc_feat` her dış sezonda **yalnızca o sezondan önceki verilerle** `select_blend_config()` çalıştırılarak kuruluyor (iç içe seçim). Kapı kaydına `selection_grid` ve sezon bazlı `selected_configs` yazılıyor; `train_goals` farklı bir ızgarayla üretilmiş kapıyı reddediyor.
 4. `tests/test_goal_selection.py` — seçim ve ileri kalibrasyon için iki test.
-5. Eski üretim modeli yedeklendi: `models/production/goals_models_v1.backup_2026-10-17.joblib`.
+5. Eski üretim modeli yedeklendi: `models/production/premier_league/goals_models_v1.backup_2026-10-17.joblib`.
 
 **Dürüst (iç içe) holdout sonucu, 1.140 maç:**
 
@@ -243,7 +243,7 @@ Hizalama 1X2'yi anlamlı biçimde iyileştirir, Üst/Alt pazarlarını bozmaz. B
 
 **Ek düzeltmeler (aynı tur):**
 - `server.py` BTTS kalibratörünü hiç uygulamıyordu (önceden tüm kalibratörler `None` olduğu için görünmüyordu); artık uyguluyor.
-- `src/analytics/model_audit.py` API ile aynı yolu izliyor: hizalanmış matris, kayıtlı O2.5/BTTS kalibratörleri, BTTS isabet eşiği %50 (önceden lig ortalaması). Önbelleğe alınmış denetim özetleri (`data/processed/model_audit_summary*.json`) `force_recalc=True` ile yeniden hesaplanana kadar eski mantıkla kalır.
+- `src/analytics/model_audit.py` API ile aynı yolu izliyor: hizalanmış matris, kayıtlı O2.5/BTTS kalibratörleri, BTTS isabet eşiği %50 (önceden lig ortalaması). Önbelleğe alınmış denetim özetleri (`data/competitions/premier_league/processed/model_audit_summary*.json`) `force_recalc=True` ile yeniden hesaplanana kadar eski mantıkla kalır.
 - Doğrulama: sıradaki 10 fikstürde API'nin 1X2'si ile matrisin ima ettiği 1X2 arasındaki en büyük fark **0.06 puan** (yalnızca yuvarlama). Önceden ortalama fark 5.6 puandı.
 - Testler: `tests/test_goal_matrix.py`'ye hizalama testi eklendi.
 
@@ -301,7 +301,7 @@ Hizalama 1X2'yi anlamlı biçimde iyileştirir, Üst/Alt pazarlarını bozmaz. B
 
 ### 11.11. Gol Modeli — Güncel Değerler (v1.6, 24 Ekim 2026)
 
-> Sayılar `models/production/goals_models_v1.joblib` ve `data/processed/goal_model_outer_eval.json` dosyalarından alınmıştır. Değişikliklerin gerekçesi ve adım adım sonuçları: `GOAL_MODELS_ANALYSIS.md` (Ç1–Ç5, P1–P8) ve 24 Ekim 2026 `K1–K9` + toplam/saha xG temposu (`exp_match_xg_10`, `exp_venue_match_xg`) güncellemeleri.
+> Sayılar `models/production/premier_league/goals_models_v1.joblib` ve `data/competitions/premier_league/processed/goal_model_outer_eval.json` dosyalarından alınmıştır. Değişikliklerin gerekçesi ve adım adım sonuçları: `GOAL_MODELS_ANALYSIS.md` (Ç1–Ç5, P1–P8) ve 24 Ekim 2026 `K1–K9` + toplam/saha xG temposu (`exp_match_xg_10`, `exp_venue_match_xg`) güncellemeleri.
 
 **Ölçümler ne anlatıyor?**
 
@@ -357,7 +357,7 @@ Hizalama 1X2'yi anlamlı biçimde iyileştirir, Üst/Alt pazarlarını bozmaz. B
 ### 11.12. Gol Modeli İş Akışı (Workflow)
 
 ```
-                 data/processed/features_matches_all.parquet  (shift(1) maç öncesi özellikler)
+                 data/competitions/premier_league/processed/features_matches_all.parquet  (shift(1) maç öncesi özellikler)
                                         │
         ┌───────────────────────────────┴───────────────────────────────┐
         ▼                                                               ▼
@@ -366,7 +366,7 @@ Hizalama 1X2'yi anlamlı biçimde iyileştirir, Üst/Alt pazarlarını bozmaz. B
       (BLEND_GRID × ileri katlar, en düşük skor NLL) → seçilen blend S'de skorlanır
     • Sabit-ayar adayları (dc_*, feat_alpha*) ve logreg_o25 kıyas için
     • Haftalık yeniden eğitim bloğu: evaluate_in_season_refit()
-    • Çıktı: data/processed/goal_model_outer_eval.json
+    • Çıktı: data/competitions/premier_league/processed/goal_model_outer_eval.json
         (outer_season_results, o25_candidate_gates[selection_grid,
          selected_configs, ci_excludes_zero], o25_in_season_refit)
         │
@@ -377,7 +377,7 @@ Hizalama 1X2'yi anlamlı biçimde iyileştirir, Üst/Alt pazarlarını bozmaz. B
     • Tüm kilitsiz sezonlarda select_blend_config() → üretim ayarı
     • İleri OOF + ileri kalibrasyon testi → kalibratör yalnızca kazanç varsa
     • Final fit: tüm oynanmış maçlar (kilitli sezon dahil, yalnızca parametre için)
-    • Çıktı: models/production/goals_models_v1.joblib
+    • Çıktı: models/production/premier_league/goals_models_v1.joblib
         (model, chosen, selection_grid, calibrators, calibration_metrics, base_rates)
         │
         ▼

@@ -65,6 +65,13 @@ def get_player_profile(player_id: str, season: Optional[str] = "all", competitio
         conn = get_db()
         try:
             profile = build_player_profile(conn, comp.id, season if season and season != "all" else comp.default_season, player_id)
+            if profile is not None and comp.is_domestic:
+                # A national league's player also appears in Europe: his UCL / UEL games, matched by name inside his club.
+                from src.api.european_fixtures import COMPETITIONS, player_european_log
+                for match in profile["matches"]:
+                    match["competition"] = COMPETITIONS[comp.id]
+                club = profile["player"].get("teamName")
+                profile["european"] = player_european_log(conn, profile["player"].get("name") or "", {profile["season"]: {club}} if club else {})
         finally:
             conn.close()
         if profile is None:

@@ -1,7 +1,7 @@
 """Shared pytest setup.
 
 Tests marked ``needs_data`` read the local data lake and the trained models, which are not in
-git (``data/premier_league.db``, parquet files, ``models/production``). They are skipped on a
+git (``data/football.db``, parquet files, ``models/production``). They are skipped on a
 fresh clone or in CI instead of failing; everything else must run on synthetic data.
 """
 

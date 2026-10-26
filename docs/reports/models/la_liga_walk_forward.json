@@ -1,0 +1,260 @@
+{
+  "generated_at_utc": "2026-10-25T21:28:22+00:00",
+  "competition": "la_liga",
+  "protocol": {
+    "warm_up_season": "2022_23",
+    "outer_seasons": [
+      "2024_25",
+      "2025_26"
+    ],
+    "locked_monitoring": [
+      "2026_27"
+    ],
+    "bootstrap_draws": 10000,
+    "seed": 42,
+    "feature_count": 118,
+    "feature_set": "src/features/build_league_features.py"
+  },
+  "folds": {
+    "2024_25": {
+      "train_matches": 760,
+      "selected_model": "logreg_C0.001",
+      "cv_log_loss": {
+        "logreg_C0.001": 0.9921,
+        "logreg_C0.003": 0.997,
+        "logreg_C0.01": 1.0292,
+        "logreg_C0.03": 1.0911,
+        "logreg_C0.1": 1.2034,
+        "lgbm_n100": 1.0022,
+        "lgbm_n200": 1.0145,
+        "lgbm_n400": 1.0577
+      },
+      "poisson_alpha": 10.0,
+      "locked_monitoring": false,
+      "market_coverage": 377
+    },
+    "2025_26": {
+      "train_matches": 1140,
+      "selected_model": "logreg_C0.001",
+      "cv_log_loss": {
+        "logreg_C0.001": 0.985,
+        "logreg_C0.003": 0.99,
+        "logreg_C0.01": 1.0145,
+        "logreg_C0.03": 1.059,
+        "logreg_C0.1": 1.1381,
+        "lgbm_n100": 0.9914,
+        "lgbm_n200": 1.0005,
+        "lgbm_n400": 1.035
+      },
+      "poisson_alpha": 10.0,
+      "locked_monitoring": false,
+      "market_coverage": 380
+    },
+    "2026_27": {
+      "train_matches": 1520,
+      "selected_model": "logreg_C0.001",
+      "cv_log_loss": {
+        "logreg_C0.001": 0.9796,
+        "logreg_C0.003": 0.9867,
+        "logreg_C0.01": 1.0112,
+        "logreg_C0.03": 1.0532,
+        "logreg_C0.1": 1.1197,
+        "lgbm_n100": 0.9896,
+        "lgbm_n200": 1.0016,
+        "lgbm_n400": 1.0369
+      },
+      "poisson_alpha": 10.0,
+      "locked_monitoring": true,
+      "market_coverage": 97
+    }
+  },
+  "per_season": {
+    "2024_25": {
+      "model": {
+        "n": 380,
+        "log_loss": 0.975,
+        "brier": 0.576,
+        "rps": 0.1951,
+        "accuracy_pct": 53.68
+      },
+      "base_rate": {
+        "n": 380,
+        "log_loss": 1.0708,
+        "brier": 0.6475,
+        "rps": 0.2287,
+        "accuracy_pct": 44.47
+      },
+      "elo": {
+        "n": 380,
+        "log_loss": 0.9754,
+        "brier": 0.5794,
+        "rps": 0.1963,
+        "accuracy_pct": 53.68
+      },
+      "market": {
+        "n": 377,
+        "log_loss": 0.9447,
+        "brier": 0.5584,
+        "rps": 0.1877,
+        "accuracy_pct": 55.97
+      }
+    },
+    "2025_26": {
+      "model": {
+        "n": 380,
+        "log_loss": 0.9725,
+        "brier": 0.5751,
+        "rps": 0.1982,
+        "accuracy_pct": 53.16
+      },
+      "base_rate": {
+        "n": 380,
+        "log_loss": 1.0489,
+        "brier": 0.6318,
+        "rps": 0.2234,
+        "accuracy_pct": 48.95
+      },
+      "elo": {
+        "n": 380,
+        "log_loss": 0.9885,
+        "brier": 0.5848,
+        "rps": 0.2026,
+        "accuracy_pct": 52.37
+      },
+      "market": {
+        "n": 380,
+        "log_loss": 0.9624,
+        "brier": 0.5697,
+        "rps": 0.1951,
+        "accuracy_pct": 54.74
+      }
+    },
+    "2026_27": {
+      "model": {
+        "n": 97,
+        "log_loss": 0.9402,
+        "brier": 0.5574,
+        "rps": 0.1864,
+        "accuracy_pct": 52.58
+      },
+      "base_rate": {
+        "n": 97,
+        "log_loss": 1.0742,
+        "brier": 0.6496,
+        "rps": 0.224,
+        "accuracy_pct": 44.33
+      },
+      "elo": {
+        "n": 97,
+        "log_loss": 0.9631,
+        "brier": 0.5711,
+        "rps": 0.1879,
+        "accuracy_pct": 49.48
+      },
+      "market": {
+        "n": 97,
+        "log_loss": 0.9134,
+        "brier": 0.5388,
+        "rps": 0.1757,
+        "accuracy_pct": 55.67
+      }
+    }
+  },
+  "comparisons": {
+    "vs_base_rate": {
+      "pooled_outer": {
+        "mean_delta": -0.08613420668462989,
+        "ci_low": -0.11975337506756487,
+        "ci_high": -0.051069342117723224,
+        "p_a_better": 1.0,
+        "n": 760,
+        "p_two_sided": 0.0,
+        "n_required_80_power": 244,
+        "q_fdr": 0.0,
+        "significant_fdr_05": true
+      },
+      "hold_out": {
+        "mean_delta": -0.07643223307142527,
+        "ci_low": -0.11865070280969679,
+        "ci_high": -0.03464325127171851,
+        "p_a_better": 0.9999,
+        "n": 380,
+        "p_two_sided": 0.00019999999999997797,
+        "n_required_80_power": 239
+      }
+    },
+    "vs_elo": {
+      "pooled_outer": {
+        "mean_delta": -0.008228155848484268,
+        "ci_low": -0.024921094554878162,
+        "ci_high": 0.008930311375004302,
+        "p_a_better": 0.8284,
+        "n": 760,
+        "p_two_sided": 0.34319999999999995,
+        "n_required_80_power": 6619,
+        "q_fdr": 0.34319999999999995,
+        "significant_fdr_05": false
+      },
+      "hold_out": {
+        "mean_delta": -0.01605924928006112,
+        "ci_low": -0.0370582058698165,
+        "ci_high": 0.004514303603272702,
+        "p_a_better": 0.9395,
+        "n": 380,
+        "p_two_sided": 0.121,
+        "n_required_80_power": 1297
+      }
+    },
+    "vs_market": {
+      "pooled_outer": {
+        "mean_delta": 0.019383000882862437,
+        "ci_low": 0.0024043001993615306,
+        "ci_high": 0.036710804306006144,
+        "p_a_better": 0.0125,
+        "n": 757,
+        "p_two_sided": 0.025,
+        "n_required_80_power": 1210,
+        "q_fdr": 0.037500000000000006,
+        "significant_fdr_05": true
+      },
+      "hold_out": {
+        "mean_delta": 0.010091970055370988,
+        "ci_low": -0.009456724128876697,
+        "ci_high": 0.030031211628158194,
+        "p_a_better": 0.16,
+        "n": 380,
+        "p_two_sided": 0.32,
+        "n_required_80_power": 2994
+      }
+    }
+  },
+  "goals": {
+    "n": 760,
+    "total_goals_mae": {
+      "model": 1.2274,
+      "training_mean": 1.2537
+    },
+    "over_15": {
+      "model_log_loss": 0.5512,
+      "base_rate_log_loss": 0.563
+    },
+    "over_25": {
+      "model_log_loss": 0.6766,
+      "base_rate_log_loss": 0.694
+    },
+    "over_35": {
+      "model_log_loss": 0.5483,
+      "base_rate_log_loss": 0.5595
+    },
+    "btts": {
+      "model_log_loss": 0.6879,
+      "base_rate_log_loss": 0.6917
+    }
+  },
+  "decision": {
+    "serving": "model",
+    "beats_base_rate_significantly": true,
+    "not_worse_than_elo": true,
+    "rule": "serve the model only if it beats the base rate (FDR-adjusted) and its mean log-loss is not above the Elo baseline's; otherwise serve the Elo baseline, labelled as a baseline"
+  }
+}

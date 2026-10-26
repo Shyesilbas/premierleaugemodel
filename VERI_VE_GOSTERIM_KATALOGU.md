@@ -329,6 +329,7 @@ Oynanmış her maç için, maç öncesi üretilen saf tahminlerin gerçekleşen 
   - `is_value_bet`: %5+ değer avantajı olan bahisler.
   - `confidence_tier`: Model güven derecesi (`high`, `medium`, `low`).
   - `is_balanced`: Maçın dengeli olup olmadığı.
+* **La Liga (`competition=la_liga`):** `GET /api/model-audit` ve `GET /api/predict` `src/analytics/league_audit.py` ve `src/api/league_prediction.py` üzerinden çalışır (`has_model` bayrağı olan turnuvalar). Yanıt: walk-forward 1X2 olasılıkları, taban oran / Elo / piyasa kıyas şeridi (`benchmark`) ve model Elo'ya düşerse `model_note`. Korner, kart gibi sayım pazarları `baseline` etiketlidir; değerli oran filtresi yalnızca `hasRichData` turnuvalarında görünür. Rapor: `docs/reports/models/la_liga_outcome.md`.
 
 ---
 
@@ -688,10 +689,10 @@ Yapay Zeka tahmin motorunda kart ve disiplin tahminleri üretilirken:
 ## 5. Veri Mimarisi, Kaynaklar ve API Uç Noktaları
 
 ### 5.1 Veri Tabanı Şemaları (Database Architecture)
-Uygulama `data/premier_league.db` (SQLite) ve `data/processed/*.parquet` katmanlarını birlikte kullanır:
+Uygulama `data/football.db` (SQLite, tüm turnuvalar için ortak) ve turnuva bazlı `data/competitions/<anahtar>/processed/*.parquet` katmanlarını birlikte kullanır (parquet, özellik ve modeller yalnızca Premier League için vardır):
 
 #### SQLite Tabloları:
-1. `matches`: 1.900 karşılaşmanın skorları, tarihleri, hakemleri, temel korner/taç/şut/faul/kart/xG özetleri.
+1. `matches`: Premier League 1.900 karşılaşmanın (ve `competition_id` 2/3/140 ile Şampiyonlar Ligi 772, Avrupa Ligi 804, LaLiga 139 maçının; LaLiga'nın eski sezonları yüklendikçe artar) skorları, tarihleri, hakemleri, temel korner/taç/şut/faul/kart/xG özetleri.
 2. `external_match_xg`: TheStatsAPI üzerinden çekilen doğrulanmış ev ve deplasman xG değerleri ve kalite etiketleri.
 3. `external_match_odds`: Bet365, Pinnacle, Betfair vb. şirketlerin 1X2, 2.5 Alt/Üst, KG Var/Yok açılış ve kapanış oranları.
 4. `referees`: Hakemlerin sezonluk ve kariyer ("all") maç sayısı, sarı/kırmızı kart ve faul ortalamaları, katılık etiketleri.

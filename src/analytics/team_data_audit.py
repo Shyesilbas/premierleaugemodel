@@ -164,7 +164,7 @@ def build_report() -> str:
         "",
         f"Snapshot generated {date.today().isoformat()} from cached raw provider responses.",
         "",
-        "Bu rapor `data/raw/matches/*_stats.json` dosyalarındaki takım düzeyi `M` istatistiklerini inceler. "
+        "Bu rapor `data/competitions/premier_league/raw/matches/*_stats.json` dosyalarındaki takım düzeyi `M` istatistiklerini inceler. "
         "Bir metriğin dosyada bulunmaması sıfır kabul edilmez.",
         "",
         "## Sezon kapsamı",

@@ -1,7 +1,17 @@
-"""Sync fixtures and results for a non-Premier-League competition into SQLite.
+"""Write one season's fixtures, results and official table of a non-Premier-League competition into SQLite.
 
 Usage: python3 -m src.ingest.sync_competition_data --competition champions_league --season 2026_27
-Only rows of the given competition_id are replaced; Premier League rows are never touched.
+
+What it does: asks the competition's provider for the season's matches, converts them to ``matches`` rows (stage, group, leg,
+penalties, who advanced) and upserts them, so statistics already stored by other providers survive. Matches that disappeared
+from the feed are removed. The raw feed is saved under ``data/competitions/<key>/raw/uefa/``.
+
+Reads:  UEFA match and standings APIs (champions_league, europa_league; public, no key) or, for a TheStatsAPI league
+        such as la_liga, the fixture files saved by ``fetch_thestatsapi_league``.
+Writes: ``data/football.db`` (``matches``, ``external_competition_payloads`` for UEFA's official table) and the raw files.
+Needs:  nothing for the UEFA cups; for a league run ``fetch_thestatsapi_league`` first. Prefer ``sync_competition`` or
+        ``load_thestatsapi_league``, which call this and also handle the statistics.
+Safety: only rows of the given competition_id are replaced; a match id already owned by another competition aborts the run.
 """
 
 from __future__ import annotations
@@ -13,9 +23,10 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from src.competitions.registry import get_competition
+from src.competitions.registry import CompetitionRegistry, get_competition
 from src.config import configure_logging
 from src.db.database import get_db, init_db
+from src.ingest.raw_store import season_file_path, write_json
 from src.ingest.provider_factory import get_provider
 
 logger = logging.getLogger("sync_competition_data")
@@ -26,6 +37,17 @@ COLUMNS = (
     "away_id", "away_name", "away_abbr", "away_logo", "away_score", "status", "referee_name", "competition_id",
     "group_name", "leg", "advancing_team_id", "advance_reason", "home_penalties", "away_penalties",
 )
+
+
+def assert_ids_free(conn, competition_id: int, match_ids: List[int]) -> None:
+    """Match ids share one primary key across competitions, so a new feed must never reuse another one's id."""
+    marks = ", ".join("?" * len(match_ids))
+    clash = conn.execute(
+        f"SELECT match_id, competition_id FROM matches WHERE match_id IN ({marks}) AND competition_id != ? LIMIT 5",
+        (*match_ids, competition_id),
+    ).fetchall()
+    if clash:
+        raise ValueError(f"Match ids already belong to another competition (e.g. {[tuple(r) for r in clash]}); namespace the new feed's ids.")
 
 
 def official_ranks(tables: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -46,7 +68,8 @@ def sync_competition_season(competition_key: str, season: str, conn: sqlite3.Con
 
     provider = get_provider(comp.key)
     rows: List[Dict[str, Any]] = []
-    for raw in provider.fetch_fixtures(season):
+    raw_fixtures = provider.fetch_fixtures(season)
+    for raw in raw_fixtures:
         row = provider.normalize_fixture_record(raw)
         if row is not None:
             rows.append(row)
@@ -58,6 +81,9 @@ def sync_competition_season(competition_key: str, season: str, conn: sqlite3.Con
     conn = conn or get_db()
     try:
         season = rows[0]["season"]
+        assert_ids_free(conn, comp.id, [r["match_id"] for r in rows])
+        if getattr(provider, "stores_raw_fixtures", True):
+            write_json(season_file_path(comp.key, "uefa", "fixtures", season), raw_fixtures)
         # Upsert so statistics columns filled by other providers (corners, xG, ...) survive a fixture refresh.
         updates = ", ".join(f"{c} = excluded.{c}" for c in COLUMNS if c != "match_id")
         conn.executemany(
@@ -77,6 +103,7 @@ def sync_competition_season(competition_key: str, season: str, conn: sqlite3.Con
             logger.warning("Official standings unavailable for %s %s: %s", comp.key, season, exc)
             tables = []
         if tables:
+            write_json(season_file_path(comp.key, "uefa", "standings", season), tables)
             conn.execute(
                 "INSERT OR REPLACE INTO external_competition_payloads (competition_id, season, provider, kind, ref, payload, fetched_at_utc) VALUES (?,?,?,?,?,?,?)",
                 (comp.id, season, "UEFA", "standings", "", json.dumps(official_ranks(tables)), datetime.now(timezone.utc).isoformat(timespec="seconds")),
@@ -91,9 +118,9 @@ def sync_competition_season(competition_key: str, season: str, conn: sqlite3.Con
 
 def main() -> None:
     configure_logging()
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--competition", required=True, choices=["champions_league", "europa_league"])
-    parser.add_argument("--season", default="2026_27")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--competition", required=True, choices=[c.key for c in CompetitionRegistry.list_all() if c.key != "premier_league"], help="competition key from config/competitions.yaml")
+    parser.add_argument("--season", default="2026_27", help="season label such as 2025_26 (default 2026_27)")
     args = parser.parse_args()
     init_db()
     sync_competition_season(args.competition, args.season)

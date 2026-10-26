@@ -16,7 +16,7 @@ function getPositionMeta(position) {
 }
 
 export default function PlayerProfilesTab({ selectedSeason, setSelectedSeason, onSelectMatch }) {
-  const { competitionKey } = useCompetition();
+  const { competitionKey, hasRichData } = useCompetition();
   const [searchTerm, setSearchTerm] = useState('');
   const [playerList, setPlayerList] = useState([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState(65970);
@@ -33,7 +33,7 @@ export default function PlayerProfilesTab({ selectedSeason, setSelectedSeason, o
     setPlayerProfile(null);
     setSearchTerm('');
     setPlayerList([]);
-    if (competitionKey === 'premier_league') {
+    if (hasRichData) {
       setSelectedPlayerId(65970);
       return undefined;
     }
@@ -121,13 +121,13 @@ export default function PlayerProfilesTab({ selectedSeason, setSelectedSeason, o
 
   const filteredMatches = useMemo(() => {
     let list = playedMatches;
-    if (selectedCompetition !== 'all') list = list.filter(match => (match.competition?.key || 'premier_league') === selectedCompetition);
+    if (selectedCompetition !== 'all') list = list.filter(match => (match.competition?.key || competitionKey) === selectedCompetition);
     // gameweeks are a league concept: a chosen week narrows the list to that league round
     if (selectedMatchGameweek !== 'all') {
-      list = list.filter(match => (match.competition?.key || 'premier_league') === 'premier_league' && Math.round(Number(match.gameweek)) === Number(selectedMatchGameweek));
+      list = list.filter(match => (match.competition?.key || competitionKey) === competitionKey && Math.round(Number(match.gameweek)) === Number(selectedMatchGameweek));
     }
     return list;
-  }, [playedMatches, selectedMatchGameweek, selectedCompetition]);
+  }, [playedMatches, selectedMatchGameweek, selectedCompetition, competitionKey]);
 
   const handleSeasonChange = (season) => {
     setPlayerSeason(season);

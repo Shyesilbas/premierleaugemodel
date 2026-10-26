@@ -9,6 +9,8 @@ import MatchPredictionTab from './match-detail/MatchPredictionTab';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Clock, Users, BarChart3, Activity, AlertCircle, Sparkles, TrendingUp } from 'lucide-react';
 import { getTeam } from '../data/teams';
+import { useCompetition } from '../context/CompetitionContext';
+import { hasModelPrediction } from '../utils/matchModel';
 import { getCachedTeamData, setCachedTeamData } from '../utils/teamProfileCache';
 import { getMatchDetails, getMatchOdds, getMatchPrediction, getRecentMatchForm } from '../services/matchService';
 import { getTeamManagers } from '../services/teamService';
@@ -21,7 +23,9 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
     match?.status === 'COMPLETED' || 
     (match?.home_score !== null && match?.home_score !== undefined && match?.home_score !== '')
   );
-  const isPredictable = !isCompleted && (
+  const { hasModel: competitionHasModel, competitionKey } = useCompetition();
+  const hasModel = hasModelPrediction(match, competitionHasModel);
+  const isPredictable = hasModel && !isCompleted && (
     currentGameweek ? Number(match?.gameweek) === Number(currentGameweek) : true
   );
 
@@ -126,7 +130,7 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
     if (!match?.home_id || !match?.away_id) return;
     setLoadingPrediction(true);
     setPredictionFailed(false);
-    getMatchPrediction(match.home_id, match.away_id, match?.match_id)
+    getMatchPrediction(match.home_id, match.away_id, match?.match_id, match?.season, competitionKey)
       .then(data => {
         setPrediction(data);
         setLoadingPrediction(false);
@@ -337,7 +341,7 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
 
       <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} label="Maç detay sekmeleri" idPrefix="match-tab" />
 
-      {!isCompleted && !isPredictable && (
+      {!isCompleted && hasModel && !isPredictable && (
         <p className="flex items-center gap-2 text-xs text-text-secondary">
           <AlertCircle className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
           <span>Model tahminleri {match.gameweek}. haftada etkinleşir.</span>

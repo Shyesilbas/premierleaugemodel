@@ -17,7 +17,7 @@ import pandas as pd
 from src.analytics.team_attackers import get_team_attacking_leaders
 from src.analytics.team_scenarios import get_team_scenario_profile
 from src.analytics.team_tactics import get_team_tactical_profile
-from src.config import DATA_DIR, DEFAULT_SEASON, MODELS_DIR
+from src.config import DEFAULT_SEASON, FEATURES_PATH, MATCHES_SUMMARY_PATH, MODELS_DIR, PROCESSED_DIR, RAW_DIR
 from src.db.database import attach_statsapi_xg
 from src.features.build_features import (
     build_team_match_history,
@@ -29,11 +29,11 @@ from src.features.draw_features import build_draw_state
 
 logger = logging.getLogger("api_server")
 
-matches_all = DATA_DIR / "processed" / "matches_summary_all.parquet"
-features_all = DATA_DIR / "processed" / "features_matches_all.parquet"
-players_reg_file = DATA_DIR / "processed" / "players_registry.json"
-players_logs_file = DATA_DIR / "processed" / "player_match_logs.json"
-fix_2627_path = DATA_DIR / "raw" / f"fixtures_{DEFAULT_SEASON}.json"
+matches_all = MATCHES_SUMMARY_PATH
+features_all = FEATURES_PATH
+players_reg_file = PROCESSED_DIR / "players_registry.json"
+players_logs_file = PROCESSED_DIR / "player_match_logs.json"
+fix_2627_path = RAW_DIR / f"fixtures_{DEFAULT_SEASON}.json"
 
 MODEL_ARTIFACT_FILENAMES = (
     "corner_model_v1.joblib",
@@ -152,7 +152,7 @@ def get_player_match_logs(pid: int) -> List[Dict[str, Any]]:
 def get_player_cards_dict() -> Dict[str, Any]:
     global _player_cards_dict
     if _player_cards_dict is None:
-        cards_file = DATA_DIR / "processed" / "player_cards_by_season.json"
+        cards_file = PROCESSED_DIR / "player_cards_by_season.json"
         if cards_file.exists():
             try:
                 with open(cards_file, "r", encoding="utf-8") as f:
@@ -336,7 +336,7 @@ def get_season_players_map(season: str) -> Dict[int, Dict[str, Any]]:
                     pass
 
     if season == DEFAULT_SEASON:
-        staff_path = DATA_DIR / "processed" / "team_staff.json"
+        staff_path = PROCESSED_DIR / "team_staff.json"
         if staff_path.exists():
             try:
                 with staff_path.open("r", encoding="utf-8") as sf:

@@ -13,8 +13,8 @@ from src.models.train_match_outcome import (
     EXCLUDED_1X2_TRAINING_SEASONS,
 )
 
-DB_PATH = Path("data/premier_league.db")
-PARQUET_PATH = Path("data/processed/features_matches_all.parquet")
+DB_PATH = Path("data/football.db")
+PARQUET_PATH = Path("data/competitions/premier_league/processed/features_matches_all.parquet")
 
 def verify_database_counts():
     print("=== 1. DATABASE FIXTURE AND SEASON CENSUS ===")

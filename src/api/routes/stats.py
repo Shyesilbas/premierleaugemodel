@@ -11,13 +11,13 @@ from fastapi import APIRouter, HTTPException, Query
 from src.analytics.league_stats import build_league_stats
 from src.analytics.player_ratings import get_match_bookings_map
 from src.api import state
-from src.config import DATA_DIR, DEFAULT_SEASON, SEASONS
+from src.config import DEFAULT_SEASON, PROCESSED_DIR, SEASONS
 from src.db.database import get_db
 
 router = APIRouter()
 logger = logging.getLogger("api_server")
 
-GOAL_EVENTS_FILE = DATA_DIR / "processed" / "shots_events_all.parquet"
+GOAL_EVENTS_FILE = PROCESSED_DIR / "shots_events_all.parquet"
 _CACHE_LIMIT = 64
 
 _goal_events_cache: Tuple[int, pd.DataFrame] = (0, pd.DataFrame())

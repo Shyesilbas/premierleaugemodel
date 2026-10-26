@@ -2,7 +2,7 @@
 """
 Fetch authentic Transfermarkt squad & player market values for 2026_27 Premier League teams.
 Uses rate-limit controlled requests to avoid throttling.
-Stores data in SQLite (team_market_values, player_market_values) and data/processed/market_values_2026_27.json.
+Stores data in SQLite (team_market_values, player_market_values) and data/competitions/premier_league/processed/market_values_2026_27.json.
 """
 
 import json

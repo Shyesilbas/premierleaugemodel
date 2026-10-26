@@ -225,9 +225,16 @@ def get_grouped_fixtures(season: str = DEFAULT_SEASON, competition: Optional[str
             "days": day_list
         })
 
-    # Determine current gameweek:
+    # Determine current gameweek. A postponed match keeps an old week "unplayed" for months, so outside the Premier
+    # League the current week is the first one with an upcoming match that has not been left behind by the calendar.
     current_gw = 1
+    dates = {int(r["match_id"]): str(r.get("match_date") or "") for r in db_fixtures}
+    today = datetime.utcnow().date().isoformat()
+    fresh = (lambda m: dates.get(int(m["match_id"]), "") >= today) if comp_id != 39 else (lambda m: True)
     upcoming_gws = [
+        gw for gw in sorted(gw_groups.keys())
+        if any(m.get("status") == "UPCOMING" and fresh(m) for d in gw_groups[gw].values() for m in d)
+    ] or [
         gw for gw in sorted(gw_groups.keys())
         if any(m.get("status") == "UPCOMING" for d in gw_groups[gw].values() for m in d)
     ]
@@ -236,7 +243,7 @@ def get_grouped_fixtures(season: str = DEFAULT_SEASON, competition: Optional[str
     elif gw_groups:
         current_gw = max(gw_groups.keys())
 
-    next_unplayed = next((f for f in raw_fixtures if f.get("status") == "UPCOMING"), None)
+    next_unplayed = next((f for f in raw_fixtures if f.get("status") == "UPCOMING" and fresh(f)), None) or next((f for f in raw_fixtures if f.get("status") == "UPCOMING"), None)
     next_match_info = None
     if next_unplayed:
         next_match_info = {
@@ -270,7 +277,7 @@ def get_knockout_bracket(season: str = DEFAULT_SEASON, competition: Optional[str
     from src.api.knockout import build_bracket
     from src.competitions.registry import get_competition
     comp = get_competition(competition) if competition else None
-    if comp is None or comp.id == 39:
+    if comp is None or not comp.is_continental:
         raise HTTPException(status_code=404, detail="This competition has no knockout bracket")
     rows = [r for r in get_all_grouped_fixtures(season, competition_id=comp.id)]
     return {"season": season, "competition": {"key": comp.key, "id": comp.id, "name": comp.name}, **build_bracket(rows)}
@@ -367,6 +374,10 @@ def get_referee_profile(name: str, season: str = DEFAULT_SEASON, competition: Op
             "avg_fouls": avg_f,
             "strictness_label": strictness,
         }
+        european = None
+        if comp.is_domestic:
+            from src.api.european_fixtures import referee_european_matches
+            european = referee_european_matches(conn, name, season)
         conn.close()
         return {
             "referee_name": name,
@@ -376,6 +387,7 @@ def get_referee_profile(name: str, season: str = DEFAULT_SEASON, competition: Op
             "matches_count": len(matches),
             "matches": matches,
             "team_breakdown": [],
+            **({"european": european} if european is not None else {}),
         }
 
     return get_referee_detail(name, season)
@@ -622,19 +634,10 @@ def get_standings(season: str = DEFAULT_SEASON, competition: Optional[str] = Non
                 item["zone"] = "eliminated"
                 item["zone_label"] = "Elendi"
         else:
-            # Premier League Zones
-            if rank <= 4:
-                item["zone"] = "champions_league"
-                item["zone_label"] = "UEFA Şampiyonlar Ligi"
-            elif rank == 5:
-                item["zone"] = "europa_league"
-                item["zone_label"] = "UEFA Avrupa Ligi"
-            elif rank >= 18:
-                item["zone"] = "relegation"
-                item["zone_label"] = "Küme Düşme"
-            else:
-                item["zone"] = "none"
-                item["zone_label"] = ""
+            # National leagues: qualification and relegation places come from config/competitions.yaml
+            zone = next((z for z in (comp.zones if comp else get_competition(39).zones) if z["from"] <= rank <= z["to"]), None)
+            item["zone"] = zone["key"] if zone else "none"
+            item["zone_label"] = zone["label"] if zone else ""
 
     res = {
         "season": season,

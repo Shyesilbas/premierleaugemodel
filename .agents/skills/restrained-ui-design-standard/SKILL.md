@@ -94,3 +94,5 @@ npm run build
 ```
 
 Fix every violation in the files you touched before reporting completion.
+
+Then update the documents that describe what you changed (see "Her Değişiklikten Sonra: Doküman ve Rapor Senkronu" in `AGENTS.md`): for UI work that is `VERI_VE_GOSTERIM_KATALOGU.md` and `PROJECT_STATUS.md`. Do not wait to be asked.

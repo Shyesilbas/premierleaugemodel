@@ -162,12 +162,12 @@ export function GroupStandingsPanel({ group, rows, loading, onSelectTeam }) {
 }
 
 export default function FixturesStandingsView({ displayedStandings, groups = [], standingsType, setStandingsType, loadingStandings, onSelectTeam }) {
-  const { competitionKey, activeCompetition } = useCompetition();
+  const { competitionKey, activeCompetition, isCup } = useCompetition();
   const isGrouped = groups.length > 0;
-  const legend = isGrouped ? LEGENDS[`groups_${competitionKey}`] : competitionKey === 'premier_league' ? LEGENDS.premier_league : LEGENDS.league;
+  const legend = isGrouped ? LEGENDS[`groups_${competitionKey}`] : isCup ? LEGENDS.league : LEGENDS.premier_league;
   const subtitle = isGrouped
     ? `Grup Aşaması (${groups.length} grup)`
-    : competitionKey === 'premier_league' ? 'Sezon Sıralaması' : 'Lig Aşaması (36 Takım Sıralaması)';
+    : isCup ? 'Lig Aşaması (36 Takım Sıralaması)' : 'Sezon Sıralaması';
   const sections = isGrouped
     ? groups.map(name => ({ title: `Grup ${name}`, rows: displayedStandings.filter(team => team.group === name) }))
     : [{ title: null, rows: displayedStandings }];

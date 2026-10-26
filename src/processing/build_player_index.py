@@ -8,8 +8,8 @@ Parses all 760 match details JSON files to compute exact:
   - Assists provided
   - Team match log preview
 Outputs:
-  - data/processed/players_registry.json
-  - data/processed/player_match_logs.json
+  - data/competitions/premier_league/processed/players_registry.json
+  - data/competitions/premier_league/processed/player_match_logs.json
 """
 
 import json

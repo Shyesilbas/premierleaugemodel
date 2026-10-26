@@ -115,7 +115,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--season", default=DEFAULT_SEASON, help="Season label, for example 2025_26")
     parser.add_argument("--comp-season-id", type=int, help="Override the ID read from the fixture file")
-    parser.add_argument("--fixtures", type=Path, help="Fixture JSON (defaults to data/raw/fixtures_{season}.json)")
+    parser.add_argument("--fixtures", type=Path, help="Fixture JSON (defaults to data/competitions/premier_league/raw/fixtures_{season}.json)")
     parser.add_argument("--output", type=Path, default=PROCESSED_DIR / "team_staff.json")
     parser.add_argument("--delay", type=float, default=0.1, help="Delay between requests in seconds")
     args = parser.parse_args()

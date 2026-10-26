@@ -22,7 +22,7 @@ from src.api.prediction_service import (
     predict_count_market,
     predict_goals_markets,
 )
-from src.config import DATA_DIR, DEFAULT_SEASON, MODELS_DIR, PROCESSED_DIR
+from src.config import DEFAULT_SEASON, FEATURES_PATH, MODELS_DIR, PROCESSED_DIR
 from src.db.database import get_db
 
 logger = logging.getLogger(__name__)
@@ -94,8 +94,8 @@ def init_audit_table(conn: sqlite3.Connection, season: Optional[str] = None) -> 
 
 def get_summary_json_path(season: str) -> Path:
     if season == DEFAULT_SEASON:
-        return DATA_DIR / "processed" / "model_audit_summary.json"
-    return DATA_DIR / "processed" / f"model_audit_summary_{season}.json"
+        return PROCESSED_DIR / "model_audit_summary.json"
+    return PROCESSED_DIR / f"model_audit_summary_{season}.json"
 
 
 def _load_prospective_forecasts(season: str) -> Dict[int, Dict[str, Any]]:
@@ -165,7 +165,7 @@ def _compute_subset_summary(subset: List[Dict[str, Any]]) -> Dict[str, Any]:
 def run_model_audit(season: str = DEFAULT_SEASON, force_recalc: bool = False) -> Dict[str, Any]:
     """Audit season predictions, distinguishing frozen pre-kickoff forecasts from historical backfill."""
     summary_path = get_summary_json_path(season)
-    features_path = DATA_DIR / "processed" / "features_matches_all.parquet"
+    features_path = FEATURES_PATH
     log_mtime = FORECAST_LOG_PATH.stat().st_mtime if FORECAST_LOG_PATH.exists() else 0.0
     cache_fresh = (
         summary_path.exists()

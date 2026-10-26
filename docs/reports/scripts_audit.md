@@ -30,7 +30,7 @@ Raporda 17 bulgu vardı; 15'i kapandı, 1'i kısmen kapandı, 1'i (B15) zaten ol
 
 **Kalan işler:** (1) B4'ün açık testleri. (2) `routes/matches.py` içindeki 819 satırlık `get_match_full_details` hâlâ tek işleyici. (3) `research/` altındaki eski betiklerin `server` içe aktarmaları güncel değil.
 
-**Sunucuda yapılacaklar** (kodla yapılamaz): `/opt/plm/.env` içine `PLM_ADMIN_TOKEN` (ASCII, örn. `openssl rand -hex 24`) ve `THESTATSAPI_API_KEY`; sohbette paylaşılan API anahtarını yenilemek; `git pull` öncesi `/opt/plm/data/premier_league.db` yedeği (veri dosyaları artık izlenmiyor); yeni cron işlerinin (`xg`, `odds`, `rebuild`) ilk çalışmasını `logs/failures.log` ile izlemek; daha önce `sync` işinin `-m` içe aktarma hatası nedeniyle düşüp düşmediğine `logs/sync.log` ile bakmak.
+**Sunucuda yapılacaklar** (kodla yapılamaz): `/opt/plm/.env` içine `PLM_ADMIN_TOKEN` (ASCII, örn. `openssl rand -hex 24`) ve `THESTATSAPI_API_KEY`; sohbette paylaşılan API anahtarını yenilemek; `git pull` öncesi `/opt/plm/data/football.db` yedeği (veri dosyaları artık izlenmiyor); yeni cron işlerinin (`xg`, `odds`, `rebuild`) ilk çalışmasını `logs/failures.log` ile izlemek; daha önce `sync` işinin `-m` içe aktarma hatası nedeniyle düşüp düşmediğine `logs/sync.log` ile bakmak.
 
 ## Başlangıç tespiti (Yönetici özeti)
 
@@ -53,7 +53,7 @@ Kod tabanı işlevsel ve sızıntı kuralları (`shift(1)`, kilitli sezon) tutar
 | Çıktı ve yan etki | Yazım desenleri (`to_parquet`, `joblib.dump`, SQL), ağ, ortam değişkeni, yıkıcı komut taraması |
 | Çalışma akışı | `run_full_pipeline.py`, `sync_season_data.py`, `deploy/crontab`, `job.sh` doğrudan okundu |
 | Testler | 22 fonksiyon testi + 5 `unittest` testi gerçekten çalıştırıldı |
-| Veri durumu | `premier_league.db` üzerinde salt okunur SQL |
+| Veri durumu | `football.db` üzerinde salt okunur SQL |
 
 **Doğrulanmayanlar:** Her dosya satır satır okunmadı. Mantık düzeyi açıklamalar docstring, fonksiyon adları ve `scripts_reference.md`'ye dayanır; yalnızca akış, giriş noktaları ve riskli noktalar doğrudan okundu. "Ölü kod" taraması kaba bir sezgi (ad ≥2 kez geçiyor mu) ve dinamik kullanımı yakalamaz. `pytest`'in kendisi bu makinede kurulu olmadığı için tam `pytest` çalıştırması yapılmadı. Frontend (`frontend/src`) kapsam dışı.
 
@@ -137,10 +137,10 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 
 | Dosya | Satır | Rol | Girdi → Çıktı | Not |
 |---|---:|---|---|---|
-| `fetch_season_data.py` | 305 | M (+kütüphane) | PulseLive → `data/raw/fixtures_*.json`, `matches/*_{stats,stream,details}.json` | `--output-dir` var. Hata sayar ama **çıkış kodu 0**; `build_session` vb. diğer scriptlerce kullanılır |
+| `fetch_season_data.py` | 305 | M (+kütüphane) | PulseLive → `data/competitions/premier_league/raw/fixtures_*.json`, `matches/*_{stats,stream,details}.json` | `--output-dir` var. Hata sayar ama **çıkış kodu 0**; `build_session` vb. diğer scriptlerce kullanılır |
 | `sync_season_data.py` | 431 | P1 | PulseLive artımlı + hakem + türetilmiş veriyi yeniden kurma | Atomik JSON yazımı; alt süreçleri `subprocess` ile çağırır |
 | `sync_prematch_lineups.py` | 544 | P1 | Resmi ilk 11 → `*_details.json`, özellik tablosundaki ilk-11 reytingleri | `sys.path` hack; kendi `atomic_write_json` kopyası |
-| `fetch_team_staff.py` | 136 | M | PulseLive kadro/teknik ekip → `data/processed/team_staff*.json` | `sys.path` hack |
+| `fetch_team_staff.py` | 136 | M | PulseLive kadro/teknik ekip → `data/competitions/premier_league/processed/team_staff*.json` | `sys.path` hack |
 | `fetch_transfermarkt_market_values.py` | 333 | M | Transfermarkt → SQLite `*_market_values` + JSON | Sezon (2026/27) docstring'e gömülü |
 | `import_thestatsapi_odds.py` | 311 | M | TheStatsAPI → `external_match_odds` | Anahtar ortamdan; ~5,2 sn/istek |
 | `import_thestatsapi_xg.py` | 261 | M | TheStatsAPI → `external_match_xg` | `--max-gameweek` varsayılanı **6**; DB yolu dosya konumundan türetilir; xG'siz yanıtı yalnızca yazdırır |
@@ -149,9 +149,9 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 
 | Dosya | Satır | Rol | Girdi → Çıktı | Not |
 |---|---:|---|---|---|
-| `process_season_data.py` | 488 | P2/P3 | `data/raw` → `matches_summary_*.parquet`, `shots_events_*.parquet` | Yollar **sabit** (`data/raw`, `data/processed`); `--data-dir` yok. Test yok |
+| `process_season_data.py` | 488 | P2/P3 | `data/competitions/premier_league/raw` → `matches_summary_*.parquet`, `shots_events_*.parquet` | Yollar **sabit** (`data/competitions/premier_league/raw`, `data/competitions/premier_league/processed`); `--data-dir` yok. Test yok |
 | `build_player_index.py` | 311 | P3 | `*_details.json` → `players_registry.json`, `player_match_logs.json` | `run_full_pipeline`'da yok. `parse_player_data` 281 satır |
-| `database.py` | 610 | P3/S | parquet/JSON → SQLite şeması ve doldurma, sorgular | Yol sabit `data/premier_league.db`; `populate_db_from_sources` 247 satır; test yok |
+| `database.py` | 610 | P3/S | parquet/JSON → SQLite şeması ve doldurma, sorgular | Yol sabit `data/football.db`; `populate_db_from_sources` 247 satır; test yok |
 | `build_features.py` | 1.389 | P2/P3 | `matches_summary_all.parquet` → `features_matches_all.parquet` | `shift(1)` burada; en büyük özellik modülü. Test: `test_data_leakage`, `test_feature_engineering` |
 | `draw_features.py` | 135 | S/P2 | Beraberlik eğilimi özellikleri | Test: `test_draw_features` |
 
@@ -201,7 +201,7 @@ Açıklamalar için kaynak: docstring + `scripts_reference.md`. "Test" sütunu: 
 
 - **Merkezî düğümler:** `dixon_coles` (22 kullanıcı), `model_utils` (17), `goals_model` (15), `eval_utils` (9), `train_match_outcome` (9), `build_features` (6).
 - **`LOCKED_SEASONS`**, 1.422 satırlık `train_match_outcome.py` içinde tanımlı; `evaluate_goal_models`, `train_goals`, `lineup_feature_pilot` ve iki `audit` dosyası bu büyük modüle yalnızca sabit için bağlı.
-- **Sabit tekrarları (src):** `"data/processed/"` 28 kez / 15 dosya, `"2026_27"` **72 kez / 15 dosya**, `logging.basicConfig` **18 dosyada** (kütüphane modüllerinde, içe aktarmada kök logger'ı yapılandırır).
+- **Sabit tekrarları (src):** `"data/competitions/premier_league/processed/"` 28 kez / 15 dosya, `"2026_27"` **72 kez / 15 dosya**, `logging.basicConfig` **18 dosyada** (kütüphane modüllerinde, içe aktarmada kök logger'ı yapılandırır).
 - **Döngüsel bağımlılık:** AST taramasında tespit edilmedi.
 
 ## 6. Bulgular
@@ -382,7 +382,7 @@ Sınırlar: dinamik içe aktarmalar ve komut satırı dizeleriyle kurulan çağr
 |---|---|
 | `start.py` | 8000 ve 5173 portlarını `lsof` ile bulur; **yalnızca bu projenin eski sürecini** (`SIGTERM`, 3 sn sonra `SIGKILL`) kapatır, yabancı bir süreçte hangi uygulama olduğunu yazıp durur (`--force` ile aşılır); `frontend/node_modules` yoksa `npm install`; `python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000 --reload` (Popen) ve `npm run dev` (Popen); Ctrl+C'de ikisini kapatır |
 | `start.sh` | Yalnızca `exec python3 start.py "$@"` (tek kaynak `start.py`) |
-| `deploy/job.sh <ad> <komut…>` | `flock -w 600 /tmp/plm.lock <komut…>` (tüm işler tek kilit altında), çıktıyı `logs/<ad>.log`'a ekler, hata kodunu `logs/failures.log`'a yazar ve döndürür; `data/premier_league.db` veya `features_matches_all.parquet` değiştiyse `systemctl restart plm-api` |
+| `deploy/job.sh <ad> <komut…>` | `flock -w 600 /tmp/plm.lock <komut…>` (tüm işler tek kilit altında), çıktıyı `logs/<ad>.log`'a ekler, hata kodunu `logs/failures.log`'a yazar ve döndürür; `data/football.db` veya `features_matches_all.parquet` değiştiyse `systemctl restart plm-api` |
 | `deploy/setup.sh` | `apt-get` paketleri, `python3 -m venv` + `pip install -r requirements.txt`, `npm ci && npm run build` (frontend), `plm-api.service` ve `Caddyfile` kopyalar, `systemctl enable --now plm-api`, `crontab deploy/crontab`, `ufw`, Tailscale kurulumu |
 | `deploy/plm-api.service` | `/opt/plm/venv/bin/uvicorn src.api.server:app --host 127.0.0.1 --port 8000` (`Restart=always`, ortam `/opt/plm/.env`) |
 | `deploy/Caddyfile` | `:8080` (yalnızca localhost): `/api/*` → `127.0.0.1:8000`; diğer her şey `frontend/dist` |
@@ -407,7 +407,7 @@ rebuild_derived_data()  (src/pipeline/rebuild.py)
   process_season_data --season-name all ─► matches_summary_*.parquet, shots_events_*.parquet
   build_player_index ─────────────────────► players_registry.json, player_match_logs.json
   build_features ─────────────────────────► features_matches_all.parquet   (xG tablosunu SQLite'tan okur)
-  src.db.database ────────────────────────► premier_league.db
+  src.db.database ────────────────────────► football.db
 
 run_full_pipeline.py
   rebuild  ─► rebuild_derived_data()

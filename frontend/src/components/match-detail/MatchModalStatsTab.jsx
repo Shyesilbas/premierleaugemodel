@@ -15,7 +15,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                         </h4>
                       </div>
                       <span className="text-xs tabular-nums font-semibold text-text-secondary">
-                        Premier League Maç Verisi
+                        Maç Verisi
                       </span>
                     </div>
 

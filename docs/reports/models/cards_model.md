@@ -1,7 +1,7 @@
 # Kart Sayım Modeli — Model Raporu
 
 **Rapor tarihi:** 17 Ekim 2026  
-**Artifact:** `models/production/cards_model_v1.joblib` · **Eğitim kodu:** `src/models/train_cards.py` · **Ortak yardımcılar:** `src/models/model_utils.py`  
+**Artifact:** `models/production/premier_league/cards_model_v1.joblib` · **Eğitim kodu:** `src/models/train_cards.py` · **Ortak yardımcılar:** `src/models/model_utils.py`  
 **Hedef:** `total_cards` = iki takımın sarı + kırmızı kart toplamı (`src/processing/process_season_data.py:282`)  
 **Veri:** 1.580 tamamlanmış maç (2022/23–2026/27); 2026/27 kilitli sezon (60 maç), yalnızca raporlanır.  
 **Dokümantasyon:** [Ana Rapor](../premier_league_models_comprehensive_report.md) · [Metodolojik Anayasa (Bölüm 8)](../premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage) · [Model Benchmarks](../model_benchmarks.md)

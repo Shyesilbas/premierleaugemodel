@@ -15,7 +15,7 @@ from fastapi import HTTPException
 from src.analytics.team_attackers import get_team_attacking_leaders
 from src.analytics.team_scenarios import get_team_scenario_profile
 from src.analytics.team_tactics import get_team_tactical_profile
-from src.config import DATA_DIR, DEFAULT_SEASON
+from src.config import DEFAULT_SEASON, PROCESSED_DIR
 from src.db.database import get_all_grouped_fixtures, get_db
 from typing import Any, Dict, List, Optional, Tuple
 from src.api import state
@@ -25,6 +25,12 @@ router = APIRouter()
 logger = logging.getLogger("api_server")
 
 PREMIER_LEAGUE_ID = 39
+
+
+def _kickoff_millis(match_date, time_label):
+    from src.api.european_fixtures import _kickoff_millis as european_kickoff_millis
+
+    return european_kickoff_millis(match_date, time_label)
 
 
 def _competition_id(competition: Optional[str]) -> int:
@@ -69,9 +75,9 @@ def get_team_staff(season: str = DEFAULT_SEASON, team_id: Optional[int] = None, 
             "staff": {"team_name": _competition_team_name(team_id, comp_id), "officials": officials, "players": []},
         }
 
-    staff_path = DATA_DIR / "processed" / "team_staff.json"
-    raw_staff_path = DATA_DIR / "processed" / "team_staff_raw.json"
-    manager_rosters_path = DATA_DIR / "processed" / "team_manager_rosters.json"
+    staff_path = PROCESSED_DIR / "team_staff.json"
+    raw_staff_path = PROCESSED_DIR / "team_staff_raw.json"
+    manager_rosters_path = PROCESSED_DIR / "team_manager_rosters.json"
     if not staff_path.exists():
         raise HTTPException(status_code=404, detail="Team staff data not available")
     try:
@@ -96,7 +102,7 @@ def get_team_staff(season: str = DEFAULT_SEASON, team_id: Optional[int] = None, 
         **staff_by_season.get(season, {}),
     }
     season_manager_roster = manager_rosters.get(season, {}).get("managers", {})
-    changes_path = DATA_DIR / "processed" / "manager_changes.json"
+    changes_path = PROCESSED_DIR / "manager_changes.json"
     season_changes = []
     if changes_path.exists():
         try:
@@ -227,7 +233,7 @@ def get_manager_changes(season: str = DEFAULT_SEASON):
     if season not in (DEFAULT_SEASON, "all") and season in state._historical_manager_changes_cache:
         return state._historical_manager_changes_cache[season]
 
-    changes_path = DATA_DIR / "processed" / "manager_changes.json"
+    changes_path = PROCESSED_DIR / "manager_changes.json"
     if not changes_path.exists():
         return {"season": season, "events_by_match": {}}
     try:
@@ -287,9 +293,9 @@ def get_manager_changes(season: str = DEFAULT_SEASON):
 @router.get("/api/teams/manager-performance")
 def get_manager_performance(team_id: int, manager_name: str, season: str = "all"):
     """Summarize a manager's completed league matches against each opponent."""
-    changes_path = DATA_DIR / "processed" / "manager_changes.json"
-    rosters_path = DATA_DIR / "processed" / "team_manager_rosters.json"
-    staff_path = DATA_DIR / "processed" / "team_staff.json"
+    changes_path = PROCESSED_DIR / "manager_changes.json"
+    rosters_path = PROCESSED_DIR / "team_manager_rosters.json"
+    staff_path = PROCESSED_DIR / "team_staff.json"
     try:
         changes = json.loads(changes_path.read_text(encoding="utf-8")) if changes_path.exists() else {}
         rosters = json.loads(rosters_path.read_text(encoding="utf-8")) if rosters_path.exists() else {}
@@ -557,7 +563,7 @@ def _build_team_squad(
 
     roster_players = []
     if season == DEFAULT_SEASON:
-        staff_path = DATA_DIR / "processed" / "team_staff.json"
+        staff_path = PROCESSED_DIR / "team_staff.json"
         if staff_path.exists():
             try:
                 with staff_path.open("r", encoding="utf-8") as sf:
@@ -712,6 +718,7 @@ def _build_competition_team_profile(team_id: int, season: str, comp_id: int) -> 
             "opponent_name": m["away_name"] if is_home else m["home_name"],
             "opponent_logo": m.get("away_logo") if is_home else m.get("home_logo"),
             "ground_name": m["ground_name"],
+            "kickoff_millis": _kickoff_millis(m.get("match_date"), m.get("time_label")),
             "home_xg": m["home_xg"],
             "away_xg": m["away_xg"],
             "team_score": None,
@@ -732,6 +739,10 @@ def _build_competition_team_profile(team_id: int, season: str, comp_id: int) -> 
         elif next_match is None:
             next_match = item
         matches_list.append(item)
+
+    from src.competitions.registry import get_competition
+    if get_competition(comp_id).is_domestic:  # a national league's club also plays in Europe
+        matches_list, next_match = _with_european_matches(matches_list, next_match, team_info["name"], season, comp_id)
 
     from src.api.competition_squads import build_squad_profile
     squad_season = season if season and season != "all" else first["season"]
@@ -759,6 +770,7 @@ def _with_european_matches(
     next_match: Optional[Dict[str, Any]],
     club_name: str,
     season: Optional[str],
+    domestic_id: int = PREMIER_LEAGUE_ID,
 ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """Add the club's Champions League and Europa League matches to its Premier League fixture list.
 
@@ -766,7 +778,7 @@ def _with_european_matches(
     competition so the page can sort and label by it."""
     from src.api.european_fixtures import COMPETITIONS, european_matches
     for match in matches_list:
-        match["competition"] = COMPETITIONS[39]
+        match["competition"] = COMPETITIONS[domestic_id]
     conn = get_db()
     try:
         european = european_matches(conn, club_name, season)

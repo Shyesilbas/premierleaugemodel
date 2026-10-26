@@ -19,7 +19,6 @@ DEFAULT_CORS_ORIGINS = [
     "http://localhost:5173", "http://127.0.0.1:5173",
     "http://localhost:8080", "http://127.0.0.1:8080",
 ]
-_warned_open = False
 
 
 def cors_origins() -> list[str]:
@@ -29,12 +28,8 @@ def cors_origins() -> list[str]:
 
 def require_admin_token(x_admin_token: str | None = Header(default=None)) -> None:
     """FastAPI dependency for the admin routes."""
-    global _warned_open
     token = os.environ.get("PLM_ADMIN_TOKEN", "")
     if not token:
-        if not _warned_open:
-            logger.warning("PLM_ADMIN_TOKEN is not set: the admin routes are unauthenticated")
-            _warned_open = True
         return
     if not x_admin_token or not secrets.compare_digest(x_admin_token.encode(), token.encode()):
         raise HTTPException(status_code=401, detail="Admin token required")

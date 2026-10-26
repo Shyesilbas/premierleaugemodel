@@ -9,7 +9,7 @@ import sys
 import threading
 import uuid
 from fastapi import Depends, HTTPException, Query
-from src.config import DEFAULT_SEASON, ROOT as BASE_DIR, SEASONS
+from src.config import DB_PATH, DEFAULT_SEASON, ROOT as BASE_DIR, SEASONS
 from typing import Any, Dict, List
 from src.api import state
 from src.api.security import require_admin_token
@@ -27,7 +27,9 @@ _sync_job: Dict[str, Any] = {"id": None, "status": "idle", "season": None, "mess
 @router.get("/api/data-version")
 def get_data_version():
     """Changes whenever the API reloads data; the frontend drops its localStorage caches on change."""
-    return {"version": str(state._loaded_data_version)}
+    # Also changes when the database file does, so a league loaded from the command line drops the browsers' cached copies.
+    stamps = [p.stat().st_mtime_ns for p in (DB_PATH, DB_PATH.with_name(DB_PATH.name + "-wal")) if p.exists()]
+    return {"version": f"{state._loaded_data_version}-{max(stamps, default=0)}"}
 
 
 @router.get("/api/competitions")
@@ -45,12 +47,20 @@ def get_competitions():
             "format": c.format,
             "default_season": c.default_season,
             "has_npxg": c.has_npxg,
+            "has_model": c.has_model,
+            "sync_kinds": list(c.sync_kinds),
+            "data_source": c.provider,
         }
         for c in CompetitionRegistry.list_all()
     ]
 
 
-def _sync_command(kind: str, season: str) -> List[str]:
+def _sync_command(kind: str, season: str, competition: str = "premier_league") -> List[str]:
+    from src.competitions.registry import get_competition
+
+    comp = get_competition(competition)
+    if comp.provider != "pulselive":  # every other competition has one pipeline, which also covers referees
+        return [sys.executable, "-m", "src.ingest.sync_competition", "--competition", comp.key, "--season", season]
     sync_season_script = str(BASE_DIR / "src" / "ingest" / "sync_season_data.py")
     return {
         "matches": [sys.executable, sync_season_script, "--season-name", season],
@@ -72,8 +82,8 @@ def _parse_sync_result(stdout: str) -> Dict[str, Any]:
     return {}
 
 
-def _run_season_sync_job(job_id: str, season: str, kind: str = "matches") -> None:
-    command = _sync_command(kind, season)
+def _run_season_sync_job(job_id: str, season: str, kind: str = "matches", competition: str = "premier_league") -> None:
+    command = _sync_command(kind, season, competition)
     lines: List[str] = []
     try:
         process = subprocess.Popen(
@@ -132,9 +142,15 @@ def _run_season_sync_job(job_id: str, season: str, kind: str = "matches") -> Non
 
 
 @router.post("/api/admin/sync-season", dependencies=[Depends(require_admin_token)])
-def start_season_sync(season: str = Query(DEFAULT_SEASON), kind: str = Query("matches")):
-    """Start a background sync: matches (results + stats), referees, or lineups."""
-    if kind not in {"matches", "referees", "lineups"}:
+def start_season_sync(season: str = Query(DEFAULT_SEASON), kind: str = Query("matches"), competition: str = Query("premier_league")):
+    """Start a background sync of one competition: matches (results + stats), and for the Premier League also referees or lineups."""
+    from src.competitions.registry import get_competition
+
+    try:
+        comp = get_competition(competition)
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Unknown competition")
+    if kind not in comp.sync_kinds:
         raise HTTPException(status_code=400, detail="Unsupported sync kind")
     if season not in set(SEASONS):
         raise HTTPException(status_code=400, detail="Unsupported season")
@@ -142,8 +158,8 @@ def start_season_sync(season: str = Query(DEFAULT_SEASON), kind: str = Query("ma
         if _sync_job.get("status") in {"queued", "running"}:
             return {**_sync_job, "already_running": True}
         job_id = str(uuid.uuid4())
-        _sync_job.update(id=job_id, status="running", season=season, kind=kind, message="Başlandı...", matches=[], output="")
-    thread = threading.Thread(target=_run_season_sync_job, args=(job_id, season, kind), daemon=True)
+        _sync_job.update(id=job_id, status="running", season=season, kind=kind, competition=comp.key, message="Başlandı...", matches=[], output="")
+    thread = threading.Thread(target=_run_season_sync_job, args=(job_id, season, kind, comp.key), daemon=True)
     thread.start()
     return {**_sync_job, "already_running": False}
 
