@@ -1,0 +1,217 @@
+{
+  "generated_at_utc": "2026-10-26T11:09:15+00:00",
+  "competition": "la_liga",
+  "protocol": {
+    "repeats": 30,
+    "seed": 42,
+    "outer_seasons": [
+      "2024_25",
+      "2025_26"
+    ],
+    "informative_rule": "mean increase greater than twice the spread over the repeats"
+  },
+  "outcome_1x2": {
+    "2024_25": {
+      "selected_model": "logreg_C0.001",
+      "log_loss": 0.9749760139664283,
+      "families": {
+        "all_features_together": {
+          "features": 118,
+          "mean_increase": 0.2723920639408565,
+          "spread": 0.03106183273858638,
+          "informative": true
+        },
+        "elo_strength": {
+          "features": 7,
+          "mean_increase": 0.003390933066776795,
+          "spread": 0.0035236771543785037,
+          "informative": false
+        },
+        "form_big_chances": {
+          "features": 13,
+          "mean_increase": -0.0027392745703246533,
+          "spread": 0.0027062262040890186,
+          "informative": false
+        },
+        "form_goals": {
+          "features": 17,
+          "mean_increase": -0.0021409576171008285,
+          "spread": 0.0026237857531748125,
+          "informative": false
+        },
+        "form_possession_passing": {
+          "features": 13,
+          "mean_increase": 0.0034461458985851844,
+          "spread": 0.00590765398467636,
+          "informative": false
+        },
+        "form_shots": {
+          "features": 12,
+          "mean_increase": 0.0009553866590495656,
+          "spread": 0.002543036619895379,
+          "informative": false
+        },
+        "form_shots_on_target": {
+          "features": 17,
+          "mean_increase": -0.0013710572516642872,
+          "spread": 0.001913779438760792,
+          "informative": false
+        },
+        "form_touches_box": {
+          "features": 7,
+          "mean_increase": 0.0132193255855848,
+          "spread": 0.00751743552809525,
+          "informative": false
+        },
+        "form_xg": {
+          "features": 21,
+          "mean_increase": 0.0030465117515437196,
+          "spread": 0.006078355180291287,
+          "informative": false
+        },
+        "points_goal_difference": {
+          "features": 7,
+          "mean_increase": -6.13176476118249e-05,
+          "spread": 0.0025500443742255204,
+          "informative": false
+        },
+        "rest_and_promotion": {
+          "features": 4,
+          "mean_increase": 0.0012601288517205766,
+          "spread": 0.0015386832108438579,
+          "informative": false
+        }
+      }
+    },
+    "2025_26": {
+      "selected_model": "logreg_C0.001",
+      "log_loss": 0.9724531922321629,
+      "families": {
+        "all_features_together": {
+          "features": 118,
+          "mean_increase": 0.17827460112758967,
+          "spread": 0.02390270939244011,
+          "informative": true
+        },
+        "elo_strength": {
+          "features": 7,
+          "mean_increase": 0.005421353920783515,
+          "spread": 0.004712649380094484,
+          "informative": false
+        },
+        "form_big_chances": {
+          "features": 13,
+          "mean_increase": 0.0013373347703397414,
+          "spread": 0.002242500211983276,
+          "informative": false
+        },
+        "form_goals": {
+          "features": 17,
+          "mean_increase": 0.003774037579077753,
+          "spread": 0.002723039805344119,
+          "informative": false
+        },
+        "form_possession_passing": {
+          "features": 13,
+          "mean_increase": -0.005961753339829383,
+          "spread": 0.0049324109440545124,
+          "informative": false
+        },
+        "form_shots": {
+          "features": 12,
+          "mean_increase": -0.0015870738683399388,
+          "spread": 0.0031437192724701286,
+          "informative": false
+        },
+        "form_shots_on_target": {
+          "features": 17,
+          "mean_increase": 0.00015136523703814797,
+          "spread": 0.0027986183688463503,
+          "informative": false
+        },
+        "form_touches_box": {
+          "features": 7,
+          "mean_increase": 0.0019235085889303893,
+          "spread": 0.003210436904630651,
+          "informative": false
+        },
+        "form_xg": {
+          "features": 21,
+          "mean_increase": 0.008682196900769419,
+          "spread": 0.005073006907122262,
+          "informative": false
+        },
+        "points_goal_difference": {
+          "features": 7,
+          "mean_increase": 0.002280539474343964,
+          "spread": 0.00293007768080517,
+          "informative": false
+        },
+        "rest_and_promotion": {
+          "features": 4,
+          "mean_increase": 0.001444094776245027,
+          "spread": 0.0013532264382310883,
+          "informative": false
+        }
+      }
+    }
+  },
+  "count_models": {
+    "throws": {
+      "selected_model": "poisson_10",
+      "holdout_rmse": 7.339170542196886,
+      "holdout_matches": 323,
+      "families": {
+        "conceded_or_opponent_history": {
+          "features": 3,
+          "mean_increase": 0.18802464158532978,
+          "spread": 0.04626468631779662,
+          "informative": true
+        },
+        "expected_from_both_teams": {
+          "features": 2,
+          "mean_increase": 0.1433987750950339,
+          "spread": 0.042530991823479386,
+          "informative": true
+        },
+        "own_history": {
+          "features": 3,
+          "mean_increase": 0.24045321704431266,
+          "spread": 0.05887405580288075,
+          "informative": true
+        },
+        "possession_passing": {
+          "features": 4,
+          "mean_increase": 0.4584071247507425,
+          "spread": 0.08907774528586915,
+          "informative": true
+        }
+      }
+    },
+    "offsides": {
+      "selected_model": "ridge_50",
+      "holdout_rmse": 2.1399641613557154,
+      "holdout_matches": 312,
+      "families": {
+        "conceded_or_opponent_history": {
+          "features": 4,
+          "mean_increase": 0.20437400226088895,
+          "spread": 0.04075870511135338,
+          "informative": true
+        },
+        "own_history": {
+          "features": 4,
+          "mean_increase": -0.0068816814666971355,
+          "spread": 0.0034382247053748104,
+          "informative": false
+        },
+        "possession_passing": {
+          "features": 2,
+          "mean_increase": 0.01391471161914879,
+          "spread": 0.012075151558480213,
+          "informative": false
+        }
+      }
+    }
+  }
+}

@@ -224,3 +224,42 @@ def test_goal_markets_are_served_as_model_only_when_they_beat_the_base_rate_afte
              "over_35": {"vs_base_rate": {"mean_delta": 0.01, "significant_fdr_05": True}}}  # btts missing
     assert goal_market_gates(goals) == {"over_15": "model", "over_25": "baseline", "over_35": "baseline", "btts": "baseline"}
     assert set(goal_market_gates({}).values()) == {"baseline"}
+
+
+def test_premier_league_feature_code_on_league_data_ignores_the_match_itself_and_later_matches():
+    from src.features.build_league_pl_features import NO_SOURCE_COLUMNS, build_parity_features, parity_feature_columns
+
+    frame = synthetic_matches(seed=8, n_rounds=20)
+    frame["referee_name"] = ["R1", "R2", "R3"] * (len(frame) // 3)
+    frame["home_np_xg"] = frame["home_xg"] * 0.9
+    frame["away_np_xg"] = frame["away_xg"] * 0.9
+    lines = synthetic_player_lines(frame, seed=8)
+    built = build_parity_features(frame, lines)
+    columns = parity_feature_columns(built)
+    assert not set(columns) & set(NO_SOURCE_COLUMNS) and {"xi_rating_diff", "home_xg_for_roll_10", "venue_xg_diff"} <= set(columns)
+    assert {"missing_reg_mins_diff", "referee_avg_cards", "total_corners", "home_throws_roll_5", "exp_match_shots_5"} <= set(built.columns)
+    cut = 30
+    later_ids = set(frame["match_id"].iloc[cut:])
+    altered = frame.copy()
+    later = altered["match_id"].isin(later_ids)
+    for column in ["home_score", "away_score"] + [f"{s}_{stat}" for s in ("home", "away") for stat in STAT_PATHS]:
+        altered.loc[later, column] = altered.loc[later, column] * 3.0 + 5.0
+    after = altered.copy()
+    rebuilt = build_parity_features(after, lines[lines["match_id"].isin(set(frame["match_id"]))].assign(rating=lambda d: np.where(d["match_id"].isin(later_ids), 4.0, d["rating"])))
+    early_ids = set(frame["match_id"].iloc[:cut])
+    left = built[built["match_id"].isin(early_ids)].set_index("match_id")[columns].sort_index()
+    right = rebuilt[rebuilt["match_id"].isin(early_ids)].set_index("match_id")[columns].sort_index()
+    pd.testing.assert_frame_equal(left, right)
+
+
+def test_feature_audit_assigns_every_feature_a_family_and_shuffles_a_family_with_one_shared_permutation():
+    from src.analytics.league_feature_audit import outcome_family, permutation_rows
+
+    built, columns = feature_rows(synthetic_matches(seed=9))
+    assert {outcome_family(c) for c in columns} - {"other"} and "other" not in {outcome_family(c) for c in columns}
+    assert outcome_family("diff_xg_for_roll_10") == outcome_family("home_xg_for_roll_10") == "form_xg"
+    table = pd.DataFrame({"a": np.arange(10.0), "b": np.arange(10.0) * 10.0, "keep": np.arange(10.0) * 100.0})
+    shuffled = permutation_rows(table, ["a", "b"], np.random.default_rng(0))
+    assert not shuffled["a"].equals(table["a"]) and sorted(shuffled["a"]) == sorted(table["a"])
+    assert (shuffled["b"] == shuffled["a"] * 10.0).all()  # one permutation moves the whole family's rows together
+    assert shuffled["keep"].equals(table["keep"])

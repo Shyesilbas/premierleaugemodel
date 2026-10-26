@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Count models (corners, throws, offsides, cards, saves) of a league fed by TheStatsAPI.
 
-Usage: python3 -m src.models.train_league_counts --competition la_liga [--no-save]
+Usage: python3 -m src.models.train_league_counts --competition la_liga [--features pl|league] [--no-save]
+
+The production variant (``--features pl``, the default) runs the five models on the Premier League's own feature code and curated
+lists (``build_league_pl_features``), minus the columns this league has no data for. ``--features league`` is the league's own
+feature set (``build_league_features``); it was the first version, is kept so the comparison can be reproduced, and only evaluates.
 
 It runs the Premier League's own selection code (``train_count_model``: expanding-window CV, the skill gate against
 ``training_mean`` and the nested outer-season gate), so a model that cannot beat the training mean on earlier seasons is
@@ -9,7 +13,7 @@ served as ``training_mean`` here too. Only the feature lists differ, because the
 provider cannot give (for example forward-pass accuracy). Reads: data/football.db. Writes: the feature table
 ``data/competitions/<key>/processed/features_matches_all.parquet`` and one ``*_model_v1.joblib`` per model under
 ``models/production/<key>/``, and the metrics of every model in ``docs/reports/models/<key>_count_models.json`` (nothing is
-written to the Premier League folders).
+written to the Premier League folders). ``--features league`` never writes the feature table or an artifact, only its report.
 """
 
 from __future__ import annotations
@@ -26,7 +30,8 @@ from typing import Any, Dict
 from src.competitions.registry import get_competition
 from src.config import REPORTS_DIR, competition_paths, configure_logging
 from src.db.database import get_db
-from src.features.build_league_features import build_league_features, count_feature_columns, load_league_matches
+from src.features.build_league_features import build_league_features, count_feature_columns, load_league_matches, load_player_lines
+from src.features.build_league_pl_features import build_parity_features
 from src.models.count_model import CountModelSpec, train_count_model
 from src.models.train_cards import CARDS_MODEL_SPEC
 from src.models.train_corners import CORNER_MODEL_SPEC
@@ -60,33 +65,48 @@ LEAGUE_COUNT_SPECS: Dict[str, CountModelSpec] = {
 }
 
 
+def premier_league_specs(frame) -> Dict[str, CountModelSpec]:
+    """The Premier League's own specs with their feature lists cut to the columns that exist and vary in this league's table."""
+    played = frame["home_score"].notna()
+    specs = {}
+    for name, spec in (("corners", CORNER_MODEL_SPEC), ("throws", THROWS_MODEL_SPEC), ("offsides", OFFSIDES_MODEL_SPEC), ("cards", CARDS_MODEL_SPEC), ("saves", SAVES_MODEL_SPEC)):
+        usable = tuple(c for c in spec.features if c in frame.columns and frame.loc[played, c].nunique() > 1)
+        specs[name] = replace(spec, features=usable)
+    return specs
+
+
 def main() -> None:
     configure_logging()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--competition", required=True, help="competition key from config/competitions.yaml (a TheStatsAPI league)")
+    parser.add_argument("--features", choices=("pl", "league"), default="pl", help="feature definitions: the Premier League's code and lists (production) or the league's own set (evaluation only)")
     parser.add_argument("--no-save", action="store_true", help="evaluate and print the metrics, but write no artifact and no feature table")
     args = parser.parse_args()
     comp = get_competition(args.competition)
     paths = competition_paths(comp.key)
     conn = get_db()
     try:
-        frame = build_league_features(load_league_matches(conn, comp.id))
+        matches = load_league_matches(conn, comp.id)
+        frame = build_parity_features(matches, load_player_lines(conn, comp.id)) if args.features == "pl" else build_league_features(matches)
     finally:
         conn.close()
-    missing = {name: [c for c in spec.features if c not in frame.columns] for name, spec in LEAGUE_COUNT_SPECS.items()}
+    specs = premier_league_specs(frame) if args.features == "pl" else LEAGUE_COUNT_SPECS
+    missing = {name: [c for c in spec.features if c not in frame.columns] for name, spec in specs.items()}
     if any(missing.values()):
         raise SystemExit(f"feature columns missing from the league table: {missing}")
-    logger.info("%d count-model columns available", len(count_feature_columns(frame)))
+    if args.features == "league":
+        logger.info("%d count-model columns available", len(count_feature_columns(frame)))
     results: Dict[str, Any] = {}
     with tempfile.TemporaryDirectory() as scratch:
-        table = paths.features if not args.no_save else Path(scratch) / "features.parquet"
-        out_dir = paths.models if not args.no_save else Path(scratch) / "models"
+        write_artifacts = not args.no_save and args.features == "pl"  # the league's own variant only evaluates
+        table = paths.features if write_artifacts else Path(scratch) / "features.parquet"
+        out_dir = paths.models if write_artifacts else Path(scratch) / "models"
         table.parent.mkdir(parents=True, exist_ok=True)
         frame.to_parquet(table, index=False)
-        for name, spec in LEAGUE_COUNT_SPECS.items():
+        for name, spec in specs.items():
             results[name] = {"target": spec.target_col, "features": list(spec.features), **train_count_model(spec, str(table), str(out_dir), logger)}
     if not args.no_save:
-        report = REPORTS_DIR / "models" / f"{comp.key}_count_models.json"
+        report = REPORTS_DIR / "models" / f"{comp.key}_count_models{'_league_features' if args.features == 'league' else ''}.json"
         payload = {"generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "competition": comp.key, "models": results}
         report.write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
         logger.info("Report: %s", report)

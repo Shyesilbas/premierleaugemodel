@@ -49,6 +49,7 @@ STAT_PATHS = {
     "yellow": "$.data.overview.yellow_cards.all",
     "red": "$.data.overview.red_cards.all",
     "saves": "$.data.overview.goalkeeper_saves.all",
+    "np_xg": "$.data.np_expected_goals.all",
 }
 # (feature stem, own-side stat, opponent-side stat or None)
 TEAM_STATS = (
@@ -151,11 +152,12 @@ def _player_form(history: List[tuple], season: str, fallback: float) -> float:
     return 0.70 * sum(w * r for w, r in zip(weights, recent)) + 0.30 * float(np.mean(pool))
 
 
-def _xi_features(matches: pd.DataFrame, player_lines: pd.DataFrame) -> pd.DataFrame:
+def _xi_features(matches: pd.DataFrame, player_lines: pd.DataFrame, with_missing: bool = False) -> pd.DataFrame:
     """Starting-XI strength of both sides, from player ratings of earlier matches only.
 
     The XI of a played match is the one that started; for a match without a recorded XI it is the team's previous XI. A player's form
     uses appearances before this match (``_player_form``); a player with no history gets the league mean rating so far.
+    ``with_missing`` adds the minute share of regulars (at least 40% of the last 12 matches' minutes) who are not in the XI.
     """
     starters: Dict[tuple, List[tuple]] = {}
     rosters: Dict[tuple, Dict[str, float]] = {}
@@ -190,14 +192,16 @@ def _xi_features(matches: pd.DataFrame, player_lines: pd.DataFrame) -> pd.DataFr
                     shares = [minutes.get(pid, 0.0) / (len(recent) * 90.0) for pid, _ in xi]
                     continuity, weights = float(np.mean(shares)), [max(0.10, x) for x in shares]
                     weighted = float(np.average([f for _, f in form], weights=weights))
+                    starting = {pid for pid, _ in xi}
+                    missing = float(sum(m / (len(recent) * 90.0) for pid, m in minutes.items() if m / (len(recent) * 90.0) >= 0.40 and pid not in starting))
                 else:
-                    continuity, weighted = XI_PRIOR_CONTINUITY, overall
+                    continuity, weighted, missing = XI_PRIOR_CONTINUITY, overall, 0.0
                 out.update({f"{side}_xi_rating": overall, f"{side}_xi_att": float(np.mean(attack)) if attack else overall,
                             f"{side}_xi_def": float(np.mean(defence)) if defence else overall,
-                            f"{side}_xi_continuity": continuity, f"{side}_xi_weighted_ov": weighted})
+                            f"{side}_xi_continuity": continuity, f"{side}_xi_weighted_ov": weighted, f"{side}_xi_missing_reg_mins": missing})
             else:
                 out.update({f"{side}_xi_rating": fallback, f"{side}_xi_att": fallback, f"{side}_xi_def": fallback,
-                            f"{side}_xi_continuity": XI_PRIOR_CONTINUITY, f"{side}_xi_weighted_ov": fallback})
+                            f"{side}_xi_continuity": XI_PRIOR_CONTINUITY, f"{side}_xi_weighted_ov": fallback, f"{side}_xi_missing_reg_mins": 0.0})
         rows.append(out)
         if pd.isna(row.home_score) or pd.isna(row.away_score):
             continue
@@ -219,7 +223,11 @@ def _xi_features(matches: pd.DataFrame, player_lines: pd.DataFrame) -> pd.DataFr
     xi["xi_att_vs_def_diff"] = xi["home_xi_att_vs_away_def"] - xi["away_xi_att_vs_home_def"]
     xi["xi_continuity_diff"] = xi["home_xi_continuity"] - xi["away_xi_continuity"]
     xi["xi_weighted_ov_diff"] = xi["home_xi_weighted_ov"] - xi["away_xi_weighted_ov"]
-    return xi.drop(columns=["home_xi_att", "home_xi_def", "away_xi_att", "away_xi_def"])
+    xi["xi_missing_reg_mins_diff"] = xi["home_xi_missing_reg_mins"] - xi["away_xi_missing_reg_mins"]
+    drop = ["home_xi_att", "home_xi_def", "away_xi_att", "away_xi_def"]
+    if not with_missing:  # the 12-column set the first-XI ablation was run on
+        drop += ["home_xi_missing_reg_mins", "away_xi_missing_reg_mins", "xi_missing_reg_mins_diff"]
+    return xi.drop(columns=drop)
 
 
 def _long_table(matches: pd.DataFrame) -> pd.DataFrame:

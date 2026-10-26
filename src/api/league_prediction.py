@@ -24,7 +24,8 @@ from src.competitions.registry import get_competition
 from src.config import DB_PATH, competition_paths
 from src.models.dixon_coles import align_to_outcome_probs, matrix_from_lambdas
 from src.db.database import get_db
-from src.features.build_league_features import build_league_features, load_league_matches
+from src.features.build_league_features import build_league_features, load_league_matches, load_player_lines
+from src.features.build_league_pl_features import build_parity_features
 from src.models.model_utils import apply_probability_calibrator
 from src.models.train_match_outcome import ordered_probabilities
 
@@ -36,8 +37,8 @@ LINES = {"corners": (8.5, 9.5, 10.5), "cards": (3.5, 4.5, 5.5), "throws": (33.5,
 # market -> (artifact file, share stem for the home/away split, clip range, thresholds whose over probabilities are served)
 COUNT_MODELS = {"corners": ("corner_model_v1.joblib", "corners_for", 0.0, 40.0, (8, 9, 10)),
                 "cards": ("cards_model_v1.joblib", "cards_for", 0.0, 20.0, (3, 4, 5)),
-                "throws": ("throws_model_v1.joblib", "throws_for", 10.0, 80.0, (33, 34, 36)),
-                "saves": ("saves_model_v1.joblib", "saves_for", 0.0, 25.0, ()),
+                "throws": ("throws_model_v1.joblib", "throws", 10.0, 80.0, (33, 34, 36)),
+                "saves": ("saves_model_v1.joblib", "saves", 0.0, 25.0, ()),
                 "offsides": ("offside_model_v1.joblib", "offsides_for", 0.0, 20.0, (2, 3, 4))}
 BASELINE_NOTE = "Model, Elo temelli referans olasılıklarından ayırt edilemedi; Elo temelli referans gösteriliyor."
 
@@ -52,6 +53,16 @@ def _table(competition_id: int, stamp: Tuple[int, int]) -> pd.DataFrame:
     conn = get_db()
     try:
         return build_league_features(load_league_matches(conn, competition_id))
+    finally:
+        conn.close()
+
+
+@lru_cache(maxsize=2)
+def _parity_table(competition_id: int, stamp: Tuple[int, int]) -> pd.DataFrame:
+    """Feature table with the Premier League's definitions; the count models were trained on its columns (takes about half a minute)."""
+    conn = get_db()
+    try:
+        return build_parity_features(load_league_matches(conn, competition_id), load_player_lines(conn, competition_id))
     finally:
         conn.close()
 
@@ -91,7 +102,10 @@ def _count_block(name: str, expected: float, skill: str = "baseline", home_share
 
 
 def _count_market(competition_key: str, name: str, rows: pd.DataFrame, history: pd.DataFrame) -> Dict[str, Any]:
-    """One count market: the model's expectation when an artifact exists, otherwise the league running average."""
+    """One count market: the model's expectation when an artifact exists, otherwise the league running average.
+
+    ``rows`` is the match's row of the Premier League-definition table (``_parity_table``), the columns the count models were trained on.
+    """
     running = _running_mean(history, name)
     spec = COUNT_MODELS.get(name)
     artifact = count_artifact_for(competition_key, name) if spec else None
@@ -159,7 +173,9 @@ def compute_league_prediction(home_id: int, away_id: int, match_id: Optional[int
         conn.close()
     names = (row["home_name"], row["away_name"])
     favorite = names[0] if p_home >= max(p_draw, p_away) else (names[1] if p_away >= max(p_home, p_draw) else "Beraberlik")
-    counts = {name: _count_market(comp.key, name, rows, history) for name in ("corners", "cards", "throws", "saves", "shots", "offsides")}
+    parity = _parity_table(comp.id, _stamp())
+    parity_row = parity[parity["match_id"] == row["match_id"]]
+    counts = {name: _count_market(comp.key, name, parity_row, history) for name in ("corners", "cards", "throws", "saves", "shots", "offsides")}
     return {
         "home_team": {"id": int(row["home_id"]), "name": names[0], "abbr": (info["home_abbr"] if info else None) or names[0][:3].upper(), "logo": info["home_logo"] if info else None},
         "away_team": {"id": int(row["away_id"]), "name": names[1], "abbr": (info["away_abbr"] if info else None) or names[1][:3].upper(), "logo": info["away_logo"] if info else None},
@@ -178,8 +194,8 @@ def compute_league_prediction(home_id: int, away_id: int, match_id: Optional[int
                   "btts_pct": round(btts, 1), "btts_source": btts_source, "btts_prior_pct": round(float(rates.get("btts", 0.0)) * 100.0, 1) or None,
                   "lines": lines},
         "corners": counts["corners"], "cards": counts["cards"],
-        "referee": {"name": (info["referee_name"] if info else None) or "Atanmadı", "avg_cards": round(float(row["referee_avg_cards"]), 1),
-                    "avg_fouls": round(float(row["referee_avg_fouls"]), 1)},
+        "referee": {"name": (info["referee_name"] if info else None) or "Atanmadı", "avg_cards": round(float(parity_row["referee_avg_cards"].iloc[0]), 1),
+                    "avg_fouls": round(float(parity_row["referee_avg_fouls"].iloc[0]), 1)},
         "throws": counts["throws"], "saves": counts["saves"], "shots": counts["shots"], "offsides": counts["offsides"],
         "lineup_analysis": None,
     }

@@ -32,6 +32,7 @@ import pandas as pd
 from src.competitions.registry import get_competition
 from src.config import REPORTS_DIR, configure_logging
 from src.db.database import get_db
+from src.features.build_league_pl_features import build_parity_features, parity_feature_columns
 from src.features.build_league_features import build_league_features, feature_columns, load_league_matches, load_player_lines, xi_feature_columns
 from src.models.eval_utils import apply_fdr, per_match_log_loss, with_inference
 from src.models.train_league_model import OUTER_SEASONS, league_candidates, market_probabilities, walk_forward
@@ -47,13 +48,23 @@ CORE_FEATURES = (
     "home_rest_days", "away_rest_days", "is_promoted_home", "is_promoted_away",
 )
 
-# variant -> (columns given the production columns and the table, candidate grid)
-Variant = Callable[[pd.DataFrame, List[str]], Tuple[List[str], Optional[Dict[str, Any]]]]
+# variant -> (table, columns, candidate grid) given the production table, the production columns, the matches and the player lines.
+# Only ``pl_parity`` swaps the table: its columns carry the Premier League's definitions and share names with the production ones.
+Context = Dict[str, Any]
+Variant = Callable[[Context], Tuple[pd.DataFrame, List[str], Optional[Dict[str, Any]]]]
+
+
+def _parity(ctx: Context) -> Tuple[pd.DataFrame, List[str], Optional[Dict[str, Any]]]:
+    table = build_parity_features(ctx["matches"], ctx["lines"])
+    return table, parity_feature_columns(table), None
+
+
 VARIANTS: Dict[str, Variant] = {
-    "xi": lambda frame, base: (base + [c for c in xi_feature_columns(frame) if frame[c].notna().any()], None),
-    "low_c": lambda frame, base: (base, league_candidates(low_c=True)),
-    "core": lambda frame, base: ([c for c in CORE_FEATURES if c in base], None),
-    "core_low_c": lambda frame, base: ([c for c in CORE_FEATURES if c in base], league_candidates(low_c=True)),
+    "xi": lambda ctx: (ctx["frame"], ctx["base"] + [c for c in xi_feature_columns(ctx["frame"]) if ctx["frame"][c].notna().any()], None),
+    "low_c": lambda ctx: (ctx["frame"], ctx["base"], league_candidates(low_c=True)),
+    "core": lambda ctx: (ctx["frame"], [c for c in CORE_FEATURES if c in ctx["base"]], None),
+    "core_low_c": lambda ctx: (ctx["frame"], [c for c in CORE_FEATURES if c in ctx["base"]], league_candidates(low_c=True)),
+    "pl_parity": _parity,
 }
 
 
@@ -96,9 +107,9 @@ def main() -> None:
     detail: Dict[str, Any] = {}
     pooled_family: Dict[str, Dict[str, Any]] = {}
     for name in args.group:
-        columns, candidates = VARIANTS[name](frame, base_columns)
+        table, columns, candidates = VARIANTS[name]({"frame": frame, "base": base_columns, "matches": matches, "lines": lines})
         logger.info("%s: %d features (production %d), %s grid", name, len(columns), len(base_columns), "extended" if candidates else "production")
-        run = walk_forward(frame, columns, market, candidates)
+        run = walk_forward(table, columns, market, candidates)
         loss = match_losses(run)
         pooled_family[name] = compare(loss, base_loss, outer)
         detail[name] = {"feature_count": len(columns), "added_features": [c for c in columns if c not in base_columns], "removed_feature_count": len([c for c in base_columns if c not in columns]),

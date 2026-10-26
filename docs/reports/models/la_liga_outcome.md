@@ -59,7 +59,7 @@ Aynı iki dış sezonda her pazar, eğitim taban oranına karşı eşli bootstra
 
 Beş ölçünün beşinde de yön modelin lehine, ama düzeltmeden sonra hiçbiri q < 0.05 değil (en güçlüsü 2.5 üstü, q = 0.081; düzeltmesiz aralığı sıfırı dışarıda bırakıyor). Önceden yazılmış kapı kuralı (PL'deki pazar bazlı `skill_gate` mantığı): pazar, eğitim taban oranını FDR düzeltmeli olarak geçmedikçe serviste taban oranı sunulur ve `baseline` etiketi taşır. Bu yüzden şu an dört pazar da taban oranı gösteriyor (eğitim taban oranları: 1.5 üstü %73,2; 2.5 üstü %48,1; 3.5 üstü %24,8; KG %52,6); beklenen gol sayıları (ev/deplasman/toplam) ve 0.5 üstü modelden gelmeye devam eder. Bu farkı %80 güçle ayırt etmek için 2.5 üstünde yaklaşık 1.022, diğerlerinde 1.742 ile 2.846 maç gerekir; yani bir ila iki ek sezon.
 
-Bağımsız Poisson oranları, Dixon-Coles matrisi (rho = -0.04) kalibre edilmiş 1X2'ye hizalanır; böylece tüm pazarlar tek dağılımdan çıkar. Korner, taç, ofsayt, kart ve kurtarış için ayrı sayım modelleri vardır (bkz. [la_liga_counts.md](la_liga_counts.md)); yalnızca taç kapıyı geçti, diğerleri `baseline` etiketli ortalamadır. Şut için model yoktur, lig koşan ortalaması `baseline` etiketiyle gösterilir.
+Bağımsız Poisson oranları, Dixon-Coles matrisi (rho = -0.04) kalibre edilmiş 1X2'ye hizalanır; böylece tüm pazarlar tek dağılımdan çıkar. Korner, taç, ofsayt, kart ve kurtarış için ayrı sayım modelleri vardır (bkz. [la_liga_counts.md](la_liga_counts.md)); taç ve ofsayt kapıyı geçti, diğerleri `baseline` etiketli ortalamadır. Şut için model yoktur, lig koşan ortalaması `baseline` etiketiyle gösterilir.
 
 ## 6. Bilinen sınırlar
 
@@ -112,4 +112,24 @@ CV eğrisi U şeklindedir: 0.001 her sezonda en iyidir, daha güçlü de daha za
 
 İki dış sezon birlikte fark (22 eksi 118; negatif 22 özelliğin lehine) -0.0029 [-0.0137, +0.0075], q = 0.585; sınama sezonu tek başına -0.0079 [-0.0200, +0.0046], p = 0.215. Yön sezondan sezona değişiyor (2024/25 ve izleme sezonunda daha kötü, sınama sezonunda daha iyi) ve aralık sıfırı geniş biçimde içeriyor; bu farkı %80 güçle ayırt etmek için yaklaşık 20.000 maç gerekirdi. `core_low_c` aynı adayı seçtiği için `core` ile aynı sonucu verir.
 
-**Karar: ikisi de benimsenmedi; üretim modeli 118 özellik ve `logreg_C0.001` olarak kaldı.** Daha az özellikli modelin eşit derecede iyi çıkması, 118 özelliğin bilgi eklemediğini düşündürür ama bunu kanıtlamıyor; iki kümeyi ayırt edecek veri yok. Bu, Bölüm 4'teki "Elo'ya yakın yetenek" bulgusuyla tutarlıdır: bu veri boyutunda form özelliklerinin Elo'nun ötesinde eklediği bilgi, ölçülebilir değildir.
+**Karar: ikisi de benimsenmedi; üretim modeli 118 özellik ve `logreg_C0.001` olarak kaldı.** Daha az özellikli modelin eşit derecede iyi çıkması, 118 özelliğin bilgi eklemediğini düşündürür ama bunu kanıtlamıyor; iki kümeyi ayırt edecek veri yok. Özellik ailesi permütasyon denetimi de aynı yöndedir ([la_liga_feature_audit.md](la_liga_feature_audit.md)): hiçbir aile tek başına ayırt edilemiyor, bilgi yedekli. Bu, Bölüm 4'teki "Elo'ya yakın yetenek" bulgusuyla tutarlıdır: bu veri boyutunda form özelliklerinin Elo'nun ötesinde eklediği bilgi, ölçülebilir değildir.
+
+## 9. PL özellik tanımlarıyla 1X2 (No Gain, Not Adopted: anlamlı olarak daha kötü)
+
+**Ham sonuçlar:** `docs/reports/models/la_liga_pl_parity_ablation.json`. **Yeniden üretim:** `python3 -m src.models.ablate_league_features --competition la_liga --group pl_parity` (yaklaşık 1 dakika).
+
+**Soru.** LaLiga 1X2 modelinin 118 özelliği PL modelinin 74 özelliğiyle aynı değildi: ad düzeyinde 74 PL özelliğinin yalnızca 37'si LaLiga tablosunda vardı, geri kalanının tanımı farklıydı (rakip Elo normalizasyonu ve penaltı arındırma yoktu; venue formları büzülmesizdi; `sdiff_*`, `schedule_*` ve devamlılık özellikleri yoktu). PL'nin özellik koduyla aynı özelliklerin LaLiga'da daha iyi olup olmadığı sınandı.
+
+**Yöntem.** `src/features/build_league_pl_features.py`, LaLiga istatistiklerini PL'nin ham sütun adlarına çevirip PL'nin kendi özellik fonksiyonlarını çalıştırır (kopya değil, aynı kod), PL'nin 74 özellikli 1X2 listesini (`feature_set("1x2")`) üretir. LaLiga'da verisi olmayan 5 sütun çıkarıldı: `log_mv_ratio`, `effective_log_mv_ratio`, `schedule_mv_diff` (geçmiş sezonlar için kadro piyasa değeri yok) ve `sdiff_pa_entries_e02/r10` (ceza sahası giriş sayısı yok; sütunlar sabit değildi ama varsayılan değerin rakip Elo çarpanıyla ölçeklenmesinden doğan, gizli bir Elo özelliğiydi, bu yüzden açıkça çıkarıldı). Kalan 69 özellik, Bölüm 7-8'deki aynı yürüyen protokol, aday ızgarası, eşli bootstrap ve benimseme kuralıyla üretim modeliyle (118 özellik) karşılaştırıldı. İlk 11 özellikleri LaLiga'da sağlayıcının oyuncu rating'inden gelir (PL'nin kendi oyuncu puanı yoktur).
+
+| Sezon | 118 özellik (üretim) | 69 özellik (PL tanımları) | Seçilen aday |
+|---|---|---|---|
+| 2024/25 | 0.9750 | 1.0360 | `logreg_C0.003` |
+| 2025/26 (sınama) | 0.9725 | 0.9733 | `logreg_C0.001` |
+| 2026/27 (izleme) | 0.9402 | 0.9459 | `logreg_C0.001` |
+
+Fark (PL tanımları eksi üretim; pozitif PL tanımlarının daha kötü olduğu anlamına gelir): iki dış sezon birlikte +0.0310 [+0.0110, +0.0515], q = 0.0016; sınama sezonu tek başına +0.0009 [-0.0096, +0.0109]. **Karar: benimsenmedi; üretim 1X2 modeli 118 özellikli kaldı.**
+
+**Yorum (kanıtlanmış değil).** Fark yalnızca 2024/25'ten geliyor; o sezonu tahmin eden model yalnızca iki sezonluk (760 maç) geçmişle eğitiliyor. PL'nin tanımları 37 form ve venue sütunu içeriyor ve kayan pencerelerde `min_periods=1` kullanıyor; küçük örneklemde bu sütunlar gürültü ekliyor olabilir. 2025/26'da eğitim 1.140 maça çıkınca fark kayboluyor (+0.0009). Bu bir öğrenme eğrisi açıklamasıdır ve ayrı bir deneyle sınanmadı; yön, daha fazla veriyle PL tanımlarının eşitlenmesi yönündedir, ama bu da kanıtlanmış değildir.
+
+**Sonuç.** Aynı özellik kodunu LaLiga'ya taşımak 1X2 modelini iyileştirmedi, ilk sezonlarda zarar verdi. Sayım modelleri için ise aynı karşılaştırma farklı sonuç verdi ve orada PL tanımları benimsendi (bkz. [la_liga_counts.md](la_liga_counts.md) Bölüm 2). Bu yüzden LaLiga'da iki özellik tablosu vardır: 1X2 ve gol modeli kendi 118 özelliklidir; sayım modelleri PL tanımlıdır.

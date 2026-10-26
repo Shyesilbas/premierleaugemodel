@@ -1,0 +1,141 @@
+{
+  "generated_at_utc": "2026-10-26T10:56:59+00:00",
+  "competition": "la_liga",
+  "variants": [
+    "pl_parity"
+  ],
+  "protocol": {
+    "outer_seasons": [
+      "2024_25",
+      "2025_26"
+    ],
+    "locked_monitoring": [
+      "2026_27"
+    ],
+    "bootstrap_draws": 10000,
+    "seed": 42,
+    "base_feature_count": 118,
+    "base_selected_models": {
+      "2024_25": "logreg_C0.001",
+      "2025_26": "logreg_C0.001",
+      "2026_27": "logreg_C0.001"
+    },
+    "base_mean_log_loss": {
+      "2024_25": 0.9749760139664283,
+      "2025_26": 0.9724531922321629,
+      "2026_27": 0.9402189835705841
+    }
+  },
+  "candidate_minus_base": {
+    "pl_parity": {
+      "feature_count": 69,
+      "added_features": [
+        "xi_rating_diff",
+        "xi_att_vs_def_diff",
+        "xi_continuity_diff",
+        "xi_weighted_ov_diff",
+        "missing_reg_mins_diff",
+        "schedule_difficulty_diff",
+        "home_venue_xg_for_ewma_02",
+        "home_venue_xg_against_ewma_02",
+        "away_venue_xg_for_ewma_02",
+        "away_venue_xg_against_ewma_02",
+        "home_venue_goals_for_roll_5",
+        "home_venue_goals_against_roll_5",
+        "away_venue_goals_against_roll_5",
+        "home_venue_shots_ontarget_for_roll_5",
+        "home_venue_shots_ontarget_against_roll_5",
+        "away_venue_shots_ontarget_for_roll_5",
+        "away_venue_shots_ontarget_against_roll_5",
+        "venue_goals_diff",
+        "venue_sot_diff",
+        "sdiff_goals_e02",
+        "sdiff_goals_r10",
+        "sdiff_sot_e02",
+        "sdiff_sot_r10",
+        "home_shots_ontarget_for_roll_10",
+        "home_shots_ontarget_for_ewma_02",
+        "home_shots_ontarget_against_roll_10",
+        "home_touches_in_opp_box_roll_10",
+        "home_touches_in_opp_box_ewma_02",
+        "away_shots_ontarget_for_roll_10",
+        "away_shots_ontarget_for_ewma_02",
+        "away_shots_ontarget_against_roll_10",
+        "away_shots_ontarget_against_ewma_02",
+        "away_touches_in_opp_box_roll_10",
+        "away_touches_in_opp_box_ewma_02",
+        "abs_elo_venue_diff",
+        "abs_gdpg_diff"
+      ],
+      "removed_feature_count": 85,
+      "mean_log_loss": {
+        "2024_25": 1.036022527427146,
+        "2025_26": 0.9733338264150923,
+        "2026_27": 0.945922649125782
+      },
+      "selected_models": {
+        "2024_25": "logreg_C0.003",
+        "2025_26": "logreg_C0.001",
+        "2026_27": "logreg_C0.001"
+      },
+      "cv_log_loss": {
+        "2024_25": {
+          "logreg_C0.001": 0.9944,
+          "logreg_C0.003": 0.9905,
+          "logreg_C0.01": 1.0065,
+          "logreg_C0.03": 1.0446,
+          "logreg_C0.1": 1.1166,
+          "lgbm_n100": 1.002,
+          "lgbm_n200": 1.0112,
+          "lgbm_n400": 1.044
+        },
+        "2025_26": {
+          "logreg_C0.001": 0.989,
+          "logreg_C0.003": 0.9951,
+          "logreg_C0.01": 1.0223,
+          "logreg_C0.03": 1.0642,
+          "logreg_C0.1": 1.133,
+          "lgbm_n100": 0.9962,
+          "lgbm_n200": 1.0104,
+          "lgbm_n400": 1.0496
+        },
+        "2026_27": {
+          "logreg_C0.001": 0.9827,
+          "logreg_C0.003": 0.9925,
+          "logreg_C0.01": 1.0245,
+          "logreg_C0.03": 1.072,
+          "logreg_C0.1": 1.1448,
+          "lgbm_n100": 0.9927,
+          "lgbm_n200": 1.0035,
+          "lgbm_n400": 1.0325
+        }
+      },
+      "last_outer_season": {
+        "mean_delta": 0.000880634182929513,
+        "ci_low": -0.00957779640009081,
+        "ci_high": 0.010860903496127613,
+        "p_a_better": 0.4331,
+        "n": 380,
+        "p_two_sided": 0.8662,
+        "n_required_80_power": 102853
+      },
+      "pooled_outer": {
+        "mean_delta": 0.030963573821823593,
+        "ci_low": 0.011006603441258388,
+        "ci_high": 0.05153259160762115,
+        "p_a_better": 0.0008,
+        "n": 760,
+        "p_two_sided": 0.0016,
+        "n_required_80_power": 655,
+        "q_fdr": 0.0016,
+        "significant_fdr_05": true
+      },
+      "decision": {
+        "adopt": false,
+        "pooled_negative_and_significant": false,
+        "last_outer_season_negative": false,
+        "rule": "adopt only if the pooled outer-season difference is negative with a 95% interval below zero, q (Benjamini-Hochberg across the variants of the run) below 0.05, and the last outer season alone is also negative"
+      }
+    }
+  }
+}
