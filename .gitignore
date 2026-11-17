@@ -62,6 +62,14 @@ models/backup/
 models/production/**/*.backup_*.joblib
 scratch/
 .antigravity/
+.agents/
 .claude/
+.cursor/
+.ai/
 .devin/
+*.log
+logs/
+.eslintcache
+.turbo/
+/plan*.md
 reports/prospective_1x2_scorecard*.json
