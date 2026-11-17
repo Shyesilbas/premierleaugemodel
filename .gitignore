@@ -54,17 +54,14 @@ graphify-out/
 # Regenerable data and binaries (rebuilt by run_full_pipeline.py / sync_season_data.py)
 data/football.db
 data/premier_league.db
-data/competitions/*/raw/*/matches/
-data/competitions/*/processed/*.parquet
-data/competitions/*/processed/player_match_logs.json
-data/competitions/*/processed/players_registry.json
-data/competitions/*/processed/model_audit_summary*.json
-data/competitions/*/processed/match_player_bookings_cache.json
-data/competitions/*/raw/.sync.lock
-data/competitions/*/raw/transfermarkt/
+data/competitions/*/raw/
+data/competitions/*/processed/*
+!data/competitions/*/processed/1x2_forecast_log.jsonl
+!data/competitions/*/processed/manager_changes.json
 models/backup/
 models/production/**/*.backup_*.joblib
-
-# Provider downloads of non-PL competitions (re-fetchable via src.ingest; API-limited, so kept on disk)
-data/competitions/champions_league/raw/
-data/competitions/europa_league/raw/
+scratch/
+.antigravity/
+.claude/
+.devin/
+reports/prospective_1x2_scorecard*.json
