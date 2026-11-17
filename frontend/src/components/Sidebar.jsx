@@ -1,34 +1,56 @@
-import React, { useState } from 'react';
-import { 
-  Calendar, 
-  Shield, 
-  User, 
-  Menu, 
-  X, 
+import React, { useEffect, useState } from 'react';
+import {
+  ArrowLeftRight,
+  BarChart3,
+  Calendar,
   ChevronLeft,
-  Trophy,
+  ChevronRight,
+  Menu,
   Scale,
+  Shield,
   ShieldCheck,
-  BarChart3
+  Trophy,
+  User,
+  X,
 } from 'lucide-react';
-import { useCompetition } from '../context/CompetitionContext';
+import { useCompetition } from '../context/competitionState';
 
 export default function Sidebar({
   activeTab,
   setActiveTab,
   collapsed,
-  setCollapsed
+  setCollapsed,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { activeCompetition, hasModel } = useCompetition();
+  const { activeCompetition, hasAudit } = useCompetition();
 
-  const navItems = [
-    { id: 'fixtures', label: 'Fikstür & Günler', icon: Calendar },
-    { id: 'teams', label: 'Takım Profilleri', icon: Shield },
-    { id: 'players', label: 'Oyuncu Profilleri', icon: User },
-    { id: 'referees', label: 'Hakem Profilleri', icon: Scale },
-    { id: 'stats', label: 'İstatistikler', icon: BarChart3 },
-    ...(hasModel ? [{ id: 'audit', label: 'Model Doğrulama', icon: ShieldCheck }] : []),
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mobileOpen]);
+
+  const sections = [
+    {
+      title: 'Turnuva',
+      items: [
+        { id: 'fixtures', label: 'Fikstür & Günler', icon: Calendar },
+        { id: 'teams', label: 'Takım Profilleri', icon: Shield },
+        { id: 'players', label: 'Oyuncu Profilleri', icon: User },
+        { id: 'player-compare', label: 'Oyuncu Karşılaştırma', icon: ArrowLeftRight },
+      ],
+    },
+    {
+      title: 'Analitik',
+      items: [
+        { id: 'referees', label: 'Hakem Profilleri', icon: Scale },
+        { id: 'stats', label: 'İstatistikler', icon: BarChart3 },
+        ...(hasAudit ? [{ id: 'audit', label: 'Model Takibi', icon: ShieldCheck }] : []),
+      ],
+    },
   ];
 
   const handleNavClick = (tabId) => {
@@ -39,107 +61,123 @@ export default function Sidebar({
   return (
     <>
       {/* Mobile Top Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-background-primary border-b border-border z-40 px-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded bg-accent text-white flex items-center justify-center transition-colors`}>
-            <Trophy className="w-4 h-4 text-white" />
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-background-primary border-b border-border z-40 px-4 flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 rounded bg-accent text-white flex items-center justify-center shrink-0 transition-colors">
+            <Trophy className="w-4 h-4 text-white" strokeWidth={1.5} aria-hidden="true" />
           </div>
-          <div>
-            <h1 className="text-sm font-semibold text-text-primary leading-tight">{activeCompetition.name}</h1>
-          </div>
+          <span className="text-sm font-semibold text-text-primary leading-tight truncate">
+            {activeCompetition.name}
+          </span>
         </div>
 
-        <button 
+        <button
+          type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-2 rounded bg-background-tertiary hover:bg-border text-text-secondary transition-colors"
-          aria-label="Toggle Navigation"
+          className="p-2 rounded bg-background-tertiary hover:bg-border text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+          aria-expanded={mobileOpen}
+          aria-label={mobileOpen ? 'Menüyü kapat' : 'Menüyü aç'}
         >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {mobileOpen ? <X className="w-5 h-5" strokeWidth={1.5} aria-hidden="true" /> : <Menu className="w-5 h-5" strokeWidth={1.5} aria-hidden="true" />}
         </button>
-      </div>
+      </header>
 
       {/* Mobile Backdrop */}
       {mobileOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-black/40 z-40"
+        <div
+          aria-hidden="true"
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
-      {/* Desktop Reopen Button (visible only when collapsed) */}
-      {collapsed && (
-        <button
-          onClick={() => setCollapsed(false)}
-          className="hidden lg:flex fixed top-4 left-4 z-40 p-2 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary transition-colors"
-          aria-label="Show sidebar"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-      )}
-
-      {/* Main Sidebar (Desktop fixed left, mobile drawer) */}
+      {/* Main Sidebar (Desktop collapsible rail w-60/w-16 matching nbaModelApp; mobile drawer) */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 w-72 bg-background-primary border-r border-border z-50 flex flex-col justify-between transition-transform duration-200 ease-out ${
-          collapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'
+        aria-label="Kenar çubuğu"
+        className={`fixed top-0 bottom-0 left-0 bg-background-primary border-r border-border z-50 flex flex-col justify-between transition-all duration-200 ease-out motion-reduce:transition-none ${
+          collapsed ? 'w-60 lg:w-16' : 'w-60'
         } ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="p-5 flex flex-col h-full overflow-y-auto">
-
+        <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden">
           {/* Logo & Branding */}
-          <div className="flex items-center gap-3.5 pb-4 border-b border-border-light">
-            <div className={`w-9 h-9 rounded bg-accent text-white flex items-center justify-center transition-colors`}>
-              <Trophy className="w-4 h-4 text-white" />
+          <div className={`h-16 flex items-center border-b border-border-light shrink-0 ${collapsed ? 'px-3 lg:justify-center' : 'px-4 justify-between gap-2'}`}>
+            <div className={`flex items-center gap-2.5 min-w-0 ${collapsed ? 'lg:hidden' : ''}`}>
+              <div className="w-8 h-8 rounded bg-accent text-white flex items-center justify-center shrink-0 transition-colors">
+                <Trophy className="w-4 h-4 text-white" strokeWidth={1.5} aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <span className="block font-semibold text-sm tracking-tight text-text-primary leading-tight truncate">
+                  {activeCompetition.name}
+                </span>
+                <p className="text-xs text-text-muted truncate">{activeCompetition.country}</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="font-semibold text-base tracking-tight text-text-primary leading-tight">{activeCompetition.name}</h1>
-              <p className="text-xs text-text-muted">{activeCompetition.country}</p>
-            </div>
+
+            {collapsed && (
+              <div className="hidden lg:flex w-8 h-8 rounded bg-accent text-white items-center justify-center shrink-0" title={activeCompetition.name}>
+                <Trophy className="w-4 h-4 text-white" strokeWidth={1.5} aria-hidden="true" />
+              </div>
+            )}
+
             <button
-              onClick={() => setCollapsed(true)}
-              className="hidden lg:flex p-2 rounded hover:bg-background-tertiary text-text-secondary transition-colors"
-              aria-label="Hide sidebar"
+              type="button"
+              onClick={() => setCollapsed(!collapsed)}
+              className="hidden lg:inline-flex p-1.5 rounded hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors cursor-pointer shrink-0"
+              aria-label={collapsed ? 'Kenar çubuğunu genişlet' : 'Kenar çubuğunu daralt'}
+              title={collapsed ? 'Kenar çubuğunu genişlet' : 'Kenar çubuğunu daralt'}
             >
-              <ChevronLeft className="w-4 h-4" />
+              {collapsed ? (
+                <ChevronRight className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+              )}
             </button>
           </div>
 
+          {/* Navigation Sections */}
+          <div className="py-4 px-2.5 flex-1 space-y-5">
+            {sections.map((section) => (
+              <div key={section.title} className="space-y-1">
+                {!collapsed && (
+                  <span className="text-xs font-semibold text-text-muted block mb-1.5 px-2.5">
+                    {section.title}
+                  </span>
+                )}
+                <nav aria-label={section.title} className="space-y-1">
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
 
-
-          {/* Navigation Links */}
-          <div className="py-5 flex-1">
-            <span className="text-xs font-semibold text-text-secondary block mb-3 px-2">
-              Ana Menü
-            </span>
-            <nav className="space-y-1">
-              {navItems.map(item => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleNavClick(item.id)}
-                    className={`w-full flex items-center justify-start px-3 py-2.5 rounded text-xs font-medium transition-colors duration-150 group ${
-                      isActive
-                        ? 'bg-accent text-white'
-                        : 'text-text-secondary hover:text-text-primary hover:bg-background-tertiary'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${
-                        isActive ? 'text-white' : 'text-text-muted group-hover:text-text-primary'
-                      }`} />
-                      <span>{item.label}</span>
-                    </div>
-
-                  </button>
-                );
-              })}
-            </nav>
+                    return (
+                      <button
+                        type="button"
+                        key={item.id}
+                        aria-current={isActive ? 'page' : undefined}
+                        title={collapsed ? item.label : undefined}
+                        onClick={() => handleNavClick(item.id)}
+                        className={`w-full flex items-center rounded py-2.5 text-xs font-medium transition-colors duration-150 group cursor-pointer ${
+                          collapsed ? 'lg:justify-center lg:px-0 px-3 gap-3' : 'justify-start px-3 gap-3'
+                        } ${
+                          isActive
+                            ? 'bg-accent text-white'
+                            : 'text-text-secondary hover:text-text-primary hover:bg-background-tertiary'
+                        }`}
+                      >
+                        <Icon
+                          className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-text-tertiary group-hover:text-text-primary'}`}
+                          strokeWidth={1.5}
+                          aria-hidden="true"
+                        />
+                        <span className={collapsed ? 'lg:hidden truncate' : 'truncate'}>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+            ))}
           </div>
-
         </div>
       </aside>
     </>

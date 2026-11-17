@@ -99,6 +99,8 @@ def build_competition_stats(conn: sqlite3.Connection, comp_id: int, season: str,
         for entry in payload.get("data") or []:
             if not entry.get("played"):
                 continue
+            if pd.isna(row["home_score"]) or pd.isna(row["away_score"]):
+                continue
             pid = _pid(entry["player_id"])
             local_id, local_name = local_by_provider.get(entry.get("team_id"), (None, None))
             is_home = local_id == int(row["home_id"])

@@ -9,9 +9,11 @@ import MatchPredictionTab from './match-detail/MatchPredictionTab';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Clock, Users, BarChart3, Activity, AlertCircle, Sparkles, TrendingUp } from 'lucide-react';
 import { getTeam } from '../data/teams';
-import { useCompetition } from '../context/CompetitionContext';
+import { useCompetition } from '../context/competitionState';
 import { hasModelPrediction } from '../utils/matchModel';
-import { getCachedTeamData, setCachedTeamData } from '../utils/teamProfileCache';
+import { clearAllCaches } from '../utils/teamProfileCache';
+import { invalidateApiCache } from '../services/apiClient';
+import { getSingleMatchRefreshStatus, startSingleMatchRefresh } from '../services/competitionService';
 import { getMatchDetails, getMatchOdds, getMatchPrediction, getRecentMatchForm } from '../services/matchService';
 import { getTeamManagers } from '../services/teamService';
 import MatchStatsTab from './match-detail/MatchStatsTab';
@@ -19,159 +21,199 @@ import MatchTimelineTab from './match-detail/MatchTimelineTab';
 import MatchLineupsTab from './match-detail/MatchLineupsTab';
 
 export default function MatchDetailPage({ match, onBack, currentGameweek, selectedSeason }) {
-  const isCompleted = Boolean(
-    match?.status === 'COMPLETED' || 
-    (match?.home_score !== null && match?.home_score !== undefined && match?.home_score !== '')
-  );
   const { hasModel: competitionHasModel, competitionKey } = useCompetition();
-  const hasModel = hasModelPrediction(match, competitionHasModel);
-  const isPredictable = hasModel && !isCompleted && (
-    currentGameweek ? Number(match?.gameweek) === Number(currentGameweek) : true
-  );
-
-  // Main tab: default to 'timeline' for completed matches as requested
-  const [activeTab, setActiveTab] = useState(
-    isCompleted ? 'timeline' : isPredictable ? 'prediction' : 'lineups'
-  );
-  const [details, setDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [prediction, setPrediction] = useState(null);
-  const [loadingPrediction, setLoadingPrediction] = useState(false);
-  const [predictionFailed, setPredictionFailed] = useState(false);
-  const [predictionKey, setPredictionKey] = useState(0);
+  const [detailsResult, setDetailsResult] = useState(null);
+  const [predictionResult, setPredictionResult] = useState(null);
+  const [predictionSeq, setPredictionSeq] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [teamManagers, setTeamManagers] = useState({});
-  const [recentForm, setRecentForm] = useState({});
+  const [refreshingMatch, setRefreshingMatch] = useState(false);
+  const [managersResult, setManagersResult] = useState(null);
+  const [formResult, setFormResult] = useState(null);
 
-  // Modal for player match scorecard
   const [selectedPlayerModal, setSelectedPlayerModal] = useState(null);
-  const [lineupViewMode, setLineupViewMode] = useState('pitch'); // 'pitch' | 'list'
-  const [predSubTab, setPredSubTab] = useState('outcome'); // 'outcome', 'goals', 'stats'
-  const [oddsData, setOddsData] = useState([]);
-  const [loadingOdds, setLoadingOdds] = useState(false);
+  const [lineupViewMode, setLineupViewMode] = useState('pitch');
+  const [predSubTab, setPredSubTab] = useState('outcome');
+  const [oddsResult, setOddsResult] = useState(null);
   const [selectedBookmaker, setSelectedBookmaker] = useState('Bet365');
 
-  // If match is completed or not in current gameweek, never stay on prediction tab
-  useEffect(() => {
-    if ((isCompleted || !isPredictable) && activeTab === 'prediction') {
-      setActiveTab(isCompleted ? 'timeline' : 'lineups');
-    }
-  }, [isCompleted, isPredictable, activeTab]);
+  const detailsKey = `${match?.match_id}:${refreshKey}`;
+  const details = detailsResult?.key === detailsKey ? detailsResult.data : null;
+  const loadError = Boolean(detailsResult?.key === detailsKey && detailsResult.error);
+  const loading = Boolean(match?.match_id && detailsResult?.key !== detailsKey);
 
-  const homeTeam = getTeam(match?.home_id, match?.home_name);
-  const awayTeam = getTeam(match?.away_id, match?.away_name);
-  const homeManager = match?.home_manager || teamManagers[String(match?.home_id)];
-  const awayManager = match?.away_manager || teamManagers[String(match?.away_id)];
+  const resolvedMatch = React.useMemo(() => {
+    if (!match) return null;
+    const lus = details?.lineups || [];
+    const hLu = lus.find((l) => Number(l.team_id) === Number(match.home_id)) || lus[0];
+    const aLu = lus.find((l) => Number(l.team_id) === Number(match.away_id)) || lus[1];
+    const hScore = match.home_score ?? hLu?.score ?? null;
+    const aScore = match.away_score ?? aLu?.score ?? null;
+    const derivedCompleted = Boolean(
+      match.status === 'COMPLETED' || (hScore !== null && hScore !== undefined && aScore !== null && aScore !== undefined),
+    );
+    return {
+      ...match,
+      home_id: match.home_id ?? hLu?.team_id,
+      home_name: match.home_name ?? hLu?.team_name,
+      away_id: match.away_id ?? aLu?.team_id,
+      away_name: match.away_name ?? aLu?.team_name,
+      home_score: hScore,
+      away_score: aScore,
+      status: derivedCompleted ? 'COMPLETED' : (match.status || 'UPCOMING'),
+      kickoff_label: match.kickoff_label || details?.metadata?.kickoff_label,
+      ground_name: match.ground_name || details?.metadata?.ground,
+      referee_name: match.referee_name || details?.metadata?.referee,
+    };
+  }, [match, details]);
 
+  const isCompleted = Boolean(
+    resolvedMatch?.status === 'COMPLETED' ||
+    (resolvedMatch?.home_score !== null && resolvedMatch?.home_score !== undefined && resolvedMatch?.home_score !== ''),
+  );
+  const hasModel = hasModelPrediction(resolvedMatch, competitionHasModel);
+  const isPredictable = hasModel && !isCompleted && (
+    currentGameweek ? Number(resolvedMatch?.gameweek) === Number(currentGameweek) : true
+  );
+
+  const [activeTab, setActiveTab] = useState(
+    isCompleted ? 'timeline' : isPredictable ? 'prediction' : 'lineups',
+  );
+
+  const resolvedTab = (isCompleted || !isPredictable) && activeTab === 'prediction'
+    ? (isCompleted ? 'timeline' : 'lineups')
+    : activeTab;
+
+  const teamManagers = managersResult?.season === (selectedSeason || resolvedMatch?.season || '2026_27')
+    ? managersResult.data
+    : {};
+  const homeTeam = getTeam(resolvedMatch?.home_id, resolvedMatch?.home_name);
+  const awayTeam = getTeam(resolvedMatch?.away_id, resolvedMatch?.away_name);
+  const homeManager = resolvedMatch?.home_manager || teamManagers[String(resolvedMatch?.home_id)];
+  const awayManager = resolvedMatch?.away_manager || teamManagers[String(resolvedMatch?.away_id)];
+
+  const managerSeason = selectedSeason || resolvedMatch?.season || '2026_27';
   useEffect(() => {
     let cancelled = false;
-    const season = selectedSeason || match?.season || '2026_27';
-    getTeamManagers(season)
+    getTeamManagers(managerSeason)
       .then(data => {
-        if (!cancelled) setTeamManagers(data.managers || {});
+        if (!cancelled) setManagersResult({ season: managerSeason, data: data.managers || {} });
       })
       .catch(err => {
         console.error('Error fetching match team managers:', err);
-        if (!cancelled) setTeamManagers({});
+        if (!cancelled) setManagersResult({ season: managerSeason, data: {} });
       });
     return () => { cancelled = true; };
-  }, [selectedSeason, match?.season]);
+  }, [managerSeason]);
 
+  const recentForm = formResult?.matchId === match?.match_id ? formResult.data : {};
   useEffect(() => {
-    let cancelled = false;
-    setRecentForm({});
     if (!match?.match_id) return undefined;
+    let cancelled = false;
     getRecentMatchForm(match.match_id)
       .then(data => {
-        if (!cancelled) setRecentForm(data.form || {});
+        if (!cancelled) setFormResult({ matchId: match.match_id, data: data.form || {} });
       })
       .catch(err => {
         console.error('Error fetching pre-match form:', err);
-        if (!cancelled) setRecentForm({});
+        if (!cancelled) setFormResult({ matchId: match.match_id, data: {} });
       });
     return () => { cancelled = true; };
   }, [match?.match_id]);
 
-  // Fetch match details
+  // Fetch match details (revalidating with server ETag cleanly)
   useEffect(() => {
-    if (!match?.match_id) return;
-
-    if (isCompleted && refreshKey === 0) {
-      const cached = getCachedTeamData('match_detail', match.match_id, 'all');
-      if (cached?.data) {
-        setDetails(cached.data);
-        setLoading(false);
-        return;
-      }
-    }
-
-    setLoading(true);
-    setLoadError(false);
+    if (!match?.match_id) return undefined;
+    let cancelled = false;
     getMatchDetails(match.match_id)
       .then(data => {
-        setDetails(data);
-        // Freeze only finished matches whose full provider stats are downloaded (event-count fallbacks may still be upgraded); otherwise a partial/empty response would stay forever
-        if (isCompleted && data?.team_stats?.length > 0 && data?.metadata?.stats_source !== 'UEFA olay akışı') {
-          setCachedTeamData('match_detail', match.match_id, 'all', data, null, 'Tamamlanan maç detayı');
-        }
-        setLoading(false);
+        if (!cancelled) setDetailsResult({ key: detailsKey, data, error: false });
       })
       .catch(err => {
         console.error('Error fetching match details:', err);
-        setLoadError(true);
-        setLoading(false);
+        if (!cancelled) setDetailsResult({ key: detailsKey, data: null, error: true });
       });
-  }, [match?.match_id, isCompleted, refreshKey]);
+    return () => { cancelled = true; };
+  }, [match?.match_id, detailsKey]);
+
+  const handleServerMatchRefresh = useCallback(async () => {
+    if (!match?.match_id || refreshingMatch) return;
+    setRefreshingMatch(true);
+    try {
+      const season = selectedSeason && selectedSeason !== 'all' ? selectedSeason : '2026_27';
+      await startSingleMatchRefresh(match.match_id, season, competitionKey);
+      for (let i = 0; i < 30; i += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 900));
+        const st = await getSingleMatchRefreshStatus(match.match_id);
+        if (st.status === 'completed' || st.status === 'failed' || st.status === 'idle') break;
+      }
+      clearAllCaches();
+      invalidateApiCache();
+      setRefreshKey((k) => k + 1);
+      setPredictionSeq((s) => s + 1);
+    } catch (err) {
+      console.error('Match refresh failed:', err);
+      setRefreshKey((k) => k + 1);
+    } finally {
+      setRefreshingMatch(false);
+    }
+  }, [match, refreshingMatch, selectedSeason, competitionKey]);
+
+  const predRequestKey = `${resolvedMatch?.match_id}:${resolvedMatch?.home_id}:${resolvedMatch?.away_id}:${resolvedMatch?.season}:${competitionKey}:${predictionSeq}`;
+  const prediction = predictionResult?.key === predRequestKey ? predictionResult.data : null;
+  const predictionFailed = Boolean(predictionResult?.key === predRequestKey && predictionResult.error);
+  const loadingPrediction = Boolean(
+    !isCompleted && isPredictable && resolvedMatch?.home_id && resolvedMatch?.away_id && predictionResult?.key !== predRequestKey,
+  );
 
   // Fetch model predictions for upcoming current gameweek matches
   useEffect(() => {
-    if (isCompleted || !isPredictable) return;
-    if (!match?.home_id || !match?.away_id) return;
-    setLoadingPrediction(true);
-    setPredictionFailed(false);
-    getMatchPrediction(match.home_id, match.away_id, match?.match_id, match?.season, competitionKey)
+    if (isCompleted || !isPredictable || !resolvedMatch?.home_id || !resolvedMatch?.away_id) return undefined;
+    let cancelled = false;
+    getMatchPrediction(resolvedMatch.home_id, resolvedMatch.away_id, resolvedMatch?.match_id, resolvedMatch?.season, competitionKey)
       .then(data => {
-        setPrediction(data);
-        setLoadingPrediction(false);
+        if (!cancelled) setPredictionResult({ key: predRequestKey, data, error: false });
       })
       .catch(err => {
         console.error('Error fetching prediction:', err);
-        setPredictionFailed(true);
-        setLoadingPrediction(false);
+        if (!cancelled) setPredictionResult({ key: predRequestKey, data: null, error: true });
       });
-  }, [match?.home_id, match?.away_id, isCompleted, isPredictable, predictionKey]);
+    return () => { cancelled = true; };
+  }, [isCompleted, isPredictable, resolvedMatch?.home_id, resolvedMatch?.away_id, resolvedMatch?.match_id, resolvedMatch?.season, competitionKey, predRequestKey]);
+
+  const oddsData = oddsResult?.matchId === match?.match_id ? oddsResult.data : [];
+  const loadingOdds = Boolean(match?.match_id && oddsResult?.matchId !== match?.match_id);
 
   // Fetch betting market odds
   useEffect(() => {
-    if (!match?.match_id) return;
-    setLoadingOdds(true);
+    if (!match?.match_id) return undefined;
+    let cancelled = false;
     getMatchOdds(match.match_id)
       .then(data => {
+        if (cancelled) return;
         const list = data.odds || [];
-        setOddsData(list);
+        setOddsResult({ matchId: match.match_id, data: list });
         if (list.length > 0) {
           const hasBet365 = list.some(b => b.bookmaker === 'Bet365');
           setSelectedBookmaker(hasBet365 ? 'Bet365' : list[0].bookmaker);
         }
-        setLoadingOdds(false);
       })
       .catch(err => {
         console.error('Error fetching odds:', err);
-        setLoadingOdds(false);
+        if (!cancelled) setOddsResult({ matchId: match.match_id, data: [] });
       });
+    return () => { cancelled = true; };
   }, [match?.match_id]);
 
   const lineups = details?.lineups || [];
-  const homeLineup = lineups.find(l => l.team_id === match?.home_id) || lineups[0];
-  const awayLineup = lineups.find(l => l.team_id === match?.away_id) || lineups[1];
+  const homeLineup = lineups.find(l => l.team_id === resolvedMatch?.home_id) || lineups[0];
+  const awayLineup = lineups.find(l => l.team_id === resolvedMatch?.away_id) || lineups[1];
   const teamStats = details?.team_stats || [];
   const playerStats = details?.player_stats || { home: [], away: [] };
   const events = details?.events || [];
   const timeline = details?.timeline || [];
   const goalEvents = timeline.filter(item => item.type === 'goal');
-  const homeGoals = goalEvents.filter(item => Number(item.team_id) === Number(match?.home_id));
-  const awayGoals = goalEvents.filter(item => Number(item.team_id) === Number(match?.away_id));
+  const homeGoals = goalEvents.filter(item => Number(item.team_id) === Number(resolvedMatch?.home_id));
+  const awayGoals = goalEvents.filter(item => Number(item.team_id) === Number(resolvedMatch?.away_id));
 
   // Red card calculation for home and away teams
   const getTeamRedCardCount = (side) => {
@@ -219,8 +261,8 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
     if (!pos) return 'bg-background-tertiary text-text-primary border-border';
     const p = String(pos).toUpperCase();
     if (['G', 'GK', 'GOALKEEPER'].includes(p)) return 'bg-background-tertiary text-status-warning border-status-warning';
-    if (['D', 'DEF', 'DEFENDER', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return 'bg-background-tertiary text-primary border-primary';
-    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'bg-background-tertiary text-primary border-primary';
+    if (['D', 'DEF', 'DEFENDER', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return 'bg-background-tertiary text-status-info border-status-info';
+    if (['M', 'MID', 'MIDFIELDER', 'CM', 'DM', 'AM', 'LM', 'RM'].includes(p)) return 'bg-background-tertiary text-text-primary border-border';
     if (['F', 'FWD', 'FORWARD', 'ST', 'CF', 'RW', 'LW', 'ATT'].includes(p)) return 'bg-background-tertiary text-status-error border-status-error';
     return 'bg-background-tertiary text-text-primary border-border';
   };
@@ -307,8 +349,6 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
 
   if (!match) return null;
 
-  if (!match) return null;
-
   const tabs = [
     isCompleted && { id: 'timeline', label: 'Zaman akışı', icon: Clock, count: timeline.length },
     { id: 'lineups', label: isCompleted ? 'Kadrolar' : 'Kadro bilgisi', icon: Users },
@@ -322,13 +362,13 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
     <div className="w-full space-y-4 pb-16 animate-fadeIn motion-reduce:animate-none">
 
       <MatchScoreboard
-        match={match}
+        match={resolvedMatch}
         homeTeam={homeTeam}
         awayTeam={awayTeam}
         homeManager={homeManager}
         awayManager={awayManager}
         isCompleted={isCompleted}
-        loading={loading}
+        loading={loading || refreshingMatch}
         meta={details?.metadata || {}}
         homeRedCards={homeRedCards}
         awayRedCards={awayRedCards}
@@ -336,26 +376,26 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
         awayGoals={awayGoals}
         recentForm={recentForm}
         onBack={onBack}
-        onRefresh={() => setRefreshKey(key => key + 1)}
+        onRefresh={handleServerMatchRefresh}
       />
 
-      <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} label="Maç detay sekmeleri" idPrefix="match-tab" />
+      <TabBar tabs={tabs} active={resolvedTab} onChange={setActiveTab} label="Maç detay sekmeleri" idPrefix="match-tab" />
 
       {!isCompleted && hasModel && !isPredictable && (
         <p className="flex items-center gap-2 text-xs text-text-secondary">
           <AlertCircle className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
-          <span>Model tahminleri {match.gameweek}. haftada etkinleşir.</span>
+          <span>Model tahminleri {resolvedMatch.gameweek}. haftada etkinleşir.</span>
         </p>
       )}
 
-      <div role="tabpanel" id="match-tab-panel" aria-labelledby={`match-tab-${activeTab}`}>
+      <div role="tabpanel" id="match-tab-panel" aria-labelledby={`match-tab-${resolvedTab}`}>
         {loading ? (
           <MatchDetailSkeleton />
-        ) : loadError && activeTab !== 'prediction' && activeTab !== 'odds' ? (
+        ) : loadError && resolvedTab !== 'prediction' && resolvedTab !== 'odds' ? (
           <InlineError message="Maç detayları yüklenemedi." onRetry={() => setRefreshKey(key => key + 1)} />
-        ) : activeTab === 'timeline' ? (
-          <MatchTimelineTab timeline={timeline} homeTeam={homeTeam} awayTeam={awayTeam} homeTeamId={match?.home_id} />
-        ) : activeTab === 'lineups' ? (
+        ) : resolvedTab === 'timeline' ? (
+          <MatchTimelineTab timeline={timeline} homeTeam={homeTeam} awayTeam={awayTeam} homeTeamId={resolvedMatch?.home_id} />
+        ) : resolvedTab === 'lineups' ? (
           <MatchLineupsTab
             homeLineup={homeLineup}
             awayLineup={awayLineup}
@@ -371,20 +411,20 @@ export default function MatchDetailPage({ match, onBack, currentGameweek, select
             formatPosition={formatPosition}
             getPositionBadgeClass={getPositionBadgeClass}
           />
-        ) : activeTab === 'stats' ? (
+        ) : resolvedTab === 'stats' ? (
           <MatchStatsTab teamStats={teamStats} homeTeam={homeTeam} awayTeam={awayTeam} calcBarWidths={calcBarWidths} />
-        ) : activeTab === 'prediction' ? (
+        ) : resolvedTab === 'prediction' ? (
           <MatchPredictionTab
             prediction={prediction}
             loadingPrediction={loadingPrediction}
             failed={predictionFailed}
-            onRetry={() => setPredictionKey(key => key + 1)}
+            onRetry={() => setPredictionSeq(seq => seq + 1)}
             predSubTab={predSubTab}
             setPredSubTab={setPredSubTab}
             homeTeam={homeTeam}
             awayTeam={awayTeam}
           />
-        ) : activeTab === 'odds' ? (
+        ) : resolvedTab === 'odds' ? (
           <MatchPageOddsTab
             loadingOdds={loadingOdds}
             oddsData={oddsData}

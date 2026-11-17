@@ -8,30 +8,41 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Semantic tokens (see .agents/skills/restrained-ui-design-standard/SKILL.md)
-        primary: { DEFAULT: '#0f172a', hover: '#1e293b' },
-        background: { primary: '#ffffff', secondary: '#f8fafc', tertiary: '#f1f5f9' },
-        text: { primary: '#0f172a', secondary: '#475569', tertiary: '#64748b', muted: '#94a3b8' },
-        border: { DEFAULT: '#e2e8f0', light: '#f1f5f9', focus: '#0f172a' },
+        // Semantic tokens mapped to CSS custom properties for light, dark, and forced-colors modes
+        primary: {
+          DEFAULT: 'rgb(var(--primary) / <alpha-value>)',
+          hover: 'rgb(var(--primary-hover) / <alpha-value>)',
+        },
+        background: {
+          primary: 'rgb(var(--bg-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--bg-secondary) / <alpha-value>)',
+          tertiary: 'rgb(var(--bg-tertiary) / <alpha-value>)',
+        },
+        text: {
+          primary: 'rgb(var(--text-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--text-secondary) / <alpha-value>)',
+          tertiary: 'rgb(var(--text-tertiary) / <alpha-value>)',
+          muted: 'rgb(var(--text-muted) / <alpha-value>)',
+        },
+        border: {
+          DEFAULT: 'rgb(var(--border-default) / <alpha-value>)',
+          light: 'rgb(var(--border-light) / <alpha-value>)',
+          focus: 'rgb(var(--border-focus) / <alpha-value>)',
+        },
         accent: {
           DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
           hover: 'rgb(var(--accent-hover) / <alpha-value>)',
           soft: 'rgb(var(--accent-soft) / <alpha-value>)',
         },
-        'card-border-hover': '#cbd5e1',
-        pitch: '#1d6b3a',
-        status: { success: '#047857', error: '#b91c1c', warning: '#b45309', info: '#1d4ed8', draw: '#facc15' },
-        pl: {
-          dark: '#05070c',
-          card: '#0c101a',
-          cardHover: '#131926',
-          border: 'rgba(255, 255, 255, 0.08)',
-          purple: '#38003c',
-          green: '#00ff87',
-          cyan: '#04f5ff',
-          pink: '#e90052',
-          yellow: '#ffdc00',
-        }
+        'card-border-hover': 'rgb(var(--card-border-hover) / <alpha-value>)',
+        pitch: 'rgb(var(--pitch) / <alpha-value>)',
+        status: {
+          success: 'rgb(var(--status-success) / <alpha-value>)',
+          error: 'rgb(var(--status-error) / <alpha-value>)',
+          warning: 'rgb(var(--status-warning) / <alpha-value>)',
+          info: 'rgb(var(--status-info) / <alpha-value>)',
+          draw: 'rgb(var(--status-draw) / <alpha-value>)',
+        },
       },
       aspectRatio: {
         pitch: '3 / 4',
@@ -39,19 +50,14 @@ export default {
       },
       gridTemplateColumns: {
         versus: '1fr auto 1fr',
+        'compare-row': 'minmax(0, 1fr) 8.5rem minmax(0, 1fr)',
         'manager-table': 'minmax(9rem, 1.5fr) repeat(6, minmax(3.25rem, 1fr))',
       },
       fontFamily: {
-        sans: ['Outfit', 'Inter', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
-      boxShadow: {
-        'glow-green': '0 0 25px rgba(0, 255, 135, 0.25)',
-        'glow-cyan': '0 0 25px rgba(4, 245, 255, 0.25)',
-        'glow-purple': '0 0 30px rgba(56, 0, 60, 0.6)',
-        'premium': '0 10px 40px -10px rgba(0,0,0,0.7)',
-      }
     },
   },
   plugins: [],
-}
+};

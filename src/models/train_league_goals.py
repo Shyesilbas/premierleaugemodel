@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Production goal model of a TheStatsAPI league (LaLiga): the Premier League's goal model on the Premier League feature definitions.
+"""Production goal model of a TheStatsAPI league: the Premier League's goal model on the Premier League feature definitions.
 
-Usage: python3 -m src.models.train_league_goals --competition la_liga [--no-save]
+Usage: python3 -m src.models.train_league_goals --competition <league_key> [--no-save]
 
 The feature set and penalty are chosen on the unlocked seasons by the Premier League's own forward-fold procedure
 (``select_blend_config``); the final model is fitted on every played match. Which markets it serves comes from the outer-season
-evaluation in ``docs/reports/models/<key>_goal_model_eval.json`` (``evaluate_league_goal_models``): a market whose decision names
+evaluation in ``reports/models/<key>_goal_model_eval.json`` (``evaluate_league_goal_models``): a market whose decision names
 this model is served from it, any other market is served as the training base rate and labelled ``baseline``. The score matrix is
 aligned to the 1X2 model at serving time, so the two stay coherent.
 

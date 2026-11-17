@@ -17,8 +17,8 @@ def row(match_id, made_at, probabilities, artifact="a" * 64, over25=0.6):
 
 
 def test_a_league_has_its_own_log_scorecard_and_artifact_paths():
-    league, premier = bench.targets("la_liga"), bench.targets("premier_league")
-    assert "la_liga" in str(league.forecast_log) and "la_liga" in str(league.model) and league.scorecard.name == "prospective_1x2_scorecard_la_liga.json"
+    league, premier = bench.targets("sample_league"), bench.targets("premier_league")
+    assert "sample_league" in str(league.forecast_log) and "sample_league" in str(league.model) and league.scorecard.name == "prospective_1x2_scorecard_sample_league.json"
     assert premier.forecast_log == bench.FORECAST_LOG and premier.scorecard == bench.SCORECARD_PATH
     assert league.forecast_log != premier.forecast_log and league.model != premier.model
 
@@ -30,10 +30,10 @@ def test_scoring_uses_only_forecasts_made_before_kickoff_and_the_latest_of_them(
             row(7, "2026-10-26T21:00:00+00:00", [0.99, 0.005, 0.005]),  # after kickoff: ignored
             row(8, "2026-10-26T21:00:00+00:00", [0.9, 0.05, 0.05])]  # only a post-kickoff forecast: match not scored
     log.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
-    target = bench.Targets("la_liga", tmp_path / "m.joblib", tmp_path / "g.joblib", log, tmp_path / "scorecard.json")
+    target = bench.Targets("sample_league", tmp_path / "m.joblib", tmp_path / "g.joblib", log, tmp_path / "scorecard.json")
     monkeypatch.setattr(bench, "targets", lambda competition="premier_league": target)
     monkeypatch.setattr(bench, "_league_results", lambda key: pd.DataFrame({"match_id": [7, 8], "home_score": [2, 1], "away_score": [0, 1]}))
-    result = bench.score("la_liga")
+    result = bench.score("sample_league")
     group = result["groups"][0]
     assert group["matches"] == 1 and group["log_loss"] == pytest.approx(-np.log(0.6), abs=1e-4)
     goals = result["goal_market_groups"][0]["markets"]["over_2.5"]

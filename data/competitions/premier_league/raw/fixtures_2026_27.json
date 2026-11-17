@@ -9213,6 +9213,7 @@
     "status": "C",
     "phase": "F",
     "outcome": "A",
+    "attendance": 39402.0,
     "clock": {
       "secs": 5880.0,
       "label": "90+8'00"
@@ -9323,6 +9324,7 @@
     "status": "C",
     "phase": "F",
     "outcome": "A",
+    "attendance": 25018.0,
     "clock": {
       "secs": 5940.0,
       "label": "90+9'00"
@@ -9547,6 +9549,7 @@
     "status": "C",
     "phase": "F",
     "outcome": "H",
+    "attendance": 60404.0,
     "clock": {
       "secs": 5700.0,
       "label": "90+5'00"
@@ -9658,6 +9661,7 @@
     "status": "C",
     "phase": "F",
     "outcome": "A",
+    "attendance": 74142.0,
     "clock": {
       "secs": 5760.0,
       "label": "90+6'00"
@@ -9841,7 +9845,8 @@
           "teamType": "FIRST",
           "shortName": "Chelsea",
           "id": 4.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -9855,7 +9860,8 @@
           "teamType": "FIRST",
           "shortName": "Man Utd",
           "id": 12.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -9866,12 +9872,40 @@
       "id": 9519.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 39503.0,
+    "clock": {
+      "secs": 6000.0,
+      "label": "90+10'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 23968.0,
+        "assistId": 99282.0,
+        "clock": {
+          "secs": 3000.0,
+          "label": "50'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 49293.0,
+        "clock": {
+          "secs": 3840.0,
+          "label": "64'00"
+        },
+        "phase": "2",
+        "type": "P",
+        "description": "P"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129006.0
@@ -9923,7 +9957,8 @@
           "teamType": "FIRST",
           "shortName": "Bournemouth",
           "id": 127.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -9937,7 +9972,8 @@
           "teamType": "FIRST",
           "shortName": "Leeds",
           "id": 9.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -9948,12 +9984,41 @@
       "id": 9522.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 12041.0,
+    "clock": {
+      "secs": 5760.0,
+      "label": "90+6'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 33032.0,
+        "assistId": 21519.0,
+        "clock": {
+          "secs": 1860.0,
+          "label": "31'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 118080.0,
+        "assistId": 137832.0,
+        "clock": {
+          "secs": 5640.0,
+          "label": "90+4'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129004.0
@@ -10005,7 +10070,8 @@
           "teamType": "FIRST",
           "shortName": "Brentford",
           "id": 130.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -10019,7 +10085,8 @@
           "teamType": "FIRST",
           "shortName": "Nott'm Forest",
           "id": 15.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -10030,12 +10097,40 @@
       "id": 4003.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 17108.0,
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 16035.0,
+        "clock": {
+          "secs": 1800.0,
+          "label": "30'00"
+        },
+        "phase": "1",
+        "type": "O",
+        "description": "O"
+      },
+      {
+        "personId": 124052.0,
+        "assistId": 50460.0,
+        "clock": {
+          "secs": 4560.0,
+          "label": "76'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129005.0
@@ -10087,7 +10182,8 @@
           "teamType": "FIRST",
           "shortName": "Coventry",
           "id": 5.0
-        }
+        },
+        "score": 3.0
       },
       {
         "team": {
@@ -10101,7 +10197,8 @@
           "teamType": "FIRST",
           "shortName": "Sunderland",
           "id": 29.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -10112,12 +10209,60 @@
       "id": 9570.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 31455.0,
+    "clock": {
+      "secs": 6000.0,
+      "label": "90+10'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 122134.0,
+        "clock": {
+          "secs": 1020.0,
+          "label": "17'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 15340.0,
+        "clock": {
+          "secs": 2220.0,
+          "label": "37'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 66304.0,
+        "assistId": 118036.0,
+        "clock": {
+          "secs": 3120.0,
+          "label": "52'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 138104.0,
+        "clock": {
+          "secs": 4020.0,
+          "label": "67'00"
+        },
+        "phase": "2",
+        "type": "P",
+        "description": "P"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129007.0
@@ -10169,7 +10314,8 @@
           "teamType": "FIRST",
           "shortName": "Hull",
           "id": 41.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -10183,7 +10329,8 @@
           "teamType": "FIRST",
           "shortName": "Ipswich",
           "id": 8.0
-        }
+        },
+        "score": 2.0
       }
     ],
     "replay": false,
@@ -10194,12 +10341,62 @@
       "id": 9569.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "D",
+    "attendance": 24459.0,
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 63851.0,
+        "assistId": 126111.0,
+        "clock": {
+          "secs": 1320.0,
+          "label": "22'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 66538.0,
+        "assistId": 8107.0,
+        "clock": {
+          "secs": 3480.0,
+          "label": "58'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 8107.0,
+        "clock": {
+          "secs": 4080.0,
+          "label": "68'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 125827.0,
+        "assistId": 49308.0,
+        "clock": {
+          "secs": 4440.0,
+          "label": "74'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129008.0
@@ -10251,7 +10448,8 @@
           "teamType": "FIRST",
           "shortName": "Man City",
           "id": 11.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -10265,7 +10463,8 @@
           "teamType": "FIRST",
           "shortName": "Brighton",
           "id": 131.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -10276,12 +10475,29 @@
       "id": 9514.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 134333.0,
+        "assistId": 67928.0,
+        "clock": {
+          "secs": 660.0,
+          "label": "11'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129010.0
@@ -10333,7 +10549,8 @@
           "teamType": "FIRST",
           "shortName": "Spurs",
           "id": 21.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -10347,7 +10564,8 @@
           "teamType": "FIRST",
           "shortName": "Crystal Palace",
           "id": 6.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -10358,12 +10576,40 @@
       "id": 3921.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 60549.0,
+    "clock": {
+      "secs": 5580.0,
+      "label": "90+3'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 117596.0,
+        "assistId": 51364.0,
+        "clock": {
+          "secs": 1500.0,
+          "label": "25'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 76090.0,
+        "clock": {
+          "secs": 4380.0,
+          "label": "73'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129012.0
@@ -10415,7 +10661,8 @@
           "teamType": "FIRST",
           "shortName": "Aston Villa",
           "id": 2.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -10429,7 +10676,8 @@
           "teamType": "FIRST",
           "shortName": "Fulham",
           "id": 34.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -10440,12 +10688,40 @@
       "id": 9518.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "D",
+    "attendance": 34649.0,
+    "clock": {
+      "secs": 5760.0,
+      "label": "90+6'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 110526.0,
+        "assistId": 304175.0,
+        "clock": {
+          "secs": 2340.0,
+          "label": "39'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 125556.0,
+        "clock": {
+          "secs": 3840.0,
+          "label": "64'00"
+        },
+        "phase": "2",
+        "type": "O",
+        "description": "O"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129003.0
@@ -10497,7 +10773,8 @@
           "teamType": "FIRST",
           "shortName": "Liverpool",
           "id": 10.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -10511,7 +10788,8 @@
           "teamType": "FIRST",
           "shortName": "Arsenal",
           "id": 1.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -10522,12 +10800,30 @@
       "id": 7305.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "attendance": 60406.0,
+    "clock": {
+      "secs": 5820.0,
+      "label": "90+7'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 20810.0,
+        "assistId": 15202.0,
+        "clock": {
+          "secs": 960.0,
+          "label": "16'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129009.0
@@ -10579,7 +10875,8 @@
           "teamType": "FIRST",
           "shortName": "Newcastle",
           "id": 23.0
-        }
+        },
+        "score": 0.0
       },
       {
         "team": {
@@ -10593,7 +10890,8 @@
           "teamType": "FIRST",
           "shortName": "Everton",
           "id": 7.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -10604,12 +10902,29 @@
       "id": 9517.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "attendance": 52279.0,
+    "clock": {
+      "secs": 5940.0,
+      "label": "90+9'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 143922.0,
+        "clock": {
+          "secs": 2940.0,
+          "label": "49'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129011.0
@@ -10661,7 +10976,8 @@
           "teamType": "FIRST",
           "shortName": "Everton",
           "id": 7.0
-        }
+        },
+        "score": 3.0
       },
       {
         "team": {
@@ -10675,7 +10991,8 @@
           "teamType": "FIRST",
           "shortName": "Coventry",
           "id": 5.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -10686,12 +11003,61 @@
       "id": 9308.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 52395.0,
+    "clock": {
+      "secs": 5820.0,
+      "label": "90+7'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 51730.0,
+        "clock": {
+          "secs": 3120.0,
+          "label": "52'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 143922.0,
+        "assistId": 24983.0,
+        "clock": {
+          "secs": 3360.0,
+          "label": "56'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 143922.0,
+        "clock": {
+          "secs": 3660.0,
+          "label": "61'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 14706.0,
+        "assistId": 143922.0,
+        "clock": {
+          "secs": 4860.0,
+          "label": "81'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129016.0
@@ -10743,7 +11109,8 @@
           "teamType": "FIRST",
           "shortName": "Leeds",
           "id": 9.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -10757,7 +11124,8 @@
           "teamType": "FIRST",
           "shortName": "Spurs",
           "id": 21.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -10768,12 +11136,29 @@
       "id": 9430.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 36924.0,
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 33162.0,
+        "clock": {
+          "secs": 4740.0,
+          "label": "79'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129019.0
@@ -10825,7 +11210,8 @@
           "teamType": "FIRST",
           "shortName": "Arsenal",
           "id": 1.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -10839,7 +11225,8 @@
           "teamType": "FIRST",
           "shortName": "Hull",
           "id": 41.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -10850,12 +11237,29 @@
       "id": 9523.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 60285.0,
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 11419.0,
+        "clock": {
+          "secs": 4320.0,
+          "label": "72'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129013.0
@@ -10907,7 +11311,8 @@
           "teamType": "FIRST",
           "shortName": "Fulham",
           "id": 34.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -10921,7 +11326,8 @@
           "teamType": "FIRST",
           "shortName": "Newcastle",
           "id": 23.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -10932,12 +11338,39 @@
       "id": 9521.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "D",
+    "attendance": 27367.0,
+    "clock": {
+      "secs": 5880.0,
+      "label": "90+8'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 9662.0,
+        "clock": {
+          "secs": 4800.0,
+          "label": "80'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 117763.0,
+        "clock": {
+          "secs": 4980.0,
+          "label": "83'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129017.0
@@ -10989,7 +11422,8 @@
           "teamType": "FIRST",
           "shortName": "Nott'm Forest",
           "id": 15.0
-        }
+        },
+        "score": 3.0
       },
       {
         "team": {
@@ -11003,7 +11437,8 @@
           "teamType": "FIRST",
           "shortName": "Man City",
           "id": 11.0
-        }
+        },
+        "score": 1.0
       }
     ],
     "replay": false,
@@ -11014,12 +11449,61 @@
       "id": 9520.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 30762.0,
+    "clock": {
+      "secs": 5760.0,
+      "label": "90+6'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 304238.0,
+        "clock": {
+          "secs": 360.0,
+          "label": "06'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 51813.0,
+        "assistId": 20335.0,
+        "clock": {
+          "secs": 1080.0,
+          "label": "18'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 68150.0,
+        "clock": {
+          "secs": 3120.0,
+          "label": "52'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 51813.0,
+        "assistId": 15259.0,
+        "clock": {
+          "secs": 4380.0,
+          "label": "73'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129021.0
@@ -11071,7 +11555,8 @@
           "teamType": "FIRST",
           "shortName": "Brighton",
           "id": 131.0
-        }
+        },
+        "score": 2.0
       },
       {
         "team": {
@@ -11085,7 +11570,8 @@
           "teamType": "FIRST",
           "shortName": "Brentford",
           "id": 130.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -11096,12 +11582,39 @@
       "id": 9524.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 31629.0,
+    "clock": {
+      "secs": 5760.0,
+      "label": "90+6'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 143240.0,
+        "clock": {
+          "secs": 900.0,
+          "label": "15'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 22542.0,
+        "clock": {
+          "secs": 2520.0,
+          "label": "42'00"
+        },
+        "phase": "1",
+        "type": "P",
+        "description": "P"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129014.0
@@ -11153,7 +11666,8 @@
           "teamType": "FIRST",
           "shortName": "Crystal Palace",
           "id": 6.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -11167,7 +11681,8 @@
           "teamType": "FIRST",
           "shortName": "Liverpool",
           "id": 10.0
-        }
+        },
+        "score": 3.0
       }
     ],
     "replay": false,
@@ -11178,12 +11693,62 @@
       "id": 9431.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "attendance": 25176.0,
+    "clock": {
+      "secs": 5700.0,
+      "label": "90+5'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 63633.0,
+        "assistId": 33231.0,
+        "clock": {
+          "secs": 2400.0,
+          "label": "40'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 75382.0,
+        "assistId": 68840.0,
+        "clock": {
+          "secs": 3240.0,
+          "label": "54'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 21737.0,
+        "assistId": 75382.0,
+        "clock": {
+          "secs": 5340.0,
+          "label": "89'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 14451.0,
+        "clock": {
+          "secs": 5700.0,
+          "label": "90+5'00"
+        },
+        "phase": "2",
+        "type": "P",
+        "description": "P"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129015.0
@@ -11235,7 +11800,8 @@
           "teamType": "FIRST",
           "shortName": "Ipswich",
           "id": 8.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -11249,7 +11815,8 @@
           "teamType": "FIRST",
           "shortName": "Bournemouth",
           "id": 127.0
-        }
+        },
+        "score": 2.0
       }
     ],
     "replay": false,
@@ -11260,12 +11827,49 @@
       "id": 9568.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "A",
+    "attendance": 29396.0,
+    "clock": {
+      "secs": 6000.0,
+      "label": "90+10'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 33032.0,
+        "clock": {
+          "secs": 300.0,
+          "label": "05'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 51454.0,
+        "clock": {
+          "secs": 2760.0,
+          "label": "46'00"
+        },
+        "phase": "2",
+        "type": "O",
+        "description": "O"
+      },
+      {
+        "personId": 32715.0,
+        "clock": {
+          "secs": 4380.0,
+          "label": "73'00"
+        },
+        "phase": "2",
+        "type": "P",
+        "description": "P"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129018.0
@@ -11317,7 +11921,8 @@
           "teamType": "FIRST",
           "shortName": "Sunderland",
           "id": 29.0
-        }
+        },
+        "score": 1.0
       },
       {
         "team": {
@@ -11331,7 +11936,8 @@
           "teamType": "FIRST",
           "shortName": "Chelsea",
           "id": 4.0
-        }
+        },
+        "score": 0.0
       }
     ],
     "replay": false,
@@ -11342,12 +11948,29 @@
       "id": 2010.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "H",
+    "attendance": 46388.0,
+    "clock": {
+      "secs": 5820.0,
+      "label": "90+7'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 138104.0,
+        "clock": {
+          "secs": 2160.0,
+          "label": "36'00"
+        },
+        "phase": "1",
+        "type": "P",
+        "description": "P"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129022.0
@@ -11399,7 +12022,8 @@
           "teamType": "FIRST",
           "shortName": "Man Utd",
           "id": 12.0
-        }
+        },
+        "score": 4.0
       },
       {
         "team": {
@@ -11413,7 +12037,8 @@
           "teamType": "FIRST",
           "shortName": "Aston Villa",
           "id": 2.0
-        }
+        },
+        "score": 4.0
       }
     ],
     "replay": false,
@@ -11424,12 +12049,104 @@
       "id": 9516.0
     },
     "neutralGround": false,
-    "status": "U",
-    "phase": "0",
+    "status": "C",
+    "phase": "F",
+    "outcome": "D",
+    "attendance": 74149.0,
+    "clock": {
+      "secs": 5940.0,
+      "label": "90+9'00"
+    },
     "fixtureType": "REGULAR",
     "extraTime": false,
     "shootout": false,
-    "goals": [],
+    "goals": [
+      {
+        "personId": 326089.0,
+        "assistId": 51423.0,
+        "clock": {
+          "secs": 60.0,
+          "label": "01'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 110526.0,
+        "clock": {
+          "secs": 240.0,
+          "label": "04'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 23396.0,
+        "clock": {
+          "secs": 960.0,
+          "label": "16'00"
+        },
+        "phase": "1",
+        "type": "P",
+        "description": "P"
+      },
+      {
+        "personId": 5865.0,
+        "assistId": 33245.0,
+        "clock": {
+          "secs": 2640.0,
+          "label": "44'00"
+        },
+        "phase": "1",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 51423.0,
+        "clock": {
+          "secs": 2880.0,
+          "label": "48'00"
+        },
+        "phase": "2",
+        "type": "P",
+        "description": "P"
+      },
+      {
+        "personId": 5378.0,
+        "assistId": 110526.0,
+        "clock": {
+          "secs": 3180.0,
+          "label": "53'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 50848.0,
+        "assistId": 146567.0,
+        "clock": {
+          "secs": 5520.0,
+          "label": "90+2'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      },
+      {
+        "personId": 146567.0,
+        "assistId": 23396.0,
+        "clock": {
+          "secs": 5760.0,
+          "label": "90+6'00"
+        },
+        "phase": "2",
+        "type": "G",
+        "description": "G"
+      }
+    ],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129020.0
@@ -11514,7 +12231,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129030.0
+    "id": 129030.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Thomas Bramall"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -11596,7 +12321,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129023.0
+    "id": 129023.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Andy Madley"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -11678,7 +12411,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129024.0
+    "id": 129024.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Adam Herczeg"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -11760,7 +12501,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129026.0
+    "id": 129026.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Michael Oliver"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -11842,7 +12591,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129027.0
+    "id": 129027.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Darren England"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -11924,7 +12681,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129032.0
+    "id": 129032.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Robert Jones"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -12006,7 +12771,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129031.0
+    "id": 129031.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Chris Kavanagh"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -12088,7 +12861,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129028.0
+    "id": 129028.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Peter Bankes"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -12170,7 +12951,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129029.0
+    "id": 129029.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Samuel Barrott"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -12252,7 +13041,15 @@
     "goals": [],
     "penaltyShootouts": [],
     "behindClosedDoors": false,
-    "id": 129025.0
+    "id": 129025.0,
+    "matchOfficials": [
+      {
+        "role": "MAIN",
+        "name": {
+          "display": "Craig Pawson"
+        }
+      }
+    ]
   },
   {
     "gameweek": {
@@ -15888,88 +16685,6 @@
     },
     "kickoff": {
       "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "provisionalKickoff": {
-      "completeness": 3.0,
-      "millis": 1797692400000.0,
-      "label": "Sat 19 Dec 2026, 15:00 GMT"
-    },
-    "teams": [
-      {
-        "team": {
-          "name": "Nottingham Forest",
-          "club": {
-            "name": "Nottingham Forest",
-            "shortName": "Nott'm Forest",
-            "abbr": "NFO",
-            "id": 15.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Nott'm Forest",
-          "id": 15.0
-        }
-      },
-      {
-        "team": {
-          "name": "Everton",
-          "club": {
-            "name": "Everton",
-            "shortName": "Everton",
-            "abbr": "EVE",
-            "id": 7.0
-          },
-          "teamType": "FIRST",
-          "shortName": "Everton",
-          "id": 7.0
-        }
-      }
-    ],
-    "replay": false,
-    "ground": {
-      "name": "The City Ground",
-      "city": "Nottingham",
-      "source": "OPTA",
-      "id": 9520.0
-    },
-    "neutralGround": false,
-    "status": "U",
-    "phase": "0",
-    "fixtureType": "REGULAR",
-    "extraTime": false,
-    "shootout": false,
-    "goals": [],
-    "penaltyShootouts": [],
-    "behindClosedDoors": false,
-    "id": 129081.0
-  },
-  {
-    "gameweek": {
-      "id": 19776.0,
-      "compSeason": {
-        "label": "English Premier League Season 2026/2027",
-        "competition": {
-          "abbreviation": "EN_PR",
-          "description": "Premier League",
-          "level": "SEN",
-          "source": "",
-          "id": 1.0
-        },
-        "id": 841.0
-      },
-      "gameweek": 16.0,
-      "competitionPhase": {
-        "id": 8163.0,
-        "type": "L",
-        "gameweekRange": [
-          1.0,
-          38.0
-        ]
-      }
-    },
-    "kickoff": {
-      "completeness": 3.0,
       "millis": 1797701400000.0,
       "label": "Sat 19 Dec 2026, 17:30 GMT"
     },
@@ -16107,6 +16822,88 @@
     "penaltyShootouts": [],
     "behindClosedDoors": false,
     "id": 129076.0
+  },
+  {
+    "gameweek": {
+      "id": 19776.0,
+      "compSeason": {
+        "label": "English Premier League Season 2026/2027",
+        "competition": {
+          "abbreviation": "EN_PR",
+          "description": "Premier League",
+          "level": "SEN",
+          "source": "",
+          "id": 1.0
+        },
+        "id": 841.0
+      },
+      "gameweek": 16.0,
+      "competitionPhase": {
+        "id": 8163.0,
+        "type": "L",
+        "gameweekRange": [
+          1.0,
+          38.0
+        ]
+      }
+    },
+    "kickoff": {
+      "completeness": 3.0,
+      "millis": 1797775200000.0,
+      "label": "Sun 20 Dec 2026, 14:00 GMT"
+    },
+    "provisionalKickoff": {
+      "completeness": 3.0,
+      "millis": 1797775200000.0,
+      "label": "Sun 20 Dec 2026, 14:00 GMT"
+    },
+    "teams": [
+      {
+        "team": {
+          "name": "Nottingham Forest",
+          "club": {
+            "name": "Nottingham Forest",
+            "shortName": "Nott'm Forest",
+            "abbr": "NFO",
+            "id": 15.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Nott'm Forest",
+          "id": 15.0
+        }
+      },
+      {
+        "team": {
+          "name": "Everton",
+          "club": {
+            "name": "Everton",
+            "shortName": "Everton",
+            "abbr": "EVE",
+            "id": 7.0
+          },
+          "teamType": "FIRST",
+          "shortName": "Everton",
+          "id": 7.0
+        }
+      }
+    ],
+    "replay": false,
+    "ground": {
+      "name": "The City Ground",
+      "city": "Nottingham",
+      "source": "OPTA",
+      "id": 9520.0
+    },
+    "neutralGround": false,
+    "status": "U",
+    "phase": "0",
+    "fixtureType": "REGULAR",
+    "extraTime": false,
+    "shootout": false,
+    "goals": [],
+    "penaltyShootouts": [],
+    "behindClosedDoors": false,
+    "id": 129081.0
   },
   {
     "gameweek": {

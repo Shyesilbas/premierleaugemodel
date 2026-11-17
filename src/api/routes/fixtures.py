@@ -3,7 +3,8 @@
 import json
 import logging
 import pandas as pd
-from datetime import datetime
+from contextlib import closing
+from datetime import datetime, timezone
 from fastapi import HTTPException
 from src.config import DEFAULT_SEASON
 from src.db.database import get_all_grouped_fixtures, get_db, get_referee_detail, get_referees_list
@@ -28,9 +29,9 @@ def get_fixtures(limit: int = 800, search: Optional[str] = None, season: Optiona
     if search:
         s = search.lower()
         mask = (
-            df["home_name"].str.lower().str.contains(s) |
-            df["away_name"].str.lower().str.contains(s) |
-            df["ground_name"].str.lower().str.contains(s)
+            df["home_name"].fillna("").astype(str).str.lower().str.contains(s, na=False, regex=False) |
+            df["away_name"].fillna("").astype(str).str.lower().str.contains(s, na=False, regex=False) |
+            df["ground_name"].fillna("").astype(str).str.lower().str.contains(s, na=False, regex=False)
         )
         df = df[mask]
 
@@ -229,7 +230,7 @@ def get_grouped_fixtures(season: str = DEFAULT_SEASON, competition: Optional[str
     # League the current week is the first one with an upcoming match that has not been left behind by the calendar.
     current_gw = 1
     dates = {int(r["match_id"]): str(r.get("match_date") or "") for r in db_fixtures}
-    today = datetime.utcnow().date().isoformat()
+    today = datetime.now(timezone.utc).date().isoformat()
     fresh = (lambda m: dates.get(int(m["match_id"]), "") >= today) if comp_id != 39 else (lambda m: True)
     upcoming_gws = [
         gw for gw in sorted(gw_groups.keys())
@@ -291,9 +292,6 @@ def get_referees(season: str = DEFAULT_SEASON, search: Optional[str] = None, com
     comp_id = comp.id if comp else 39
 
     if comp_id != 39:
-        from src.db.database import get_db
-        conn = get_db()
-        cursor = conn.cursor()
         query = """
             SELECT 
                 referee_name,
@@ -325,9 +323,8 @@ def get_referees(season: str = DEFAULT_SEASON, search: Optional[str] = None, com
             query += " HAVING referee_name LIKE ?"
             params.append(f"%{search}%")
         query += " ORDER BY matches_count DESC, avg_cards DESC"
-        cursor.execute(query, params)
-        rows = [dict(r) for r in cursor.fetchall()]
-        conn.close()
+        with closing(get_db()) as conn:
+            rows = [dict(r) for r in conn.execute(query, params).fetchall()]
         return {"referees": rows}
 
     return {"referees": get_referees_list(season, search)}
@@ -341,44 +338,41 @@ def get_referee_profile(name: str, season: str = DEFAULT_SEASON, competition: Op
     comp_id = comp.id if comp else 39
 
     if comp_id != 39:
-        from src.db.database import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT * FROM matches
-            WHERE referee_name = ? AND competition_id = ? AND (season = ? OR ? = 'all')
-            ORDER BY gameweek DESC, match_date DESC
-        """, (name, comp_id, season, season))
-        matches = [dict(r) for r in cursor.fetchall()]
-        completed = [m for m in matches if m.get("status") == "COMPLETED"]
-        m_count = len(completed)
-        tot_cards = sum(m.get("total_cards") or 0.0 for m in completed)
-        tot_fouls = sum(m.get("total_fouls") or 0.0 for m in completed)
-        tot_y = sum(m.get("total_yellow_cards") or 0.0 for m in completed)
-        tot_r = sum(m.get("total_red_cards") or 0.0 for m in completed)
-        avg_c = round(tot_cards / m_count, 2) if m_count > 0 else None
-        avg_f = round(tot_fouls / m_count, 2) if m_count > 0 else None
-        strictness = None if avg_c is None else "Sıkı" if avg_c >= 4.0 else ("Rahat" if avg_c < 3.0 else "Dengeli")
+        with closing(get_db()) as conn:
+            rows = conn.execute("""
+                SELECT * FROM matches
+                WHERE referee_name = ? AND competition_id = ? AND (season = ? OR ? = 'all')
+                ORDER BY gameweek DESC, match_date DESC
+            """, (name, comp_id, season, season)).fetchall()
+            matches = [dict(r) for r in rows]
+            completed = [m for m in matches if m.get("status") == "COMPLETED"]
+            m_count = len(completed)
+            tot_cards = sum(m.get("total_cards") or 0.0 for m in completed)
+            tot_fouls = sum(m.get("total_fouls") or 0.0 for m in completed)
+            tot_y = sum(m.get("total_yellow_cards") or 0.0 for m in completed)
+            tot_r = sum(m.get("total_red_cards") or 0.0 for m in completed)
+            avg_c = round(tot_cards / m_count, 2) if m_count > 0 else None
+            avg_f = round(tot_fouls / m_count, 2) if m_count > 0 else None
+            strictness = None if avg_c is None else "Sıkı" if avg_c >= 4.0 else ("Rahat" if avg_c < 3.0 else "Dengeli")
 
-        stats = {
-            "referee_name": name,
-            "season": season,
-            "matches_count": m_count,
-            "total_yellow_cards": tot_y,
-            "avg_yellow_cards": round(tot_y / m_count, 2) if m_count > 0 else 0.0,
-            "total_red_cards": tot_r,
-            "avg_red_cards": round(tot_r / m_count, 2) if m_count > 0 else 0.0,
-            "total_cards": tot_cards,
-            "avg_cards": avg_c,
-            "total_fouls": tot_fouls,
-            "avg_fouls": avg_f,
-            "strictness_label": strictness,
-        }
-        european = None
-        if comp.is_domestic:
-            from src.api.european_fixtures import referee_european_matches
-            european = referee_european_matches(conn, name, season)
-        conn.close()
+            stats = {
+                "referee_name": name,
+                "season": season,
+                "matches_count": m_count,
+                "total_yellow_cards": tot_y,
+                "avg_yellow_cards": round(tot_y / m_count, 2) if m_count > 0 else 0.0,
+                "total_red_cards": tot_r,
+                "avg_red_cards": round(tot_r / m_count, 2) if m_count > 0 else 0.0,
+                "total_cards": tot_cards,
+                "avg_cards": avg_c,
+                "total_fouls": tot_fouls,
+                "avg_fouls": avg_f,
+                "strictness_label": strictness,
+            }
+            european = None
+            if comp.is_domestic:
+                from src.api.european_fixtures import referee_european_matches
+                european = referee_european_matches(conn, name, season)
         return {
             "referee_name": name,
             "selected_season": season,
@@ -426,38 +420,36 @@ def get_standings(season: str = DEFAULT_SEASON, competition: Optional[str] = Non
     teams_meta = {}
 
     if comp_id != 39:
-        from src.db.database import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        # Fetch all teams in the competition
-        cursor.execute(
-            "SELECT DISTINCT home_id, home_name, home_abbr, home_logo, group_name FROM matches "
-            "WHERE competition_id = ? AND stage IN ('league', 'group') AND (season = ? OR ? = 'all')",
-            (comp_id, season, season),
-        )
-        for r in cursor.fetchall():
-            teams_meta[int(r[0])] = {"id": int(r[0]), "name": r[1], "abbr": r[2] or "", "logo": r[3], "group": r[4]}
+        with closing(get_db()) as conn:
+            cursor = conn.cursor()
+            # Fetch all teams in the competition
+            cursor.execute(
+                "SELECT DISTINCT home_id, home_name, home_abbr, home_logo, group_name FROM matches "
+                "WHERE competition_id = ? AND stage IN ('league', 'group') AND (season = ? OR ? = 'all')",
+                (comp_id, season, season),
+            )
+            for r in cursor.fetchall():
+                teams_meta[int(r[0])] = {"id": int(r[0]), "name": r[1], "abbr": r[2] or "", "logo": r[3], "group": r[4]}
 
-        # Fetch completed league phase matches
-        cursor.execute("""
-            SELECT gameweek, home_id, home_name, home_abbr, home_score, away_id, away_name, away_abbr, away_score
-            FROM matches
-            WHERE competition_id = ? AND (season = ? OR ? = 'all')
-              AND status = 'COMPLETED' AND home_score IS NOT NULL AND away_score IS NOT NULL
-              AND stage IN ('league', 'group')
-            ORDER BY gameweek ASC, match_date ASC
-        """, (comp_id, season, season))
-        for r in cursor.fetchall():
-            matches_to_process.append({
-                "gameweek": int(r[0]),
-                "home_id": int(r[1]),
-                "home_name": r[2],
-                "away_id": int(r[5]),
-                "away_name": r[6],
-                "home_score": int(r[4]),
-                "away_score": int(r[8]),
-            })
-        conn.close()
+            # Fetch completed league phase matches
+            cursor.execute("""
+                SELECT gameweek, home_id, home_name, home_abbr, home_score, away_id, away_name, away_abbr, away_score
+                FROM matches
+                WHERE competition_id = ? AND (season = ? OR ? = 'all')
+                  AND status = 'COMPLETED' AND home_score IS NOT NULL AND away_score IS NOT NULL
+                  AND stage IN ('league', 'group')
+                ORDER BY gameweek ASC, match_date ASC
+            """, (comp_id, season, season))
+            for r in cursor.fetchall():
+                matches_to_process.append({
+                    "gameweek": int(r[0]),
+                    "home_id": int(r[1]),
+                    "home_name": r[2],
+                    "away_id": int(r[5]),
+                    "away_name": r[6],
+                    "home_score": int(r[4]),
+                    "away_score": int(r[8]),
+                })
     else:
         # Premier League logic
         if season == DEFAULT_SEASON and state.raw_fixtures_2627:
@@ -705,32 +697,32 @@ def get_match_recent_form(match_id: int):
                 results.reverse()
             return {"match_id": match_id, "season": DEFAULT_SEASON, "form": form}
 
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT season, match_date, kickoff_label, home_id, away_id, home_score, away_score
-        FROM matches
-        WHERE match_id = ?
-    """, (match_id,))
-    selected = cursor.fetchone()
-    if not selected:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Match not found")
+    with closing(get_db()) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT competition_id, season, match_date, kickoff_label, home_id, away_id, home_score, away_score
+            FROM matches
+            WHERE match_id = ?
+        """, (match_id,))
+        selected = cursor.fetchone()
+        if not selected:
+            raise HTTPException(status_code=404, detail="Match not found")
 
-    season = selected["season"]
-    cutoff_date = selected["match_date"] or ""
-    cutoff_kickoff = selected["kickoff_label"] or ""
-    teams = (int(selected["home_id"]), int(selected["away_id"]))
-    cursor.execute("""
-        SELECT match_id, match_date, kickoff_label, home_id, away_id, home_score, away_score
-        FROM matches
-        WHERE season = ? AND match_id != ? AND home_score IS NOT NULL AND away_score IS NOT NULL
-          AND (match_date < ? OR (match_date = ? AND kickoff_label < ?))
-          AND (home_id IN (?, ?) OR away_id IN (?, ?))
-        ORDER BY match_date DESC, kickoff_label DESC, match_id DESC
-    """, (season, match_id, cutoff_date, cutoff_date, cutoff_kickoff, *teams, *teams))
-    previous_matches = [dict(row) for row in cursor.fetchall()]
-    conn.close()
+        comp_id = selected["competition_id"]
+        season = selected["season"]
+        cutoff_date = selected["match_date"] or ""
+        cutoff_kickoff = selected["kickoff_label"] or ""
+        teams = (int(selected["home_id"]), int(selected["away_id"]))
+        cursor.execute("""
+            SELECT match_id, match_date, kickoff_label, home_id, away_id, home_score, away_score
+            FROM matches
+            WHERE competition_id = ? AND season = ? AND match_id != ?
+              AND home_score IS NOT NULL AND away_score IS NOT NULL
+              AND (match_date < ? OR (match_date = ? AND kickoff_label < ?))
+              AND (home_id IN (?, ?) OR away_id IN (?, ?))
+            ORDER BY match_date DESC, kickoff_label DESC, match_id DESC
+        """, (comp_id, season, match_id, cutoff_date, cutoff_date, cutoff_kickoff, *teams, *teams))
+        previous_matches = [dict(row) for row in cursor.fetchall()]
 
     form = {str(team_id): [] for team_id in teams}
     for previous in previous_matches:

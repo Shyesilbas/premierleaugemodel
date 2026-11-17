@@ -21,10 +21,22 @@ import MatchDetailModal from './MatchDetailModal';
 import EmptyState from './common/EmptyState';
 import KnockoutBracket from './fixtures/KnockoutBracket';
 import { CalendarX } from 'lucide-react';
-import { getCachedTeamData, setCachedTeamData, clearAllCaches, calculateTeamExpiry, syncDataVersion } from '../utils/teamProfileCache';
-import { getGroupedFixtures, getKnockoutBracket, getSeasonSyncStatus, getStandings, startSeasonSync } from '../services/competitionService';
+import { clearAllCaches, syncDataVersion } from '../utils/teamProfileCache';
+import { invalidateApiCache } from '../services/apiClient';
+import {
+  getGroupedFixtures,
+  getKnockoutBracket,
+  getMatchBatchRefreshStatus,
+  getPendingMatches,
+  getSeasonSyncStatus,
+  getSingleMatchRefreshStatus,
+  getStandings,
+  startMatchBatchRefresh,
+  startSeasonSync,
+  startSingleMatchRefresh,
+} from '../services/competitionService';
 import { getTeamManagers } from '../services/teamService';
-import { useCompetition } from '../context/CompetitionContext';
+import { useCompetition } from '../context/competitionState';
 
 // The opening phase is a 36-team league (2024/25 on) or eight groups of four (until 2023/24).
 const isFirstPhase = stage => stage === 'league' || stage === 'group';
@@ -38,27 +50,29 @@ function FilterRow({ label, children }) {
   );
 }
 
-// Must match FIXTURES_SCHEMA in src/api/routes/fixtures.py; older cached responses lack newer fields (e.g. tie info).
-const FIXTURES_SCHEMA = 3;
-
 export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelectMatch, onSelectTeam }) {
   const { competitionKey, isCup, activeCompetition } = useCompetition();
-  const [data, setData] = useState({ gameweeks: [], total_matches: 0, current_gameweek: 1 });
-  const [loading, setLoading] = useState(true);
+  const [fixturesResult, setFixturesResult] = useState({ key: '', data: null });
   const [search, setSearch] = useState('');
-  const [currentGameweek, setCurrentGameweek] = useState(1);
-  const [selectedGameweek, setSelectedGameweek] = useState('1');
-  const [selectedGroup, setSelectedGroup] = useState('all'); // 'A' .. 'H'; 'all' means the first group
-  const [selectedStage, setSelectedStage] = useState('all'); // 'all' | 'league' | 'group' | 'playoff' | 'r16' | 'qf' | 'sf' | 'final'
+  const [gwSelection, setGwSelection] = useState({ key: '', value: null });
+  const [groupSelection, setGroupSelection] = useState({ key: '', value: null });
+  const [stageSelection, setStageSelection] = useState({ key: '', value: null });
   const [isGameweekMenuOpen, setIsGameweekMenuOpen] = useState(false);
   const [activeModalMatch, setActiveModalMatch] = useState(null);
-  const [teamManagers, setTeamManagers] = useState({});
+  const [staffResult, setStaffResult] = useState({ key: '', data: {} });
   const [syncStatus, setSyncStatus] = useState('idle');
   const [syncMessage, setSyncMessage] = useState('');
-  const [syncKind, setSyncKind] = useState('matches');
   const [syncMatches, setSyncMatches] = useState([]);
   const [isSyncMenuOpen, setIsSyncMenuOpen] = useState(false);
   const [dataRefreshVersion, setDataRefreshVersion] = useState(0);
+  const [pendingResult, setPendingResult] = useState({ key: '', ids: [] });
+  const [refreshingMatchId, setRefreshingMatchId] = useState(null);
+  const [batchStatus, setBatchStatus] = useState({
+    status: 'idle',
+    completed: 0,
+    total: 0,
+    message: '',
+  });
 
   // Display Mode: 'list' (Kompakt Liste) | 'cards' (Detaylı Kartlar)
   const [displayMode, setDisplayMode] = useState(() => {
@@ -76,131 +90,148 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
     } catch {}
   };
 
-  // Standings View State
-  const [activeView, setActiveView] = useState('fixtures'); // 'fixtures' | 'table' | 'bracket'
-  const [bracket, setBracket] = useState(null);
-  const [bracketLoading, setBracketLoading] = useState(false);
-  const [bracketError, setBracketError] = useState(false);
+  // Standings & Bracket View State
+  const [viewState, setViewState] = useState({ competition: competitionKey, view: 'fixtures' });
+  const [bracketResult, setBracketResult] = useState({ key: '', data: null, error: false });
   const [bracketReload, setBracketReload] = useState(0);
-  const [standingsData, setStandingsData] = useState([]);
-  const [standingsGroups, setStandingsGroups] = useState([]);
-  const [loadingStandings, setLoadingStandings] = useState(false);
-  const [standingsType, setStandingsType] = useState('all'); // 'all' | 'home' | 'away'
+  const [standingsResult, setStandingsResult] = useState({ key: '', standings: [], groups: [] });
+  const [standingsType, setStandingsType] = useState('all');
 
-  // Leaving a UEFA competition for the Premier League must not leave the bracket view selected.
-  useEffect(() => {
-    if (!isCup && activeView === 'bracket') setActiveView('fixtures');
-  }, [isCup, activeView]);
+  const rawView = viewState.competition === competitionKey ? viewState.view : 'fixtures';
+  const activeView = !isCup && rawView === 'bracket' ? 'fixtures' : rawView;
+  const setActiveView = (view) => setViewState({ competition: competitionKey, view });
+
+  const seasonParam = selectedSeason || '2026_27';
+  const fixturesKey = `${seasonParam}:${competitionKey}:${dataRefreshVersion}`;
+  const bracketKey = `${seasonParam}:${competitionKey}:${bracketReload}:${dataRefreshVersion}`;
+
+  const data = (fixturesResult.key === fixturesKey ? fixturesResult.data : null) || {
+    gameweeks: [],
+    total_matches: 0,
+    current_gameweek: 1,
+  };
+  const loading = Boolean(fixturesResult.key !== fixturesKey);
+  const currentGameweek = data?.current_gameweek || (data?.gameweeks?.length ? data.gameweeks[0].gameweek : 1);
+
+  const dataGameweeks = data.gameweeks;
+  const defaultStage = useMemo(() => {
+    if (!isCup) return 'all';
+    const current = (dataGameweeks || []).find(gw => Number(gw.gameweek) === Number(currentGameweek));
+    return current?.stage || 'league';
+  }, [isCup, dataGameweeks, currentGameweek]);
+  const defaultGameweek = !isCup || isFirstPhase(defaultStage) ? String(currentGameweek) : 'all';
+
+  const selectedStage = stageSelection.key === fixturesKey && stageSelection.value !== null
+    ? stageSelection.value
+    : defaultStage;
+  const setSelectedStage = (value) => setStageSelection({ key: fixturesKey, value });
+
+  const selectedGameweek = gwSelection.key === fixturesKey && gwSelection.value !== null
+    ? gwSelection.value
+    : defaultGameweek;
+  const setSelectedGameweek = (value) => setGwSelection({ key: fixturesKey, value });
+
+  const selectedGroup = groupSelection.key === fixturesKey && groupSelection.value !== null
+    ? groupSelection.value
+    : 'all';
+  const setSelectedGroup = (value) => setGroupSelection({ key: fixturesKey, value });
 
   useEffect(() => {
     if (activeView !== 'bracket' || !isCup) return undefined;
     let cancelled = false;
-    setBracketLoading(true);
-    setBracketError(false);
-    getKnockoutBracket(selectedSeason || '2026_27', competitionKey)
-      .then(result => { if (!cancelled) setBracket(result); })
-      .catch(() => { if (!cancelled) setBracketError(true); })
-      .finally(() => { if (!cancelled) setBracketLoading(false); });
+    getKnockoutBracket(seasonParam, competitionKey)
+      .then(result => {
+        if (!cancelled) setBracketResult({ key: bracketKey, data: result, error: false });
+      })
+      .catch(() => {
+        if (!cancelled) setBracketResult({ key: bracketKey, data: null, error: true });
+      });
     return () => { cancelled = true; };
-  }, [activeView, competitionKey, isCup, selectedSeason, bracketReload, dataRefreshVersion]);
+  }, [activeView, competitionKey, isCup, seasonParam, bracketKey]);
 
-  // Open on the stage that holds the current gameweek (a finished season ends in the final, not in the league phase).
-  const selectDefaultView = (resData, curGw) => {
-    if (!isCup) {
-      setSelectedStage('all');
-      setSelectedGameweek(String(curGw));
-      return;
-    }
-    const current = (resData?.gameweeks || []).find(gw => Number(gw.gameweek) === Number(curGw));
-    const stage = current?.stage || 'league';
-    setSelectedStage(stage);
-    setSelectedGroup('all');
-    setSelectedGameweek(isFirstPhase(stage) ? String(curGw) : 'all');
-  };
+  const bracketSettled = bracketResult.key === bracketKey;
+  const bracket = bracketSettled ? bracketResult.data : null;
+  const bracketLoading = activeView === 'bracket' && isCup && !bracketSettled;
+  const bracketError = bracketSettled && bracketResult.error;
 
   useEffect(() => {
-    const seasonParam = selectedSeason || '2026_27';
-
-    if (dataRefreshVersion === 0) {
-      const cached = getCachedTeamData('fixtures_grouped', competitionKey, seasonParam);
-      if (cached?.data && cached.data.schema === FIXTURES_SCHEMA) {
-        const curGw = cached.data?.current_gameweek || (cached.data?.gameweeks?.length ? cached.data.gameweeks[0].gameweek : 1);
-        setData(cached.data);
-        setCurrentGameweek(curGw);
-        selectDefaultView(cached.data, curGw);
-        setLoading(false);
-        return;
-      }
-    }
-
-    setLoading(true);
+    let cancelled = false;
     getGroupedFixtures(seasonParam, competitionKey)
       .then(resData => {
-        const curGw = resData?.current_gameweek || (resData?.gameweeks?.length ? resData.gameweeks[0].gameweek : 1);
-        setData(resData || { gameweeks: [], total_matches: 0 });
-        setCurrentGameweek(curGw);
-        selectDefaultView(resData, curGw);
-        const { expiresAt, label } = calculateTeamExpiry(resData?.next_match, seasonParam);
-        setCachedTeamData('fixtures_grouped', competitionKey, seasonParam, resData, expiresAt, label);
-        setLoading(false);
+        if (cancelled) return;
+        const normalized = resData || { gameweeks: [], total_matches: 0 };
+        setFixturesResult({ key: fixturesKey, data: normalized });
       })
       .catch(err => {
         console.error('Error fetching grouped fixtures:', err);
-        setLoading(false);
+        if (!cancelled) setFixturesResult({ key: fixturesKey, data: { gameweeks: [], total_matches: 0, current_gameweek: 1 } });
       });
-  }, [selectedSeason, competitionKey, dataRefreshVersion]);
+    return () => { cancelled = true; };
+  }, [seasonParam, competitionKey, fixturesKey]);
 
   useEffect(() => {
-    const seasonParam = selectedSeason || '2026_27';
+    let cancelled = false;
+    getPendingMatches(seasonParam, competitionKey)
+      .then(resData => {
+        if (!cancelled) {
+          setPendingResult({ key: fixturesKey, ids: resData?.pending_match_ids || [] });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPendingResult({ key: fixturesKey, ids: [] });
+      });
+    return () => { cancelled = true; };
+  }, [seasonParam, competitionKey, fixturesKey]);
 
-    if (dataRefreshVersion === 0) {
-      const cached = getCachedTeamData('staff', competitionKey, seasonParam);
-      if (cached?.data) {
-        setTeamManagers(cached.data.managers || {});
-        return;
-      }
-    }
+  const pendingMatchIds = useMemo(
+    () => new Set((pendingResult.key === fixturesKey ? pendingResult.ids : []).map((id) => Number(id))),
+    [pendingResult, fixturesKey],
+  );
 
+  const teamManagers = staffResult.key === fixturesKey ? staffResult.data : {};
+
+  useEffect(() => {
+    let cancelled = false;
     getTeamManagers(seasonParam, competitionKey)
-      .then(data => {
-        setTeamManagers(data.managers || {});
-        const { expiresAt, label } = calculateTeamExpiry(null, seasonParam);
-        setCachedTeamData('staff', competitionKey, seasonParam, data, expiresAt, label);
+      .then(resData => {
+        if (cancelled) return;
+        setStaffResult({ key: fixturesKey, data: resData.managers || {} });
       })
       .catch(err => {
         console.error('Error fetching team managers:', err);
-        setTeamManagers({});
+        if (!cancelled) setStaffResult({ key: fixturesKey, data: {} });
       });
-  }, [selectedSeason, competitionKey, dataRefreshVersion]);
+    return () => { cancelled = true; };
+  }, [seasonParam, competitionKey, fixturesKey]);
 
-  // Fetch Standings data on season change
+  const standingsData = useMemo(
+    () => (standingsResult.key === fixturesKey ? standingsResult.standings : []),
+    [standingsResult, fixturesKey],
+  );
+  const standingsGroups = useMemo(
+    () => (standingsResult.key === fixturesKey ? standingsResult.groups : []),
+    [standingsResult, fixturesKey],
+  );
+  const loadingStandings = Boolean(standingsResult.key !== fixturesKey);
+
+  // Fetch Standings data on season change (ETag revalidated via loadApiFresh)
   useEffect(() => {
-    const seasonParam = selectedSeason || '2026_27';
-
-    if (dataRefreshVersion === 0) {
-      const cached = getCachedTeamData('standings', competitionKey, seasonParam);
-      if (cached?.data) {
-        setStandingsData(cached.data.standings || []);
-        setStandingsGroups(cached.data.groups || []);
-        setLoadingStandings(false);
-        return;
-      }
-    }
-
-    setLoadingStandings(true);
+    let cancelled = false;
     getStandings(seasonParam, competitionKey)
       .then(resData => {
-        setStandingsData(resData?.standings || []);
-        setStandingsGroups(resData?.groups || []);
-        const { expiresAt, label } = calculateTeamExpiry(data?.next_match, seasonParam);
-        setCachedTeamData('standings', competitionKey, seasonParam, resData, expiresAt, label);
-        setLoadingStandings(false);
+        if (cancelled) return;
+        setStandingsResult({
+          key: fixturesKey,
+          standings: resData?.standings || [],
+          groups: resData?.groups || [],
+        });
       })
       .catch(err => {
         console.error('Error fetching standings:', err);
-        setLoadingStandings(false);
+        if (!cancelled) setStandingsResult({ key: fixturesKey, standings: [], groups: [] });
       });
-  }, [selectedSeason, competitionKey, dataRefreshVersion, data?.next_match]);
+    return () => { cancelled = true; };
+  }, [seasonParam, competitionKey, fixturesKey]);
 
   useEffect(() => {
     if (syncStatus !== 'running') return undefined;
@@ -222,6 +253,12 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
         if (job.status === 'failed') {
           setSyncStatus('failed');
           setSyncMessage(job.message || 'Veri güncellemesi tamamlanamadı.');
+          if (job.matches?.length) {
+            setSyncMatches(job.matches);
+            clearAllCaches();
+            await syncDataVersion();
+            setDataRefreshVersion(version => version + 1);
+          }
           return;
         }
         timer = setTimeout(pollStatus, 2000);
@@ -236,7 +273,6 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
   }, [syncStatus]);
 
   const triggerSeasonSync = async (kind = 'matches') => {
-    setSyncKind(kind);
     setSyncMatches([]);
     setSyncStatus('starting');
     setSyncMessage('Başlandı...');
@@ -248,6 +284,88 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
     } catch (error) {
       setSyncStatus('failed');
       setSyncMessage(error.message || 'Güncelleme başlatılamadı.');
+    }
+  };
+
+  useEffect(() => {
+    if (batchStatus.status !== 'running') return undefined;
+    let cancelled = false;
+    let timer;
+    const pollBatch = async () => {
+      try {
+        const job = await getMatchBatchRefreshStatus();
+        if (cancelled) return;
+        setBatchStatus({
+          status: job.status || 'idle',
+          completed: Number(job.completed || 0),
+          total: Number(job.total || 0),
+          message: job.message || '',
+        });
+        if (job.status === 'completed' || job.status === 'failed') {
+          if (job.matches?.length) setSyncMatches(job.matches);
+          setSyncStatus(job.status);
+          setSyncMessage(job.message || '');
+          clearAllCaches();
+          invalidateApiCache();
+          await syncDataVersion();
+          setDataRefreshVersion((v) => v + 1);
+          return;
+        }
+        timer = setTimeout(pollBatch, 1000);
+      } catch (err) {
+        if (!cancelled) {
+          setBatchStatus((prev) => ({ ...prev, status: 'failed', message: err?.message || 'Güncelleme durumu alınamadı.' }));
+        }
+      }
+    };
+    timer = setTimeout(pollBatch, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [batchStatus.status]);
+
+  const handleBatchPendingRefresh = async () => {
+    if (batchStatus.status === 'running' || pendingMatchIds.size === 0) return;
+    setSyncMatches([]);
+    setSyncStatus('idle');
+    setSyncMessage('');
+    try {
+      const job = await startMatchBatchRefresh(seasonParam, competitionKey, [...pendingMatchIds]);
+      setBatchStatus({
+        status: job.status || 'running',
+        completed: Number(job.completed || 0),
+        total: Number(job.total || pendingMatchIds.size),
+        message: job.message || 'Eksik maçlar getiriliyor...',
+      });
+    } catch (err) {
+      setSyncStatus('failed');
+      setSyncMessage(err?.message || 'Eksik maçlar yenilenemedi.');
+    }
+  };
+
+  const handleSingleMatchRefresh = async (matchId) => {
+    if (!matchId || refreshingMatchId) return;
+    setRefreshingMatchId(matchId);
+    try {
+      await startSingleMatchRefresh(matchId, seasonParam, competitionKey);
+      for (let i = 0; i < 30; i += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 900));
+        const st = await getSingleMatchRefreshStatus(matchId);
+        if (st.status === 'completed' || st.status === 'failed' || st.status === 'idle') {
+          if (st.message) {
+            setSyncStatus(st.status === 'failed' ? 'failed' : 'completed');
+            setSyncMessage(st.message);
+          }
+          break;
+        }
+      }
+      clearAllCaches();
+      invalidateApiCache();
+      await syncDataVersion();
+      setDataRefreshVersion((v) => v + 1);
+    } catch (err) {
+      setSyncStatus('failed');
+      setSyncMessage(err?.message || 'Maç yenilenemedi.');
+    } finally {
+      setRefreshingMatchId(null);
     }
   };
 
@@ -624,6 +742,24 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
             </div>
 
+            {/* Pending matches batch refresh (nbaModelApp style) */}
+            {(pendingMatchIds.size > 0 || batchStatus.status === 'running') && (
+              <button
+                type="button"
+                onClick={handleBatchPendingRefresh}
+                disabled={batchStatus.status === 'running'}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-accent/40 bg-accent-soft text-accent text-xs font-medium hover:bg-accent/15 transition-colors cursor-pointer disabled:opacity-60 shrink-0"
+                title="Saati geçmiş veya verisi eksik maçları hemen çek"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${batchStatus.status === 'running' ? 'animate-spin' : ''}`} strokeWidth={1.5} aria-hidden="true" />
+                <span className="tabular-nums">
+                  {batchStatus.status === 'running'
+                    ? `${batchStatus.completed}/${batchStatus.total} yenileniyor`
+                    : `Eksik maç verileri (${pendingMatchIds.size})`}
+                </span>
+              </button>
+            )}
+
             {/* Sync Dropdown */}
             {(() => {
               const busy = syncStatus === 'starting' || syncStatus === 'running';
@@ -668,6 +804,22 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
 
         </div>
 
+        {/* Batch progress bar if active */}
+        {batchStatus.status === 'running' && batchStatus.total > 0 && (
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center justify-between text-xs text-text-secondary tabular-nums">
+              <span>{batchStatus.message || 'Maç verileri güncelleniyor...'}</span>
+              <span>{batchStatus.completed} / {batchStatus.total}</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-background-tertiary overflow-hidden">
+              <div
+                className="h-full bg-accent transition-all duration-200"
+                style={{ width: `${Math.min(100, Math.round((batchStatus.completed / batchStatus.total) * 100))}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Sync message if active */}
         {syncMessage && (
           <p className={`flex items-center gap-1 text-xs font-medium mt-2 ${syncStatus === 'failed' ? 'text-status-error' : syncStatus === 'completed' ? 'text-status-success' : 'text-text-muted'}`}>
@@ -676,7 +828,7 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
             <span>{syncMessage}</span>
           </p>
         )}
-        {syncStatus === 'completed' && syncMatches.length > 0 && (
+        {syncMatches.length > 0 && (syncStatus === 'completed' || syncStatus === 'failed') && (
           <ul className="text-xs text-text-secondary space-y-0.5 mt-1">
             {syncMatches.map(name => <li key={name}>• {name}</li>)}
           </ul>
@@ -808,6 +960,9 @@ export default function FixturesTab({ selectedSeason, setSelectedSeason, onSelec
           currentGameweek={currentGameweek}
           teamManagers={teamManagers}
           teamForms={teamForms}
+          pendingMatchIds={pendingMatchIds}
+          refreshingMatchId={refreshingMatchId}
+          onRefreshMatch={handleSingleMatchRefresh}
           onMatchClick={handleMatchClick}
           onSelectTeam={onSelectTeam}
         />

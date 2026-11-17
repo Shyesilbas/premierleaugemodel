@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +59,7 @@ def _market_probabilities(match_ids: pd.Series, db_path: str = str(DB_PATH)) -> 
     """
     from src.db.database import get_db
 
-    with get_db(db_path) as conn:
+    with closing(get_db(db_path)) as conn:
         odds = pd.read_sql_query(
             "SELECT match_id, over_25_last_seen AS o, under_25_last_seen AS u, "
             "btts_yes_last_seen AS yes, btts_no_last_seen AS no "

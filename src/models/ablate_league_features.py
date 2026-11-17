@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Ablation of the league 1X2 model: does a variant (extra features, a smaller feature set, a stronger penalty grid) beat the production model out of sample?
 
-Usage: python3 -m src.models.ablate_league_features --competition la_liga --group xi
-       python3 -m src.models.ablate_league_features --competition la_liga --group low_c core core_low_c
+Usage: python3 -m src.models.ablate_league_features --competition <league_key> --group xi
+       python3 -m src.models.ablate_league_features --competition <league_key> --group low_c core core_low_c
 
 Variants: ``xi`` adds the first-XI columns; ``low_c`` adds logistic candidates with C below the old grid edge (chosen, like every
 candidate, by chronological CV on earlier seasons only); ``core`` replaces the 118 features with a short curated list written down
@@ -15,7 +15,7 @@ mean difference is negative with a 95% interval that excludes zero, its Benjamin
 below 0.05, AND the sinama season (the last outer season) alone is also negative; otherwise the variant is recorded as
 "No Gain, Not Adopted" and the production model does not change.
 
-Reads: data/football.db. Writes: docs/reports/models/<key>_<group>_ablation.json for one variant, or
+Reads: data/football.db. Writes: reports/models/<key>_<group>_ablation.json for one variant, or
 <key>_ablation_<group>_<group>.json for several (no model artifact).
 """
 

@@ -2,7 +2,7 @@ import { ChevronDown, ChevronRight, MapPin, Search, X } from 'lucide-react';
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
 import TeamForm from '../TeamForm';
 import { formatSeasonLabel } from '../../utils/dateFormatters';
-import { useCompetition } from '../../context/CompetitionContext';
+import { useCompetition } from '../../context/competitionState';
 import { seasonsFor } from '../../data/seasons';
 
 function SeasonSelect({ value, options, onChange }) {

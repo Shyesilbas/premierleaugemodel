@@ -2,6 +2,7 @@
 
 import json
 import logging
+from contextlib import closing
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -21,16 +22,15 @@ def _fetch_match_xg_info(
 ) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[str], Optional[str]]:
     """Query SQLite for match xG and quality metadata if available."""
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            """SELECT x.provider, x.home_xg, x.away_xg, x.xg_quality
-               FROM matches m LEFT JOIN external_match_xg x ON x.match_id = m.match_id
-               WHERE m.match_id = ?""",
-            (match_id,),
-        )
-        db_match = cursor.fetchone()
-        conn.close()
+        with closing(get_db()) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT x.provider, x.home_xg, x.away_xg, x.xg_quality
+                   FROM matches m LEFT JOIN external_match_xg x ON x.match_id = m.match_id
+                   WHERE m.match_id = ?""",
+                (match_id,),
+            )
+            db_match = cursor.fetchone()
         if db_match:
             h_xg = round(float(db_match["home_xg"]), 2) if db_match["home_xg"] is not None else None
             a_xg = round(float(db_match["away_xg"]), 2) if db_match["away_xg"] is not None else None
@@ -830,6 +830,26 @@ def _database_match_details(match: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+def _extract_main_referee(officials: Any) -> Optional[str]:
+    """Return the main referee display name from PulseLive matchOfficials entries."""
+    fallback: Optional[str] = None
+    for entry in officials or []:
+        if not isinstance(entry, dict):
+            continue
+        official = entry.get("matchOfficial") or entry.get("official") or entry
+        role = entry.get("role") or entry.get("type") or official.get("role")
+        name_obj = official.get("name")
+        display = name_obj.get("display") if isinstance(name_obj, dict) else name_obj
+        if not display:
+            continue
+        display_str = str(display).strip()
+        if role in {"MAIN", "Referee"}:
+            return display_str
+        if fallback is None:
+            fallback = display_str
+    return fallback
+
+
 @router.get("/api/match/{match_id}/details")
 def get_match_full_details(match_id: int):
     """
@@ -877,11 +897,7 @@ def get_match_full_details(match_id: int):
             "kickoff_label": d.get("kickoff", {}).get("label"),
             "ground": d.get("ground", {}).get("name"),
             "attendance": d.get("attendance"),
-            "referee": (
-                d.get("matchOfficials", [{}])[0].get("matchOfficial", {}).get("name", {}).get("display")
-                if d.get("matchOfficials")
-                else None
-            ),
+            "referee": _extract_main_referee(d.get("matchOfficials")),
             "halfTimeScore": d.get("halfTimeScore"),
             "home_xg": h_xg,
             "away_xg": a_xg,
@@ -921,30 +937,28 @@ def get_match_full_details(match_id: int):
 
 def get_match_odds_list(match_id: int) -> List[Dict[str, Any]]:
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT bookmaker,
-                   home_last_seen, draw_last_seen, away_last_seen,
-                   home_open, draw_open, away_open,
-                   over_25_last_seen, under_25_last_seen,
-                   btts_yes_last_seen, btts_no_last_seen,
-                   corners_over_last_seen, corners_under_last_seen,
-                   cards_over_last_seen, cards_under_last_seen,
-                   fetched_at_utc
-            FROM external_match_odds
-            WHERE match_id = ?
-            ORDER BY CASE 
-                WHEN bookmaker = 'Bet365' THEN 1 
-                WHEN bookmaker = 'Pinnacle' THEN 2 
-                WHEN bookmaker = 'Betfair Exchange' THEN 3 
-                WHEN bookmaker = 'Paddy Power' THEN 4 
-                ELSE 5 
-            END
-        """, (match_id,))
-        rows = [dict(r) for r in cursor.fetchall()]
-        conn.close()
-        return rows
+        with closing(get_db()) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT bookmaker,
+                       home_last_seen, draw_last_seen, away_last_seen,
+                       home_open, draw_open, away_open,
+                       over_25_last_seen, under_25_last_seen,
+                       btts_yes_last_seen, btts_no_last_seen,
+                       corners_over_last_seen, corners_under_last_seen,
+                       cards_over_last_seen, cards_under_last_seen,
+                       fetched_at_utc
+                FROM external_match_odds
+                WHERE match_id = ?
+                ORDER BY CASE 
+                    WHEN bookmaker = 'Bet365' THEN 1 
+                    WHEN bookmaker = 'Pinnacle' THEN 2 
+                    WHEN bookmaker = 'Betfair Exchange' THEN 3 
+                    WHEN bookmaker = 'Paddy Power' THEN 4 
+                    ELSE 5 
+                END
+            """, (match_id,))
+            return [dict(r) for r in cursor.fetchall()]
     except Exception as e:
         logger.warning(f"Error fetching odds for match {match_id}: {e}")
         return []

@@ -1,16 +1,16 @@
 # Kart Sayım Modeli — Model Raporu
 
-**Rapor tarihi:** 17 Ekim 2026  
+**Rapor tarihi:** 17 Kasım 2026  
 **Artifact:** `models/production/premier_league/cards_model_v1.joblib` · **Eğitim kodu:** `src/models/train_cards.py` · **Ortak yardımcılar:** `src/models/model_utils.py`  
-**Hedef:** `total_cards` = iki takımın sarı + kırmızı kart toplamı (`src/processing/process_season_data.py:282`)  
-**Veri:** 1.580 tamamlanmış maç (2022/23–2026/27); 2026/27 kilitli sezon (60 maç), yalnızca raporlanır.  
-**Dokümantasyon:** [Ana Rapor](../premier_league_models_comprehensive_report.md) · [Metodolojik Anayasa (Bölüm 8)](../premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage) · [Model Benchmarks](../model_benchmarks.md)
+**Hedef:** `total_cards` = iki takımın sarı + kırmızı kart toplamı (`src/processing/process_season_data.py`)  
+**Veri:** 1.608 tamamlanmış maç (1.286 geliştirme, 322 holdout); 2026/27 kilitli sezon (88 maç).  
+**Dokümantasyon:** [Ana Rapor](../premier_league_models_comprehensive_report.md) · [Metodolojik Anayasa (Bölüm 8)](../premier_league_models_comprehensive_report.md#bölüm-8-metodolojik-anayasa--sıfır-sızıntı-zero-leakage) · [Model Benchmarks](../../../reports/model_benchmarks.md)
 
 ---
 
 ## 1. Karar
 
-🛡️ **Üretimde sabit ortalama (`training_mean`).** Özellikli aday (`poisson_1`) CV kapısını geçti ama iç içe dış sezonların yalnızca 1/3'ünde ortalamayı yendi; 17 Ekim 2026'da eklenen dış sezon kapısı onu ortalamaya düşürdü. API `cards.model_skill = "baseline"` döner, arayüz "Veri ortalaması tabanlı tahmin" rozetini gösterir.
+**[Baseline] Üretimde sabit ortalama (`training_mean`).** Özellikli aday (`poisson_1`) CV kapısını geçti ama iç içe dış sezonların yalnızca 1/3'ünde ortalamayı yendi; 17 Ekim 2026'da eklenen dış sezon kapısı onu ortalamaya düşürdü. API `cards.model_skill = "baseline"` döner, arayüz "Veri ortalaması tabanlı tahmin" rozetini gösterir.
 
 Maç öncesi verilerle toplam kart sayısı bu veri setinde ortalamadan güvenilir biçimde iyi tahmin edilemiyor. En büyük değişkenlik kaynağı sezonlar arası seviye kayması (3.70 → 4.37 → 4.23 → 3.87 kart/maç); hakem ve takım disiplin özellikleri bunu öngörmüyor.
 
@@ -30,21 +30,19 @@ Maç öncesi verilerle toplam kart sayısı bu veri setinde ortalamadan güvenil
 
 | Kapı | Sonuç |
 | :--- | :--- |
-| CV kapısı (≥%0.5 kazanç, ≥3/4 kat) | ✅ `poisson_1`: %1.76 kazanç, 4/4 kat |
-| Dış sezon kapısı (tam sezonların çoğunluğu) | ❌ 1/3 → `training_mean` |
+| CV kapısı (≥%0.5 kazanç, ≥3/4 kat) | [PASS] `poisson_1`: %1.62 kazanç, 3/4 kat |
+| Geliştirme dış sezon kapısı (`%80` dev tam sezonları) | [FAIL] 1/2 → `training_mean` |
 
 **Dış sezonlar** (her sezon yalnızca önceki sezonlarla seçildi ve eğitildi):
 
 | Dış sezon | Eğitim maçı | Seçilen | RMSE | Ortalama RMSE | Ortalamayı geçti |
 | :--- | :---: | :--- | :---: | :---: | :---: |
-| 2023_24 | 380 | `training_mean` | 2.3007 | 2.3007 | ❌ |
-| 2024_25 | 760 | `poisson_1` | 2.1937 | 2.2572 | ✅ |
-| 2025_26 | 1140 | `poisson_1` | 2.0528 | 2.0379 | ❌ |
-| 2026_27 🔒 (kilitli, kısmi) | 1520 | `poisson_1` | 1.9048 | 1.8762 | ❌ |
+| 2023_24 | 380 | `training_mean` | 2.3007 | 2.3007 | Hayır |
+| 2024_25 | 760 | `poisson_1` | 2.1937 | 2.2572 | Evet |
+| 2025_26 | 1140 | `poisson_1` | 2.0530 | 2.0379 | Hayır |
+| 2026_27 (kilitli, kısmi, 88 maç) | 1520 | `poisson_1` | 1.8901 | 1.8841 | Hayır |
 
-**Kapıdan önceki özellikli model, son %20 holdout (316 maç):** RMSE 2.0201 / ortalama 2.0014, MAE 1.633 / 1.608, R² −0.025. Üst 3.5 log-loss NB 0.6888 / sabit oran 0.6837; Üst 4.5 0.6646 / 0.6588. Model her ölçüde ortalamadan kötüydü. (Holdout kilitli sezonu içerdiği için kapı kararında kullanılmaz.)
-
-**Üretimdeki ortalama ile holdout:** RMSE 2.0014, Üst 3.5 LL 0.6834, Üst 4.5 LL 0.6580.
+**Üretimdeki ortalama ile güncel holdout (son %20, 322 maç):** RMSE `1.9744`, MAE `1.5783` (NB2 α=`0.0616`: Üst 3.5 LL `0.6813` / prior `0.6801`; Üst 4.5 LL `0.6605` / prior `0.6611`). *(17 Ekim denetiminde `poisson_1` holdout RMSE 2.0201 vs ortalama 2.0014 ile kaybetmişti.)*
 
 ## 4. Denetim Bulguları (17 Ekim 2026)
 
@@ -65,9 +63,9 @@ Maç öncesi verilerle toplam kart sayısı bu veri setinde ortalamadan güvenil
 
 | Deneme | Sonuç | Karar |
 | :--- | :--- | :--- |
-| Tek özellik (`exp_home_cards_5`, `exp_away_cards_5`) | Dış sezon 0/3 | ❌ Aday listesi değişmedi |
-| Son 380 maç ortalaması (seviye uyumu) | Havuz RMSE 2.2036 > 2.1986 | ❌ |
-| Hakem büzülmesini azaltmak | Hakem kimliği anlamlı sinyal taşımıyor (ANOVA p = 0.28) | ❌ Denenmedi, gerekçesiz |
+| Tek özellik (`exp_home_cards_5`, `exp_away_cards_5`) | Dış sezon 0/3 | [Reddedildi] Aday listesi değişmedi |
+| Son 380 maç ortalaması (seviye uyumu) | Havuz RMSE 2.2036 > 2.1986 | [Reddedildi] |
+| Hakem büzülmesini azaltmak | Hakem kimliği anlamlı sinyal taşımıyor (ANOVA p = 0.28) | [Reddedildi] Denenmedi, gerekçesiz |
 
 ## 6. Açık Sorular
 
@@ -80,3 +78,4 @@ Maç öncesi verilerle toplam kart sayısı bu veri setinde ortalamadan güvenil
 | :--- | :--- |
 | 14 Ekim 2026 | `poisson_1` (11 özellik) üretimde; holdout'ta ortalamadan kötü olduğu fark edilmedi. Ana rapordaki "`ridge_500`, 17 özellik, RMSE 2.0298" kaydı bu artifact ile zaten uyuşmuyordu. |
 | 17 Ekim 2026 | Denetim; dış sezon kapısı eklendi; model 16 Ekim özellik verisiyle yeniden eğitildi → `training_mean`. |
+| 17 Kasım 2026 | 1.608 maçla (`1.286` dev / `322` holdout) yeniden eğitildi → `training_mean` korundu (RMSE `1.9744`). |

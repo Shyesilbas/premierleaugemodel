@@ -179,7 +179,7 @@ def main():
     print(f"{'Segment':<42} | {'N':<5} | {'AUC':<7} | {'p (raw)':<8} | {'p (Bonf)':<8} | {'q (BH FDR)':<10} | {'r(λ,goals)':<10} | {'p(r)':<7}")
     print("-" * 115)
     for i in range(k):
-        sig = "🚨 ANLAMLI" if q_fdr[i] < 0.05 else ("⚠️ MARGINAL" if p_raw_list[i] < 0.05 else "GÜRÜLTÜ")
+        sig = "[ANLAMLI]" if q_fdr[i] < 0.05 else ("[MARGINAL]" if p_raw_list[i] < 0.05 else "GÜRÜLTÜ")
         print(f"{seg_names[i]:<42} | {n_list[i]:<5d} | {auc_list[i]:<7.4f} | {p_raw_list[i]:<8.4f} | {p_bonf[i]:<8.4f} | {q_fdr[i]:<10.4f} | {r_list[i]:<+10.4f} | {p_r_list[i]:<7.4f} | {sig}")
 
     print("\n" + "="*95)

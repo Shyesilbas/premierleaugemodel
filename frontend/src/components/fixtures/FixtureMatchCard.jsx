@@ -1,3 +1,4 @@
+import { RefreshCw } from 'lucide-react';
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
 import TeamForm from '../TeamForm';
 import { penaltyText, tieNote } from '../../utils/knockout';
@@ -8,6 +9,9 @@ export default function FixtureMatchCard({
   away,
   homeForm,
   awayForm,
+  isPendingRefresh = false,
+  isRefreshing = false,
+  onRefreshMatch,
   onMatchClick,
   onSelectTeam,
 }) {
@@ -35,7 +39,21 @@ export default function FixtureMatchCard({
     >
       <div className="flex items-center justify-between gap-3 text-xs text-text-secondary">
         <span className="truncate tabular-nums">{m.group ? `Grup ${m.group} · ` : ''}{m.time_label || m.kickoff_label}</span>
-        {tag && <span className="shrink-0 truncate tabular-nums">{tag}</span>}
+        <div className="flex items-center gap-2 shrink-0">
+          {tag && <span className="truncate tabular-nums">{tag}</span>}
+          {isPendingRefresh && onRefreshMatch && (
+            <button
+              type="button"
+              disabled={isRefreshing}
+              onClick={(event) => { event.stopPropagation(); onRefreshMatch(m.match_id); }}
+              title="Maç verisini yenile"
+              aria-label="Maç verisini yenile"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-border bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
 
       {note && (note.leg || note.result) && (

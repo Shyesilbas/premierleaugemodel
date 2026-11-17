@@ -1,4 +1,4 @@
-"""Pre-match features for a league that is fed only by TheStatsAPI (LaLiga and leagues added the same way).
+"""Pre-match features for a national league that is fed only by TheStatsAPI.
 
 Every feature of a match uses information that existed before its kick-off: team histories are shifted by one match
 (``shift(1)``) before any rolling or exponential average, Elo and the league table are updated only after a result is

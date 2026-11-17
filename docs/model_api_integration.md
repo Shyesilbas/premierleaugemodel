@@ -1,6 +1,6 @@
 # Premier League Modelleri — API & Sistem Entegrasyon Kılavuzu
 
-**Dokümantasyon Ağı:** [README](../README.md) · [Ana Kapsamlı Rapor](reports/premier_league_models_comprehensive_report.md) · [Rapor Merkezi](reports/README.md) · [Paper Trading 2026/27](reports/paper_trading_protocol_2026_27.md) · [AI Context](../AI_CONTEXT.md) · [Veri Kataloğu](../VERI_VE_GOSTERIM_KATALOGU.md)
+**Dokümantasyon Ağı:** [README](../README.md) · [Ana Kapsamlı Rapor](reports/premier_league_models_comprehensive_report.md) · [Rapor Merkezi](../reports/README.md) · [Paper Trading 2026/27](paper_trading_protocol_2026_27.md) · [Artifact Registry](artifact_registry.md) · [Veri Kataloğu](data_and_ui_catalog.md)
 
 Bu doküman, üretim modellerinin (gol skor matrisi `goals_models_v1`, 1X2 `outcome_models_v1` ve beş sayım modeli) çıktılarının `GET /api/predict` alanlarına ve React bileşenlerine nasıl bağlandığını anlatır. Modellerin kendisi için bkz. [model raporları](reports/models/).
 
@@ -44,7 +44,7 @@ Gol modelimiz tek bir ikili (binary) sınıflandırıcı yerine, maçın tüm ol
 ### 2.4. Tek Taraflı Takım Gol Baremleri (Team Totals)
 - **API Alanı:** `/api/predict` -> `goals.team_totals.home` ve `goals.team_totals.away`
 - **Kapsam:** Ev ve deplasman için 0.5, 1.5, 2.5 baremleri; her baremin Üst/Alt yüzdesi ve adil ondalık oranı.
-- **Dinamik Piyasa Çizgisi:** %50 olasılığa en yakın barem otomatik olarak `🎯 Ana Barem` olarak etiketlenir.
+- **Dinamik Piyasa Çizgisi:** %50 olasılığa en yakın barem otomatik olarak `Ana Barem` olarak etiketlenir.
 - **Arayüz Bileşeni:** `MatchPredictionTab.jsx` takım baremleri paneli ve `PredictorMetricCards.jsx` özet rozeti.
 
 ### 2.5. 1X2 ile Skor Matrisinin Hizalanması

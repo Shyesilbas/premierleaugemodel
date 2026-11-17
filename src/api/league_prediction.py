@@ -1,4 +1,4 @@
-"""Pre-match prediction for a league fed by TheStatsAPI (LaLiga), in the response shape of the Premier League predictor.
+"""Pre-match prediction for a national league fed by TheStatsAPI, in the response shape of the Premier League predictor.
 
 The features of every match, played or not, come from ``build_league_features`` (the same function that built the
 training table), so a prediction for an upcoming match uses exactly what the model was trained on. What is served depends
@@ -10,7 +10,6 @@ skill gate (or has no artifact) is the training mean (or the league running aver
 
 from __future__ import annotations
 
-import sqlite3
 from functools import lru_cache
 from typing import Any, Dict, Optional, Tuple
 

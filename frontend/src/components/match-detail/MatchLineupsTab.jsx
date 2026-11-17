@@ -30,7 +30,7 @@ export default function MatchLineupsTab({
                 {/* View Switcher Header: Taktik Saha vs Detaylı Liste */}
                 <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-border">
                   <div className="flex items-center gap-2">
-                    <Users className="w-5 h-5 text-primary" />
+                    <Users className="w-5 h-5 text-text-primary" strokeWidth={1.5} aria-hidden="true" />
                     <h3 className="text-sm font-semibold text-text-primary">
                       İlk 11 & Kadrolar
                     </h3>
@@ -179,7 +179,7 @@ export default function MatchLineupsTab({
                       </div>
                     </div>
                     {homeLineup?.formation && (
-                      <span className="text-xs tabular-nums font-semibold px-3 py-1 rounded bg-background-tertiary text-primary border border-primary">
+                      <span className="text-xs tabular-nums font-semibold px-3 py-1 rounded bg-background-tertiary text-text-primary border border-border">
                         {homeLineup.formation}
                       </span>
                     )}
@@ -227,7 +227,7 @@ export default function MatchLineupsTab({
                                   </span>
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="font-semibold text-text-primary group-hover:text-primary transition-colors truncate text-xs sm:text-sm">
+                                      <span className="font-semibold text-text-primary group-hover:text-status-info transition-colors truncate text-xs sm:text-sm">
                                         {p.name}
                                       </span>
                                       {p.captain && (
@@ -241,7 +241,7 @@ export default function MatchLineupsTab({
                                         </span>
                                       )}
                                       {pStat?.assists > 0 && (
-                                        <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary shrink-0">
+                                        <span className="text-xs bg-background-tertiary text-status-info font-semibold px-1 rounded border border-status-info shrink-0">
                                           A: {pStat.assists}
                                         </span>
                                       )}
@@ -260,7 +260,7 @@ export default function MatchLineupsTab({
                                         effectiveRating >= 7.5
                                           ? 'bg-background-tertiary text-status-success border-status-success'
                                           : effectiveRating >= 6.5
-                                          ? 'bg-background-tertiary text-primary border-primary'
+                                          ? 'bg-background-tertiary text-status-info border-status-info'
                                           : effectiveRating >= 5.5
                                           ? 'bg-background-tertiary text-text-primary border-border'
                                           : 'bg-background-tertiary text-status-error border-status-error'
@@ -317,14 +317,14 @@ export default function MatchLineupsTab({
                                 <span className="tabular-nums text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
                                 <span className="font-medium text-text-primary truncate">{sub.name}</span>
                                 {pStat?.goals > 0 && <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success">G: {pStat.goals}</span>}
-                                {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary">A: {pStat.assists}</span>}
+                                {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-status-info font-semibold px-1 rounded border border-status-info">A: {pStat.assists}</span>}
                                 {pStat?.red_cards > 0 ? <RedCardIcon /> : pStat?.yellow_cards > 0 ? <YellowCardIcon /> : null}
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {effectiveRating != null && (
                                   <span className={`text-xs tabular-nums font-semibold px-1.5 py-0.2 rounded border ${
                                     effectiveRating >= 7.5 ? 'bg-background-tertiary text-status-success border-status-success' :
-                                    effectiveRating >= 6.5 ? 'bg-background-tertiary text-primary border-primary' :
+                                    effectiveRating >= 6.5 ? 'bg-background-tertiary text-status-info border-status-info' :
                                     effectiveRating >= 5.5 ? 'bg-background-tertiary text-text-primary border-border' :
                                     'bg-background-tertiary text-status-error border-status-error'
                                   }`}>
@@ -355,7 +355,7 @@ export default function MatchLineupsTab({
                       </div>
                     </div>
                     {awayLineup?.formation && (
-                      <span className="text-xs tabular-nums font-semibold px-3 py-1 rounded bg-background-tertiary text-primary border border-primary">
+                      <span className="text-xs tabular-nums font-semibold px-3 py-1 rounded bg-background-tertiary text-text-primary border border-border">
                         {awayLineup.formation}
                       </span>
                     )}
@@ -403,7 +403,7 @@ export default function MatchLineupsTab({
                                   </span>
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="font-semibold text-text-primary group-hover:text-primary transition-colors truncate text-xs sm:text-sm">
+                                      <span className="font-semibold text-text-primary group-hover:text-status-info transition-colors truncate text-xs sm:text-sm">
                                         {p.name}
                                       </span>
                                       {p.captain && (
@@ -417,7 +417,7 @@ export default function MatchLineupsTab({
                                         </span>
                                       )}
                                       {pStat?.assists > 0 && (
-                                        <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary shrink-0">
+                                        <span className="text-xs bg-background-tertiary text-status-info font-semibold px-1 rounded border border-status-info shrink-0">
                                           A: {pStat.assists}
                                         </span>
                                       )}
@@ -436,7 +436,7 @@ export default function MatchLineupsTab({
                                         effectiveRating >= 7.5
                                           ? 'bg-background-tertiary text-status-success border-status-success'
                                           : effectiveRating >= 6.5
-                                          ? 'bg-background-tertiary text-primary border-primary'
+                                          ? 'bg-background-tertiary text-status-info border-status-info'
                                           : effectiveRating >= 5.5
                                           ? 'bg-background-tertiary text-text-primary border-border'
                                           : 'bg-background-tertiary text-status-error border-status-error'
@@ -493,14 +493,14 @@ export default function MatchLineupsTab({
                                 <span className="tabular-nums text-xs font-semibold text-text-secondary">#{sub.shirt}</span>
                                 <span className="font-medium text-text-primary truncate">{sub.name}</span>
                                 {pStat?.goals > 0 && <span className="text-xs bg-background-tertiary text-status-success font-semibold px-1 rounded border border-status-success">G: {pStat.goals}</span>}
-                                {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-primary font-semibold px-1 rounded border border-primary">A: {pStat.assists}</span>}
+                                {pStat?.assists > 0 && <span className="text-xs bg-background-tertiary text-status-info font-semibold px-1 rounded border border-status-info">A: {pStat.assists}</span>}
                                 {pStat?.red_cards > 0 ? <RedCardIcon /> : pStat?.yellow_cards > 0 ? <YellowCardIcon /> : null}
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {effectiveRating != null && (
                                   <span className={`text-xs tabular-nums font-semibold px-1.5 py-0.2 rounded border ${
                                     effectiveRating >= 7.5 ? 'bg-background-tertiary text-status-success border-status-success' :
-                                    effectiveRating >= 6.5 ? 'bg-background-tertiary text-primary border-primary' :
+                                    effectiveRating >= 6.5 ? 'bg-background-tertiary text-status-info border-status-info' :
                                     effectiveRating >= 5.5 ? 'bg-background-tertiary text-text-primary border-border' :
                                     'bg-background-tertiary text-status-error border-status-error'
                                   }`}>

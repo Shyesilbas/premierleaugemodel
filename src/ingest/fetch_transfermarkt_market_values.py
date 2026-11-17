@@ -20,7 +20,7 @@ logger = logging.getLogger("fetch_tm_market_values")
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # lets `python3 src/...py` import src.config
 from src.config import PROCESSED_DIR, configure_logging  # noqa: E402
-from src.db.database import get_db  # noqa: E402
+from src.db.database import ensure_market_value_tables, get_db  # noqa: E402
 
 JSON_OUT_PATH = PROCESSED_DIR / "market_values_2026_27.json"
 
@@ -90,35 +90,8 @@ def api_request(endpoint: str, max_retries: int = 4) -> Optional[Dict[str, Any]]
 
 
 def init_market_value_tables(conn: sqlite3.Connection) -> None:
-    """Create team and player market value tables if they don't exist."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS team_market_values (
-            team_id INTEGER NOT NULL,
-            tm_club_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            season TEXT NOT NULL,
-            market_value INTEGER NOT NULL,
-            market_value_eur REAL NOT NULL,
-            squad_size INTEGER,
-            avg_market_value_eur REAL,
-            updated_at TEXT NOT NULL,
-            PRIMARY KEY (team_id, season)
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS player_market_values (
-            player_id TEXT PRIMARY KEY,
-            team_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            position TEXT,
-            market_value INTEGER NOT NULL,
-            market_value_eur REAL NOT NULL,
-            age INTEGER,
-            nationality TEXT,
-            updated_at TEXT NOT NULL
-        )
-    """)
-    conn.commit()
+    """Create team and player market value tables if they don't exist (shared schema, see src/db/database.py)."""
+    ensure_market_value_tables(conn)
 
 
 def fetch_historical_seasons_market_values(conn: sqlite3.Connection) -> int:
@@ -296,14 +269,15 @@ def run_pipeline() -> None:
                     "market_value_eur": p_mv_eur_m,
                     "age": p_age,
                     "nationality": p_nat,
+                    "season": "2026_27",
                     "updated_at": now_utc,
                 }
                 players_data.append(p_entry)
 
                 conn.execute("""
-                    INSERT INTO player_market_values (player_id, team_id, name, position, market_value, market_value_eur, age, nationality, updated_at)
-                    VALUES (:player_id, :team_id, :name, :position, :market_value, :market_value_eur, :age, :nationality, :updated_at)
-                    ON CONFLICT(player_id) DO UPDATE SET
+                    INSERT INTO player_market_values (player_id, team_id, name, position, market_value, market_value_eur, age, nationality, season, updated_at)
+                    VALUES (:player_id, :team_id, :name, :position, :market_value, :market_value_eur, :age, :nationality, :season, :updated_at)
+                    ON CONFLICT(player_id, season) DO UPDATE SET
                         team_id = excluded.team_id,
                         name = excluded.name,
                         position = excluded.position,

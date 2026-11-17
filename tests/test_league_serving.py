@@ -1,32 +1,49 @@
-"""Serving and audit of the LaLiga model against the real local database and artifact (skipped on a fresh clone)."""
+"""Serving of a configured TheStatsAPI league model against the local database and artifact (skipped when absent); audit page is Premier League only."""
 
 import sqlite3
 
 import pytest
 
+from src.competitions.registry import CompetitionRegistry
 from src.config import DB_PATH, competition_paths
 
-ARTIFACT = competition_paths("la_liga").models / "outcome_models_v1.joblib"
-needs_laliga = pytest.mark.skipif(not (DB_PATH.exists() and ARTIFACT.exists()), reason="LaLiga data or model not available locally")
+
+def _configured_thestatsapi_league():
+    for comp in CompetitionRegistry.list_all():
+        if comp.provider == "thestatsapi" and comp.has_model:
+            artifact = competition_paths(comp.key).models / "outcome_models_v1.joblib"
+            if DB_PATH.exists() and artifact.exists():
+                return comp, artifact
+    return None, None
 
 
-def upcoming_match():
+_COMP, ARTIFACT = _configured_thestatsapi_league()
+needs_thestatsapi_league = pytest.mark.skipif(
+    _COMP is None,
+    reason="No configured TheStatsAPI domestic league data/model available locally",
+)
+
+
+def upcoming_match(competition_id: int):
     conn = sqlite3.connect(DB_PATH)
     try:
-        return conn.execute("SELECT match_id, home_id, away_id FROM matches WHERE competition_id = 140 AND status != 'COMPLETED' ORDER BY match_date LIMIT 1").fetchone()
+        return conn.execute(
+            "SELECT match_id, home_id, away_id FROM matches WHERE competition_id = ? AND status != 'COMPLETED' ORDER BY match_date LIMIT 1",
+            (competition_id,),
+        ).fetchone()
     finally:
         conn.close()
 
 
-@needs_laliga
+@needs_thestatsapi_league
 def test_upcoming_match_prediction_is_coherent_and_labelled():
     import joblib
 
     from src.api.league_prediction import COUNT_MODELS, compute_league_prediction
     from src.api.prediction_service import regression_model_skill
 
-    match_id, home_id, away_id = upcoming_match()
-    result = compute_league_prediction(home_id, away_id, match_id, "la_liga")
+    match_id, home_id, away_id = upcoming_match(_COMP.id)
+    result = compute_league_prediction(home_id, away_id, match_id, _COMP.key)
     outcome = result["outcome"]
     assert outcome["home_win_pct"] + outcome["draw_pct"] + outcome["away_win_pct"] == pytest.approx(100.0, abs=0.5)
     lines = result["goals"]["lines"]
@@ -53,41 +70,33 @@ def test_upcoming_match_prediction_is_coherent_and_labelled():
     assert result["home_team"]["id"] == home_id and result["data_cutoff"]
 
 
-@needs_laliga
+@needs_thestatsapi_league
 def test_prediction_of_the_served_choice_matches_the_artifact_decision():
     import joblib
 
     from src.api.league_prediction import compute_league_prediction
 
-    match_id, home_id, away_id = upcoming_match()
+    match_id, home_id, away_id = upcoming_match(_COMP.id)
     artifact = joblib.load(ARTIFACT)
-    result = compute_league_prediction(home_id, away_id, match_id, "la_liga")
+    result = compute_league_prediction(home_id, away_id, match_id, _COMP.key)
     assert result["model_skill"] == ("model" if artifact["decision"]["serving"] == "model" else "baseline")
     assert (result["model_note"] is None) == (artifact["decision"]["serving"] == "model")
 
 
-@needs_laliga
-def test_audit_rows_are_out_of_sample_and_internally_consistent():
-    from src.analytics.league_audit import build_league_audit
+def test_model_audit_is_premier_league_only():
+    from src.api.routes.predict import get_model_audit
 
-    payload = build_league_audit("la_liga", "2025_26")
-    assert payload["method"] == "walk_forward" and payload["overall"]["evaluation_scope"] == "walk_forward_backtest"
-    rows = payload["matches"]
-    assert len(rows) == 380 and all(r["evaluation_type"] == "walk_forward" for r in rows)
-    assert sum(r["hit_1x2"] for r in rows) == payload["overall"]["hits_1x2"]
-    for row in rows[:20]:
-        assert row["prob_home"] + row["prob_draw"] + row["prob_away"] == pytest.approx(100.0, abs=0.3)
-        assert row["predicted_winner"] in ("home", "draw", "away") and row["actual_result"] in ("home", "draw", "away")
-    assert payload["benchmark"]["role"] == "hold_out" and {"model", "base_rate", "elo"} <= set(payload["benchmark"]["scores"])
+    payload = get_model_audit(season="2025_26", competition="champions_league")
+    assert payload["model_available"] is False and payload["matches"] == [] and payload["competition_id"] == 2
 
 
-@needs_laliga
+@needs_thestatsapi_league
 def test_the_report_keeps_the_locked_season_out_of_every_choice():
     import json
 
     from src.config import REPORTS_DIR
 
-    report = json.loads((REPORTS_DIR / "models" / "la_liga_walk_forward.json").read_text(encoding="utf-8"))
+    report = json.loads((REPORTS_DIR / "models" / f"{_COMP.key}_walk_forward.json").read_text(encoding="utf-8"))
     protocol = report["protocol"]
     assert set(protocol["locked_monitoring"]).isdisjoint(protocol["outer_seasons"])
     assert report["folds"]["2026_27"]["locked_monitoring"] and report["decision"]["serving"] in ("model", "elo_baseline")

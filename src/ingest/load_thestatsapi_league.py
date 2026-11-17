@@ -1,6 +1,6 @@
 """Load a national league's raw TheStatsAPI files into the shared SQLite store.
 
-Usage: python3 -m src.ingest.load_thestatsapi_league --competition la_liga [--seasons 2024_25 2025_26]
+Usage: python3 -m src.ingest.load_thestatsapi_league --competition <league_key> [--seasons 2024_25 2025_26]
 Reads what ``fetch_thestatsapi_league`` saved under ``data/competitions/<key>/raw/thestatsapi/`` (no network, no key):
 
 1. fixtures and results become ``matches`` rows (``sync_competition_data``), with referee and venue from the match files;
@@ -25,7 +25,7 @@ from src.competitions.registry import get_competition
 from src.config import configure_logging
 from src.db.database import ensure_external_payload_tables, ensure_external_xg_table, get_db, init_db
 from src.ingest.import_thestatsapi_odds import store_bookmaker_odds
-from src.ingest.providers.thestatsapi_league import PROVIDER, local_match_id, local_team_id
+from src.ingest.providers.thestatsapi_league import PROVIDER, local_match_id
 from src.ingest.raw_store import match_payload_path, provider_dir, season_file_path
 from src.ingest.sync_competition_data import sync_competition_season
 from src.ingest.sync_thestatsapi_competition import _apply_stats

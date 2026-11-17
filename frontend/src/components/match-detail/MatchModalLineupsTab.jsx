@@ -18,7 +18,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                             <h4 className="font-semibold text-xs text-text-primary">{homeTeam.name}</h4>
                           </div>
                           {homeLineup?.formation && (
-                            <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded bg-background-tertiary text-primary">
+                            <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded bg-background-primary border border-border text-text-primary">
                               Diziliş: {homeLineup.formation}
                             </span>
                           )}
@@ -100,7 +100,7 @@ export default function MatchModalLineupsTab({ homeLineup, awayLineup, homeTeam,
                             <h4 className="font-semibold text-xs text-text-primary">{awayTeam.name}</h4>
                           </div>
                           {awayLineup?.formation && (
-                            <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded bg-background-tertiary text-primary">
+                            <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded bg-background-primary border border-border text-text-primary">
                               Diziliş: {awayLineup.formation}
                             </span>
                           )}

@@ -1,62 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getTeams } from '../services/competitionService';
-
-export const COMPETITIONS = {
-  premier_league: {
-    key: 'premier_league',
-    logo: '/competitions/premier_league.svg',
-    id: 39,
-    name: 'Premier League',
-    shortName: 'Premier League',
-    abbr: 'EPL',
-    country: 'İngiltere',
-    kind: 'league',
-    richData: true,
-    hasModel: true,
-    syncKinds: ['matches', 'referees', 'lineups'],
-  },
-  la_liga: {
-    key: 'la_liga',
-    logo: '/competitions/la_liga.png',
-    id: 140,
-    name: 'LaLiga',
-    shortName: 'LaLiga',
-    abbr: 'LL',
-    country: 'İspanya',
-    kind: 'league',
-    richData: false,
-    hasModel: true,
-    syncKinds: ['matches'],
-  },
-  champions_league: {
-    key: 'champions_league',
-    logo: '/competitions/champions_league.svg',
-    id: 2,
-    name: 'UEFA Champions League',
-    shortName: 'Champions League',
-    abbr: 'UCL',
-    country: 'Avrupa',
-    kind: 'cup',
-    richData: false,
-    hasModel: false,
-    syncKinds: ['matches'],
-  },
-  europa_league: {
-    key: 'europa_league',
-    logo: '/competitions/europa_league.svg',
-    id: 3,
-    name: 'UEFA Europa League',
-    shortName: 'Europa League',
-    abbr: 'UEL',
-    country: 'Avrupa',
-    kind: 'cup',
-    richData: false,
-    hasModel: false,
-    syncKinds: ['matches'],
-  },
-};
-
-const CompetitionContext = createContext(null);
+import { COMPETITIONS, CompetitionContext } from './competitionState';
 
 export function CompetitionProvider({ children }) {
   const [competitionKey, setCompetitionKey] = useState(() => {
@@ -101,6 +45,7 @@ export function CompetitionProvider({ children }) {
     isCup: activeCompetition.kind === 'cup',
     isLeague: activeCompetition.kind === 'league',
     hasModel: activeCompetition.hasModel,
+    hasAudit: activeCompetition.hasAudit,
     hasRichData: activeCompetition.richData,
     isChampionsLeague: competitionKey === 'champions_league',
     isEuropaLeague: competitionKey === 'europa_league',
@@ -112,12 +57,4 @@ export function CompetitionProvider({ children }) {
       {children}
     </CompetitionContext.Provider>
   );
-}
-
-export function useCompetition() {
-  const context = useContext(CompetitionContext);
-  if (!context) {
-    throw new Error('useCompetition must be used within a CompetitionProvider');
-  }
-  return context;
 }

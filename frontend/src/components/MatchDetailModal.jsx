@@ -1,149 +1,155 @@
+import React, { useEffect, useState } from 'react';
+import {
+  Activity,
+  AlertCircle,
+  BarChart3,
+  Clock,
+  Flag,
+  RefreshCw,
+  RotateCw,
+  Shield,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Users,
+  X,
+  Zap,
+} from 'lucide-react';
+import ModalDialog from './common/ModalDialog';
+import Skeleton from './common/Skeleton';
 import MatchModalStatsTab from './match-detail/MatchModalStatsTab';
 import MatchOddsTab from './match-detail/MatchOddsTab';
 import MatchModalLineupsTab from './match-detail/MatchModalLineupsTab';
 import MatchTimelineTab from './match-detail/MatchTimelineTab';
 import MatchPredictionTab from './match-detail/MatchPredictionTab';
-import { handleTeamBadgeError } from '../utils/imageFallbacks';
-import React, { useEffect, useState } from 'react';
-import { 
-  X, 
-  Clock, 
-  Users, 
-  BarChart3, 
-  Activity, 
-  Shield, 
-  Target,
-  Flag,
-  AlertCircle,
-  Sparkles,
-  RefreshCw,
-  Zap,
-  TrendingUp,
-  RotateCw
-} from 'lucide-react';
+import { useCompetition } from '../context/competitionState';
 import { getTeam } from '../data/teams';
-import { getCachedTeamData, setCachedTeamData } from '../utils/teamProfileCache';
 import { getMatchDetails, getMatchOdds, getMatchPrediction } from '../services/matchService';
-import { useCompetition } from '../context/CompetitionContext';
+import { handleTeamBadgeError } from '../utils/imageFallbacks';
 import { hasModelPrediction } from '../utils/matchModel';
+import { getCachedTeamData, setCachedTeamData } from '../utils/teamProfileCache';
 
 export default function MatchDetailModal({ match, onClose, currentGameweek }) {
   const isCompleted = Boolean(
-    match.status === 'COMPLETED' || 
-    (match.home_score !== null && match.home_score !== undefined && match.home_score !== '')
+    match?.status === 'COMPLETED' ||
+    (match?.home_score !== null && match?.home_score !== undefined && match?.home_score !== ''),
   );
   const { hasModel: competitionHasModel, competitionKey } = useCompetition();
   const hasModel = hasModelPrediction(match, competitionHasModel);
   const isPredictable = hasModel && !isCompleted && (
-    currentGameweek ? Number(match.gameweek) === Number(currentGameweek) : true
+    currentGameweek ? Number(match?.gameweek) === Number(currentGameweek) : true
   );
-  const [activeTab, setActiveTab] = useState(
-    isCompleted ? 'stats' : isPredictable ? 'prediction' : 'lineups'
-  );
-  const [playerTabSide, setPlayerTabSide] = useState('home'); // 'home' or 'away'
-  const [details, setDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [prediction, setPrediction] = useState(null);
-  const [loadingPrediction, setLoadingPrediction] = useState(false);
-  const [predSubTab, setPredSubTab] = useState('outcome'); // 'outcome', 'goals', 'stats'
-  const [oddsData, setOddsData] = useState([]);
-  const [loadingOdds, setLoadingOdds] = useState(false);
-  const [selectedBookmaker, setSelectedBookmaker] = useState('Bet365');
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  // If match is completed or not in current gameweek, NEVER show or allow prediction tab
-  useEffect(() => {
-    if ((isCompleted || !isPredictable) && activeTab === 'prediction') {
-      setActiveTab(isCompleted ? 'stats' : 'lineups');
-    }
-  }, [isCompleted, isPredictable, activeTab]);
+  const [activeTab, setActiveTab] = useState(
+    isCompleted ? 'stats' : isPredictable ? 'prediction' : 'lineups',
+  );
+  const [playerTabSide, setPlayerTabSide] = useState('home');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [detailsResult, setDetailsResult] = useState(null);
+  const [predictionResult, setPredictionResult] = useState(null);
+  const [predSubTab, setPredSubTab] = useState('outcome');
+  const [oddsResult, setOddsResult] = useState(null);
+  const [selectedBookmaker, setSelectedBookmaker] = useState('Bet365');
+
+  const resolvedTab = (isCompleted || !isPredictable) && activeTab === 'prediction'
+    ? (isCompleted ? 'stats' : 'lineups')
+    : activeTab;
 
   const homeTeam = getTeam(match.home_id, match.home_name);
   const awayTeam = getTeam(match.away_id, match.away_name);
 
+  const cachedDetail = isCompleted && refreshKey === 0 && match.match_id
+    ? getCachedTeamData('match_detail', match.match_id, 'all')?.data || null
+    : null;
+  const detailsKey = `${match.match_id}:${refreshKey}`;
+  const details = cachedDetail || (detailsResult?.key === detailsKey ? detailsResult.data : null);
+  const loading = Boolean(match.match_id && !cachedDetail && detailsResult?.key !== detailsKey);
+
+  const predictionKey = `${match.match_id}:${match.home_id}:${match.away_id}:${match.season}:${competitionKey}`;
+  const prediction = predictionResult?.key === predictionKey ? predictionResult.data : null;
+  const loadingPrediction = Boolean(!isCompleted && isPredictable && match.home_id && match.away_id && predictionResult?.key !== predictionKey);
+
+  const oddsData = oddsResult?.key === match.match_id ? oddsResult.data : [];
+  const loadingOdds = Boolean(match.match_id && oddsResult?.key !== match.match_id);
+
   useEffect(() => {
-    if (!match.match_id) return;
-
-    if (isCompleted && refreshKey === 0) {
-      const cached = getCachedTeamData('match_detail', match.match_id, 'all');
-      if (cached?.data) {
-        setDetails(cached.data);
-        setLoading(false);
-        return;
-      }
-    }
-
-    setLoading(true);
+    if (!match.match_id || cachedDetail) return undefined;
+    let cancelled = false;
     getMatchDetails(match.match_id)
-      .then(data => {
-        setDetails(data);
-        // Freeze only finished matches whose stats are downloaded; otherwise a partial/empty response would stay forever
+      .then((data) => {
+        if (cancelled) return;
         if (isCompleted && data?.team_stats?.length > 0) {
           setCachedTeamData('match_detail', match.match_id, 'all', data, null, 'Tamamlanan maç detayı');
         }
-        setLoading(false);
+        setDetailsResult({ key: detailsKey, data });
       })
-      .catch(err => {
+      .catch((err) => {
         console.error('Error fetching match details:', err);
-        setLoading(false);
+        if (!cancelled) setDetailsResult({ key: detailsKey, data: null });
       });
-  }, [match.match_id, isCompleted, refreshKey]);
+    return () => {
+      cancelled = true;
+    };
+  }, [match.match_id, cachedDetail, isCompleted, detailsKey]);
 
   useEffect(() => {
-    // Only fetch prediction for unplayed matches in the current active gameweek
-    if (isCompleted || !isPredictable) return;
-    if (!match.home_id || !match.away_id) return;
-    setLoadingPrediction(true);
+    if (isCompleted || !isPredictable || !match.home_id || !match.away_id) return undefined;
+    let cancelled = false;
     getMatchPrediction(match.home_id, match.away_id, match?.match_id, match?.season, competitionKey)
-      .then(data => {
-        setPrediction(data);
-        setLoadingPrediction(false);
+      .then((data) => {
+        if (!cancelled) setPredictionResult({ key: predictionKey, data });
       })
-      .catch(err => {
+      .catch((err) => {
         console.error('Error fetching prediction:', err);
-        setLoadingPrediction(false);
+        if (!cancelled) setPredictionResult({ key: predictionKey, data: null });
       });
-  }, [match.home_id, match.away_id, isCompleted, isPredictable]);
+    return () => {
+      cancelled = true;
+    };
+  }, [isCompleted, isPredictable, match.home_id, match.away_id, match.match_id, match.season, competitionKey, predictionKey]);
 
   useEffect(() => {
-    if (!match.match_id) return;
-    setLoadingOdds(true);
+    if (!match.match_id) return undefined;
+    let cancelled = false;
     getMatchOdds(match.match_id)
-      .then(data => {
+      .then((data) => {
+        if (cancelled) return;
         const list = data.odds || [];
-        setOddsData(list);
+        setOddsResult({ key: match.match_id, data: list });
         if (list.length > 0) {
           const hasBet365 = list.some(b => b.bookmaker === 'Bet365');
           setSelectedBookmaker(hasBet365 ? 'Bet365' : list[0].bookmaker);
         }
-        setLoadingOdds(false);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error('Error fetching odds:', err);
-        setLoadingOdds(false);
+        if (!cancelled) setOddsResult({ key: match.match_id, data: [] });
       });
+    return () => {
+      cancelled = true;
+    };
   }, [match.match_id]);
 
   const renderEventIcon = (type) => {
     switch (type) {
       case 'goal':
-        return <Target className="w-3.5 h-3.5 text-status-success" />;
+        return <Target className="w-3.5 h-3.5 text-status-success" strokeWidth={1.5} aria-hidden="true" />;
       case 'corner':
-        return <Flag className="w-3.5 h-3.5 text-status-info" />;
+        return <Flag className="w-3.5 h-3.5 text-status-info" strokeWidth={1.5} aria-hidden="true" />;
       case 'attempt saved':
-        return <Shield className="w-3.5 h-3.5 text-text-primary" />;
+        return <Shield className="w-3.5 h-3.5 text-text-primary" strokeWidth={1.5} aria-hidden="true" />;
       case 'miss':
-        return <Activity className="w-3.5 h-3.5 text-text-muted" />;
+        return <Activity className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.5} aria-hidden="true" />;
       case 'attempt blocked':
-        return <Shield className="w-3.5 h-3.5 text-text-secondary" />;
+        return <Shield className="w-3.5 h-3.5 text-text-secondary" strokeWidth={1.5} aria-hidden="true" />;
       case 'yellow card':
         return <span className="w-2.5 h-3.5 bg-status-warning rounded-sm inline-block" title="Sarı Kart" />;
       case 'red card':
         return <span className="w-2.5 h-3.5 bg-status-error rounded-sm inline-block" title="Kırmızı Kart" />;
       case 'substitution':
-        return <RefreshCw className="w-3.5 h-3.5 text-status-info" />;
+        return <RefreshCw className="w-3.5 h-3.5 text-status-info" strokeWidth={1.5} aria-hidden="true" />;
       default:
-        return <Zap className="w-3.5 h-3.5 text-status-warning" />;
+        return <Zap className="w-3.5 h-3.5 text-status-warning" strokeWidth={1.5} aria-hidden="true" />;
     }
   };
 
@@ -176,7 +182,6 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
     return 'bg-background-tertiary text-text-secondary border-border';
   };
 
-  // Helper to calculate comparison bar percentage
   const calcBarWidths = (item) => {
     let h = item.rawHome !== undefined ? Number(item.rawHome) : Number(item.home);
     let a = item.rawAway !== undefined ? Number(item.rawAway) : Number(item.away);
@@ -193,292 +198,297 @@ export default function MatchDetailModal({ match, onClose, currentGameweek }) {
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/40 animate-fadeIn"
-      onClick={onClose}
+    <ModalDialog
+      open={Boolean(match)}
+      onClose={onClose}
+      ariaLabel={`${homeTeam.name} - ${awayTeam.name} maç detayı`}
+      maxWidthClass="max-w-4xl"
+      panelClassName="flex flex-col"
     >
-      <div 
-        className="bg-background-primary border border-border rounded-md max-w-4xl w-full max-h-screen flex flex-col shadow-md overflow-hidden relative"
-        onClick={e => e.stopPropagation()}
-      >
-        
-        {/* Header & Scoreboard (Compact & Sleek) */}
-        <div className="py-3 px-4 sm:px-6 border-b border-border bg-background-tertiary/70 relative shrink-0">
-          <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
-            <button
-              onClick={() => setRefreshKey(k => k + 1)}
-              title="Maç verisini sunucudan tazele"
-              className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors"
-            >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-status-success' : ''}`} />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+      {/* Header & Scoreboard */}
+      <div className="py-3 px-4 sm:px-6 border-b border-border bg-background-tertiary/70 relative shrink-0">
+        <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
+          <button
+            type="button"
+            onClick={() => setRefreshKey(k => k + 1)}
+            title="Maç verisini sunucudan tazele"
+            aria-label="Maç verisini sunucudan tazele"
+            className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+          >
+            <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-status-success' : ''}`} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Kapat"
+            className="p-1.5 rounded bg-background-primary border border-border hover:bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        </div>
 
-          <div className="flex items-center justify-between pr-16 sm:pr-20">
-            {/* Home Team */}
-            <div className="flex items-center gap-2.5 flex-1 min-w-0">
-              <img 
-                src={homeTeam.badge} 
-                alt={homeTeam.name} 
-                className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0"
-                onError={handleTeamBadgeError}
-              />
-              <div className="min-w-0">
-                <h3 className="font-semibold text-sm sm:text-base text-text-primary leading-tight truncate">
-                  {homeTeam.name}
-                </h3>
-                <span className="text-xs font-semibold text-text-secondary">
-                  Ev Sahibi
-                </span>
-              </div>
-            </div>
-
-            {/* Score Center */}
-            <div className="text-center px-3 shrink-0">
-              <div className="tabular-nums text-xl sm:text-2xl font-semibold text-text-primary px-3 py-1 rounded bg-background-primary border border-border inline-block">
-                {match.home_score !== null && match.home_score !== undefined
-                  ? `${match.home_score} - ${match.away_score}`
-                  : 'VS'}
-              </div>
-              {meta.halfTimeScore && (
-                <span className="text-xs tabular-nums text-text-secondary block mt-0.5">
-                  İY: {meta.halfTimeScore.homeScore} - {meta.halfTimeScore.awayScore}
-                </span>
-              )}
-              {isCompleted && ((match.home_xg ?? meta.home_xg) != null || (match.away_xg ?? meta.away_xg) != null) && (
-                <div className="mt-0.5 flex items-center justify-center">
-                  <span className="text-xs tabular-nums font-semibold text-text-secondary bg-background-primary border border-border px-2 py-0.5 rounded inline-flex items-center gap-1">
-                    <span className="text-text-muted">xG:</span>
-                    {(match.home_xg ?? meta.home_xg) != null ? Number(match.home_xg ?? meta.home_xg).toFixed(2) : '-'} - {(match.away_xg ?? meta.away_xg) != null ? Number(match.away_xg ?? meta.away_xg).toFixed(2) : '-'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Away Team */}
-            <div className="flex items-center gap-2.5 flex-1 justify-end text-right min-w-0">
-              <div className="min-w-0">
-                <h3 className="font-semibold text-sm sm:text-base text-text-primary leading-tight truncate">
-                  {awayTeam.name}
-                </h3>
-                <span className="text-xs font-semibold text-text-secondary">
-                  Deplasman
-                </span>
-              </div>
-              <img 
-                src={awayTeam.badge} 
-                alt={awayTeam.name} 
-                className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0"
-                onError={handleTeamBadgeError}
-              />
+        <div className="flex items-center justify-between pr-16 sm:pr-20">
+          {/* Home Team */}
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <img
+              src={homeTeam.badge}
+              alt={homeTeam.name}
+              className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0"
+              onError={handleTeamBadgeError}
+            />
+            <div className="min-w-0">
+              <h3 className="font-semibold text-sm sm:text-base text-text-primary leading-tight truncate">
+                {homeTeam.name}
+              </h3>
+              <span className="text-xs font-semibold text-text-secondary">Ev Sahibi</span>
             </div>
           </div>
 
-          <div className="text-center text-xs text-text-secondary mt-2 font-medium flex items-center justify-center gap-2">
-            <span>{match.kickoff_label || meta.kickoff_label}</span>
-            <span>•</span>
-            <span className="truncate max-w-48">{match.ground_name || meta.ground || 'Stadyum bilgisi yok'}</span>
-            {meta.attendance && (
-              <>
-                <span>•</span>
-                <span>{meta.attendance.toLocaleString()} Seyirci</span>
-              </>
-            )}
-          </div>
-
-          {/* Sub-tab Navigation */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mt-4 pt-3 border-t border-border-light">
-            {isCompleted && (
-              <button
-                onClick={() => setActiveTab('stats')}
-                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === 'stats'
-                    ? 'bg-primary text-white '
-                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                <span>İstatistikler (Takım & Oyuncu)</span>
-              </button>
-            )}
-
-            {!isCompleted && isPredictable && (
-              <button
-                onClick={() => setActiveTab('prediction')}
-                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === 'prediction'
-                    ? 'bg-primary text-white '
-                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
-                <span>Model Tahminleri</span>
-              </button>
-            )}
-
-            {!isCompleted && hasModel && !isPredictable && (
-              <span className="px-3 py-1 rounded text-xs font-semibold bg-background-tertiary border border-border text-status-warning flex items-center gap-1.5" title="Model tahminleri takım formu ve sakatlık güncelliği için yalnızca mevcut haftanın maçlarında aktiftir">
-                <AlertCircle className="w-3.5 h-3.5 text-status-warning" />
-                <span>Tahminler {match.gameweek}. Haftada Açılacak</span>
+          {/* Score Center */}
+          <div className="text-center px-3 shrink-0">
+            <div className="tabular-nums text-xl sm:text-2xl font-semibold text-text-primary px-3 py-1 rounded bg-background-primary border border-border inline-block">
+              {match.home_score !== null && match.home_score !== undefined
+                ? `${match.home_score} - ${match.away_score}`
+                : 'VS'}
+            </div>
+            {meta.halfTimeScore && (
+              <span className="text-xs tabular-nums text-text-secondary block mt-0.5">
+                İY: {meta.halfTimeScore.homeScore} - {meta.halfTimeScore.awayScore}
               </span>
             )}
+            {isCompleted && ((match.home_xg ?? meta.home_xg) != null || (match.away_xg ?? meta.away_xg) != null) && (
+              <div className="mt-0.5 flex items-center justify-center">
+                <span className="text-xs tabular-nums font-semibold text-text-secondary bg-background-primary border border-border px-2 py-0.5 rounded inline-flex items-center gap-1">
+                  <span className="text-text-muted">xG:</span>
+                  {(match.home_xg ?? meta.home_xg) != null ? Number(match.home_xg ?? meta.home_xg).toFixed(2) : '-'} - {(match.away_xg ?? meta.away_xg) != null ? Number(match.away_xg ?? meta.away_xg).toFixed(2) : '-'}
+                </span>
+              </div>
+            )}
+          </div>
 
+          {/* Away Team */}
+          <div className="flex items-center gap-2.5 flex-1 justify-end text-right min-w-0">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-sm sm:text-base text-text-primary leading-tight truncate">
+                {awayTeam.name}
+              </h3>
+              <span className="text-xs font-semibold text-text-secondary">Deplasman</span>
+            </div>
+            <img
+              src={awayTeam.badge}
+              alt={awayTeam.name}
+              className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0"
+              onError={handleTeamBadgeError}
+            />
+          </div>
+        </div>
+
+        <div className="text-center text-xs text-text-secondary mt-2 font-medium flex items-center justify-center gap-2">
+          <span>{match.kickoff_label || meta.kickoff_label}</span>
+          <span aria-hidden="true">•</span>
+          <span className="truncate max-w-48">{match.ground_name || meta.ground || 'Stadyum bilgisi yok'}</span>
+          {meta.attendance && (
+            <>
+              <span aria-hidden="true">•</span>
+              <span className="tabular-nums">{meta.attendance.toLocaleString()} Seyirci</span>
+            </>
+          )}
+        </div>
+
+        {/* Sub-tab Navigation */}
+        <div role="tablist" aria-label="Maç detay sekmeleri" className="flex flex-wrap items-center justify-center gap-2 mt-4 pt-3 border-t border-border-light">
+          {isCompleted && (
             <button
-              onClick={() => setActiveTab('lineups')}
-              className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                activeTab === 'lineups'
-                  ? 'bg-primary text-white '
+              type="button"
+              role="tab"
+              aria-selected={resolvedTab === 'stats'}
+              onClick={() => setActiveTab('stats')}
+              className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                resolvedTab === 'stats'
+                  ? 'bg-primary text-white'
                   : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
-              <span>{isCompleted ? 'İlk 11 & Kadrolar' : 'Kadro Bilgisi'}</span>
+              <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />
+              <span>İstatistikler (Takım &amp; Oyuncu)</span>
             </button>
-
-            {isCompleted && timeline.length > 0 && (
-              <button
-                onClick={() => setActiveTab('timeline')}
-                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === 'timeline'
-                    ? 'bg-primary text-white '
-                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5 text-status-warning" />
-                <span>Maç Zaman Akışı ({timeline.length})</span>
-              </button>
-            )}
-
-            {isCompleted && events.length > 0 && (
-              <button
-                onClick={() => setActiveTab('events')}
-                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === 'events'
-                    ? 'bg-primary text-white '
-                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <span>Opta Olay Akışı ({events.length})</span>
-              </button>
-            )}
-
-            {/* Bahis / Piyasa Oranları Tab */}
-            {oddsData.length > 0 && (
-              <button
-                onClick={() => setActiveTab('odds')}
-                className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === 'odds'
-                    ? 'bg-primary text-white '
-                    : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5 text-status-success" />
-                <span>Piyasa Oranları ({oddsData.length})</span>
-              </button>
-            )}
-          </div>
-
-        </div>
-
-        {/* Modal Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
-          
-          {loading ? (
-            <div className="py-20 text-center">
-              <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-xs font-semibold text-text-secondary">İstatistikler ve maç verileri yükleniyor...</p>
-            </div>
-          ) : activeTab === 'stats' ? (
-            <MatchModalStatsTab
-              teamStats={teamStats}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              calcBarWidths={calcBarWidths}
-              playerStats={playerStats}
-              playerTabSide={playerTabSide}
-              setPlayerTabSide={setPlayerTabSide}
-              formatPosition={formatPosition}
-              getPositionBadgeClass={getPositionBadgeClass}
-            />
-          ) : (activeTab === 'prediction' && !isCompleted && isPredictable) ? (
-            <MatchPredictionTab
-              prediction={prediction}
-              loadingPrediction={loadingPrediction}
-              predSubTab={predSubTab}
-              setPredSubTab={setPredSubTab}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              variant="modal"
-            />
-          ) : activeTab === 'lineups' ? (
-            <MatchModalLineupsTab
-              homeLineup={homeLineup}
-              awayLineup={awayLineup}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              formatPosition={formatPosition}
-              getPositionBadgeClass={getPositionBadgeClass}
-            />
-          ) : activeTab === 'timeline' ? (
-            <MatchTimelineTab timeline={timeline} homeTeam={homeTeam} awayTeam={awayTeam} homeTeamId={match.home_id} />
-           ) : activeTab === 'odds' ? (
-            <MatchOddsTab
-              loadingOdds={loadingOdds}
-              oddsData={oddsData}
-              selectedBookmaker={selectedBookmaker}
-              setSelectedBookmaker={setSelectedBookmaker}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-            />
-                    ) : (
-
-            /* EVENTS TAB */
-            <div className="space-y-2.5">
-              {events.length === 0 ? (
-                <div className="py-12 text-center text-xs text-text-secondary">
-                  Bu karşılaşma için canlı olay kaydı bulunamadı.
-                </div>
-              ) : (
-                events.map((ev, idx) => {
-                  const min = ev.time?.label || ev.minute || '-';
-                  const type = ev.type || ev.event_type || 'olay';
-                  return (
-                    <div
-                      key={ev.id || idx}
-                      className="flex items-start gap-3 p-3 rounded bg-background-tertiary hover:bg-background-tertiary/80 border border-border transition-colors text-xs"
-                    >
-                      <span className="tabular-nums font-semibold text-text-primary min-w-8 pt-0.5">
-                        {min}'
-                      </span>
-                      <div className="w-6 h-6 rounded bg-background-primary border border-border flex items-center justify-center shrink-0">
-                        {renderEventIcon(type)}
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-xs tabular-nums font-semibold text-text-primary block mb-0.5">
-                          {type}
-                        </span>
-                        <p className="text-text-primary font-medium leading-relaxed">
-                          {ev.text}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
           )}
 
-        </div>
+          {!isCompleted && isPredictable && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={resolvedTab === 'prediction'}
+              onClick={() => setActiveTab('prediction')}
+              className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                resolvedTab === 'prediction'
+                  ? 'bg-primary text-white'
+                  : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />
+              <span>Model Tahminleri</span>
+            </button>
+          )}
 
+          {!isCompleted && hasModel && !isPredictable && (
+            <span className="px-3 py-1 rounded text-xs font-semibold bg-background-tertiary border border-border text-status-warning flex items-center gap-1.5" title="Model tahminleri takım formu ve sakatlık güncelliği için yalnızca mevcut haftanın maçlarında aktiftir">
+              <AlertCircle className="w-3.5 h-3.5 text-status-warning" strokeWidth={1.5} aria-hidden="true" />
+              <span>Tahminler {match.gameweek}. Haftada Açılacak</span>
+            </span>
+          )}
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={resolvedTab === 'lineups'}
+            onClick={() => setActiveTab('lineups')}
+            className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+              resolvedTab === 'lineups'
+                ? 'bg-primary text-white'
+                : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />
+            <span>{isCompleted ? 'İlk 11 & Kadrolar' : 'Kadro Bilgisi'}</span>
+          </button>
+
+          {isCompleted && timeline.length > 0 && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={resolvedTab === 'timeline'}
+              onClick={() => setActiveTab('timeline')}
+              className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                resolvedTab === 'timeline'
+                  ? 'bg-primary text-white'
+                  : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />
+              <span className="tabular-nums">Maç Zaman Akışı ({timeline.length})</span>
+            </button>
+          )}
+
+          {isCompleted && events.length > 0 && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={resolvedTab === 'events'}
+              onClick={() => setActiveTab('events')}
+              className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                resolvedTab === 'events'
+                  ? 'bg-primary text-white'
+                  : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />
+              <span className="tabular-nums">Opta Olay Akışı ({events.length})</span>
+            </button>
+          )}
+
+          {oddsData.length > 0 && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={resolvedTab === 'odds'}
+              onClick={() => setActiveTab('odds')}
+              className={`px-3.5 py-1.5 rounded text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                resolvedTab === 'odds'
+                  ? 'bg-primary text-white'
+                  : 'bg-background-tertiary text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />
+              <span className="tabular-nums">Piyasa Oranları ({oddsData.length})</span>
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Modal Body */}
+      <div role="tabpanel" className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
+        {loading ? (
+          <div className="space-y-4 py-4" aria-busy="true" aria-label="Maç detayları yükleniyor">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-48 w-full" />
+          </div>
+        ) : resolvedTab === 'stats' ? (
+          <MatchModalStatsTab
+            teamStats={teamStats}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            calcBarWidths={calcBarWidths}
+            playerStats={playerStats}
+            playerTabSide={playerTabSide}
+            setPlayerTabSide={setPlayerTabSide}
+            formatPosition={formatPosition}
+            getPositionBadgeClass={getPositionBadgeClass}
+          />
+        ) : (resolvedTab === 'prediction' && !isCompleted && isPredictable) ? (
+          <MatchPredictionTab
+            prediction={prediction}
+            loadingPrediction={loadingPrediction}
+            predSubTab={predSubTab}
+            setPredSubTab={setPredSubTab}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            variant="modal"
+          />
+        ) : resolvedTab === 'lineups' ? (
+          <MatchModalLineupsTab
+            homeLineup={homeLineup}
+            awayLineup={awayLineup}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            formatPosition={formatPosition}
+            getPositionBadgeClass={getPositionBadgeClass}
+          />
+        ) : resolvedTab === 'timeline' ? (
+          <MatchTimelineTab timeline={timeline} homeTeam={homeTeam} awayTeam={awayTeam} homeTeamId={match.home_id} />
+        ) : resolvedTab === 'odds' ? (
+          <MatchOddsTab
+            loadingOdds={loadingOdds}
+            oddsData={oddsData}
+            selectedBookmaker={selectedBookmaker}
+            setSelectedBookmaker={setSelectedBookmaker}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+          />
+        ) : (
+          <div className="space-y-2.5">
+            {events.length === 0 ? (
+              <div className="py-12 text-center text-xs text-text-secondary">
+                Bu karşılaşma için canlı olay kaydı bulunamadı.
+              </div>
+            ) : (
+              events.map((ev, idx) => {
+                const min = ev.time?.label || ev.minute || '-';
+                const type = ev.type || ev.event_type || 'olay';
+                return (
+                  <div
+                    key={ev.id || idx}
+                    className="flex items-start gap-3 p-3 rounded bg-background-tertiary border border-border transition-colors text-xs"
+                  >
+                    <span className="tabular-nums font-semibold text-text-primary min-w-8 pt-0.5">
+                      {min}'
+                    </span>
+                    <div className="w-6 h-6 rounded bg-background-primary border border-border flex items-center justify-center shrink-0">
+                      {renderEventIcon(type)}
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-xs tabular-nums font-semibold text-text-primary block mb-0.5">
+                        {type}
+                      </span>
+                      <p className="text-text-primary font-medium leading-relaxed">{ev.text}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </ModalDialog>
   );
 }

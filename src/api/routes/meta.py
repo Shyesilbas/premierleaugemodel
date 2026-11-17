@@ -8,10 +8,10 @@ import subprocess
 import sys
 import threading
 import uuid
-from fastapi import Depends, HTTPException, Query
+from fastapi import Body, Depends, HTTPException, Query
 from src.config import DB_PATH, DEFAULT_SEASON, ROOT as BASE_DIR, SEASONS
-from typing import Any, Dict, List
-from src.api import state
+from typing import Any, Dict, List, Optional
+from src.api import match_refresh, state
 from src.api.security import require_admin_token
 from fastapi import APIRouter
 
@@ -22,6 +22,13 @@ _sync_job_lock = threading.Lock()
 
 
 _sync_job: Dict[str, Any] = {"id": None, "status": "idle", "season": None, "message": None, "output": ""}
+
+
+def is_sync_running() -> bool:
+    """Return True while a background sync or match-refresh rebuild is queued or running."""
+    with _sync_job_lock:
+        sync_active = _sync_job.get("status") in {"queued", "running"}
+    return sync_active or match_refresh.is_rebuild_running()
 
 
 @router.get("/api/data-version")
@@ -175,3 +182,60 @@ def admin_reload_models():
 def get_season_sync_status():
     with _sync_job_lock:
         return dict(_sync_job)
+
+
+@router.get("/api/fixtures/pending")
+def get_pending_matches(season: str = Query(DEFAULT_SEASON), competition: str = Query("premier_league")):
+    """Return IDs of ended/uncompleted matches in the given competition and season."""
+    from src.competitions.registry import get_competition
+
+    try:
+        comp = get_competition(competition)
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Unknown competition")
+    if season not in set(SEASONS):
+        raise HTTPException(status_code=400, detail="Unsupported season")
+    return match_refresh.list_pending_matches(season=season, competition=comp.key)
+
+
+@router.post("/api/admin/matches/refresh-batch", dependencies=[Depends(require_admin_token)])
+def start_match_batch_refresh(
+    season: str = Query(DEFAULT_SEASON),
+    competition: str = Query("premier_league"),
+    payload: Optional[Dict[str, Any]] = Body(default=None),
+):
+    """Refresh pending (or caller-specified) completed matches immediately without waiting for full rebuild."""
+    from src.competitions.registry import get_competition
+
+    try:
+        comp = get_competition(competition)
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Unknown competition")
+    match_ids = (payload or {}).get("match_ids") if isinstance(payload, dict) else None
+    return match_refresh.start_batch_refresh_job(season=season, competition=comp.key, match_ids=match_ids)
+
+
+@router.get("/api/admin/matches/refresh-batch", dependencies=[Depends(require_admin_token)])
+def get_match_batch_refresh_status():
+    return match_refresh.get_batch_refresh_status()
+
+
+@router.post("/api/admin/matches/{match_id}/refresh", dependencies=[Depends(require_admin_token)])
+def start_single_match_refresh(
+    match_id: int,
+    season: str = Query(DEFAULT_SEASON),
+    competition: str = Query("premier_league"),
+):
+    """Refresh one match immediately and update SQLite/caches."""
+    from src.competitions.registry import get_competition
+
+    try:
+        comp = get_competition(competition)
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Unknown competition")
+    return match_refresh.refresh_single_match_job(match_id=match_id, season=season, competition=comp.key)
+
+
+@router.get("/api/admin/matches/{match_id}/refresh", dependencies=[Depends(require_admin_token)])
+def get_single_match_refresh_status(match_id: int):
+    return match_refresh.get_single_match_job(match_id)

@@ -13,8 +13,9 @@ import TeamGameProfileSection from './team-profile/TeamGameProfileSection';
 import TeamFixturesSection from './team-profile/TeamFixturesSection';
 import { getPlayerCategory, getPositionOrder } from './team-profile/teamProfileUtils';
 import { getCachedTeamData, setCachedTeamData, calculateTeamExpiry, clearTeamCache } from '../utils/teamProfileCache';
+import { invalidateApiCache } from '../services/apiClient';
 import { getStandings, getTeams } from '../services/competitionService';
-import { useCompetition } from '../context/CompetitionContext';
+import { useCompetition } from '../context/competitionState';
 import { seasonsFor } from '../data/seasons';
 import {
   getManagerChanges,
@@ -27,31 +28,44 @@ import {
 } from '../services/teamService';
 
 export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onSelectMatch, selectedTeamId = 1, onSelectTeam }) {
-  const { competitionKey } = useCompetition();
-  const [currentLeagueTeams, setCurrentLeagueTeams] = useState(null);
-  const [teamSeason, setTeamSeason] = useState(selectedSeason || '2026_27');
-  const [activeTeamTab, setActiveTeamTab] = useState('fixtures'); // 'fixtures' | 'profile' | 'squad' | 'managers'
-  const [profile, setProfile] = useState(null);
-  const [tacticalProfile, setTacticalProfile] = useState(null);
-  const [attackingLeaders, setAttackingLeaders] = useState(null);
-  const [scenarioProfile, setScenarioProfile] = useState(null);
+  const { competitionKey, hasRichData } = useCompetition();
+  const [seasonOverride, setSeasonOverride] = useState({ prop: selectedSeason, value: selectedSeason });
+  const [activeTeamTab, setActiveTeamTab] = useState('fixtures');
+  const [tacticalVenue, setTacticalVenue] = useState('all');
+  const [standingsResult, setStandingsResult] = useState({ key: '', data: [] });
+  const [teamsResult, setTeamsResult] = useState({ key: '', data: [] });
+  const [profileResult, setProfileResult] = useState({ key: '', data: null });
+  const [tacticsResult, setTacticsResult] = useState({ key: '', data: null });
+  const [attackersResult, setAttackersResult] = useState({ key: '', data: null });
+  const [scenariosResult, setScenariosResult] = useState({ key: '', data: null });
+  const [staffResult, setStaffResult] = useState({ key: '', data: null });
+  const [changesResult, setChangesResult] = useState({ key: '', data: [] });
   const [activeTacticalTab, setActiveTacticalTab] = useState('general');
   const [selectedSquadTab, setSelectedSquadTab] = useState('all');
-  const [tacticsLoading, setTacticsLoading] = useState(false);
-  const [attackersLoading, setAttackersLoading] = useState(false);
-  const [scenariosLoading, setScenariosLoading] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [teamStaff, setTeamStaff] = useState(null);
-  const [managerChanges, setManagerChanges] = useState([]);
   const [selectedManager, setSelectedManager] = useState(null);
-  const [managerPerformance, setManagerPerformance] = useState(null);
-  const [managerPerformanceLoading, setManagerPerformanceLoading] = useState(false);
+  const [managerPerfResult, setManagerPerfResult] = useState({ key: '', data: null });
   const [refreshKey, setRefreshKey] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [manualRefreshKey, setManualRefreshKey] = useState('');
   const [squadSortField, setSquadSortField] = useState('position');
   const [squadSortDirection, setSquadSortDirection] = useState('asc');
   const [showMarketValueModal, setShowMarketValueModal] = useState(false);
   const [selectedPlayerForMv, setSelectedPlayerForMv] = useState(null);
+
+  const availableSeasons = seasonsFor(competitionKey);
+  const rawTeamSeason = seasonOverride.prop === selectedSeason
+    ? (seasonOverride.value || '2026_27')
+    : (selectedSeason || '2026_27');
+  const teamSeason = availableSeasons.includes(rawTeamSeason)
+    ? rawTeamSeason
+    : (availableSeasons.includes(selectedSeason) ? selectedSeason : '2026_27');
+  const setTeamSeason = (value) => setSeasonOverride({ prop: selectedSeason, value });
+
+  // Notify parent when competition restriction falls back from an unsupported season (e.g. 'all').
+  useEffect(() => {
+    if (teamSeason !== rawTeamSeason && setSelectedSeason) {
+      setSelectedSeason(teamSeason);
+    }
+  }, [teamSeason, rawTeamSeason, setSelectedSeason]);
 
   const handleSquadSort = (field) => {
     if (squadSortField === field) {
@@ -67,34 +81,40 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
   };
 
   // Standings data & Quick Club Selector Popover
-  const [standings, setStandings] = useState([]);
   const [isTeamSelectorOpen, setIsTeamSelectorOpen] = useState(false);
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
   const teamSelectorRef = React.useRef(null);
 
+  const standingsKey = `${teamSeason}:${competitionKey}`;
   useEffect(() => {
-    if (teamSeason === 'all') {
-      setStandings([]);
-      return;
-    }
+    if (teamSeason === 'all') return undefined;
+    let cancelled = false;
     getStandings(teamSeason, competitionKey)
-      .then(data => setStandings(data.standings || []))
+      .then(data => {
+        if (!cancelled) setStandingsResult({ key: standingsKey, data: data.standings || [] });
+      })
       .catch(err => {
         console.error('Error fetching standings for team profile:', err);
-        setStandings([]);
+        if (!cancelled) setStandingsResult({ key: standingsKey, data: [] });
       });
-  }, [teamSeason, competitionKey]);
+    return () => { cancelled = true; };
+  }, [teamSeason, competitionKey, standingsKey]);
+
+  const standings = useMemo(
+    () => (teamSeason !== 'all' && standingsResult.key === standingsKey ? standingsResult.data : []),
+    [teamSeason, standingsResult, standingsKey],
+  );
 
   const standingsMap = useMemo(() => {
     const map = {};
-    (standings || []).forEach((s, idx) => {
+    standings.forEach((s, idx) => {
       map[s.id] = { rank: idx + 1, points: s.points, played: s.played };
     });
     return map;
   }, [standings]);
 
   useEffect(() => {
-    if (!isTeamSelectorOpen) return;
+    if (!isTeamSelectorOpen) return undefined;
     const handleClickOutside = (e) => {
       if (teamSelectorRef.current && !teamSelectorRef.current.contains(e.target)) {
         setIsTeamSelectorOpen(false);
@@ -111,27 +131,38 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
     };
   }, [isTeamSelectorOpen]);
 
+  const teamsSeason = teamSeason === 'all' ? '2026_27' : teamSeason;
+  const teamsKey = `${teamsSeason}:${competitionKey}`;
   useEffect(() => {
-    const s = teamSeason === 'all' ? '2026_27' : teamSeason;
-    getTeams(s, competitionKey)
-      .then(data => setCurrentLeagueTeams(data.teams || []))
+    let cancelled = false;
+    getTeams(teamsSeason, competitionKey)
+      .then(data => {
+        if (!cancelled) setTeamsResult({ key: teamsKey, data: data.teams || [] });
+      })
       .catch(err => {
         console.error('Error fetching current season teams:', err);
-        setCurrentLeagueTeams([]);
+        if (!cancelled) setTeamsResult({ key: teamsKey, data: [] });
       });
-  }, [teamSeason, competitionKey]);
+    return () => { cancelled = true; };
+  }, [teamsSeason, competitionKey, teamsKey]);
 
-  const currentSeasonTeams = (currentLeagueTeams || []).map(team =>
-    getTeam(team.id, team.name)
+  const currentLeagueTeams = useMemo(
+    () => (teamsResult.key === teamsKey ? teamsResult.data : []),
+    [teamsResult, teamsKey],
+  );
+
+  const currentSeasonTeams = useMemo(
+    () => currentLeagueTeams.map(team => getTeam(team.id, team.name)),
+    [currentLeagueTeams],
   );
 
   const filteredClubs = useMemo(() => {
     if (!teamSearchQuery.trim()) return currentSeasonTeams;
     const q = teamSearchQuery.toLowerCase().trim();
-    return currentSeasonTeams.filter(t => 
-      t.name.toLowerCase().includes(q) || 
+    return currentSeasonTeams.filter(t =>
+      t.name.toLowerCase().includes(q) ||
       (t.short && t.short.toLowerCase().includes(q)) ||
-      (t.abbr && t.abbr.toLowerCase().includes(q))
+      (t.abbr && t.abbr.toLowerCase().includes(q)),
     );
   }, [currentSeasonTeams, teamSearchQuery]);
 
@@ -139,212 +170,173 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
     if (currentSeasonTeams.length && !currentSeasonTeams.some(team => team.id === selectedTeamId)) {
       onSelectTeam?.(currentSeasonTeams[0].id);
     }
-  }, [currentLeagueTeams, selectedTeamId, onSelectTeam]);
+  }, [currentSeasonTeams, selectedTeamId, onSelectTeam]);
+
+  const cacheKey = `${selectedTeamId}_${competitionKey}`;
+  const profileKey = `${selectedTeamId}:${teamSeason}:${competitionKey}:${refreshKey}`;
+  const cachedProfile = useMemo(
+    () => (refreshKey >= 0 ? getCachedTeamData('profile', cacheKey, teamSeason)?.data || null : null),
+    [cacheKey, teamSeason, refreshKey],
+  );
 
   useEffect(() => {
-    if (selectedSeason) {
-      setTeamSeason(selectedSeason);
-    }
-  }, [selectedSeason]);
-
-  // UEFA competitions have no "all seasons" view (and nothing before 2022/23).
-  useEffect(() => {
-    if (!seasonsFor(competitionKey).includes(teamSeason)) {
-      const fallback = seasonsFor(competitionKey).includes(selectedSeason) ? selectedSeason : '2026_27';
-      setTeamSeason(fallback);
-      setSelectedSeason?.(fallback);
-    }
-  }, [competitionKey, teamSeason, selectedSeason, setSelectedSeason]);
-
-  useEffect(() => {
-    const cacheKey = `${selectedTeamId}_${competitionKey}`;
-    const cached = getCachedTeamData('profile', cacheKey, teamSeason);
-    if (cached) {
-      setProfile(cached.data);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
+    if (cachedProfile) return undefined;
+    let cancelled = false;
     getTeamProfile(selectedTeamId, teamSeason, undefined, competitionKey)
       .then(data => {
-        setProfile(data);
+        if (cancelled) return;
+        setProfileResult({ key: profileKey, data });
         const { expiresAt, label } = calculateTeamExpiry(data?.next_match, teamSeason);
         setCachedTeamData('profile', cacheKey, teamSeason, data, expiresAt, label);
-        setLoading(false);
       })
       .catch(err => {
         console.error('Error fetching team profile:', err);
-        setProfile(null);
-        setLoading(false);
+        if (!cancelled) setProfileResult({ key: profileKey, data: null });
       });
-  }, [selectedTeamId, teamSeason, competitionKey, refreshKey]);
+    return () => { cancelled = true; };
+  }, [cachedProfile, selectedTeamId, teamSeason, competitionKey, cacheKey, profileKey]);
 
+  const profile = cachedProfile || (profileResult.key === profileKey ? profileResult.data : null);
+  const loading = Boolean(!cachedProfile && profileResult.key !== profileKey);
+
+  const nextMatchRef = React.useRef(null);
   useEffect(() => {
-    const staffSeason = teamSeason === 'all' ? '2026_27' : teamSeason;
+    nextMatchRef.current = profile?.next_match || null;
+  }, [profile?.next_match]);
+
+  const staffSeason = teamSeason === 'all' ? '2026_27' : teamSeason;
+  const staffKey = `${selectedTeamId}:${staffSeason}:${competitionKey}`;
+  useEffect(() => {
     const controller = new AbortController();
-    setTeamStaff(null);
     getTeamStaff(staffSeason, selectedTeamId, { signal: controller.signal }, competitionKey)
-      .then(data => setTeamStaff(data?.staff || null))
+      .then(data => setStaffResult({ key: staffKey, data: data?.staff || null }))
       .catch(err => {
         if (err.name !== 'AbortError') {
           console.error('Error fetching team staff:', err);
-          setTeamStaff(null);
+          setStaffResult({ key: staffKey, data: null });
         }
       });
     return () => controller.abort();
-  }, [selectedTeamId, teamSeason, competitionKey]);
+  }, [staffSeason, selectedTeamId, competitionKey, staffKey]);
+
+  const teamStaff = staffResult.key === staffKey ? staffResult.data : null;
+
+  const requestedChangesSeason = teamSeason === 'all' ? 'all' : teamSeason;
+  const isPastSeason = requestedChangesSeason !== '2026_27' && requestedChangesSeason !== 'all';
+  const changesKey = `${selectedTeamId}:${requestedChangesSeason}:${refreshKey}`;
+
+  const cachedChanges = useMemo(() => {
+    if (!isPastSeason) return null;
+    const cached = getCachedTeamData('manager_changes', 'all', requestedChangesSeason);
+    if (!cached?.data) return null;
+    return Object.values(cached.data.events_by_match || {})
+      .flat()
+      .filter(event => Number(event.team_id) === Number(selectedTeamId))
+      .sort((a, b) => a.appointment_date.localeCompare(b.appointment_date));
+  }, [isPastSeason, requestedChangesSeason, selectedTeamId]);
 
   useEffect(() => {
-    const requestedSeason = teamSeason === 'all' ? 'all' : teamSeason;
-    const isPastSeason = requestedSeason !== '2026_27' && requestedSeason !== 'all';
-
-    // Past seasons are static, so cache them permanently. Current season is kept live.
-    if (isPastSeason) {
-      const cached = getCachedTeamData('manager_changes', 'all', requestedSeason);
-      if (cached?.data) {
-        const changes = Object.values(cached.data.events_by_match || {}).flat()
-          .filter(event => Number(event.team_id) === Number(selectedTeamId));
-        setManagerChanges(changes.sort((a, b) => a.appointment_date.localeCompare(b.appointment_date)));
-        return;
-      }
-    }
-
+    if (cachedChanges) return undefined;
     const controller = new AbortController();
-    getManagerChanges(requestedSeason, { signal: controller.signal })
+    getManagerChanges(requestedChangesSeason, { signal: controller.signal })
       .then(data => {
         if (isPastSeason) {
-          setCachedTeamData('manager_changes', 'all', requestedSeason, data, null, 'Geçmiş sezon teknik direktör geçmişi');
+          setCachedTeamData('manager_changes', 'all', requestedChangesSeason, data, null, 'Geçmiş sezon teknik direktör geçmişi');
         }
-        const changes = Object.values(data.events_by_match || {}).flat()
-          .filter(event => Number(event.team_id) === Number(selectedTeamId));
-        setManagerChanges(changes.sort((a, b) => a.appointment_date.localeCompare(b.appointment_date)));
+        const changes = Object.values(data.events_by_match || {})
+          .flat()
+          .filter(event => Number(event.team_id) === Number(selectedTeamId))
+          .sort((a, b) => a.appointment_date.localeCompare(b.appointment_date));
+        setChangesResult({ key: changesKey, data: changes });
       })
       .catch(err => {
         if (err.name !== 'AbortError') {
           console.error('Error fetching team manager change history:', err);
-          setManagerChanges([]);
+          setChangesResult({ key: changesKey, data: [] });
         }
       });
     return () => controller.abort();
-  }, [selectedTeamId, teamSeason, refreshKey]);
+  }, [cachedChanges, requestedChangesSeason, isPastSeason, selectedTeamId, changesKey]);
+
+  const managerChanges = cachedChanges || (changesResult.key === changesKey ? changesResult.data : []);
+
+  const sectionKey = `${selectedTeamId}:${teamSeason}:${refreshKey}`;
+  const tacticsSectionKey = `${selectedTeamId}:${teamSeason}:${tacticalVenue}:${refreshKey}`;
 
   useEffect(() => {
-    const cached = getCachedTeamData('scenarios', selectedTeamId, teamSeason);
-    if (cached) {
-      setScenarioProfile(cached.data);
-      setScenariosLoading(false);
-      return;
-    }
-
+    if (!hasRichData) return undefined;
     const controller = new AbortController();
-    setScenariosLoading(true);
     getTeamScenarios(selectedTeamId, teamSeason, { signal: controller.signal })
       .then(data => {
-        setScenarioProfile(data);
-        const { expiresAt, label } = calculateTeamExpiry(profile?.next_match, teamSeason);
-        setCachedTeamData('scenarios', selectedTeamId, teamSeason, data, expiresAt, label);
+        setScenariosResult({ key: sectionKey, data });
       })
       .catch(err => {
         if (err.name !== 'AbortError') {
           console.error('Error fetching team score-state profile:', err);
-          setScenarioProfile(null);
+          setScenariosResult({ key: sectionKey, data: null });
         }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setScenariosLoading(false);
       });
     return () => controller.abort();
-  }, [selectedTeamId, teamSeason, refreshKey]);
+  }, [hasRichData, selectedTeamId, teamSeason, sectionKey]);
+
+  const scenarioProfile = hasRichData && scenariosResult.key === sectionKey ? scenariosResult.data : null;
+  const scenariosLoading = Boolean(hasRichData && scenariosResult.key !== sectionKey);
 
   useEffect(() => {
-    const cached = getCachedTeamData('tactics', selectedTeamId, teamSeason);
-    if (cached) {
-      setTacticalProfile(cached.data);
-      setTacticsLoading(false);
-      return;
-    }
-
+    if (!hasRichData) return undefined;
     const controller = new AbortController();
-    setTacticsLoading(true);
-    getTeamTactics(selectedTeamId, teamSeason, { signal: controller.signal })
+    getTeamTactics(selectedTeamId, teamSeason, { signal: controller.signal }, tacticalVenue)
       .then(data => {
-        setTacticalProfile(data);
-        const { expiresAt, label } = calculateTeamExpiry(profile?.next_match, teamSeason);
-        setCachedTeamData('tactics', selectedTeamId, teamSeason, data, expiresAt, label);
+        setTacticsResult({ key: tacticsSectionKey, data });
       })
       .catch(err => {
         if (err.name !== 'AbortError') {
           console.error('Error fetching team tactical profile:', err);
-          setTacticalProfile(null);
+          setTacticsResult({ key: tacticsSectionKey, data: null });
         }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setTacticsLoading(false);
       });
     return () => controller.abort();
-  }, [selectedTeamId, teamSeason, refreshKey]);
+  }, [hasRichData, selectedTeamId, teamSeason, tacticalVenue, tacticsSectionKey]);
+
+  const tacticalProfile = hasRichData && tacticsResult.key === tacticsSectionKey ? tacticsResult.data : null;
+  const tacticsLoading = Boolean(hasRichData && tacticsResult.key !== tacticsSectionKey);
 
   useEffect(() => {
-    const cached = getCachedTeamData('attackers', selectedTeamId, teamSeason);
-    if (cached) {
-      setAttackingLeaders(cached.data);
-      setAttackersLoading(false);
-      return;
-    }
-
+    if (!hasRichData) return undefined;
     const controller = new AbortController();
-    setAttackersLoading(true);
     getTeamAttackingLeaders(selectedTeamId, teamSeason, { signal: controller.signal })
       .then(data => {
-        setAttackingLeaders(data);
-        const { expiresAt, label } = calculateTeamExpiry(profile?.next_match, teamSeason);
-        setCachedTeamData('attackers', selectedTeamId, teamSeason, data, expiresAt, label);
+        setAttackersResult({ key: sectionKey, data });
       })
       .catch(err => {
         if (err.name !== 'AbortError') {
           console.error('Error fetching team attacking leaders:', err);
-          setAttackingLeaders(null);
+          setAttackersResult({ key: sectionKey, data: null });
         }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setAttackersLoading(false);
       });
     return () => controller.abort();
-  }, [selectedTeamId, teamSeason, refreshKey]);
+  }, [hasRichData, selectedTeamId, teamSeason, sectionKey]);
 
-  // When profile updates with next_match, align the TTL for all cached endpoints
-  useEffect(() => {
-    if (profile?.next_match) {
-      const { expiresAt, label } = calculateTeamExpiry(profile.next_match, teamSeason);
-      ['tactics', 'scenarios', 'attackers'].forEach(cat => {
-        const item = getCachedTeamData(cat, selectedTeamId, teamSeason);
-        if (item?.data && item.expiresAt !== expiresAt) {
-          setCachedTeamData(cat, selectedTeamId, teamSeason, item.data, expiresAt, label);
-        }
-      });
-    }
-  }, [profile, selectedTeamId, teamSeason]);
+  const attackingLeaders = hasRichData && attackersResult.key === sectionKey ? attackersResult.data : null;
+  const attackersLoading = Boolean(hasRichData && attackersResult.key !== sectionKey);
 
   // Handle manual refresh
   const handleManualRefresh = () => {
-    setIsRefreshing(true);
-    clearTeamCache(selectedTeamId, teamSeason);
-    setRefreshKey(prev => prev + 1);
+    clearTeamCache(selectedTeamId, teamSeason, competitionKey);
+    invalidateApiCache('/api/teams/');
+    const nextRefresh = refreshKey + 1;
+    setManualRefreshKey(`${selectedTeamId}:${teamSeason}:${competitionKey}:${nextRefresh}`);
+    setRefreshKey(nextRefresh);
   };
 
-  useEffect(() => {
-    if (isRefreshing && !loading && !tacticsLoading && !scenariosLoading && !attackersLoading) {
-      setIsRefreshing(false);
-    }
-  }, [isRefreshing, loading, tacticsLoading, scenariosLoading, attackersLoading]);
+  const isRefreshing = Boolean(
+    manualRefreshKey === profileKey && (loading || tacticsLoading || scenariosLoading || attackersLoading),
+  );
 
-  const isProfileCached = useMemo(() => {
-    const item = getCachedTeamData('tactics', selectedTeamId, teamSeason);
-    return item ? { nextMatchLabel: item.nextMatchLabel, isPermanent: item.isPermanent } : null;
-  }, [selectedTeamId, teamSeason, tacticalProfile, refreshKey]);
+  const resolvedTeamTab = !hasRichData && activeTeamTab === 'profile' ? 'fixtures' : activeTeamTab;
+  const isProfileCached = null;
 
-  const listedTeam = (currentLeagueTeams || []).find(team => Number(team.id) === Number(selectedTeamId));
+  const listedTeam = currentLeagueTeams.find(team => Number(team.id) === Number(selectedTeamId));
   const profileTeam = profile?.team && Number(profile.team.id) === Number(selectedTeamId) ? profile.team : null;
   const currentMeta = getTeam(selectedTeamId, profileTeam?.name || listedTeam?.name || 'Takım');
   const teamOfficials = useMemo(() => {
@@ -367,25 +359,32 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
     ? teamOfficials.find(official => (official.name?.display || '').toLowerCase() === 'xabi alonso') || teamManager
     : teamManager;
 
+  const selectedManagerName = selectedManager
+    ? (selectedManager.name?.display || [selectedManager.name?.first, selectedManager.name?.last].filter(Boolean).join(' '))
+    : '';
+  const managerPerfKey = selectedManager ? `${selectedTeamId}:${selectedManagerName}` : '';
+
   useEffect(() => {
-    if (!selectedManager) return;
+    if (!selectedManager) return undefined;
     const controller = new AbortController();
-    setManagerPerformanceLoading(true);
-    setManagerPerformance(null);
-    const managerName = selectedManager.name?.display || [selectedManager.name?.first, selectedManager.name?.last].filter(Boolean).join(' ');
-    getManagerPerformance(selectedTeamId, managerName, { signal: controller.signal })
-      .then(setManagerPerformance)
-      .catch(err => { if (err.name !== 'AbortError') setManagerPerformance(null); })
-      .finally(() => { if (!controller.signal.aborted) setManagerPerformanceLoading(false); });
+    getManagerPerformance(selectedTeamId, selectedManagerName, { signal: controller.signal })
+      .then(data => setManagerPerfResult({ key: managerPerfKey, data }))
+      .catch(err => {
+        if (err.name !== 'AbortError') setManagerPerfResult({ key: managerPerfKey, data: null });
+      });
     return () => controller.abort();
-  }, [selectedManager, selectedTeamId]);
+  }, [selectedManager, selectedTeamId, selectedManagerName, managerPerfKey]);
+
+  const managerPerformanceLoading = Boolean(selectedManager && managerPerfResult.key !== managerPerfKey);
+  const managerPerformance = managerPerfResult.key === managerPerfKey ? managerPerfResult.data : null;
+
   const activeTab = TEAM_TACTICAL_TABS.find(tab => tab.id === activeTacticalTab) || TEAM_TACTICAL_TABS[0];
   const formatNumber = value => Number(value).toLocaleString('tr-TR', { maximumFractionDigits: 1 });
 
+  const profileSquad = profile?.squad;
   const displayedSquad = useMemo(() => {
-    // Prefer profile.squad which has accurate season statistics
-    if (profile?.squad?.length) {
-      return profile.squad.map(player => ({
+    if (profileSquad?.length) {
+      return profileSquad.map(player => ({
         id: player.id,
         name: player.name,
         position: player.position,
@@ -417,7 +416,7 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
       photo_url: null,
       captain: false,
     }));
-  }, [profile?.squad, teamStaff]);
+  }, [profileSquad, teamStaff]);
 
   const displayedSquadCounts = useMemo(() => {
     const counts = { all: displayedSquad.length, G: 0, D: 0, M: 0, F: 0 };
@@ -465,11 +464,12 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
     });
   }, [displayedSquad, selectedSquadTab, squadSortField, squadSortDirection]);
 
+  const profileMatches = profile?.matches;
   const last5Matches = useMemo(() => {
-    if (!profile?.matches?.length) return [];
-    const played = profile.matches.filter(m => m.team_score !== null && m.team_score !== undefined && m.result && (!m.competition || m.competition.key === 'premier_league'));
+    if (!profileMatches?.length) return [];
+    const played = profileMatches.filter(m => m.team_score !== null && m.team_score !== undefined && m.result && (!m.competition || m.competition.key === 'premier_league'));
     return played.slice(-5);
-  }, [profile?.matches]);
+  }, [profileMatches]);
 
   return (
     <div className="space-y-6">
@@ -497,20 +497,21 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
 
       <TeamProfileNavigation
         profile={profile}
-        activeTeamTab={activeTeamTab}
+        activeTeamTab={resolvedTeamTab}
         setActiveTeamTab={setActiveTeamTab}
         displayedSquad={displayedSquad}
         managerChanges={managerChanges}
+        showGameProfile={hasRichData}
       />
 
       <TeamManagerHistorySection
-        activeTeamTab={activeTeamTab}
+        activeTeamTab={resolvedTeamTab}
         teamSeason={teamSeason}
         managerChanges={managerChanges}
       />
 
       {/* TAB: TRANSFERLER & BONSERVİSLER */}
-      {activeTeamTab === 'transfers' && (
+      {resolvedTeamTab === 'transfers' && (
         <TeamTransfersSection
           teamId={selectedTeamId}
           teamName={currentMeta?.name || profile?.team?.name}
@@ -519,26 +520,30 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
         />
       )}
 
-      <TeamGameProfileSection
-        activeTeamTab={activeTeamTab}
-        isProfileCached={isProfileCached}
-        handleManualRefresh={handleManualRefresh}
-        isRefreshing={isRefreshing}
-        tacticalProfile={tacticalProfile}
-        activeTacticalTab={activeTacticalTab}
-        setActiveTacticalTab={setActiveTacticalTab}
-        tacticalTabs={TEAM_TACTICAL_TABS}
-        activeTab={activeTab}
-        scenariosLoading={scenariosLoading}
-        scenarioProfile={scenarioProfile}
-        formatNumber={formatNumber}
-        tacticsLoading={tacticsLoading}
-        attackersLoading={attackersLoading}
-        attackingLeaders={attackingLeaders}
-      />
+      {hasRichData && (
+        <TeamGameProfileSection
+          activeTeamTab={resolvedTeamTab}
+          isProfileCached={isProfileCached}
+          handleManualRefresh={handleManualRefresh}
+          isRefreshing={isRefreshing}
+          tacticalProfile={tacticalProfile}
+          activeTacticalTab={activeTacticalTab}
+          setActiveTacticalTab={setActiveTacticalTab}
+          tacticalVenue={tacticalVenue}
+          setTacticalVenue={setTacticalVenue}
+          tacticalTabs={TEAM_TACTICAL_TABS}
+          activeTab={activeTab}
+          scenariosLoading={scenariosLoading}
+          scenarioProfile={scenarioProfile}
+          formatNumber={formatNumber}
+          tacticsLoading={tacticsLoading}
+          attackersLoading={attackersLoading}
+          attackingLeaders={attackingLeaders}
+        />
+      )}
 
       <TeamFixturesSection
-        activeTeamTab={activeTeamTab}
+        activeTeamTab={resolvedTeamTab}
         profile={profile}
         currentMeta={currentMeta}
         loading={loading}
@@ -547,7 +552,7 @@ export default function TeamProfilesTab({ selectedSeason, setSelectedSeason, onS
       />
 
       <TeamSquadSection
-        activeTeamTab={activeTeamTab}
+        activeTeamTab={resolvedTeamTab}
         displayedSquad={displayedSquad}
         currentMeta={currentMeta}
         selectedSquadTab={selectedSquadTab}

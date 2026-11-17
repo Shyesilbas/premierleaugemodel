@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Permutation importance of the LaLiga models by feature family, out of sample.
+"""Permutation importance of a national league's models by feature family, out of sample.
 
-Usage: python3 -m src.analytics.league_feature_audit --competition la_liga
+Usage: python3 -m src.analytics.league_feature_audit --competition <league_key>
 
 Regression coefficients are not read as importance (collinear features can have large coefficients and no effect on the loss).
 For every outer season the 1X2 model is fitted on earlier seasons only (exactly as in ``train_league_model.walk_forward``), the
@@ -10,7 +10,7 @@ correlation survives) in that season's matches, and the increase in log-loss is 
 offsides) the selected model is refitted on the first 80% of the matches and the family is shuffled in the last 20%. 30 repeats,
 seed 42; a family is called informative only if its mean increase exceeds twice the spread over the repeats.
 
-Reads: data/football.db and the production artifacts' selected model names. Writes: docs/reports/models/<key>_feature_audit.json.
+Reads: data/football.db and the production artifacts' selected model names. Writes: reports/models/<key>_feature_audit.json.
 """
 
 from __future__ import annotations

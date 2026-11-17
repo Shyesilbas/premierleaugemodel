@@ -22,7 +22,7 @@ function StatGroup({ title, rows, wide = false }) {
         {visible.map(([label, value, highlight]) => (
           <div key={label} className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs">
             <dt className="text-text-secondary truncate">{label}</dt>
-            <dd className={`tabular-nums font-semibold ${highlight ? 'text-primary' : 'text-text-primary'}`}>{value}</dd>
+            <dd className={`tabular-nums font-semibold ${highlight ? 'text-status-info' : 'text-text-primary'}`}>{value}</dd>
           </div>
         ))}
       </dl>
@@ -175,7 +175,7 @@ export default function PlayerMatchPanel({ selectedPlayer, onClose, isCompleted,
               {(s.goals > 0 || s.assists > 0 || s.yellow_cards > 0 || s.red_cards > 0 || s.penalties_missed > 0) && (
                 <div className="col-span-2 flex flex-wrap gap-1.5">
                   {s.goals > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm bg-background-primary border border-border text-xs font-semibold text-text-primary"><BallIcon className="w-3.5 h-3.5" /> {s.goals} gol</span>}
-                  {s.assists > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm bg-background-primary border border-border text-xs font-semibold text-text-primary"><span className="font-semibold text-primary">A</span> {s.assists} asist</span>}
+                  {s.assists > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm bg-background-primary border border-border text-xs font-semibold text-text-primary"><span className="font-semibold text-status-info">A</span> {s.assists} asist</span>}
                   {s.yellow_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-background-primary border border-border text-xs font-semibold text-text-primary"><YellowCardIcon /> Sarı kart</span>}
                   {s.red_cards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-background-primary border border-border text-xs font-semibold text-text-primary"><RedCardIcon /> Kırmızı kart</span>}
                   {s.penalties_missed > 0 && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm bg-background-tertiary border border-status-error text-xs font-semibold text-status-error">{s.penalties_missed} penaltı kaçırdı</span>}

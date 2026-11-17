@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Tune the Elo rating constants of a league fed by TheStatsAPI, without touching any outer season for the choice.
 
-Usage: python3 -m src.models.tune_league_elo --competition la_liga [--no-save]
+Usage: python3 -m src.models.tune_league_elo --competition <league_key> [--no-save]
 
 The league's Elo uses the Premier League constants (K, home advantage, season regression, newcomer rating). This script asks
-whether other constants rate La Liga better. Protocol (written before the first run): a grid of constants is scored by the
+whether other constants rate the league better. Protocol (written before the first run): a grid of constants is scored by the
 log-loss of a one-feature multinomial logistic regression on the Elo difference, fitted on every earlier season. For each
 outer season the constants are chosen on the seasons that precede it only (2024/25: tuning season 2023/24; 2025/26: tuning
 seasons 2023/24 and 2024/25), then that season is scored with them. The locked season is only monitored. The tuned Elo is
 compared with the current constants on the pooled outer seasons (paired bootstrap, 10,000 draws, seed 42). Reads:
-data/football.db. Writes: docs/reports/models/<key>_elo_tuning.json (nothing else).
+data/football.db. Writes: reports/models/<key>_elo_tuning.json (nothing else).
 """
 
 from __future__ import annotations

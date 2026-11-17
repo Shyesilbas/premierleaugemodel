@@ -81,6 +81,7 @@ data/premier_league.db
 data/competitions/*/raw/matches/
 data/competitions/*/raw/matches/*
 data/competitions/*/raw/*.json
+data/competitions/*/raw/transfermarkt/
 data/competitions/*/processed/*.parquet
 data/competitions/*/processed/player_match_logs.json
 *.parquet

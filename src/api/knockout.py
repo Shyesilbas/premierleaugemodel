@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 BRACKET_STAGES = [("playoff", "Play-off"), ("r16", "Son 16"), ("qf", "Çeyrek Final"), ("sf", "Yarı Final"), ("final", "Final")]
 KNOCKOUT_STAGES = {stage for stage, _ in BRACKET_STAGES}

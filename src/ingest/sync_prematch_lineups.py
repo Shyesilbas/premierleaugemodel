@@ -21,14 +21,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import joblib
-import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -114,8 +112,8 @@ def get_target_fixtures(
     if team_query:
         q = team_query.strip().lower()
         mask = (
-            upcoming["home_name"].astype(str).str.lower().str.contains(q, na=False)
-            | upcoming["away_name"].astype(str).str.lower().str.contains(q, na=False)
+            upcoming["home_name"].astype(str).str.lower().str.contains(q, na=False, regex=False)
+            | upcoming["away_name"].astype(str).str.lower().str.contains(q, na=False, regex=False)
         )
         upcoming = upcoming[mask]
         if gameweek is None and len(upcoming) > 1:
@@ -133,8 +131,10 @@ def get_target_fixtures(
     ]
     if not in_window.empty:
         return in_window.sort_values("_kickoff_utc")
-    next_gw = int(upcoming.sort_values("_kickoff_utc").iloc[0]["gameweek"])
-    return upcoming[upcoming["gameweek"].astype(int) == next_gw].sort_values("_kickoff_utc")
+    future_upcoming = upcoming[upcoming["_kickoff_utc"] >= window_start]
+    fallback_pool = future_upcoming if not future_upcoming.empty else upcoming
+    next_gw = int(fallback_pool.sort_values("_kickoff_utc").iloc[0]["gameweek"])
+    return fallback_pool[fallback_pool["gameweek"].astype(int) == next_gw].sort_values("_kickoff_utc")
 
 
 def fetch_db_odds(match_id: int) -> List[Dict[str, Any]]:
@@ -192,14 +192,14 @@ def print_match_report(
     has_official = (home_id in team_lists) and (away_id in team_lists)
 
     print("=" * 90)
-    print(f"⚽ MAÇ [{mid}] | GW{gw} | {home_name} vs {away_name} | {tr_time_str}")
-    print(f"👨‍⚖️ Hakem: {fx.get('referee_name') or 'Belirlenmedi'}")
+    print(f"MAC [{mid}] | GW{gw} | {home_name} vs {away_name} | {tr_time_str}")
+    print(f"Hakem: {fx.get('referee_name') or 'Belirlenmedi'}")
     if has_official:
         h_form = team_lists[home_id]["formation"]
         a_form = team_lists[away_id]["formation"]
-        print(f"✅ KADRO DURUMU: RESMİ İLK 11'LER AÇIKLANDI ({home_name}: {h_form} | {away_name}: {a_form})")
+        print(f"KADRO DURUMU: RESMI ILK 11'LER ACIKLANDI ({home_name}: {h_form} | {away_name}: {a_form})")
     else:
-        print("⏳ KADRO DURUMU: Resmi 11'ler henüz PulseLive'da yayınlanmadı (maçtan ~60-75 dk önce açıklanır).")
+        print("KADRO DURUMU: Resmi 11'ler henuz PulseLive'da yayinlanmadi (mactan ~60-75 dk once aciklanir).")
     print("=" * 90)
 
     # Last match XI baseline ratings
@@ -221,7 +221,7 @@ def print_match_report(
             removed_pids = prev_pids - curr_pids
 
             starters_tuples: List[Tuple[int, str]] = []
-            print(f"\n📋 {side_label}: {tname} (Diziliş: {t_data['formation']})")
+            print(f"\n{side_label}: {tname} (Diziliş: {t_data['formation']})")
             print(f"   {'No':<4} {'Oyuncu':<26} {'Mevki':<6} {'Genel':>6} {'Hücum':>6} {'Savunma':>7}  {'Durum'}")
             print("   " + "-" * 74)
             for p in lineup:
@@ -231,7 +231,7 @@ def print_match_report(
                 pos = str(p.get("matchPosition") or reg.get(pid, {}).get("position") or "M")
                 starters_tuples.append((pid, pos))
                 ov, att, df_r = _compute_pre_match_player_rating(player_history, pid, season)
-                tag = "🆕 (11'e Girdi)" if (prev_pids and pid in added_pids) else ""
+                tag = "(11'e Girdi)" if (prev_pids and pid in added_pids) else ""
                 print(f"   #{str(shirt):<3} {pname:<26} {pos:<6} {ov:>6.2f} {att:>6.2f} {df_r:>7.2f}  {tag}")
 
             ov_agg, att_agg, def_agg = _aggregate_xi_ratings(starters_tuples, player_history, season)
@@ -246,13 +246,13 @@ def print_match_report(
                     rname = reg.get(rpid, {}).get("name") or f"ID:{rpid}"
                     rov, _, _ = _compute_pre_match_player_rating(player_history, rpid, season)
                     removed_names.append(f"{rname} ({rov:.2f})")
-                print(f"   🔻 Geçen Maçın 11'inden Çıkanlar ({len(removed_names)}): {', '.join(removed_names)}")
+                print(f"   Gecen Macin 11'inden Cikanlar ({len(removed_names)}): {', '.join(removed_names)}")
             elif prev_pids:
-                print("   🔄 Geçen maçın ilk 11'i ile birebir aynı (0 değişiklik).")
+                print("   Gecen macin ilk 11'i ile birebir ayni (0 degisiklik).")
 
             sub_names = [(s.get("name") or {}).get("display") for s in subs if (s.get("name") or {}).get("display")]
             if sub_names:
-                print(f"   🪑 Yedekler: {', '.join(sub_names)}")
+                print(f"   Yedekler: {', '.join(sub_names)}")
 
     base_df = fx.to_frame().T.copy()
 
@@ -276,7 +276,7 @@ def print_match_report(
     row_curr["xi_att_vs_def_diff"] = (h_curr_att - a_curr_def) - (a_curr_att - h_curr_def)
     pred_curr = score_row_with_production_models(row_curr, outcome_artifact, goals_artifact)
 
-    print("\n📊 MODEL GİRDİ & TAHMİN KARŞILAŞTIRMASI (Geçen Maç 11'i vs Bugünkü Resmi 11):")
+    print("\nMODEL GIRDI & TAHMIN KARSILASTIRMASI (Gecen Mac 11'i vs Bugunku Resmi 11):")
     print(f"   {'Metrik':<34} {'Önceki (Geçen Maç 11)':>22} {'Güncel (Resmi 11)':>20} {'Fark (Δ)':>10}")
     print("   " + "-" * 88)
     metrics_rows = [
@@ -301,7 +301,7 @@ def print_match_report(
 
     odds_rows = fetch_db_odds(mid)
     if odds_rows:
-        print("\n💰 PİYASA ORANLARI (Açılış -> Son / Kapanış) & GÜNCEL MODEL DEĞER (EDGE) ANALİZİ:")
+        print("\nPIYASA ORANLARI (Acilis -> Son / Kapanis) & GUNCEL MODEL DEGER (EDGE) ANALIZI:")
         print(f"   {'Büro':<18} {'Açılış (1-X-2)':<20} {'Son Oran (1-X-2)':<20} {'Edge 1':>8} {'Edge X':>8} {'Edge 2':>8}")
         print("   " + "-" * 88)
         for r in odds_rows:
@@ -389,7 +389,7 @@ def main() -> None:
             from src.ingest.import_thestatsapi_odds import import_odds
             import_odds(api_key=api_key, season=args.season, only_played=False)
         else:
-            print("⚠️  --refresh-odds verildi ancak THESTATSAPI_KEY ortam değişkeni tanımlı değil; mevcut veritabanı oranları kullanılıyor.")
+            print("[WARN] --refresh-odds verildi ancak THESTATSAPI_KEY ortam degiskeni tanimli degil; mevcut veritabani oranlari kullaniliyor.")
 
     player_history, last_xi_pids, last_xi_ratings = build_player_history_and_last_xi(df_features)
     session = build_session()
@@ -427,7 +427,7 @@ def main() -> None:
 
     if parquet_updated:
         df_features.to_parquet(FEATURES_PATH, index=False)
-        print(f"💾 Resmi ilk 11 reytingleri '{FEATURES_PATH}' tablosuna kaydedildi.")
+        print(f"Resmi ilk 11 reytingleri '{FEATURES_PATH}' tablosuna kaydedildi.")
     print("SYNC_RESULT " + json.dumps({"matches": found_labels}, ensure_ascii=False))
 
 

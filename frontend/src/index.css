@@ -3,72 +3,244 @@
 @tailwind utilities;
 
 @layer base {
-  :root,
+  :root {
+    color-scheme: light dark;
+
+    /* Surfaces */
+    --bg-primary: 255 255 255;
+    --bg-secondary: 248 250 252;
+    --bg-tertiary: 241 245 249;
+
+    /* Text hierarchy (>= 4.5:1 against surface) */
+    --text-primary: 15 23 42;
+    --text-secondary: 71 85 105;
+    --text-tertiary: 82 98 119;
+    --text-muted: 100 116 139;
+
+    /* Borders & actions */
+    --border-default: 226 232 240;
+    --border-light: 241 245 249;
+    --border-focus: 15 23 42;
+    --card-border-hover: 203 213 225;
+    --primary: 15 23 42;
+    --primary-hover: 30 41 59;
+
+    /* Domain & status */
+    --pitch: 22 101 52;
+    --status-success: 4 120 87;
+    --status-error: 185 28 28;
+    --status-warning: 180 83 9;
+    --status-info: 29 78 216;
+    --status-draw: 250 204 21;
+
+    /* Competition accent defaults (Premier League) */
+    --accent: 56 0 60;
+    --accent-hover: 75 0 80;
+    --accent-soft: 248 240 250;
+
+    /* Adaptive scrollbar colors */
+    --scrollbar-track-light: #f1f5f9;
+    --scrollbar-track-dark: #0f172a;
+    --scrollbar-thumb-light: #64748b;
+    --scrollbar-thumb-dark: #64748b;
+    --scrollbar-track: var(--scrollbar-track-light);
+    --scrollbar-thumb: var(--scrollbar-thumb-light);
+
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
   :root[data-competition='premier_league'] {
     --accent: 56 0 60;
     --accent-hover: 75 0 80;
     --accent-soft: 248 240 250;
   }
-  :root[data-competition='la_liga'] {
-    --accent: 185 28 28;
-    --accent-hover: 153 27 27;
-    --accent-soft: 254 242 242;
-  }
+
   :root[data-competition='champions_league'] {
     --accent: 30 58 138;
     --accent-hover: 23 37 84;
     --accent-soft: 239 246 255;
   }
+
   :root[data-competition='europa_league'] {
     --accent: 194 65 12;
     --accent-hover: 154 52 3;
     --accent-soft: 255 247 237;
   }
 
+  :root.dark {
+    --bg-primary: 15 23 42;
+    --bg-secondary: 9 13 22;
+    --bg-tertiary: 30 41 59;
+
+    --text-primary: 248 250 252;
+    --text-secondary: 203 213 225;
+    --text-tertiary: 148 163 184;
+    --text-muted: 148 163 184;
+
+    --border-default: 51 65 85;
+    --border-light: 30 41 59;
+    --border-focus: 226 232 240;
+    --card-border-hover: 71 85 105;
+    --primary: 37 99 235;
+    --primary-hover: 29 78 216;
+
+    --status-success: 5 150 105;
+    --status-error: 220 38 38;
+    --status-warning: 217 119 6;
+    --status-info: 37 99 235;
+
+    --scrollbar-track: var(--scrollbar-track-dark);
+    --scrollbar-thumb: var(--scrollbar-thumb-dark);
+  }
+
+  :root.dark[data-competition='premier_league'] {
+    --accent: 107 33 108;
+    --accent-hover: 126 34 206;
+    --accent-soft: 46 16 53;
+  }
+
+  :root.dark[data-competition='champions_league'] {
+    --accent: 37 99 235;
+    --accent-hover: 29 78 216;
+    --accent-soft: 23 37 84;
+  }
+
+  :root.dark[data-competition='europa_league'] {
+    --accent-soft: 67 20 7;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+      --bg-primary: 15 23 42;
+      --bg-secondary: 9 13 22;
+      --bg-tertiary: 30 41 59;
+
+      --text-primary: 248 250 252;
+      --text-secondary: 203 213 225;
+      --text-tertiary: 148 163 184;
+      --text-muted: 148 163 184;
+
+      --border-default: 51 65 85;
+      --border-light: 30 41 59;
+      --border-focus: 226 232 240;
+      --card-border-hover: 71 85 105;
+      --primary: 37 99 235;
+      --primary-hover: 29 78 216;
+
+      --status-success: 5 150 105;
+      --status-error: 220 38 38;
+      --status-warning: 217 119 6;
+      --status-info: 37 99 235;
+
+      --scrollbar-track: var(--scrollbar-track-dark);
+      --scrollbar-thumb: var(--scrollbar-thumb-dark);
+    }
+
+    :root:not(.light)[data-competition='premier_league'] {
+      --accent: 107 33 108;
+      --accent-hover: 126 34 206;
+      --accent-soft: 46 16 53;
+    }
+
+    :root:not(.light)[data-competition='champions_league'] {
+      --accent: 37 99 235;
+      --accent-hover: 29 78 216;
+      --accent-soft: 23 37 84;
+    }
+
+    :root:not(.light)[data-competition='europa_league'] {
+      --accent-soft: 67 20 7;
+    }
+  }
+
+  @supports (color: light-dark(white, black)) {
+    :root {
+      --scrollbar-track: light-dark(var(--scrollbar-track-light), var(--scrollbar-track-dark));
+      --scrollbar-thumb: light-dark(var(--scrollbar-thumb-light), var(--scrollbar-thumb-dark));
+    }
+  }
+
   body {
-    background-color: #f1f5f9; /* Slate 100 soft light gray */
-    color: #0f172a; /* Slate 900 crisp black */
-    background-image: 
-      radial-gradient(circle at 15% 10%, rgba(56, 0, 60, 0.04) 0%, transparent 45%),
-      radial-gradient(circle at 85% 15%, rgba(0, 135, 90, 0.04) 0%, transparent 40%),
-      radial-gradient(circle at 50% 90%, rgba(2, 132, 199, 0.03) 0%, transparent 50%);
-    background-attachment: fixed;
+    background-color: rgb(var(--bg-secondary));
+    color: rgb(var(--text-primary));
     min-height: 100vh;
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  :where(a:any-link, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--border-focus));
+    outline-offset: 2px;
+  }
+
+  dialog:modal {
+    overscroll-behavior: contain;
+  }
+
+  dialog::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background-color: rgb(0 0 0 / 0.5);
   }
 }
 
-/* Custom Clean Scrollbar for light theme */
-::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+.modal-dialog {
+  border: 0;
+  padding: 0;
+  margin: auto;
+  background: transparent;
+  color: inherit;
+  max-width: min(100vw - 1.5rem, 64rem);
+  max-height: min(100dvh - 1.5rem, 92dvh);
 }
 
-/* Football Pitch Visualizer styling */
+.modal-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+}
+
 .pitch-surface {
-  background: linear-gradient(180deg, #15803d 0%, #166534 100%);
-  background-image: repeating-linear-gradient(
-    0deg,
-    rgba(255, 255, 255, 0.05) 0px,
-    rgba(255, 255, 255, 0.05) 40px,
-    transparent 40px,
-    transparent 80px
-  );
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  background-color: rgb(var(--pitch));
+  border: 2px solid rgb(255 255 255 / 0.35);
   position: relative;
 }
 
-/* Animation helpers */
+@media (forced-colors: active) {
+  dialog,
+  .border {
+    border-color: CanvasText !important;
+  }
+  [role='tab'][aria-selected='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -92,4 +264,13 @@
 
 .animate-panelIn {
   animation: panelIn 0.22s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn,
+  .animate-panelIn,
+  .animate-pulse {
+    animation: none !important;
+    transform: none !important;
+  }
 }

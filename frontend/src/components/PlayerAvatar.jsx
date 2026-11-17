@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User } from 'lucide-react';
 
 export default function PlayerAvatar({
@@ -12,15 +12,12 @@ export default function PlayerAvatar({
   className = '',
   imgClassName = '',
 }) {
-  const [imgError, setImgError] = useState(false);
+  const [failedPhoto, setFailedPhoto] = useState(null);
 
   const resolvedPhoto = photoUrl !== undefined ? photoUrl : player?.photo_url;
   const resolvedName = name !== undefined ? name : player?.name;
   const resolvedShirt = shirt !== undefined ? shirt : player?.shirt;
-
-  useEffect(() => {
-    setImgError(false);
-  }, [resolvedPhoto]);
+  const imgError = failedPhoto === resolvedPhoto;
 
   // Size mapping
   const sizeMap = {
@@ -56,7 +53,7 @@ export default function PlayerAvatar({
           src={resolvedPhoto}
           alt={resolvedName || ''}
           className={`w-full h-full object-cover ${imgClassName}`}
-          onError={() => setImgError(true)}
+          onError={() => setFailedPhoto(resolvedPhoto)}
           loading="lazy"
         />
       ) : (

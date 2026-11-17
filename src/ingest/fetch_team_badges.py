@@ -1,6 +1,6 @@
 """Download club badges (and optionally the league emblem) for a competition from TheSportsDB.
 
-Usage: python3 -m src.ingest.fetch_team_badges --competition la_liga [--league-id 4335] [--force]
+Usage: python3 -m src.ingest.fetch_team_badges --competition <league_key> [--league-id <thesportsdb_id>] [--force]
 
 What it does: takes the clubs from the competition's saved fixture lists, looks each one up on TheSportsDB (public test
 key, country check) and saves a 160 px high PNG. Clubs without a confident match are listed instead of guessed. With

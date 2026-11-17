@@ -161,7 +161,7 @@ def main():
     print(f"{'rho Değeri':<12} | {'2.5 Üst LL':<11} | {'2.5 Üst AUC':<11} | {'BTTS LL':<11} | {'BTTS AUC':<11} | {'Düşük Skor NLL':<14}")
     print("-" * 80)
     for _, row in rho_df.iterrows():
-        star = " 🏆 (Üretim)" if abs(row["rho"] - (-0.061)) < 0.005 else (" 📍 (DC Orijinal)" if abs(row["rho"] - (-0.091)) < 0.005 else "")
+        star = " [Uretim]" if abs(row["rho"] - (-0.061)) < 0.005 else (" [DC Orijinal]" if abs(row["rho"] - (-0.091)) < 0.005 else "")
         print(f"{row['rho']:<+12.3f} | {row['ll_o25']:<11.5f} | {row['auc_o25']:<11.4f} | {row['ll_btts']:<11.5f} | {row['auc_btts']:<11.4f} | {row['low_score_nll']:<14.4f}{star}")
 
     # =====================================================================
@@ -210,7 +210,7 @@ def main():
     print(f"{'w_dc':<6} | {'w_feat':<6} | {'2.5 Üst LL':<11} | {'Brier':<8} | {'ROC-AUC':<8} | {'ECE %':<6}")
     print("-" * 55)
     for _, row in w_df.iterrows():
-        star = " 🏆 (Mevcut Üretim)" if abs(row["w_dc"] - 0.25) < 1e-4 else (" 🥇 (Global Min)" if abs(row["ll"] - w_df["ll"].min()) < 1e-5 else "")
+        star = " [Mevcut Uretim]" if abs(row["w_dc"] - 0.25) < 1e-4 else (" [Global Min]" if abs(row["ll"] - w_df["ll"].min()) < 1e-5 else "")
         print(f"{row['w_dc']:<6.2f} | {row['w_feat']:<6.2f} | {row['ll']:<11.5f} | {row['brier']:<8.4f} | {row['auc']:<8.4f} | %{row['ece']:<5.2f}{star}")
 
     # Bootstrap test between w_dc=0.25 and optimal weight
@@ -311,10 +311,10 @@ def main():
         test_min = played[played["season"].astype(str) == test_season]["kickoff_millis"].min()
         if train_max >= test_min:
             temporal_ok = False
-            print(f"🚨 Sızıntı Hatası: {train_seasons} max kickoff ({train_max}) >= {test_season} min kickoff ({test_min})")
+            print(f"[SIZINTI HATASI] {train_seasons} max kickoff ({train_max}) >= {test_season} min kickoff ({test_min})")
     
     if temporal_ok:
-        print("✅ Sezonlar Arası Zamansal Yalıtım (Walk-Forward Isolation): KUSURSUZ (Sızıntı Sıfır)")
+        print("[OK] Sezonlar Arası Zamansal Yalıtım (Walk-Forward Isolation): KUSURSUZ (Sızıntı Sıfır)")
 
     # =====================================================================
     # ALAN 3: ÖZELLİKLERİN ZAMAN İÇİNDE STABİLİTESİ (FEATURE DRIFT ACROSS SEASONS)

@@ -70,7 +70,7 @@ export default function TeamTacticalMetric({ metric, totalMatches }) {
                   </div>
                 </div>
               )}
-              <p className="mt-2 text-xs text-text-muted">
+              <p className={`mt-2 text-xs ${hasValue && metric.coverage_pct < 100 ? 'text-status-warning' : 'text-text-muted'}`}>
                 {metric.matches}/{totalMatches || 0} maç · %{formatNumber(metric.coverage_pct || 0)} veri kapsamı
               </p>
               {lowSample && (

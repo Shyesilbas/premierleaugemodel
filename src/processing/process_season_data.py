@@ -459,10 +459,47 @@ def process_season(season_name: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
     return df_matches, df_events
 
 
+def _season_parquets_fresh(
+    season_name: str,
+    fixtures_file: Path,
+    matches_parquet: Path,
+    events_parquet: Path,
+) -> bool:
+    """Return True when season parquets exist and are newer than every raw fixture/match file."""
+    if not fixtures_file.exists() or not matches_parquet.exists() or not events_parquet.exists():
+        return False
+    if matches_parquet.stat().st_size == 0 or events_parquet.stat().st_size == 0:
+        return False
+
+    parquet_mtime = min(matches_parquet.stat().st_mtime_ns, events_parquet.stat().st_mtime_ns)
+    if fixtures_file.stat().st_mtime_ns > parquet_mtime:
+        return False
+
+    try:
+        with fixtures_file.open("r", encoding="utf-8") as handle:
+            fixtures_data = json.load(handle)
+        fixtures = fixtures_data if isinstance(fixtures_data, list) else fixtures_data.get("content", [])
+    except (OSError, json.JSONDecodeError):
+        return False
+
+    matches_dir = fixtures_file.parent / "matches"
+    for fix in fixtures:
+        raw_id = fix.get("id")
+        if raw_id is None:
+            continue
+        mid = int(raw_id)
+        for kind in ("stats", "stream", "details"):
+            p = matches_dir / f"{mid}_{kind}.json"
+            if p.exists() and p.stat().st_mtime_ns > parquet_mtime:
+                return False
+    return True
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--season-name", type=str, default="all", help="Season name or 'all' to process and merge every cached season")
+    parser.add_argument("--force", action="store_true", help="Re-parse all seasons even when existing season parquets are up to date")
     args = parser.parse_args()
 
     raw_dir = RAW_DIR
@@ -479,7 +516,15 @@ def main():
         all_matches = []
         all_events = []
         for s in seasons:
-            m_df, e_df = process_season(s)
+            fixtures_file = raw_dir / f"fixtures_{s}.json"
+            matches_parquet = processed_dir / f"matches_summary_{s}.parquet"
+            events_parquet = processed_dir / f"shots_events_{s}.parquet"
+            if not args.force and _season_parquets_fresh(s, fixtures_file, matches_parquet, events_parquet):
+                logger.info("Reusing fresh parquets for unchanged season %s", s)
+                m_df = pd.read_parquet(matches_parquet)
+                e_df = pd.read_parquet(events_parquet)
+            else:
+                m_df, e_df = process_season(s)
             if not m_df.empty:
                 all_matches.append(m_df)
             if not e_df.empty:

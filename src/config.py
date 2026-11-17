@@ -12,7 +12,7 @@ Every competition owns one folder per kind of artifact, so leagues never share f
 
 ``PLM_DATA_DIR`` moves everything under ``data/`` (so a run can use an isolated copy), ``PLM_MODELS_ROOT`` moves
 ``models/production`` and ``PLM_MODELS_DIR`` points the Premier League at one specific artifact folder.
-``PLM_REPORTS_DIR`` moves the generated reports (default ``docs/reports``). Importing this module has no side effects.
+``PLM_REPORTS_DIR`` moves the generated reports (default ``reports``). Importing this module has no side effects.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ DATA_DIR = Path(os.environ.get("PLM_DATA_DIR") or ROOT / "data").resolve()
 COMPETITIONS_DIR = DATA_DIR / "competitions"
 DB_PATH = DATA_DIR / "football.db"
 MODELS_ROOT = Path(os.environ.get("PLM_MODELS_ROOT") or ROOT / "models" / "production").resolve()
-REPORTS_DIR = Path(os.environ.get("PLM_REPORTS_DIR") or ROOT / "docs" / "reports").resolve()
+REPORTS_DIR = Path(os.environ.get("PLM_REPORTS_DIR") or ROOT / "reports").resolve()
 DEFAULT_COMPETITION = "premier_league"
 
 

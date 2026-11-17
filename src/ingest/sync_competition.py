@@ -1,10 +1,10 @@
 """Bring one competition's data up to date; what the "Veri güncelle" button runs outside the Premier League.
 
-Usage: python3 -m src.ingest.sync_competition --competition la_liga --season 2026_27
+Usage: python3 -m src.ingest.sync_competition --competition <competition_key> --season 2026_27
 
 What it does (the Premier League has its own pipeline, ``sync_season_data``):
 
-* a TheStatsAPI league (la_liga ...): downloads the files still missing for the season (``fetch_thestatsapi_league``), refreshes the
+* a TheStatsAPI domestic league: downloads the files still missing for the season (``fetch_thestatsapi_league``), refreshes the
   full-season calendar (``fetch_openfootball_schedule``) and loads everything (``load_thestatsapi_league``);
 * a UEFA cup: refreshes fixtures, results and the official table from UEFA and, when a TheStatsAPI key is available, the match
   statistics, lineups and player data (``sync_competition_data`` + ``sync_thestatsapi_competition``).

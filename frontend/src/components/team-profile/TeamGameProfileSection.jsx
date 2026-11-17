@@ -11,6 +11,8 @@ export default function TeamGameProfileSection({
   tacticalProfile,
   activeTacticalTab,
   setActiveTacticalTab,
+  tacticalVenue = 'all',
+  setTacticalVenue,
   tacticalTabs,
   activeTab,
   scenariosLoading,
@@ -102,6 +104,29 @@ export default function TeamGameProfileSection({
             <p className="text-xs text-text-secondary mt-1">Değerler seçili dönem ve aynı dönem lig ortalamasıyla karşılaştırılır.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {activeTacticalTab !== 'game-state' && setTacticalVenue && (
+              <div className="inline-flex items-center rounded border border-border bg-background-tertiary p-0.5" role="group" aria-label="Saha filtresi">
+                {[
+                  { id: 'all', label: 'Tümü' },
+                  { id: 'home', label: 'İç Saha' },
+                  { id: 'away', label: 'Deplasman' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    aria-pressed={tacticalVenue === opt.id}
+                    onClick={() => setTacticalVenue(opt.id)}
+                    className={`px-2 py-1 rounded-sm text-xs font-medium transition-colors cursor-pointer ${
+                      tacticalVenue === opt.id
+                        ? 'bg-primary text-white'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
             {isProfileCached && (
               <span 
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-semibold bg-background-tertiary text-status-success border border-border"
@@ -301,7 +326,7 @@ export default function TeamGameProfileSection({
                     </div>
                     <p className="mt-2 text-xs leading-4 text-text-muted">
                       Şut pası, şut olayında doğrudan asist yapan olarak kaydedilen oyuncuyu sayar; bu, tüm yaratılan fırsatların resmi toplamı değildir.
-                      {attackingLeaders.shot_assist_coverage_pct != null && ` Takım şutlarının %{formatNumber(attackingLeaders.shot_assist_coverage_pct)} kadarında bu bilgi mevcut.`}
+                      {attackingLeaders.shot_assist_coverage_pct != null && ` Takım şutlarının %${formatNumber(attackingLeaders.shot_assist_coverage_pct)} kadarında bu bilgi mevcut.`}
                     </p>
                   </>
                 )}

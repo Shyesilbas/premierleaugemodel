@@ -2,7 +2,7 @@
 
 Premier League maçları için uçtan uca maç analizi ve tahmin platformu: ham maç verisinden maç öncesi özellikler (`shift(1)`, veri sızıntısız), gol skor matrisi modeli, 1X2 maç sonucu sınıflandırma modeli, beş sayım modeli (korner, kart, kurtarış, ofsayt, taç), FastAPI backend servisi ve React/Vite kullanıcı arayüzü.
 
-**Veri ve Model Kapsamı:** 5 sezon, 1.900 fikstür (1.595 oynanmış maç; 2026/27 kilitli canlı sezon). Ayrıntılı durum için: [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Veri ve Model Kapsamı:** 5 sezon, 1.900 fikstür (1.608 oynanmış maç; 2026/27 kilitli canlı sezon, 88 oynanmış maç). Ayrıntılı durum için: [docs/project_status.md](docs/project_status.md).
 
 ---
 
@@ -132,15 +132,13 @@ python3 run_full_pipeline.py
 
 | Model | Uretimdeki Mimarisi | Performans & Durum | Rapor |
 | :--- | :--- | :--- | :--- |
-| **Gol (Skor Matrisi)** | 13x13 matris: bagimsiz Poisson x Dixon-Coles tau, lambda = lambda_Feat (w_dc=0), full 60 ozellik (`exp_match_xg_10` ve `exp_venue_match_xg` dahil), alpha=3; egitim/degerlendirme/API'de 1X2 (`v1.3`) marjinaline hizalanir | [Uretimde] Skor dagilimi iyilesti (NLL 2.9686), 2.5 Ust'te prior'i 3/3 sezonda ve anlamli geciyor (LL 0.6767, haftalik refit 0.6753, Delta -0.0080); KG LL 0.6804 (etiket kilitli) | [goals_model.md](docs/reports/models/goals_model.md) |
-| **1X2 Mac Sonucu** | 71 ozellikli L2 duzenlilestirilmis cok terimli lojistik regresyon + ayristirilmis L2 cezali sicaklik/bias kalibrasyonu (`reg_temp=0.10, reg_bias=0.50`; npxG + npBC + ceza sahasi giris farklari) | [Uretimde] 3 dis sezonda (`N=1,140`) anlamli iyilesme (LL 0.9746 vs v1.2 0.9757, v1.1 0.9789, Brier 0.5798, RPS 0.1980, Isabet %55.09); 304 holdout LL 1.026 (`1.0256`) vs 1.092 | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
-| **Korner** | Sabit ortalama (`training_mean`) | [Baseline] Gelistirme donemi dis sezon kapisinda (1/2) elendigi icin durust ortalama korundu (holdout RMSE 3.235) | [corners_model.md](docs/reports/models/corners_model.md) |
-| **Tac** | PoissonRegressor (alpha=10.0), 14 ozellik | [Uretimde] Gelistirme dis sezon 2/2 basarim (RMSE 6.941 vs 7.337) | [throws_model.md](docs/reports/models/throws_model.md) |
-| **Ofsayt** | Ridge (alpha=250.0), 10 ozellik | [Uretimde] Gelistirme dis sezon 2/2 basarim (RMSE 1.906 vs 2.013) | [offsides_model.md](docs/reports/models/offsides_model.md) |
-| **Kart** | Sabit ortalama (`training_mean`) | [Baseline] Ozellikli aday dis sezon kapisini gecemedigi (1/2) icin durust ortalama korundu | [cards_model.md](docs/reports/models/cards_model.md) |
-| **Kurtaris** | Sabit ortalama (`training_mean`) | [Baseline] Capraz dogrulama kapisi gecilemedigi icin durust ortalama korundu | [saves_model.md](docs/reports/models/saves_model.md) |
-| **La Liga 1X2** | 118 ozellikli lojistik (C=0.001) + Elo referansi; kapi: taban orani anlamli gecmeli ve log-loss Elo'dan kotu olmamali; yoksa Elo `baseline` olarak sunulur | [Uretimde] 760 dis sezon macinda taban orani anlamli geciyor (-0.086), Elo'dan ayirt edilemiyor (-0.008, N_req ~6,619), piyasadan kotu (+0.019); gol pazarlari ayri dis sezon degerlendirmesiyle PL gol modeline tasindi: 1.5 ust (q=0.006) ve 2.5 ust (q=0.011) taban orani anlamli geciyor, 3.5 ust ve KG `baseline` (taban orani) | [la_liga_outcome.md](docs/reports/models/la_liga_outcome.md) |
-| **La Liga sayim modelleri** | Korner, tac, ofsayt, kart, kurtaris: PL ile ayni CV ve dis sezon kapilari, LaLiga'ya ozgu ozellik listeleri | [Uretimde] PL ozellik koduyla egitildi. Tac (holdout RMSE 7.34, ortalama 9.15) ve ofsayt (2.14, ortalama 2.26; kirilgan karar) kapiyi gecti; korner, kart, kurtaris `training_mean` (`baseline`) | [la_liga_counts.md](docs/reports/models/la_liga_counts.md) |
+| **Gol (Skor Matrisi)** | 13x13 matris (`v1.6`): bagimsiz Poisson x Dixon-Coles tau, lambda = lambda_Feat (`w_dc=0`), full 60 ozellik (`exp_match_xg_10` ve `exp_venue_match_xg` dahil), alpha=3; egitim/degerlendirme/API'de 1X2 (`v1.4`) marjinaline hizalanir | [Uretimde] Skor dagilimi (NLL 2.9673), 2.5 Ust'te prior'i 3/3 sezonda ve anlamli geciyor (LL 0.6763, haftalik refit 0.6752, Delta -0.0085); KG LL 0.6805 (etiket kilitli) | [goals_model.md](docs/reports/models/goals_model.md) |
+| **1X2 Mac Sonucu** | 74 ozellikli (`v1.4`) L2 duzenlilestirilmis cok terimli lojistik regresyon (`C=0.003`) + ayristirilmis L2 cezali OOF sicaklik/bias kalibrasyonu (`reg_temp=0.10, reg_bias=0.50`) | [Uretimde] 3 dis sezonda (`N=1,140`) Pooled LL 0.9732 (Brier 0.5790, RPS 0.1977, Isabet %54.47); 304 holdout LL 1.024 (`Acc %50.33`) vs 1.092 | [outcome_1x2_model.md](docs/reports/models/outcome_1x2_model.md) |
+| **Korner** | Sabit ortalama (`training_mean`) | [Baseline] Gelistirme dis sezon kapisinda (1/2) elendigi icin durust ortalama korundu (holdout RMSE 3.2276) | [corners_model.md](docs/reports/models/corners_model.md) |
+| **Tac** | Ridge (`alpha=100.0`), 14 ozellik | [Uretimde] Gelistirme dis sezon 2/2 basarim (holdout RMSE 6.9994 vs 7.3884) | [throws_model.md](docs/reports/models/throws_model.md) |
+| **Ofsayt** | Ridge (`alpha=250.0`), 10 ozellik | [Uretimde] Gelistirme dis sezon 2/2 basarim (holdout RMSE 1.9263 vs 2.0356) | [offsides_model.md](docs/reports/models/offsides_model.md) |
+| **Kart** | Sabit ortalama (`training_mean`) | [Baseline] Ozellikli aday dis sezon kapisini gecemedigi (1/2) icin durust ortalama korundu (holdout RMSE 1.9744) | [cards_model.md](docs/reports/models/cards_model.md) |
+| **Kurtaris** | Sabit ortalama (`training_mean`) | [Baseline] Dis sezon kapisi gecilemedigi (0/2) icin durust ortalama korundu (holdout RMSE 2.3633) | [saves_model.md](docs/reports/models/saves_model.md) |
 
 Sayim modellerinde ozellikli bir model ancak hem CV kapisini hem de kronolojik dis sezon test kapisini gecerse uretim modeline alinir. Gecemezse sabit ortalama kullanilir ve API `model_skill: "baseline"` degeri doner.
 
@@ -156,10 +154,9 @@ python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14
 
 # Oynanmis ve sonuclanmis maclari puanla:
 python3 -m src.analytics.prospective_1x2_benchmark score
-# LaLiga icin ayni komutlara --competition la_liga eklenir
 ```
 
-Tahminler `data/competitions/premier_league/processed/1x2_forecast_log.jsonl` dosyasina yalnizca ekleme (append-only) yontemiyle yazilir; puan karti `docs/reports/prospective_1x2_scorecard.json` uzerinden takip edilir. Protokol kurallari: [Paper Trading Protokolu](docs/reports/paper_trading_protocol_2026_27.md).
+Tahminler `data/competitions/premier_league/processed/1x2_forecast_log.jsonl` dosyasina yalnizca ekleme (append-only) yontemiyle yazilir; puan karti `reports/prospective_1x2_scorecard.json` uzerinden takip edilir. Protokol kurallari: [Paper Trading Protokolu](docs/paper_trading_protocol_2026_27.md).
 
 ---
 
@@ -179,35 +176,38 @@ Metodolojik kurallarin tamami: [Metodolojik Anayasa (Ana Rapor, Bolum 8)](docs/r
 
 ```
 README.md                      <- Genel bakis ve kurulum rehberi
-PROJECT_STATUS.md              <- Guncel proje durumu, bilinen sinirlar, yol haritasi
-CLAUDE.md / AI_CONTEXT.md      <- Ajanlar icin talimatlar ve makine-okunur parametre referansi
-ARTIFACT_REGISTRY.md           <- Veri setleri ve model artefaktlari kayit defteri
-VERI_VE_GOSTERIM_KATALOGU.md   <- Veri semasi, taktik metrikler ve arayuz gosterimleri
+AGENTS.md                      <- Ajanlar icin kurallar, risk haritasi ve modül yönlendirme (CLAUDE/GEMINI/CODEX)
 data/
 ├── football.db                <- Ortak SQLite; her mac satiri competition_id tasir (39 PL, 2 UCL, 3 UEL)
-└── competitions/<anahtar>/    <- Turnuva basina raw/ (saglayici ciktilari) ve processed/ (parquet, ozellikler, degerlendirme JSON'lari)
-models/production/<anahtar>/   <- Turnuva basina egitilmis modeller (yalnizca premier_league icin mevcut)
+└── competitions/<anahtar>/    <- Turnuva basina raw/ ve processed/ (parquet, ozellikler, tahmin gunlugu)
+models/production/<anahtar>/   <- Turnuva basina egitilmis modeller
 docs/
-├── data_sources.md            <- Hangi turnuva icin hangi veri nereden geliyor (kaynak haritasi)
+├── README.md                  <- Tum /docs mimari haritasi
+├── project_status.md          <- Guncel proje durumu, bilinen sinirlar, yol haritasi
+├── artifact_registry.md       <- Veri setleri ve model artefaktlari kayit defteri
+├── data_and_ui_catalog.md     <- Veri semasi, taktik metrikler ve arayuz gosterimleri
+├── data_sources.md            <- Turnuva veri kaynaklari ve script kataloğu
 ├── model_api_integration.md   <- Model ciktilari -> FastAPI uclari -> React bilesenleri
+├── paper_trading_protocol_2026_27.md  <- 2026/27 sezonu canli test protokolü
 ├── scripts_reference.md       <- Tum scriptlerin gorevleri ve kullanim referansi
-└── reports/
-    ├── README.md              <- Rapor dizini
-    ├── premier_league_models_comprehensive_report.md  <- Kapsamli model & benchmark ana raporu
-    ├── models/                <- Her model ailesinin ozel teknik raporu
-    ├── model_benchmarks.md    <- Pipeline tarafindan uretilen benchmark skorlari
-    ├── data_quality.md        <- Veri kalitesi ve eksik veri analiz raporu
-    └── paper_trading_protocol_2026_27.md  <- 2026/27 sezonu canli test protokolü
+└── reports/                   <- El ile tutulan model ve sistem mimari raporlari (`models/*.md`)
+reports/
+├── README.md                  <- Üretilmiş raporlar ve tarihsel denetim indeksi
+├── model_benchmarks.md        <- Pipeline tarafindan uretilen benchmark skorlari
+├── data_quality.md            <- Veri kalitesi ve eksik veri analiz raporu
+├── audits/                    <- Tarihsel adli denetim kayitlari
+└── experiments/               <- Tarih damgali deney/ablasyon ciktisi
 ```
 
 | Konu | Baglanti |
 | :--- | :--- |
+| Tum Dokumantasyon Haritasi | [docs/README.md](docs/README.md) |
 | Model Mimarileri, Sonuclar ve Deneyler | [docs/reports/models/](docs/reports/models/) |
 | Kapsamli Sistem Raporu & Anayasa | [Ana Rapor](docs/reports/premier_league_models_comprehensive_report.md) |
-| Guncel Model Benchmark Sonuclari | [Model Benchmarks](docs/reports/model_benchmarks.md) |
-| Veri Kalitesi ve Kapsam | [Data Quality](docs/reports/data_quality.md) |
-| Veri Semasi ve Taktik Alanlar | [Veri Kataloğu](VERI_VE_GOSTERIM_KATALOGU.md) |
+| Guncel Model Benchmark Sonuclari | [Model Benchmarks](reports/model_benchmarks.md) |
+| Veri Kalitesi ve Kapsam | [Data Quality](reports/data_quality.md) |
+| Veri Semasi ve Taktik Alanlar | [Veri Kataloğu](docs/data_and_ui_catalog.md) |
 | API Alan Eslestirmeleri | [Model API Entegrasyonu](docs/model_api_integration.md) |
-| Canli Sezon Takibi (Paper Trading) | [Paper Trading Protokolu](docs/reports/paper_trading_protocol_2026_27.md) |
+| Canli Sezon Takibi (Paper Trading) | [Paper Trading Protokolu](docs/paper_trading_protocol_2026_27.md) |
 | Script Referansi ve Envanteri | [Script Referansi](docs/scripts_reference.md) |
-| Rapor Merkezi | [Rapor Merkezi](docs/reports/README.md) |
+| Uretilen Raporlar & Denetimler | [reports/README.md](reports/README.md) |

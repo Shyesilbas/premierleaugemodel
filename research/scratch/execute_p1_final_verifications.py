@@ -243,7 +243,7 @@ def main():
     print(f"{'Eşik':<7} | {'N':<5} | {'Kazanma':<8} | {'Beklenen':<8} | {'ROI %':<8} | {'Binom p(raw)':<13} | {'Binom p(Bonf)':<13} | {'Binom q(FDR)':<13} | {'ROI p(raw)':<10} | {'ROI p(Bonf)':<11} | {'ROI q(FDR)':<10}")
     print("-" * 135)
     for _, row in edge_df.iterrows():
-        sig = "🚨 ANLAMLI" if row["binom_q_fdr"] < 0.05 else "GÜRÜLTÜ"
+        sig = "[ANLAMLI]" if row["binom_q_fdr"] < 0.05 else "GÜRÜLTÜ"
         print(f"{row['threshold']:<7} | {int(row['n']):<5d} | %{row['win_rate']:<6.1f} | %{row['expected_p']:<6.1f} | %{row['roi']:<+6.2f} | {row['binom_p']:<13.4f} | {row['binom_p_bonf']:<13.4f} | {row['binom_q_fdr']:<13.4f} | {row['t_p']:<10.4f} | {row['t_p_bonf']:<11.4f} | {row['t_q_fdr']:<10.4f} | {sig}")
 
 if __name__ == "__main__":

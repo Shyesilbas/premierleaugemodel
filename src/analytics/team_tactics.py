@@ -155,6 +155,24 @@ TACTICAL_METRICS = {
         "decimals": 2,
         "description": "Takımın xG toplamının toplam şut sayısına oranı. Yüksek değer daha kaliteli konumlardan şut çekildiğini gösterir.",
     },
+    "goals_per_match": {
+        "label": "Gol",
+        "unit": "maç başına",
+        "decimals": 2,
+        "description": "Takımın maç başına attığı gerçek gol sayısı. xG ile karşılaştırıldığında bitiricilik farkını görmeye yardımcı olur.",
+    },
+    "big_chances_per_match": {
+        "label": "Büyük fırsat",
+        "unit": "maç başına",
+        "decimals": 1,
+        "description": "Maç başına yaratılan net gol fırsatı sayısı. Ceza sahası içi şut ve xG üretimini tamamlar.",
+    },
+    "goals_conceded_per_match": {
+        "label": "Yenilen gol",
+        "unit": "maç başına",
+        "decimals": 2,
+        "description": "Takımın maç başına kalesinde gördüğü gerçek gol sayısı. xGA ile birlikte savunma/kaleci performansını gösterir.",
+    },
     "pen_area_entries": {
         "label": "Ceza sahasına giriş",
         "unit": "maç başına",
@@ -180,6 +198,12 @@ TACTICAL_METRICS = {
         "unit": "maç başına",
         "decimals": 2,
         "description": "Maç başına görülen sarı kart. Kaynakta kart görülmeyen maçlar kayıtsız bırakıldığından bu maçlar sıfır sayılır.",
+    },
+    "red_cards": {
+        "label": "Kırmızı kart",
+        "unit": "maç başına",
+        "decimals": 2,
+        "description": "Maç başına görülen kırmızı kart. Kaynakta kart görülmeyen maçlar kayıtsız bırakıldığından bu maçlar sıfır sayılır.",
     },
 }
 
@@ -213,11 +237,18 @@ def load_team_match_rows() -> tuple[dict[int, list[dict[str, Any]]], dict[int, s
             continue
         season_label = entity.get("gameweek", {}).get("compSeason", {}).get("label", "")
         season = normalize_season(season_label)
+        teams_list = entity.get("teams", [])
         fixture_teams = {
             int(entry.get("team", {}).get("id")): entry.get("team", {})
-            for entry in entity.get("teams", [])
+            for entry in teams_list
             if entry.get("team", {}).get("id") is not None
         }
+        home_entry = teams_list[0] if len(teams_list) >= 2 else {}
+        away_entry = teams_list[1] if len(teams_list) >= 2 else {}
+        home_tid = home_entry.get("team", {}).get("id")
+        away_tid = away_entry.get("team", {}).get("id")
+        home_score = _number(home_entry.get("score"))
+        away_score = _number(away_entry.get("score"))
 
         fixture_data = payload.get("data", {})
         fixture_metrics_by_team: dict[int, dict[str, Any]] = {}
@@ -241,10 +272,19 @@ def load_team_match_rows() -> tuple[dict[int, list[dict[str, Any]]], dict[int, s
                 if opp_shots is not None:
                     metrics["shots_conceded"] = opp_shots
 
+            venue = "home" if home_tid is not None and int(home_tid) == team_id else ("away" if away_tid is not None and int(away_tid) == team_id else "unknown")
+            if venue == "home" and home_score is not None and away_score is not None:
+                metrics["goals_for"] = home_score
+                metrics["goals_against"] = away_score
+            elif venue == "away" and home_score is not None and away_score is not None:
+                metrics["goals_for"] = away_score
+                metrics["goals_against"] = home_score
+
             by_team[team_id].append(
                 {
                     "match_id": int(fixture_id),
                     "season": season,
+                    "venue": venue,
                     "metrics": metrics,
                 }
             )
@@ -357,6 +397,10 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
     corners_won_values: list[float] = []
     fouls: list[float] = []
     yellow_cards: list[float] = []
+    red_cards: list[float] = []
+    goals_for_values: list[float] = []
+    goals_against_values: list[float] = []
+    big_chances_values: list[float] = []
 
     for row in rows:
         metrics = row["metrics"]
@@ -543,6 +587,17 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
         # Opta omits the card key in matches without a card; DB match cards confirm
         # that absence means zero for 448 of 457 such team-matches.
         yellow_cards.append(_number(metrics.get("total_yel_card")) or 0.0)
+        red_cards.append(_number(metrics.get("total_red_card")) or 0.0)
+
+        value = _number(metrics.get("goals_for"))
+        if value is not None and value >= 0:
+            goals_for_values.append(value)
+        value = _number(metrics.get("goals_against"))
+        if value is not None and value >= 0:
+            goals_against_values.append(value)
+        value = _number(metrics.get("big_chance_created"))
+        if value is not None and value >= 0:
+            big_chances_values.append(value)
 
     def mean(values: list[float]) -> float | None:
         return sum(values) / len(values) if values else None
@@ -603,6 +658,9 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
             xg_shot_total / xg_shot_attempts if xg_shot_attempts else None,
             xg_shot_matches,
         ),
+        "goals_per_match": (mean(goals_for_values), len(goals_for_values)),
+        "big_chances_per_match": (mean(big_chances_values), len(big_chances_values)),
+        "goals_conceded_per_match": (mean(goals_against_values), len(goals_against_values)),
         "pen_area_entries": (mean(box_entries), len(box_entries)),
         "conceded_inside_box_share": (
             conceded_inside / conceded_split_total * 100 if conceded_split_total else None,
@@ -611,6 +669,7 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
         "corners_won_per_match": (mean(corners_won_values), len(corners_won_values)),
         "fouls_committed": (mean(fouls), len(fouls)),
         "yellow_cards": (mean(yellow_cards), len(yellow_cards)),
+        "red_cards": (mean(red_cards), len(red_cards)),
         "interceptions": (mean(interceptions), len(interceptions)),
         "tackle_success": (tackles_won / tackles_total * 100 if tackles_total else None, tackle_matches),
         "aerial_duel_success": (
@@ -652,19 +711,22 @@ def _formation_usage(rows: list[dict[str, Any]], limit: int = 3) -> list[dict[st
     ]
 
 
-@lru_cache(maxsize=128)
-def get_team_tactical_profile(team_id: int, season: str = "all") -> dict[str, Any]:
+@lru_cache(maxsize=256)
+def get_team_tactical_profile(team_id: int, season: str = "all", venue: str = "all") -> dict[str, Any]:
     by_team, team_names = load_team_match_rows()
+    venue_key = venue if venue in ("home", "away") else "all"
     selected = [
         row
         for row in by_team.get(team_id, [])
-        if season in ("", "all") or row["season"] == season
+        if (season in ("", "all") or row["season"] == season)
+        and (venue_key == "all" or row.get("venue") == venue_key)
     ]
     if not selected:
         return {
             "team_id": team_id,
             "team_name": team_names.get(team_id),
             "season": season,
+            "venue": venue_key,
             "matches": 0,
             "metrics": {},
         }
@@ -676,6 +738,7 @@ def get_team_tactical_profile(team_id: int, season: str = "all") -> dict[str, An
             row
             for row in rows
             if row["season"] in selected_seasons
+            and (venue_key == "all" or row.get("venue") == venue_key)
         ]
 
     team_values = _aggregate(selected)
@@ -746,6 +809,7 @@ def get_team_tactical_profile(team_id: int, season: str = "all") -> dict[str, An
         "team_id": team_id,
         "team_name": team_names.get(team_id),
         "season": season,
+        "venue": venue_key,
         "matches": len({row["match_id"] for row in selected}),
         "formations": _formation_usage(selected),
         "metrics": response_metrics,

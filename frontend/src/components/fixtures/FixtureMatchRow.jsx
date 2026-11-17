@@ -1,8 +1,17 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, RefreshCw } from 'lucide-react';
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
 import { penaltyText, tieNote } from '../../utils/knockout';
 
-export default function FixtureMatchRow({ match: m, home, away, onMatchClick, onSelectTeam }) {
+export default function FixtureMatchRow({
+  match: m,
+  home,
+  away,
+  isPendingRefresh = false,
+  isRefreshing = false,
+  onRefreshMatch,
+  onMatchClick,
+  onSelectTeam,
+}) {
   const isCompleted = m.status === 'COMPLETED' && m.home_score !== null;
   const nameClass = (won, lost) => (won ? 'font-semibold text-text-primary' : lost ? 'font-normal text-text-secondary' : 'font-normal text-text-primary');
   const homeWon = isCompleted && m.home_score > m.away_score;
@@ -80,7 +89,19 @@ export default function FixtureMatchRow({ match: m, home, away, onMatchClick, on
       )}
       </div>
 
-      <div className="flex items-center gap-2 shrink-0 justify-end sm:w-32">
+      <div className="flex items-center gap-2 shrink-0 justify-end sm:w-36">
+        {isPendingRefresh && onRefreshMatch && (
+          <button
+            type="button"
+            disabled={isRefreshing}
+            onClick={(event) => { event.stopPropagation(); onRefreshMatch(m.match_id); }}
+            title="Maç verisini yenile"
+            aria-label="Maç verisini yenile"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-border bg-background-tertiary text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        )}
         {tag && <span className="hidden sm:block text-xs text-text-secondary truncate tabular-nums" title={tag}>{tag}</span>}
         <ChevronRight className="w-4 h-4 text-text-tertiary" strokeWidth={1.5} aria-hidden="true" />
       </div>

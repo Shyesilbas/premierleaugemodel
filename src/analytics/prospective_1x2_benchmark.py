@@ -6,7 +6,7 @@ while the API's local fixture/data snapshot is current. Each forecast is kept in
 an append-only JSONL log. ``score`` uses the latest saved forecast made before
 kickoff for each completed match, grouped by production-artifact fingerprint.
 
-``--competition`` picks the league (default ``premier_league``). A league fed by TheStatsAPI (``la_liga``) keeps its own
+``--competition`` picks the league (default ``premier_league``). A national league fed by TheStatsAPI keeps its own
 log in ``data/competitions/<key>/processed/``, takes its forecasts from the same function that serves the match page
 (``compute_league_prediction``), reads results from ``data/football.db`` and writes ``prospective_1x2_scorecard_<key>.json``.
 """

@@ -1,4 +1,4 @@
-"""TheStatsAPI as the fixture source of a national league (LaLiga and any league added the same way).
+"""TheStatsAPI as the fixture source of a national league.
 
 The feed lists matches with string ids (``mt_733716933``) and teams as ``tm_20116``. The local store has one integer
 primary key for matches across all competitions, so provider ids are shifted into ranges no other feed uses:
@@ -26,18 +26,11 @@ MATCH_ID_OFFSET = 100_000_000
 SCHEDULE_ID_OFFSET = 300_000_000  # placeholder matches taken from the published calendar (see missing_fixtures)
 TEAM_ID_OFFSET = 10_000_000
 DISPLAY_TZ = ZoneInfo("Europe/London")  # same clock as the Premier League and UEFA labels
-LOCAL_TZ = {"la_liga": ZoneInfo("Europe/Madrid")}  # clock of the calendar's kick-off times
+LOCAL_TZ: Dict[str, ZoneInfo] = {}  # optional per-competition calendar timezone override
 SCHEDULE_MIN_SIMILARITY = 0.85
 
-# Three-letter codes for the clubs seen in LaLiga since 2022/23; unknown clubs get a derived code.
-ABBREVIATIONS = {
-    "almeria": "ALM", "athletic club": "ATH", "atletico madrid": "ATM", "barcelona": "BAR", "cadiz": "CAD",
-    "celta vigo": "CEL", "deportivo alaves": "ALA", "deportivo la coruna": "DEP", "elche": "ELC", "espanyol": "ESP",
-    "getafe": "GET", "girona": "GIR", "girona fc": "GIR", "granada": "GRA", "las palmas": "LPA", "leganes": "LEG",
-    "levante ud": "LEV", "mallorca": "MLL", "malaga": "MAL", "osasuna": "OSA", "racing de santander": "RAC",
-    "rayo vallecano": "RAY", "real betis": "BET", "real madrid": "RMA", "real oviedo": "OVI", "real sociedad": "RSO",
-    "real valladolid": "VLL", "sevilla": "SEV", "valencia": "VAL", "villarreal": "VIL",
-}
+# Optional three-letter club code overrides keyed by normalized club name; unknown clubs get a derived code.
+ABBREVIATIONS: Dict[str, str] = {}
 
 
 def _number(provider_id: str) -> int:

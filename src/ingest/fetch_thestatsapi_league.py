@@ -1,7 +1,7 @@
 """Download a national league from TheStatsAPI into the per-competition raw folder.
 
 Usage:
-  THESTATSAPI_API_KEY=... python3 -m src.ingest.fetch_thestatsapi_league --competition la_liga \\
+  THESTATSAPI_API_KEY=... python3 -m src.ingest.fetch_thestatsapi_league --competition <league_key> \\
       [--seasons 2023_24 2024_25] [--kinds match stats lineups ...] [--skip-teams]
 
 Writes ``data/competitions/<key>/raw/thestatsapi/``: ``fixtures_<season>.json`` (the match list, each entry tagged with its
@@ -24,8 +24,8 @@ from typing import Any, Dict, List, Optional
 from src.competitions.registry import get_competition
 from src.config import configure_logging
 from src.ingest.import_thestatsapi_xg import fetch_all_matches
-from src.ingest.providers.thestatsapi_league import PROVIDER, local_match_id, local_team_id
-from src.ingest.raw_store import competition_payload_path, match_payload_path, provider_dir, season_file_path, write_json
+from src.ingest.providers.thestatsapi_league import PROVIDER, local_match_id
+from src.ingest.raw_store import competition_payload_path, match_payload_path, season_file_path, write_json
 from src.ingest.sync_thestatsapi_competition import PacedClient
 
 logger = logging.getLogger("fetch_thestatsapi_league")
@@ -49,7 +49,7 @@ def season_key(season: Dict[str, Any]) -> str:
 
 
 def migrate_flat_layout(competition_key: str) -> int:
-    """Move files written by the first LaLiga download (``raw/matches/mt_*_<kind>.json``) into the provider layout."""
+    """Move legacy flat fixture downloads (``raw/matches/mt_*_<kind>.json``) into the provider layout."""
     from src.config import competition_paths
 
     paths = competition_paths(competition_key)

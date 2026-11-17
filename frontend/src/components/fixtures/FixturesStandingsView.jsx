@@ -1,6 +1,6 @@
 import { Trophy } from 'lucide-react';
 import { handleTeamBadgeError } from '../../utils/imageFallbacks';
-import { useCompetition } from '../../context/CompetitionContext';
+import { useCompetition } from '../../context/competitionState';
 
 // Zone ids come from the API (src/api/routes/fixtures.py); the row colour follows the team's overall zone.
 const ZONE_BAR = {

@@ -14,9 +14,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import joblib
 import pandas as pd
 
-from src.analytics.team_attackers import get_team_attacking_leaders
-from src.analytics.team_scenarios import get_team_scenario_profile
-from src.analytics.team_tactics import get_team_tactical_profile
+from src.analytics.player_ratings import clear_caches as clear_player_rating_caches
+from src.analytics.team_attackers import _load_inputs as _load_attacker_inputs, get_team_attacking_leaders
+from src.analytics.team_scenarios import get_team_scenario_profile, load_team_match_scenarios
+from src.analytics.team_tactics import get_team_tactical_profile, load_team_match_rows
 from src.config import DEFAULT_SEASON, FEATURES_PATH, MATCHES_SUMMARY_PATH, MODELS_DIR, PROCESSED_DIR, RAW_DIR
 from src.db.database import attach_statsapi_xg
 from src.features.build_features import (
@@ -81,6 +82,7 @@ _fixture_pred_cache: Dict[Tuple[int, int, Optional[str]], Dict[str, Any]] = {}
 _season_players_cache: Dict[str, Dict[int, Dict[str, Any]]] = {}
 _player_logs_dict: Optional[Dict[str, Any]] = None
 _player_cards_dict: Optional[Dict[str, Any]] = None
+_player_compare_cache: Dict[Tuple[str, int, int], Dict[str, Any]] = {}
 _loaded_data_version: int = 0
 _data_reload_lock = threading.Lock()
 
@@ -289,6 +291,11 @@ def reload_runtime_datasets() -> None:
     _completed_match_details_cache.clear()
     _historical_standings_cache.clear()
     _historical_fixtures_grouped_cache.clear()
+    _player_compare_cache.clear()
+    load_team_match_rows.cache_clear()
+    load_team_match_scenarios.cache_clear()
+    _load_attacker_inputs.cache_clear()
+    clear_player_rating_caches()
     get_team_tactical_profile.cache_clear()
     get_team_scenario_profile.cache_clear()
     get_team_attacking_leaders.cache_clear()

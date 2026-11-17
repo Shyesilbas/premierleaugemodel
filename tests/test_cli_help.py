@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INGEST_TOOLS = (
     "sync_competition", "sync_competition_data", "sync_thestatsapi_competition", "fetch_thestatsapi_league",
     "load_thestatsapi_league", "fetch_openfootball_schedule", "fetch_team_badges", "export_competition_raw",
+    "fetch_transfermarkt_league",
 )
 
 

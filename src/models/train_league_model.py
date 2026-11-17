@@ -1,6 +1,6 @@
-"""Train and audit the match-outcome and goals model of a league fed by TheStatsAPI (LaLiga and leagues added the same way).
+"""Train and audit the match-outcome and goals model of a national league fed by TheStatsAPI.
 
-Usage: python3 -m src.models.train_league_model --competition la_liga [--no-save]
+Usage: python3 -m src.models.train_league_model --competition <league_key> [--no-save]
 
 What it does:
 1. builds the pre-match feature table (``build_league_features``) from the database;
@@ -13,7 +13,7 @@ What it does:
    against base rates and the training mean;
 4. gate: the model is served only if it beats the base rate significantly and is not worse than the Elo baseline;
    otherwise the Elo baseline is served and labelled as such;
-5. writes the report (docs/reports/models/<key>_walk_forward.json) and, unless --no-save, the production artifact
+5. writes the report (reports/models/<key>_walk_forward.json) and, unless --no-save, the production artifact
    (models/production/<key>/outcome_models_v1.joblib) fitted on every played match.
 
 Reads:  data/football.db (matches, TheStatsAPI statistics and odds). Writes: the report and the artifact of that competition only.

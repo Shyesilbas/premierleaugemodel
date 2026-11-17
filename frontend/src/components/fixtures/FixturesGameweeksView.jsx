@@ -3,7 +3,19 @@ import { getTeam } from '../../data/teams';
 import FixtureMatchCard from './FixtureMatchCard';
 import FixtureMatchRow from './FixtureMatchRow';
 
-export default function FixturesGameweeksView({ loading, filteredGameweeks, displayMode, currentGameweek, teamManagers, teamForms, onMatchClick, onSelectTeam }) {
+export default function FixturesGameweeksView({
+  loading,
+  filteredGameweeks,
+  displayMode,
+  currentGameweek,
+  teamManagers,
+  teamForms,
+  pendingMatchIds,
+  refreshingMatchId,
+  onRefreshMatch,
+  onMatchClick,
+  onSelectTeam,
+}) {
   return (
     <>
       {loading ? (
@@ -32,7 +44,7 @@ export default function FixturesGameweeksView({ loading, filteredGameweeks, disp
                           <div className="flex items-center gap-2">
                             <h3 className="text-sm font-semibold text-text-primary">{gwObj.title || `Hafta ${gwObj.gameweek}`}</h3>
                             {gwObj.stage && gwObj.stage !== 'league' && (
-                              <span className="text-xs px-2 py-0.5 rounded-sm bg-primary/10 text-primary font-medium">
+                              <span className="text-xs px-2 py-0.5 rounded-sm bg-background-tertiary border border-border text-text-primary font-medium">
                                 {gwObj.stage_title || 'Eleme Turu'}
                               </span>
                             )}
@@ -64,6 +76,9 @@ export default function FixturesGameweeksView({ loading, filteredGameweeks, disp
                                     match={m}
                                     home={home}
                                     away={away}
+                                    isPendingRefresh={pendingMatchIds?.has(Number(m.match_id))}
+                                    isRefreshing={Number(refreshingMatchId) === Number(m.match_id)}
+                                    onRefreshMatch={onRefreshMatch}
                                     onMatchClick={onMatchClick}
                                     onSelectTeam={onSelectTeam}
                                   />
@@ -89,6 +104,9 @@ export default function FixturesGameweeksView({ loading, filteredGameweeks, disp
                                     currentGameweek={currentGameweek}
                                     homeForm={teamForms.get(Number(m.home_id)) || []}
                                     awayForm={teamForms.get(Number(m.away_id)) || []}
+                                    isPendingRefresh={pendingMatchIds?.has(Number(m.match_id))}
+                                    isRefreshing={Number(refreshingMatchId) === Number(m.match_id)}
+                                    onRefreshMatch={onRefreshMatch}
                                     onMatchClick={onMatchClick}
                                     onSelectTeam={onSelectTeam}
                                   />

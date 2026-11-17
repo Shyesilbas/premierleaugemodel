@@ -62,6 +62,9 @@ export function registerLogosFrom(data) {
   ((data.european || {}).matches || []).forEach(addMatch); // European games listed on referee and player pages
   (data.rounds || []).forEach(round => (round.ties || []).forEach(tie => (tie.teams || []).forEach(t => registerTeamInfo(t.id, { logo: t.logo, abbr: t.abbr }))));
   (data.teams || []).forEach(t => registerTeamInfo(t.id, { logo: t.logo, abbr: t.abbr, stadium: t.ground_name }));
+  (data.profiles || []).forEach(p => {
+    if (p?.teamId && p?.teamBadge) registerTeamInfo(p.teamId, { logo: p.teamBadge });
+  });
   if (data.team) registerTeamInfo(data.team.id, { logo: data.team.badge, abbr: data.team.abbr, stadium: data.team.ground });
   (Array.isArray(data) ? data : data.standings || []).forEach(t => {
     if (typeof t?.badge === 'string' && t.badge) registerTeamInfo(t.id, { logo: t.badge, abbr: t.abbr });

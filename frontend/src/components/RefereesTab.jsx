@@ -14,61 +14,65 @@ import {
 import { getTeam } from '../data/teams';
 import MatchDetailModal from './MatchDetailModal';
 import { getRefereeDetails, getReferees } from '../services/refereeService';
-import { useCompetition } from '../context/CompetitionContext';
+import { useCompetition } from '../context/competitionState';
 import CompetitionBadge from './team-profile/CompetitionBadge';
+import ModalDialog from './common/ModalDialog';
+import Skeleton from './common/Skeleton';
 import { COMPETITIONS } from './team-profile/teamProfileUtils';
 
 export default function RefereesTab({ selectedSeason, onSelectMatch }) {
   const { competitionKey, activeCompetition } = useCompetition();
-  const [referees, setReferees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [seasonOverride, setSeasonOverride] = useState({ prop: selectedSeason, value: selectedSeason });
+  const [refereesResult, setRefereesResult] = useState({ key: '', items: [] });
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('matches');
-  const [activeSeason, setActiveSeason] = useState(selectedSeason || '2026_27');
-  const [selectedReferee, setSelectedReferee] = useState(null);
-  const [refereeDetail, setRefereeDetail] = useState(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [refSelection, setRefSelection] = useState({ competition: competitionKey, name: null });
+  const [detailResult, setDetailResult] = useState({ key: '', data: null });
   const [activeModalMatch, setActiveModalMatch] = useState(null);
 
-  // Sync with prop when changed
-  useEffect(() => {
-    if (selectedSeason) {
-      setActiveSeason(selectedSeason);
-    }
-  }, [selectedSeason]);
+  const activeSeason = seasonOverride.prop === selectedSeason
+    ? (seasonOverride.value || '2026_27')
+    : (selectedSeason || '2026_27');
+  const selectedReferee = refSelection.competition === competitionKey ? refSelection.name : null;
 
-  useEffect(() => {
-    setSelectedReferee(null);
-    setRefereeDetail(null);
-  }, [competitionKey]);
+  const listKey = `${activeSeason}:${competitionKey}`;
+  const loading = refereesResult.key !== listKey;
+  const referees = useMemo(
+    () => (refereesResult.key === listKey ? refereesResult.items : []),
+    [refereesResult, listKey],
+  );
 
   // Fetch Referees list
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     getReferees(activeSeason, competitionKey)
       .then(data => {
-        setReferees(data?.referees || []);
-        setLoading(false);
+        if (!cancelled) setRefereesResult({ key: listKey, items: data?.referees || [] });
       })
       .catch(err => {
         console.error('Error fetching referees:', err);
-        setLoading(false);
+        if (!cancelled) setRefereesResult({ key: listKey, items: [] });
       });
-  }, [activeSeason, competitionKey]);
+    return () => { cancelled = true; };
+  }, [activeSeason, competitionKey, listKey]);
+
+  const detailKey = selectedReferee ? `${selectedReferee}:${activeSeason}:${competitionKey}` : '';
+  const loadingDetail = Boolean(selectedReferee && detailResult.key !== detailKey);
+  const refereeDetail = detailResult.key === detailKey ? detailResult.data : null;
+
+  const closeRefereeModal = () => setRefSelection({ competition: competitionKey, name: null });
 
   // Fetch Referee Detail when a referee is clicked
   const handleOpenDetail = (refName) => {
-    setSelectedReferee(refName);
-    setRefereeDetail(null);
-    setLoadingDetail(true);
+    setRefSelection({ competition: competitionKey, name: refName });
+    const targetKey = `${refName}:${activeSeason}:${competitionKey}`;
     getRefereeDetails(refName, activeSeason, competitionKey)
       .then(data => {
-        setRefereeDetail(data);
-        setLoadingDetail(false);
+        setDetailResult({ key: targetKey, data });
       })
       .catch(err => {
         console.error('Error fetching referee detail:', err);
-        setLoadingDetail(false);
+        setDetailResult({ key: targetKey, data: null });
       });
   };
 
@@ -155,7 +159,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
             <select
               id="referee-season-select"
               value={activeSeason}
-              onChange={(e) => setActiveSeason(e.target.value)}
+              onChange={(e) => setSeasonOverride({ prop: selectedSeason, value: e.target.value })}
               className="h-9 min-w-44 bg-background-primary border border-border text-sm font-medium text-text-primary rounded px-3 outline-none focus:border-border-focus transition-colors"
             >
               <option value="2026_27">2026-27 (Güncel Sezon)</option>
@@ -370,47 +374,44 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
       </section>
 
       {/* Referee Detail Modal */}
-      {selectedReferee && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-3 sm:p-6"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setSelectedReferee(null); }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${selectedReferee} profil detayı`}
-            className="bg-background-primary rounded-md max-w-3xl w-full max-h-screen overflow-y-auto border border-border shadow-md"
-          >
-            {/* Modal Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background-primary p-5 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-background-tertiary border border-border text-text-primary flex items-center justify-center font-semibold text-sm shrink-0">
-                  <Scale className="w-5 h-5 text-text-secondary" />
-                </div>
-                <div>
-                  <h2 className="text-lg sm:text-xl font-semibold text-text-primary">{selectedReferee}</h2>
-                  <span className="text-xs text-text-secondary">
-                    {activeCompetition.name} · {activeSeason === 'all' ? 'Kariyer' : `${formatSeasonLabel(activeSeason)} sezonu`}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedReferee(null)}
-                aria-label="Kapat"
-                className="rounded border border-border bg-background-primary hover:bg-background-secondary p-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      <ModalDialog
+        open={Boolean(selectedReferee)}
+        onClose={closeRefereeModal}
+        ariaLabelledBy="referee-modal-title"
+        maxWidthClass="max-w-3xl"
+      >
+        {/* Modal Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background-primary p-5 sm:p-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-background-tertiary border border-border text-text-primary flex items-center justify-center font-semibold text-sm shrink-0">
+              <Scale className="w-5 h-5 text-text-secondary" strokeWidth={1.5} aria-hidden="true" />
             </div>
+            <div>
+              <h2 id="referee-modal-title" className="text-lg sm:text-xl font-semibold text-text-primary">{selectedReferee}</h2>
+              <span className="text-xs text-text-secondary">
+                {activeCompetition.name} · {activeSeason === 'all' ? 'Kariyer' : `${formatSeasonLabel(activeSeason)} sezonu`}
+              </span>
+            </div>
+          </div>
 
-            {loadingDetail ? (
-              <div className="py-16 text-center space-y-2">
-                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs font-medium text-text-secondary">Hakem detayları yükleniyor...</p>
-              </div>
-            ) : refereeDetail ? (
+          <button
+            type="button"
+            onClick={closeRefereeModal}
+            aria-label="Kapat"
+            className="rounded border border-border bg-background-primary hover:bg-background-secondary p-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        </div>
+
+        {loadingDetail ? (
+          <div className="p-5 sm:p-6 space-y-4" aria-busy="true" aria-label="Hakem detayları yükleniyor">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
+            </div>
+            <Skeleton className="h-48 w-full" />
+          </div>
+        ) : refereeDetail ? (
               <div className="space-y-6 p-5 sm:p-6">
 
                 {/* Season Stats Summary */}
@@ -634,10 +635,7 @@ export default function RefereesTab({ selectedSeason, onSelectMatch }) {
 
               </div>
             ) : null}
-
-          </div>
-        </div>
-      )}
+      </ModalDialog>
 
       {activeModalMatch && (
         <MatchDetailModal

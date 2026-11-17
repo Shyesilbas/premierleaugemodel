@@ -1,4 +1,4 @@
-"""Match detail payload for leagues whose only source is TheStatsAPI (LaLiga and leagues added the same way).
+"""Match detail payload for leagues whose only source is TheStatsAPI.
 
 Lineups and the event timeline come from the provider's lineup and timeline payloads; statistics, ratings, shots and
 odds are layered on by ``apply_statsapi_payloads``, the same overlay the UEFA competitions use. The timeline lists

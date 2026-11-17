@@ -9,6 +9,7 @@ export default function TabBar({ tabs, active, onChange, label, idPrefix = 'tab'
     const next = tabs[(index + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
     onChange(next.id);
     refs.current[next.id]?.focus();
+    refs.current[next.id]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   };
 
   return (
@@ -24,13 +25,12 @@ export default function TabBar({ tabs, active, onChange, label, idPrefix = 'tab'
             role="tab"
             id={`${idPrefix}-${tab.id}`}
             aria-selected={selected}
-            aria-controls={`${idPrefix}-panel`}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.id)}
             onKeyDown={e => onKeyDown(e, index)}
-            className={`flex items-center gap-2 px-3 min-h-11 sm:min-h-10 text-sm font-medium border-b-2 whitespace-nowrap transition-colors cursor-pointer focus-visible:outline-none focus-visible:bg-background-tertiary ${
+            className={`relative flex items-center gap-2 px-3 min-h-11 sm:min-h-10 text-sm font-medium border-b-2 whitespace-nowrap shrink-0 transition-colors cursor-pointer focus-visible:outline-none focus-visible:bg-background-tertiary ${
               selected
-                ? 'border-primary text-text-primary'
+                ? 'border-border-focus text-text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >

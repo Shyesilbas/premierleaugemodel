@@ -1,9 +1,9 @@
-import { getJson, requestJson, withQuery } from './apiClient';
+import { getJson, loadApiFresh, requestJson, withQuery } from './apiClient';
 
-export const getMatchDetails = (matchId) => getJson(`/api/match/${matchId}/details`);
-export const getMatchOdds = (matchId) => getJson(`/api/match/${matchId}/odds`);
+export const getMatchDetails = (matchId) => loadApiFresh(`/api/match/${matchId}/details`);
+export const getMatchOdds = (matchId) => loadApiFresh(`/api/match/${matchId}/odds`);
 export async function getRecentMatchForm(matchId) {
-  const { response, data } = await requestJson(`/api/match/${matchId}/recent-form`);
+  const { response, data } = await requestJson(`/api/match/${matchId}/recent-form`, { cache: 'no-cache' });
   return response.ok ? data : { form: {} };
 }
 

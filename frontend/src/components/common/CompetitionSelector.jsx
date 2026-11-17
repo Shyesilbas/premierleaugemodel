@@ -1,5 +1,5 @@
 import React from 'react';
-import { useCompetition } from '../../context/CompetitionContext';
+import { useCompetition } from '../../context/competitionState';
 
 // One logo button per competition. The chosen one gets an accent outline on a white tile, so the dark logo stays readable.
 export default function CompetitionSelector({ compact = false }) {

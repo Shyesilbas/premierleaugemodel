@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Count models (corners, throws, offsides, cards, saves) of a league fed by TheStatsAPI.
 
-Usage: python3 -m src.models.train_league_counts --competition la_liga [--features pl|league] [--no-save]
+Usage: python3 -m src.models.train_league_counts --competition <league_key> [--features pl|league] [--no-save]
 
 The production variant (``--features pl``, the default) runs the five models on the Premier League's own feature code and curated
 lists (``build_league_pl_features``), minus the columns this league has no data for. ``--features league`` is the league's own
@@ -12,7 +12,7 @@ It runs the Premier League's own selection code (``train_count_model``: expandin
 served as ``training_mean`` here too. Only the feature lists differ, because the Premier League lists use columns this
 provider cannot give (for example forward-pass accuracy). Reads: data/football.db. Writes: the feature table
 ``data/competitions/<key>/processed/features_matches_all.parquet`` and one ``*_model_v1.joblib`` per model under
-``models/production/<key>/``, and the metrics of every model in ``docs/reports/models/<key>_count_models.json`` (nothing is
+``models/production/<key>/``, and the metrics of every model in ``reports/models/<key>_count_models.json`` (nothing is
 written to the Premier League folders). ``--features league`` never writes the feature table or an artifact, only its report.
 """
 

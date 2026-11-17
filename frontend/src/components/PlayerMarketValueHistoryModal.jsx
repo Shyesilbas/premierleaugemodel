@@ -3,6 +3,8 @@ import { X, TrendingUp, TrendingDown, Coins } from 'lucide-react';
 import PlayerAvatar from './PlayerAvatar';
 import Skeleton from './common/Skeleton';
 import InlineError from './common/InlineError';
+import KpiCard from './common/KpiCard';
+import ModalDialog from './common/ModalDialog';
 import { getPlayerMarketValueHistory } from '../services/playerService';
 
 const SVG_WIDTH = 620;
@@ -11,19 +13,6 @@ const PADDING_X = 45;
 const PADDING_Y = 40;
 const CHART_WIDTH = SVG_WIDTH - PADDING_X * 2;
 const CHART_HEIGHT = SVG_HEIGHT - PADDING_Y * 2;
-
-function KpiCard({ label, value, meta, icon: Icon }) {
-  return (
-    <div className="bg-background-primary border border-border rounded p-3 sm:p-4 flex flex-col gap-1 min-w-0">
-      <span className="text-xs text-text-secondary truncate">{label}</span>
-      <span className="flex items-baseline gap-1 text-xl font-semibold text-text-primary tabular-nums">
-        {value}
-        {Icon && <Icon className="w-4 h-4 shrink-0 self-center text-text-secondary" strokeWidth={1.5} aria-hidden="true" />}
-      </span>
-      <span className="text-xs text-text-tertiary truncate tabular-nums">{meta}</span>
-    </div>
-  );
-}
 
 function ModalSkeleton() {
   return (
@@ -81,15 +70,6 @@ export default function PlayerMarketValueHistoryModal({
     };
   }, [isOpen, effectiveId, effectiveName, requestKey]);
 
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
   if (!isOpen) return null;
 
   const settled = result && result.key === requestKey;
@@ -128,16 +108,12 @@ export default function PlayerMarketValueHistoryModal({
   const tooltipY = hoveredPoint ? Math.max(8, hoveredPoint.y - 48) : 0;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-6"
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
+    <ModalDialog
+      open={isOpen}
+      onClose={onClose}
+      ariaLabelledBy="player-mv-modal-title"
+      maxWidthClass="max-w-3xl"
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="Oyuncu piyasa değeri kariyer değişim grafiği"
-        className="w-full max-w-3xl max-h-screen overflow-y-auto rounded-md bg-background-primary shadow-md border border-border"
-      >
         <div className="border-b border-border p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
@@ -163,7 +139,7 @@ export default function PlayerMarketValueHistoryModal({
                   <Coins className="w-3.5 h-3.5 text-text-tertiary" strokeWidth={1.5} aria-hidden="true" />
                   Transfermarkt verileri · Kariyer değer gelişimi
                 </span>
-                <h2 className="text-xl font-semibold text-text-primary truncate mt-0.5">
+                <h2 id="player-mv-modal-title" className="text-xl font-semibold text-text-primary truncate mt-0.5">
                   {effectiveName}
                 </h2>
                 <p className="mt-1 text-xs text-text-secondary truncate">
@@ -324,7 +300,7 @@ export default function PlayerMarketValueHistoryModal({
                   <span className="text-xs text-text-tertiary">Yeniden eskiye</span>
                 </div>
 
-                <div className="overflow-auto rounded border border-border max-h-72">
+                <div tabIndex={0} role="region" aria-label="Piyasa değeri değerleme kayıtları" className="overflow-auto rounded border border-border max-h-72">
                   <table className="w-full text-left text-sm border-collapse">
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-background-tertiary border-b border-border text-text-secondary">
@@ -387,7 +363,6 @@ export default function PlayerMarketValueHistoryModal({
             Kapat
           </button>
         </div>
-      </section>
-    </div>
+    </ModalDialog>
   );
 }

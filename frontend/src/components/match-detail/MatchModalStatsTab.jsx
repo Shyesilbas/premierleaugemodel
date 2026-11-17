@@ -97,7 +97,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                   <div className="space-y-4 pt-4 border-t border-border">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border">
                       <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-primary" />
+                        <Users className="w-4 h-4 text-text-primary" strokeWidth={1.5} aria-hidden="true" />
                         <h4 className="text-xs font-semibold text-text-primary">
                           Oyuncu Maç Performans Karnesi (Dakika, Şut, Faul, Ofsayt)
                         </h4>
@@ -179,7 +179,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                         )}
                                       </div>
                                       {!p.is_starter && (
-                                        <span className="text-xs text-primary tabular-nums block">
+                                        <span className="text-xs text-text-secondary tabular-nums block">
                                           Yedek (Sonradan Girdi)
                                         </span>
                                       )}
@@ -205,7 +205,7 @@ export default function MatchModalStatsTab({ teamStats, homeTeam, awayTeam, calc
                                 </td>
                                 <td className="py-2.5 px-2 text-center tabular-nums font-semibold">
                                   {p.assists > 0 ? (
-                                    <span className="text-primary bg-background-tertiary px-1.5 py-0.5 rounded border border-primary">
+                                    <span className="text-text-primary bg-background-tertiary px-1.5 py-0.5 rounded border border-border">
                                       {p.assists}
                                     </span>
                                   ) : (

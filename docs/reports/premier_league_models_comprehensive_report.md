@@ -1,20 +1,20 @@
 # Premier League Tahmin Motoru & Veri Mimarisi — Kapsamlı Model, Benchmark ve Yönetici Raporu
 
-**Rapor Tarihi:** 17 Ekim 2026  
-> 🗂️ **Yapı (17 Ekim 2026'dan itibaren):** Bu belge **ana indekstir**: özet karne, veri/ETL, edge denetimi, metodolojik anayasa, API ve yol haritası. Her modelin ayrıntısı kendi raporundadır: [Gol](models/goals_model.md) · [1X2](models/outcome_1x2_model.md) · [Korner](models/corners_model.md) · [Kart](models/cards_model.md) · [Kurtarış](models/saves_model.md) · [Ofsayt](models/offsides_model.md) · [Taç](models/throws_model.md). Bir model değiştiğinde önce kendi raporu, sonra aşağıdaki özet karne güncellenir.
+**Rapor Tarihi:** 17 Kasım 2026
+> **Yapı (17 Ekim 2026'dan itibaren):** Bu belge **ana indekstir**: özet karne, veri/ETL, edge denetimi, metodolojik anayasa, API ve yol haritası. Her modelin ayrıntısı kendi raporundadır: [Gol](models/goals_model.md) · [1X2](models/outcome_1x2_model.md) · [Korner](models/corners_model.md) · [Kart](models/cards_model.md) · [Kurtarış](models/saves_model.md) · [Ofsayt](models/offsides_model.md) · [Taç](models/throws_model.md). Bir model değiştiğinde önce kendi raporu, sonra aşağıdaki özet karne güncellenir.
 
 **Kapsanan Tüm Modeller:**
-- ⚽ **Gol Modeli (`v1.4`, 19 Ekim 2026):** 58 Özellikli (`full`, α=3) Poisson skor matrisi + Dixon-Coles düzeltmesi ($w_{dc}=0$), lojistik 1X2'ye hizalı skor matrisi (`models/production/premier_league/goals_models_v1.joblib`)
-- 🎯 **1X2 Maç Sonucu Modeli (`v1.1`):** 77 Özellikli L2 Çok Terimli Lojistik Regresyon & Sıcaklık Kalibrasyonu (`models/production/premier_league/outcome_models_v1.joblib`)
-- 📊 **Sayım & Maç Dinamikleri Modelleri:** Korner (`corner_model_v1`), Kart (`cards_model_v1`), Kurtarış (`saves_model_v1`), Ofsayt (`offside_model_v1`), Taç (`throws_model_v1`)
-- 🗄️ **Veritabanı & ETL Altyapısı:** `data/football.db` (SQLite3, 12 tablo, 1.900 fikstür) & Parquet katmanı  
-**Değerlendirilen Maç Havuzu:** 1.140 İleri Holdout Maçı (2023/24, 2024/25, 2025/26) + 60 maçlık kilitli canlı test (2026/27, yalnızca raporlama).  
-> ⚠️ **17 Ekim 2026 Bağımsız Denetimi:** Önceki sürümdeki "1.200 maç" rakamları kilitli 2026/27 sezonunu da içeriyordu ve bazı metrikler (ECE %2.17, "Bivariate Poisson" adı, `POST /api/predict`) hatalıydı. Düzeltilmiş rakamlar ve tüm bulgular için bkz. **[Gol Model Raporu — Bölüm 11](models/goals_model.md#bölüm-11-bağımsız-denetim-17-ekim-2026--gol-modeli--api-bulguları)**.  
-**Dokümantasyon Ağı:** [Ana Sayfa (README)](../../README.md) · [Paper Trading Protokolü](paper_trading_protocol_2026_27.md) · [AI Context & Parametreler](../../AI_CONTEXT.md) · [API Entegrasyonu](../model_api_integration.md) · [Veri Kataloğu](../../VERI_VE_GOSTERIM_KATALOGU.md)
+- **Gol Modeli (`v1.6`, 17 Kasım 2026):** 60 Özellikli (`full`, α=3) Poisson skor matrisi + Dixon-Coles düzeltmesi ($w_{dc}=0$), lojistik 1X2'ye (`v1.4`) hizalı skor matrisi (`models/production/premier_league/goals_models_v1.joblib`)
+- **1X2 Maç Sonucu Modeli (`v1.4`, 17 Kasım 2026):** 74 Özellikli L2 Çok Terimli Lojistik Regresyon (`C=0.003`) & OOF Sıcaklık/Bias Kalibrasyonu (`models/production/premier_league/outcome_models_v1.joblib`)
+- **Sayım & Maç Dinamikleri Modelleri:** Korner (`corner_model_v1`, `training_mean`), Kart (`cards_model_v1`, `training_mean`), Kurtarış (`saves_model_v1`, `training_mean`), Ofsayt (`offside_model_v1`, `ridge_250`), Taç (`throws_model_v1`, `ridge_100`)
+- **Veritabanı & ETL Altyapısı:** `data/football.db` (SQLite3, 1.900 PL fikstürü, toplam 3.476 maç satırı) & Parquet katmanı
+**Değerlendirilen Maç Havuzu:** 1.140 İleri Dış Sezon Maçı (2023/24, 2024/25, 2025/26) + 304 maçlık 1X2 holdout + 88 maçlık kilitli canlı sezon (2026/27, yalnızca prospektif izleme).
+> **17 Ekim 2026 Bağımsız Denetimi:** Önceki sürümdeki "1.200 maç" rakamları kilitli 2026/27 sezonunu da içeriyordu ve bazı metrikler (ECE %2.17, "Bivariate Poisson" adı, `POST /api/predict`) hatalıydı. Düzeltilmiş rakamlar ve tüm bulgular için bkz. **[Gol Model Raporu — Bölüm 11](models/goals_model.md#bölüm-11-bağımsız-denetim-17-ekim-2026--gol-modeli--api-bulguları)**.  
+**Dokümantasyon Ağı:** [Ana Sayfa (README)](../../README.md) · [Paper Trading Protokolü](../paper_trading_protocol_2026_27.md) · [Artifact Registry](../artifact_registry.md) · [API Entegrasyonu](../model_api_integration.md) · [Veri Kataloğu](../data_and_ui_catalog.md)
 
 ---
 
-## 📌 İçindekiler
+## İçindekiler
 1. [BÖLÜM 1: Yönetici Özeti & Genel Sistem Görünümü](#bölüm-1-yönetici-özeti--genel-sistem-görünümü)
 2. [BÖLÜM 2: Veritabanı, Veri Kaynakları ve ETL Mimarisi](#bölüm-2-veritabanı-veri-kaynakları-ve-etl-mimarisi)
 3. BÖLÜM 3: Gol Modeli → **[Gol Model Raporu](models/goals_model.md)**
@@ -26,7 +26,7 @@
 9. [BÖLÜM 9: Sistem & API Entegrasyonu (Nerede Kullanılır?)](#bölüm-9-sistem--api-entegrasyonu-nerede-kullanılır)
 10. [BÖLÜM 10: Sonuç ve Üretim Yol Haritası](#bölüm-10-sonuç-ve-üretim-yol-haritası)
 11. BÖLÜM 11: Gol Modeli Bağımsız Denetimi → **[Gol Model Raporu](models/goals_model.md#bölüm-11-bağımsız-denetim-17-ekim-2026--gol-modeli--api-bulguları)**
-    - [11.10 Eksiklerin Giderilmesi Denemeleri](models/goals_model.md#1110-eksiklerin-giderilmesi-denemeleri-17-ekim-2026) · [11.11 Güncel Değerler](models/goals_model.md#1111-gol-modeli--güncel-değerler-v14-19-ekim-2026) · [11.12 İş Akışı](models/goals_model.md#1112-gol-modeli-iş-akışı-workflow)
+    - [11.10 Eksiklerin Giderilmesi Denemeleri](models/goals_model.md#1110-eksiklerin-giderilmesi-denemeleri-17-ekim-2026) · [11.11 Güncel Değerler](models/goals_model.md#1111-gol-modeli--güncel-değerler-v16-17-kasım-2026) · [11.12 İş Akışı](models/goals_model.md#1112-gol-modeli-iş-akışı-workflow)
 
 ---
 
@@ -38,20 +38,20 @@ Premier League Model platformu; İngiltere Premier League maçları için maç �
 
 | Model / Hedef | Üretim Algoritması | Girdi Sayısı | Holdout Havuzu | Temel Başarı Metriği | Temel Çizgi (Baseline) | Karar / Durum |
 | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| **[2.5 Gol Üst / Alt](models/goals_model.md)** | Feature-Poisson ($w_{dc}=0$), iç içe seçim (skor NLL) | 58 Özellik | 1.140 Maç | **Log-Loss `0.6774`** (haftalık yeniden eğitimle `0.6760`), skor NLL `2.9786`, ECE (desil) `%5.1` | Prior: $\Delta=-0.0074$, CI $[-0.0146,-0.0001]$ (sınırda anlamlı); lig ortalaması: $\Delta=-0.0051$, CI $[-0.0119,+0.0019]$ — **anlamlı değil**; Bet365'ten $+0.0086$ kötü | ⚠️ **Üretimde; skor dağılımı iyi, toplam gol pazarında lig ortalamasını/piyasayı geçen beceri yok** ([Gol Model Raporu §11.11](models/goals_model.md)) |
-| **[1.5 & 3.5 & BTTS](models/goals_model.md)** | $13 \times 13$ skor matrisi marjinali (bağımsız Poisson × DC $\tau$), lojistik 1X2'ye hizalı | 58 Özellik | 1.140 Maç | O3.5 üç sezonda da prior'dan iyi; O1.5 ve BTTS 2024/25'te prior'dan hafif kötü; BTTS lig ortalamasını geçemedi (kapı ❌, etiket kapalı) | Tüm pazarlar ve 1X2 aynı matristen, tutarlı | 🏆 **Üretimde Aktif** |
-| **[1X2 Maç Sonucu](models/outcome_1x2_model.md)** | L2 Çok Terimli Lojistik ($C=0.003, T=0.9591$) | 77 Özellik | 304 Maç | **Log-Loss `1.026`**, Brier `0.617` | Sınıf-Prior: `1.092` ($p=0.9992$) | 🏆 **Üretimde Aktif** |
-| **[Korner Sayımı](models/corners_model.md)** | ElasticNet (`elastic_0.05_0.8`) | 10 Özellik | 316 Maç | **RMSE `3.1999`**, MAE `2.6023`; dış sezon 2/3 | Lig Ortalaması: `3.2405` | 🏆 **Üretimde; kazanç küçük (R² 0.004)** |
-| **[Taç Atışı Sayımı](models/throws_model.md)** | Poisson Regresyonu (`poisson_10`) | 14 Özellik | 316 Maç | **RMSE `7.0221`**, MAE `5.6042`; dış sezon 3/3 | Lig Ortalaması: `7.3881` | 🏆 **Üretimde Aktif** |
-| **[Ofsayt Sayımı](models/offsides_model.md)** | Ridge Regresyonu (`ridge_250`) | 10 Özellik | 316 Maç | **RMSE `1.9102`**, MAE `1.5231`; dış sezon 3/3 | Lig Ortalaması: `2.0238` | 🏆 **Üretimde Aktif** |
-| **[Kart Sayımı](models/cards_model.md)** | Sabit Ortalama (`training_mean`) | 11 Aday | 316 Maç | **RMSE `2.0014`**; özellikli aday dış sezon 1/3 | Özellikli `poisson_1` holdout'ta ortalamadan kötüydü (`2.0201`) | 🛡️ **Ortalamaya düştü (17 Ekim 2026)** |
-| **[Kurtarış Sayımı](models/saves_model.md)** | Sabit Ortalama (`training_mean`) | 13 Aday | 316 Maç | **RMSE `2.3785`** | CV kapısı geçilemedi (2/4 kat) | 🛡️ **Ortalama Kilitli** |
+| **[2.5 Gol Üst / Alt](models/goals_model.md)** | Feature-Poisson (`v1.6`, $w_{dc}=0$), iç içe seçim (skor NLL) | 60 Özellik | 1.140 Maç | **Log-Loss `0.6763`** (haftalık refit `0.6752`), skor NLL `2.9673`, ECE `%4.51` | Prior: $\Delta=-0.0085$, CI $[-0.0163,-0.0005]$ (anlamlı); sabit Poisson: $\Delta=-0.0062$, CI $[-0.0136,+0.0014]$; Bet365'ten $+0.0074$ | **Üretimde Aktif** ([Gol Model Raporu §11.11](models/goals_model.md)) |
+| **[1.5 & 3.5 & BTTS](models/goals_model.md)** | $13 \times 13$ skor matrisi marjinali (bağımsız Poisson × DC $\tau$), lojistik 1X2'ye (`v1.4`) hizalı | 60 Özellik | 1.140 Maç | O1.5/O2.5/O3.5/KG kalibratörleri aktif; KG LL `0.6805` (pazar kapısı geçemedi, etiket kapalı) | Tüm pazarlar ve 1X2 aynı matristen, tutarlı | **Üretimde Aktif (KG etiketi kapalı)** |
+| **[1X2 Maç Sonucu](models/outcome_1x2_model.md)** | L2 Çok Terimli Lojistik (`v1.4`, $C=0.003$) + OOF sıcaklık/bias | 74 Özellik | 304 Maç (+ 1.140 3S) | **Holdout LL `1.024`**, Brier `0.616`, RPS `0.2073`, İsabet `%50.33`; 3S Pooled LL `0.9732` | Sınıf-Prior: `1.092` ($P=\%99.98$) | **Üretimde Aktif (`v1.4`)** |
+| **[Korner Sayımı](models/corners_model.md)** | Sabit Ortalama (`training_mean`) | 10 Aday | 322 Maç | **RMSE `3.2276`**, MAE `2.6601`; geliştirme dış sezon 1/2 | Ortalama ile aynı | **[Baseline] Ortalamada** |
+| **[Taç Atışı Sayımı](models/throws_model.md)** | Ridge Regresyonu (`ridge_100`) | 14 Özellik | 322 Maç | **RMSE `6.9994`**, MAE `5.5780`, $R^2$ `0.0932`; dış sezon 2/2 | Lig Ortalaması: `7.3884` | **Üretimde Aktif** |
+| **[Ofsayt Sayımı](models/offsides_model.md)** | Ridge Regresyonu (`ridge_250`) | 10 Özellik | 322 Maç | **RMSE `1.9263`**, MAE `1.5386`, $R^2$ `0.0931`; dış sezon 2/2 | Lig Ortalaması: `2.0356` | **Üretimde Aktif** |
+| **[Kart Sayımı](models/cards_model.md)** | Sabit Ortalama (`training_mean`) | 11 Aday | 322 Maç | **RMSE `1.9744`**, MAE `1.5783`; geliştirme dış sezon 1/2 | Ortalama ile aynı | **[Baseline] Ortalamada** |
+| **[Kurtarış Sayımı](models/saves_model.md)** | Sabit Ortalama (`training_mean`) | 13 Aday | 322 Maç | **RMSE `2.3633`**, MAE `1.9085`; geliştirme dış sezon 0/2 | Ortalama ile aynı | **[Baseline] Ortalamada** |
 
 ---
 
 ## BÖLÜM 2: Veritabanı, Veri Kaynakları ve ETL Mimarisi
 
-Sistem `data/football.db` SQLite3 veritabanı (12 tablo, 1.900 fikstür) ve yüksek performanslı Parquet katmanı üzerinde çalışır.
+Sistem `data/football.db` SQLite3 veritabanı (`matches`: 1.900 PL fikstürü; 772 UCL ve 804 UEL maçı dahil toplam 3.476 satır) ve yüksek performanslı Parquet katmanı üzerinde çalışır.
 
 ### 2.1. Varlık İlişkileri ve Veritabanı Şeması (ERD)
 
@@ -96,14 +96,14 @@ erDiagram
 ```
 
 ### 2.2. Tablo Envanteri:
-1. `matches` (1.900 satır, 39 sütun): Fikstür ana tablosu; 1.580 tamamlanmış, 320 yaklaşan maç.
-2. `external_match_xg` (1.564 satır, 8 sütun): TheStatsAPI / Opta doğrulanmış şut koordinatları ve kümülatif takım xG değerleri.
-3. `external_match_odds` (1.531 satır, 29 sütun): Açılış ve kapanış bahis oranları (1X2, Over/Under 2.5, BTTS). 2023/24–2025/26: sezon başına 380 maç, yalnızca Bet365 kapanış; 2026/27: 80 maç, 5 büro.
-4. `player_market_values` (1.771 satır, 10 sütun): Transfermarkt oyuncu değerleri, yaş, mevki ve uyruk bilgileri.
-5. `team_market_values` (102 satır, 9 sütun): Kulüp bazında sezonluk toplam kadro değerleri.
-6. `referees` (153 satır, 15 sütun): Hakem maç sayıları, kart ve faul ortalamaları, `strictness_label` (katılık endeksi).
-7. `model_match_audit` (440 satır, 39 sütun): Model tahminleri ile gerçekleşen maç sonuçlarının karşılaştırma kaydı.
-8. Önbellek tabloları: `tm_clubs_cache` (280), `team_transfers_cache` (27), `team_season_transfers_cache` (6).
+1. `matches` (`3.476` satır: PL `1.900` — `1.608` tamamlanmış, `292` yaklaşan; UCL `772`, UEL `804`): Fikstür ana tablosu.
+2. `external_match_xg` (`2.966` satır): TheStatsAPI / Opta doğrulanmış kümülatif takım xG değerleri.
+3. `external_match_odds` (`2.823` satır): Açılış ve kapanış bahis oranları (1X2, Over/Under 2.5, BTTS).
+4. `player_market_values` (`1.771` satır): Transfermarkt oyuncu değerleri, yaş, mevki ve uyruk bilgileri.
+5. `team_market_values` (`102` satır): Kulüp bazında sezonluk toplam kadro değerleri.
+6. `referees` (`155` satır): Hakem maç sayıları, kart ve faul ortalamaları, `strictness_label` (katılık endeksi).
+7. `model_match_audit` (`468` satır): Model tahminleri ile gerçekleşen maç sonuçlarının karşılaştırma kaydı.
+8. Ham yanıt ve önbellek tabloları: `external_match_payloads` (`7.841`), `external_competition_payloads` (`815`), `team_transfers_cache`, `team_season_transfers_cache`.
 
 ### 2.3. Olay Akışından Kurtarma (Event-Stream Recovery) & Sızıntı Yalıtımı
 - **Korner Kurtarımı:** Opta özet tablolarında eksik olan 67 maçlık korner verisi, olay akışındaki dakika bazlı korner vuruşları taranarak başarıyla kurtarılmıştır.
@@ -113,19 +113,19 @@ erDiagram
 
 ## BÖLÜM 3: Gol Modeli (Bağımsız Poisson + Dixon-Coles)
 
-➡️ Taşındı: **[Gol Model Raporu](models/goals_model.md)** (mimari, ρ doğrulaması, uç risk tablosu).
+Taşındı: **[Gol Model Raporu](models/goals_model.md)** (mimari, ρ doğrulaması, uç risk tablosu).
 
 ---
 
 ## BÖLÜM 4: 1X2 Maç Sonucu Modeli (Lojistik Regresyon & Kalibrasyon)
 
-➡️ Taşındı: **[1X2 Model Raporu](models/outcome_1x2_model.md)** · ayrıntılı denetim: [1x2_model_audit.md](1x2_model_audit.md).
+Taşındı: **[1X2 Model Raporu](models/outcome_1x2_model.md)** · ayrıntılı denetim: [1x2_model_audit.md](../../reports/audits/1x2_model_audit.md).
 
 ---
 
 ## BÖLÜM 5: Sayım & Maç Dinamikleri Modelleri (Korner, Kart, Kurtarış, Ofsayt, Taç)
 
-➡️ Her sayım modelinin kendi raporu var: [Korner](models/corners_model.md) · [Kart](models/cards_model.md) · [Kurtarış](models/saves_model.md) · [Ofsayt](models/offsides_model.md) · [Taç](models/throws_model.md). Ortak seçim kuralları Bölüm 8 madde 7'dedir.
+Her sayım modelinin kendi raporu var: [Korner](models/corners_model.md) · [Kart](models/cards_model.md) · [Kurtarış](models/saves_model.md) · [Ofsayt](models/offsides_model.md) · [Taç](models/throws_model.md). Ortak seçim kuralları Bölüm 8 madde 7'dedir.
 
 ---
 
@@ -146,13 +146,13 @@ erDiagram
 | **Edge $> 4\%$** | 32 | %50.0 | -%1.62 | 0.5432 | 1.0000 | 0.8714 | İstatistiki gürültü. |
 | **Edge $> 5\%$** | 18 | %50.0 | -%3.42 | 0.5916 | 1.0000 | 0.8714 | İstatistiki gürültü. |
 
-$N=51$ maçta görülen +%10.02 ROI, çoklu hipotez düzeltmesi sonrası ($q = 0.8289$) tamamen rastgele varyans çıkmıştır. Bu nedenle canlı 2026/27 sezonunda $N \ge 200$ maçlık resmi [Paper Trading Protokolü](paper_trading_protocol_2026_27.md) başlatılmıştır.
+$N=51$ maçta görülen +%10.02 ROI, çoklu hipotez düzeltmesi sonrası ($q = 0.8289$) tamamen rastgele varyans çıkmıştır. Bu nedenle canlı 2026/27 sezonunda $N \ge 200$ maçlık resmi [Paper Trading Protokolü](../paper_trading_protocol_2026_27.md) başlatılmıştır.
 
 ---
 
 ## BÖLÜM 7: Dürüst Zayıflıklar & Tüm Modellerde Reddedilen Deneyler
 
-➡️ Reddedilen deneyler artık her modelin kendi raporundadır: [Gol](models/goals_model.md#reddedilen-deneyler-gol) · [1X2](models/outcome_1x2_model.md#reddedilen-deneyler-1x2) · [Kart](models/cards_model.md#5-reddedilen--uygulanmayan-deneyler) · [Kurtarış](models/saves_model.md#5-reddedilen-deneyler).
+Reddedilen deneyler artık her modelin kendi raporundadır: [Gol](models/goals_model.md#reddedilen-deneyler-gol) · [1X2](models/outcome_1x2_model.md#reddedilen-deneyler-1x2) · [Kart](models/cards_model.md#5-reddedilen--uygulanmayan-deneyler) · [Kurtarış](models/saves_model.md#5-reddedilen-deneyler).
 
 ---
 
@@ -194,15 +194,15 @@ api_integration_mapping:
 
 ## BÖLÜM 10: Sonuç ve Üretim Yol Haritası
 
-1. **Üretim Kararı:** 58 Özellikli Poisson + Dixon-Coles Gol Modeli (`goals_models_v1`, matris lojistik 1X2'ye hizalı), 77 Özellikli Lojistik 1X2 Modeli (`outcome_models_v1`) ve 5 sayım modeli üretimdedir; bunlardan korner, ofsayt ve taç özellikli, kart ve kurtarış sabit ortalamadır (Bölüm 8 madde 7).
-2. **Model Sadeleştirme (Occam's Razor):** ✅ Tamamlandı — gol modeli 58 → 11 özelliğe indi (`effective_log_mv_ratio` dahil çıkarıldı), doğruluk kaybı yok ([Gol Model Raporu §11.9](models/goals_model.md)).
-3. **Canlı Paper Trading Takibi:** 2026/27 sezonunda Edge $>2\%, >3\%, >5\%$ portföyleri [Paper Trading Protokolü](paper_trading_protocol_2026_27.md) çerçevesinde canlı oranlarla $N \ge 200$ maçlık tescil kararına kadar izlenecektir.
-4. **Denetim Sonrası Öncelikler (17 Ekim 2026):** [Gol Model Raporu §11.6](models/goals_model.md)'daki P0 maddeleri (kalibratörün devreye alınması, API'de tek 1X2 kaynağı, BTTS etiketi, iç içe hiperparametre seçimi) `v1.3`'ten önce kapatılmalıdır.
+1. **Üretim Kararı (17 Kasım 2026):** 60 Özellikli Poisson + Dixon-Coles Gol Modeli (`goals_models_v1`, `v1.6`, matris lojistik 1X2'ye hizalı), 74 Özellikli Lojistik 1X2 Modeli (`outcome_models_v1`, `v1.4`) ve 5 sayım modeli üretimdedir; bunlardan taç (`ridge_100`) ve ofsayt (`ridge_250`) özellikli, korner, kart ve kurtarış geliştirme dış sezon kapısı gereği sabit ortalamadır (`training_mean`, Bölüm 8 madde 7).
+2. **Model Sadeleştirme & Güncel Mimari:** Gol modelinde `v1.6` (`full` 60 özellik, `α=3.0`, `w_dc=0.0`) iç içe ileri katlarda en düşük skor NLL'yi seçerek üretimde yerini korumaktadır ([Gol Model Raporu §11.11](models/goals_model.md)).
+3. **Canlı Paper Trading Takibi:** 2026/27 sezonunda Edge $>2\%, >3\%, >5\%$ portföyleri [Paper Trading Protokolü](../paper_trading_protocol_2026_27.md) çerçevesinde canlı oranlarla $N \ge 200$ maçlık tescil kararına kadar izlenecektir.
+4. **Denetim Sonrası Öncelikler:** P0 kalibratör ve tek kaynak hizalama maddeleri `v1.4` / `v1.6` ile kapatılmıştır; piyasa değeri sızıntı kontrolü düşük öncelikli olarak takip edilmektedir ([1X2 Model Raporu §4](models/outcome_1x2_model.md)).
 
 ---
 
 ## BÖLÜM 11: Bağımsız Denetim (17 Ekim 2026) — Gol Modeli & API Bulguları
 
-➡️ Taşındı: **[Gol Model Raporu — Bölüm 11](models/goals_model.md#bölüm-11-bağımsız-denetim-17-ekim-2026--gol-modeli--api-bulguları)**. Alt bölüm numaraları (11.1–11.12) orada korunmuştur.
+Taşındı: **[Gol Model Raporu — Bölüm 11](models/goals_model.md#bölüm-11-bağımsız-denetim-17-ekim-2026--gol-modeli--api-bulguları)**. Alt bölüm numaraları (11.1–11.12) orada korunmuştur.
 
 ---

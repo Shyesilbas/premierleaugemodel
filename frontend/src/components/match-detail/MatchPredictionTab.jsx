@@ -153,7 +153,7 @@ export default function MatchPredictionTab({ prediction, loadingPrediction, pred
                                       </div>
                                       <div className="text-right shrink-0">
                                         <span className="text-xs font-semibold text-text-tertiary block">Ana Çizgi</span>
-                                        <span className="text-xs tabular-nums font-semibold text-primary bg-background-tertiary px-1.5 py-0.5 rounded border border-primary">
+                                        <span className="text-xs tabular-nums font-semibold text-text-primary bg-background-primary px-1.5 py-0.5 rounded border border-border">
                                           {teamData.primary_line} Üst
                                         </span>
                                       </div>

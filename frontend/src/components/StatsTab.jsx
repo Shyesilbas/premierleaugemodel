@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { BarChart3, ChevronDown } from 'lucide-react';
 import { getLeagueStats } from '../services/statsService';
 import { formatSeasonLabel } from '../utils/dateFormatters';
-import { useCompetition } from '../context/CompetitionContext';
+import { useCompetition } from '../context/competitionState';
 import Skeleton from './common/Skeleton';
 import InlineError from './common/InlineError';
 import EmptyState from './common/EmptyState';

@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Coins, TrendingDown, TrendingUp, X } from 'lucide-react';
+import KpiCard from '../common/KpiCard';
+import ModalDialog from '../common/ModalDialog';
 import { getTeam } from '../../data/teams';
 import { formatSeasonLabel } from '../../utils/dateFormatters';
 
@@ -10,30 +12,8 @@ const PADDING_Y = 40;
 const CHART_WIDTH = SVG_WIDTH - PADDING_X * 2;
 const CHART_HEIGHT = SVG_HEIGHT - PADDING_Y * 2;
 
-function KpiCard({ label, value, meta, icon: Icon }) {
-  return (
-    <div className="bg-background-primary border border-border rounded p-3 sm:p-4 flex flex-col gap-1 min-w-0">
-      <span className="text-xs text-text-secondary truncate">{label}</span>
-      <span className="flex items-baseline gap-1 text-xl font-semibold text-text-primary tabular-nums">
-        {value}
-        {Icon && <Icon className="w-4 h-4 shrink-0 self-center text-text-secondary" strokeWidth={1.5} aria-hidden="true" />}
-      </span>
-      <span className="text-xs text-text-tertiary truncate tabular-nums">{meta}</span>
-    </div>
-  );
-}
-
 export default function MarketValueHistoryModal({ isOpen, onClose, profile, selectedSeason }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   if (!isOpen || !profile || !profile.market_value) return null;
 
@@ -68,16 +48,12 @@ export default function MarketValueHistoryModal({ isOpen, onClose, profile, sele
     : '';
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-6"
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
+    <ModalDialog
+      open={Boolean(isOpen && profile?.market_value)}
+      onClose={onClose}
+      ariaLabelledBy="team-mv-modal-title"
+      maxWidthClass="max-w-3xl"
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="Kadro piyasa değeri değişim grafiği"
-        className="w-full max-w-3xl max-h-screen overflow-y-auto rounded-md bg-background-primary shadow-md border border-border"
-      >
         <div className="border-b border-border p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
@@ -89,7 +65,7 @@ export default function MarketValueHistoryModal({ isOpen, onClose, profile, sele
                   <Coins className="w-3.5 h-3.5 text-text-tertiary" strokeWidth={1.5} aria-hidden="true" />
                   Transfermarkt verileri · 5 yıllık trend
                 </span>
-                <h2 className="text-xl font-semibold text-text-primary truncate mt-0.5">
+                <h2 id="team-mv-modal-title" className="text-xl font-semibold text-text-primary truncate mt-0.5">
                   {teamName} kadro piyasa değeri
                 </h2>
               </div>
@@ -213,7 +189,7 @@ export default function MarketValueHistoryModal({ isOpen, onClose, profile, sele
 
           <div className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold text-text-primary">Sezon bazlı değişim</h3>
-            <div className="overflow-x-auto rounded border border-border">
+            <div tabIndex={0} role="region" aria-label="Sezon bazlı piyasa değeri tablosu" className="overflow-x-auto rounded border border-border">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="bg-background-tertiary border-b border-border text-text-secondary">
@@ -269,7 +245,6 @@ export default function MarketValueHistoryModal({ isOpen, onClose, profile, sele
             Kapat
           </button>
         </div>
-      </section>
-    </div>
+    </ModalDialog>
   );
 }

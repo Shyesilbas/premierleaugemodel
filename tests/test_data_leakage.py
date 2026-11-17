@@ -38,7 +38,7 @@ def test_no_target_in_features():
             if c == f:
                 raise AssertionError(f"LEAKAGE DETECTED: Column '{c}' directly contains match target!")
 
-    print(f"✅ TEST 1 PASSED: No direct target name found among {len(feature_cols)} selected feature columns.")
+    print(f"TEST 1 PASSED: No direct target name found among {len(feature_cols)} selected feature columns.")
 
 
 def test_invariance_to_match_outcome():
@@ -77,7 +77,7 @@ def test_invariance_to_match_outcome():
     max_diff = (row1 - row2).abs().max()
     assert max_diff == 0.0, f"LEAKAGE DETECTED: Match features changed by {max_diff} when in-match stats were tampered!"
 
-    print(f"✅ TEST 2 PASSED: Modifying in-match values caused 0.000 change in that row's selected pre-match features.")
+    print("TEST 2 PASSED: Modifying in-match values caused 0.000 change in that row's selected pre-match features.")
 
 
 if __name__ == "__main__":

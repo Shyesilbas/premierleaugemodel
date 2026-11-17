@@ -48,15 +48,29 @@ class TestTeamTactics(unittest.TestCase):
         for key in (
             "xg_per_match",
             "xga_per_match",
+            "goals_per_match",
+            "big_chances_per_match",
+            "goals_conceded_per_match",
             "conceded_inside_box_share",
             "pen_area_entries",
             "losses_per_100_touches",
             "fouls_committed",
             "yellow_cards",
+            "red_cards",
         ):
             self.assertIsNotNone(profile["metrics"][key]["value"], key)
         self.assertTrue(profile["formations"])
         self.assertRegex(profile["formations"][0]["formation"], r"^\d(-\d)+$")
+
+    def test_venue_filter_splits_home_and_away_matches(self):
+        all_p = get_team_tactical_profile(1, "2026_27", venue="all")
+        home_p = get_team_tactical_profile(1, "2026_27", venue="home")
+        away_p = get_team_tactical_profile(1, "2026_27", venue="away")
+        self.assertEqual(home_p["venue"], "home")
+        self.assertEqual(away_p["venue"], "away")
+        self.assertGreater(home_p["matches"], 0)
+        self.assertGreater(away_p["matches"], 0)
+        self.assertEqual(home_p["matches"] + away_p["matches"], all_p["matches"])
 
 
 if __name__ == "__main__":

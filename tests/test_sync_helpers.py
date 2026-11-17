@@ -72,9 +72,36 @@ class _Resp:
 class _Session:
     def __init__(self, *responses):
         self.responses = list(responses)
+        self.urls = []
 
-    def get(self, *_, **__):
+    def get(self, url, *_, **__):
+        self.urls.append(url)
         return self.responses.pop(0)
+
+
+def test_fetch_match_details_uses_trailing_slash_on_pulselive_fixture_url():
+    from src.ingest import fetch_season_data as fetch
+
+    session = _Session(_Resp({"id": 129009, "teams": [{"team": {"id": 10}}, {"team": {"id": 1}}]}))
+    details = fetch.fetch_match_details(session, 129009)
+    assert details is not None and details["id"] == 129009
+    assert session.urls == [f"{fetch.BASE_API_URL}/fixtures/129009/"]
+
+
+def test_prematch_lineups_fallback_prefers_future_gameweek_over_stale_unplayed():
+    import pandas as pd
+    from datetime import datetime, timedelta, timezone
+    from src.ingest.sync_prematch_lineups import get_target_fixtures
+
+    now = datetime.now(timezone.utc)
+    past_ms = int((now - timedelta(days=10)).timestamp() * 1000)
+    future_ms = int((now + timedelta(days=4)).timestamp() * 1000)
+    df = pd.DataFrame([
+        {"match_id": 1, "season": "2026_27", "gameweek": 9, "is_played": False, "kickoff_millis": past_ms, "home_name": "A", "away_name": "B"},
+        {"match_id": 2, "season": "2026_27", "gameweek": 11, "is_played": False, "kickoff_millis": future_ms, "home_name": "C", "away_name": "D"},
+    ])
+    targets = get_target_fixtures(df, season="2026_27", hours_ahead=2.0)
+    assert [int(mid) for mid in targets["match_id"]] == [2]
 
 
 def test_empty_payloads_are_rejected_instead_of_cached_as_final():

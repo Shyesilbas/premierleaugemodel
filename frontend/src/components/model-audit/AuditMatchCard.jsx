@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { handleImageFallback } from '../../utils/imageFallbacks';
 import { getTeam } from '../../data/teams';
+import { Badge } from '../common/Badge';
 
 const BADGE_FALLBACK = '/badges/premier-league.svg';
 
@@ -216,7 +217,7 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
           <TeamName team={awayT} name={m.away_name} isWinner={played && m.away_score > m.home_score} align="right" />
         </div>
 
-        <div className="flex items-center justify-between gap-3 text-xs text-text-secondary">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-secondary">
           <p className="min-w-0 truncate tabular-nums">
             Hafta {m.gameweek} · {m.match_date}
             {m.favorite_label && <> · Öngörü: <span className="text-text-primary">{m.favorite_label}</span></>}
@@ -224,6 +225,13 @@ export default function AuditMatchCard({ match: m, onSelectMatch }) {
             {m.highest_edge_side && <> · +{m.edge_pct}% avantaj ({edgeSideLabel})</>}
           </p>
           <span className="flex items-center gap-2 shrink-0">
+            {m.evaluation_type === 'prospective' ? (
+              <Badge variant="success" size="sm">Canlı</Badge>
+            ) : m.evaluation_type === 'in_sample_backfill' ? (
+              <Badge variant="neutral" size="sm">Sonradan hesaplandı</Badge>
+            ) : (
+              <Badge variant="info" size="sm">Bekliyor</Badge>
+            )}
             <HitStatus hit={m.hit_1x2} />
             <ChevronDown className={`w-4 h-4 text-text-tertiary transition-transform duration-150 ease-out motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={1.5} aria-hidden="true" />
           </span>

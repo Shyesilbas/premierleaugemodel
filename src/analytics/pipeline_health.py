@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +26,7 @@ MODEL_STALE_DAYS = 8.0     # weekly retraining: older than this vs the newest pl
 
 
 def _ids(db_path: Path, sql: str) -> set[int]:
-    with get_db(db_path) as conn:
+    with closing(get_db(db_path)) as conn:
         return {int(row[0]) for row in conn.execute(sql)}
 
 

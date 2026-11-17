@@ -1,6 +1,6 @@
 """Download a league's full-season calendar from openfootball (public domain, no key).
 
-Usage: python3 -m src.ingest.fetch_openfootball_schedule --competition la_liga [--seasons 2026_27]
+Usage: python3 -m src.ingest.fetch_openfootball_schedule --competition <league_key> [--seasons 2026_27]
 
 What it does: TheStatsAPI lists only the next few weeks of a running season; openfootball publishes the whole calendar.
 The fixture provider uses it for the weeks TheStatsAPI has not published (placeholder matches, with a date and, when the

@@ -1,6 +1,6 @@
 import { Activity, Calendar, Coins, Shield, Users } from 'lucide-react';
 
-export default function TeamProfileNavigation({ profile, activeTeamTab, setActiveTeamTab, displayedSquad, managerChanges }) {
+export default function TeamProfileNavigation({ profile, activeTeamTab, setActiveTeamTab, displayedSquad, managerChanges, showGameProfile = true }) {
   if (!profile) return null;
 
   return (
@@ -23,18 +23,20 @@ export default function TeamProfileNavigation({ profile, activeTeamTab, setActiv
         </span>
       </button>
 
-      <button
-        type="button"
-        onClick={() => setActiveTeamTab('profile')}
-        className={`flex items-center gap-2 px-3.5 py-2 rounded-sm text-xs font-medium transition-colors whitespace-nowrap ${
-          activeTeamTab === 'profile'
-            ? 'bg-primary text-white'
-            : 'text-text-secondary hover:text-text-primary hover:bg-border-light'
-        }`}
-      >
-        <Activity className="w-3.5 h-3.5" />
-        <span>Oyun Profili & Analiz</span>
-      </button>
+      {showGameProfile && (
+        <button
+          type="button"
+          onClick={() => setActiveTeamTab('profile')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-sm text-xs font-medium transition-colors whitespace-nowrap ${
+            activeTeamTab === 'profile'
+              ? 'bg-primary text-white'
+              : 'text-text-secondary hover:text-text-primary hover:bg-border-light'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>Oyun Profili & Analiz</span>
+        </button>
+      )}
 
       <button
         type="button"

@@ -47,7 +47,7 @@ BLEND_GRID = {
     "feature_sets": ["compact", "full"],
     "feature_alphas": [0.1, 0.3, 1.0, 3.0, 10.0, 30.0],
     # DC weight 0 only: nested outer seasons chose it every time and beat the 0/0.25/0.5 grid by
-    # 0.0217 score NLL (GOAL_MODELS_ANALYSIS P8); DC still supplies half of the shared rho.
+    # 0.0217 score NLL (reports/audits/goal_models_analysis.md P8); DC still supplies half of the shared rho.
     "dc_weights": [0.0],
 }
 # Fixed a priori (not tuned on outer seasons): one strength rating per side,

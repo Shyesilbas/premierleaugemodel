@@ -4,12 +4,14 @@ Stores matches, referees, teams, and prediction caches with high-performance ind
 Eliminates heavy Parquet/JSON file reads on runtime requests.
 """
 
+import json
+import logging
 import os
 import sqlite3
-import json
-from typing import List, Dict, Any, Optional
+from contextlib import closing
+from typing import Any, Dict, List, Optional
+
 import pandas as pd
-import logging
 
 logger = logging.getLogger("db_layer")
 
@@ -102,6 +104,58 @@ def ensure_external_payload_tables(conn: sqlite3.Connection) -> None:
         payload TEXT NOT NULL,
         fetched_at_utc TEXT NOT NULL,
         PRIMARY KEY (competition_id, season, provider, kind, ref)
+    );
+    """)
+    conn.commit()
+
+
+def ensure_market_value_tables(conn: sqlite3.Connection) -> None:
+    """Transfermarkt squad and player values per season, shared by every competition (``competition_id``, default PL).
+
+    Team ids do not collide (PulseLive ids for the Premier League, 8-digit local ids elsewhere); player ids are
+    Transfermarkt's own. Lookups that join players on name must filter by ``competition_id``."""
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS team_market_values (
+        team_id INTEGER NOT NULL,
+        tm_club_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        season TEXT NOT NULL,
+        market_value INTEGER NOT NULL,
+        market_value_eur REAL NOT NULL,
+        squad_size INTEGER,
+        avg_market_value_eur REAL,
+        updated_at TEXT NOT NULL,
+        competition_id INTEGER NOT NULL DEFAULT 39,
+        PRIMARY KEY (team_id, season)
+    );
+    """)
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS player_market_values (
+        player_id TEXT NOT NULL,
+        team_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        position TEXT,
+        market_value INTEGER NOT NULL,
+        market_value_eur REAL NOT NULL,
+        age INTEGER,
+        nationality TEXT,
+        season TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        competition_id INTEGER NOT NULL DEFAULT 39,
+        PRIMARY KEY (player_id, season)
+    );
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_player_mv_team_season ON player_market_values (team_id, season);")
+    for table in ("team_market_values", "player_market_values"):
+        columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if "competition_id" not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN competition_id INTEGER NOT NULL DEFAULT 39;")
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS player_market_value_history_cache (
+        tm_id TEXT PRIMARY KEY,
+        player_name TEXT,
+        data_json TEXT,
+        updated_at TEXT
     );
     """)
     conn.commit()
@@ -206,6 +260,7 @@ def init_db():
     ensure_external_xg_table(conn)
     ensure_external_odds_table(conn)
     ensure_external_payload_tables(conn)
+    ensure_market_value_tables(conn)
 
     # Transfermarkt cache tables
     cursor.execute("""
@@ -275,9 +330,6 @@ def init_db():
 def populate_db_from_sources():
     """Populates the SQLite database from Parquet and raw JSON sources."""
     init_db()
-    conn = get_db()
-    cursor = conn.cursor()
-
     parquet_path = MATCHES_SUMMARY_PATH
     if not parquet_path.exists():
         logger.warning(f"{parquet_path} not found. Skipping parquet import.")
@@ -351,52 +403,8 @@ def populate_db_from_sources():
             float(r["total_xg"]) if pd.notnull(r.get("total_xg")) else None,
         ))
 
-    cursor.executemany("""
-    INSERT OR REPLACE INTO matches (
-        match_id, season, gameweek, match_date, kickoff_label, day_label, time_label,
-        ground_name, home_id, home_name, home_abbr, home_score, away_id, away_name, away_abbr, away_score,
-        status, total_corners, home_won_corners, away_won_corners, total_throws, home_total_throws,
-        away_total_throws, total_shots, total_shots_ontarget, total_saves, referee_id, referee_name,
-        total_yellow_cards, total_red_cards, total_cards, total_fouls, home_total_yel_card, away_total_yel_card,
-        home_total_red_card, away_total_red_card, home_xg, away_xg, total_xg
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
-    """, matches_to_insert)
-
-    # Insert remaining upcoming 2026_27 fixtures from raw json if not in parquet
-    existing_mids = set(r[0] for r in matches_to_insert)
-    upcoming_to_insert = []
-    for f in raw_2627:
-        mid = int(f.get("id", 0))
-        if mid in existing_mids:
-            continue
-        teams = f.get("teams", [])
-        if len(teams) < 2:
-            continue
-        h_team = teams[0].get("team", {})
-        a_team = teams[1].get("team", {})
-        h_score = teams[0].get("score")
-        a_score = teams[1].get("score")
-        kickoff_str = f.get("kickoff", {}).get("label", "")
-        day_p = kickoff_str.split(",")[0].strip() if "," in kickoff_str else kickoff_str
-        time_p = kickoff_str.split(",")[1].strip() if "," in kickoff_str else ""
-        gw = int(f.get("gameweek", {}).get("gameweek", 1))
-
-        # Check match official if any
-        officials = f.get("matchOfficials", [])
-        ref_id = officials[0].get("matchOfficial", {}).get("id") if officials else None
-        ref_n = officials[0].get("matchOfficial", {}).get("name", {}).get("display") if officials else "Atanmadı"
-
-        upcoming_to_insert.append((
-            mid, DEFAULT_SEASON, gw, "", kickoff_str, day_p, time_p,
-            f.get("ground", {}).get("name", "Premier League Stadı"),
-            int(h_team.get("id", 0)), h_team.get("name", ""), h_team.get("club", {}).get("abbr", ""),
-            h_score, int(a_team.get("id", 0)), a_team.get("name", ""), a_team.get("club", {}).get("abbr", ""),
-            a_score, "COMPLETED" if (h_score is not None and a_score is not None) else "UPCOMING",
-            None, None, None, None, None, None, None, None, None, ref_id, ref_n,
-            None, None, None, None, None, None, None, None, None, None, None
-        ))
-
-    if upcoming_to_insert:
+    with closing(get_db()) as conn:
+        cursor = conn.cursor()
         cursor.executemany("""
         INSERT OR REPLACE INTO matches (
             match_id, season, gameweek, match_date, kickoff_label, day_label, time_label,
@@ -406,16 +414,113 @@ def populate_db_from_sources():
             total_yellow_cards, total_red_cards, total_cards, total_fouls, home_total_yel_card, away_total_yel_card,
             home_total_red_card, away_total_red_card, home_xg, away_xg, total_xg
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
-        """, upcoming_to_insert)
+        """, matches_to_insert)
 
-    conn.commit()
+        # Insert remaining upcoming 2026_27 fixtures from raw json if not in parquet
+        existing_mids = set(r[0] for r in matches_to_insert)
+        upcoming_to_insert = []
+        for f in raw_2627:
+            mid = int(f.get("id", 0))
+            if mid in existing_mids:
+                continue
+            teams = f.get("teams", [])
+            if len(teams) < 2:
+                continue
+            h_team = teams[0].get("team", {})
+            a_team = teams[1].get("team", {})
+            h_score = teams[0].get("score")
+            a_score = teams[1].get("score")
+            kickoff_str = f.get("kickoff", {}).get("label", "")
+            day_p = kickoff_str.split(",")[0].strip() if "," in kickoff_str else kickoff_str
+            time_p = kickoff_str.split(",")[1].strip() if "," in kickoff_str else ""
+            gw = int(f.get("gameweek", {}).get("gameweek", 1))
 
-    # Now calculate and aggregate referees table
-    cursor.execute("DELETE FROM referees;")
+            # Check match official if any
+            officials = f.get("matchOfficials", [])
+            ref_id = officials[0].get("matchOfficial", {}).get("id") if officials else None
+            ref_n = officials[0].get("matchOfficial", {}).get("name", {}).get("display") if officials else "Atanmadı"
 
-    # Seasons to process + 'all'
-    seasons = list(reversed(SEASONS))
-    for s in seasons:
+            upcoming_to_insert.append((
+                mid, DEFAULT_SEASON, gw, "", kickoff_str, day_p, time_p,
+                f.get("ground", {}).get("name", "Premier League Stadı"),
+                int(h_team.get("id", 0)), h_team.get("name", ""), h_team.get("club", {}).get("abbr", ""),
+                h_score, int(a_team.get("id", 0)), a_team.get("name", ""), a_team.get("club", {}).get("abbr", ""),
+                a_score, "COMPLETED" if (h_score is not None and a_score is not None) else "UPCOMING",
+                None, None, None, None, None, None, None, None, None, ref_id, ref_n,
+                None, None, None, None, None, None, None, None, None, None, None
+            ))
+
+        if upcoming_to_insert:
+            cursor.executemany("""
+            INSERT OR REPLACE INTO matches (
+                match_id, season, gameweek, match_date, kickoff_label, day_label, time_label,
+                ground_name, home_id, home_name, home_abbr, home_score, away_id, away_name, away_abbr, away_score,
+                status, total_corners, home_won_corners, away_won_corners, total_throws, home_total_throws,
+                away_total_throws, total_shots, total_shots_ontarget, total_saves, referee_id, referee_name,
+                total_yellow_cards, total_red_cards, total_cards, total_fouls, home_total_yel_card, away_total_yel_card,
+                home_total_red_card, away_total_red_card, home_xg, away_xg, total_xg
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
+            """, upcoming_to_insert)
+
+        conn.commit()
+
+        # Now calculate and aggregate referees table
+        cursor.execute("DELETE FROM referees;")
+
+        # Seasons to process + 'all'
+        seasons = list(reversed(SEASONS))
+        for s in seasons:
+            cursor.execute("""
+            SELECT 
+                referee_name,
+                COUNT(*) as matches_count,
+                SUM(total_yellow_cards) as total_yellows,
+                AVG(total_yellow_cards) as avg_yellows,
+                SUM(total_red_cards) as total_reds,
+                AVG(total_red_cards) as avg_reds,
+                SUM(total_cards) as total_c,
+                AVG(total_cards) as avg_c,
+                SUM(total_fouls) as total_f,
+                AVG(total_fouls) as avg_f,
+                SUM(CASE WHEN total_cards >= 4 THEN 1 ELSE 0 END) as over_35_cnt
+            FROM matches
+            WHERE competition_id = 39 AND referee_name != 'Unknown' AND referee_name != 'Atanmadı' AND status = 'COMPLETED' AND season = ?
+            GROUP BY referee_name
+            HAVING COUNT(*) > 0
+            """, (s,))
+            rows = cursor.fetchall()
+
+            for r in rows:
+                m_cnt = r["matches_count"]
+                avg_c = round(r["avg_c"] or 0.0, 2)
+                avg_y = round(r["avg_yellows"] or 0.0, 2)
+                avg_r = round(r["avg_reds"] or 0.0, 2)
+                avg_f = round(r["avg_f"] or 0.0, 1)
+                over_35_pct = round((r["over_35_cnt"] / m_cnt) * 100, 1) if m_cnt > 0 else 0.0
+
+                if avg_c >= 4.6 or over_35_pct >= 70.0:
+                    strictness = "Yüksek Kart Eğilimi"
+                elif avg_c <= 3.2:
+                    strictness = "Akıcı Oyun / Az Kart"
+                else:
+                    strictness = "Dengeli Yönetim"
+
+                cursor.execute("""
+                INSERT INTO referees (
+                    referee_name, season, matches_count, total_yellow_cards, avg_yellow_cards,
+                    total_red_cards, avg_red_cards, total_cards, avg_cards, total_fouls, avg_fouls,
+                    over_3_5_cards_count, over_3_5_pct, strictness_label
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?);
+                """, (
+                    r["referee_name"], s, m_cnt,
+                    r["total_yellows"] or 0.0, avg_y,
+                    r["total_reds"] or 0.0, avg_r,
+                    r["total_c"] or 0.0, avg_c,
+                    r["total_f"] or 0.0, avg_f,
+                    r["over_35_cnt"], over_35_pct, strictness
+                ))
+
+        # All-time aggregates across all seasons
         cursor.execute("""
         SELECT 
             referee_name,
@@ -430,13 +535,12 @@ def populate_db_from_sources():
             AVG(total_fouls) as avg_f,
             SUM(CASE WHEN total_cards >= 4 THEN 1 ELSE 0 END) as over_35_cnt
         FROM matches
-        WHERE competition_id = 39 AND referee_name != 'Unknown' AND referee_name != 'Atanmadı' AND status = 'COMPLETED' AND season = ?
+        WHERE competition_id = 39 AND referee_name != 'Unknown' AND referee_name != 'Atanmadı' AND status = 'COMPLETED'
         GROUP BY referee_name
         HAVING COUNT(*) > 0
-        """, (s,))
-        rows = cursor.fetchall()
-
-        for r in rows:
+        """)
+        all_rows = cursor.fetchall()
+        for r in all_rows:
             m_cnt = r["matches_count"]
             avg_c = round(r["avg_c"] or 0.0, 2)
             avg_y = round(r["avg_yellows"] or 0.0, 2)
@@ -458,7 +562,7 @@ def populate_db_from_sources():
                 over_3_5_cards_count, over_3_5_pct, strictness_label
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?);
             """, (
-                r["referee_name"], s, m_cnt,
+                r["referee_name"], "all", m_cnt,
                 r["total_yellows"] or 0.0, avg_y,
                 r["total_reds"] or 0.0, avg_r,
                 r["total_c"] or 0.0, avg_c,
@@ -466,202 +570,147 @@ def populate_db_from_sources():
                 r["over_35_cnt"], over_35_pct, strictness
             ))
 
-    # All-time aggregates across all seasons
-    cursor.execute("""
-    SELECT 
-        referee_name,
-        COUNT(*) as matches_count,
-        SUM(total_yellow_cards) as total_yellows,
-        AVG(total_yellow_cards) as avg_yellows,
-        SUM(total_red_cards) as total_reds,
-        AVG(total_red_cards) as avg_reds,
-        SUM(total_cards) as total_c,
-        AVG(total_cards) as avg_c,
-        SUM(total_fouls) as total_f,
-        AVG(total_fouls) as avg_f,
-        SUM(CASE WHEN total_cards >= 4 THEN 1 ELSE 0 END) as over_35_cnt
-    FROM matches
-    WHERE competition_id = 39 AND referee_name != 'Unknown' AND referee_name != 'Atanmadı' AND status = 'COMPLETED'
-    GROUP BY referee_name
-    HAVING COUNT(*) > 0
-    """)
-    all_rows = cursor.fetchall()
-    for r in all_rows:
-        m_cnt = r["matches_count"]
-        avg_c = round(r["avg_c"] or 0.0, 2)
-        avg_y = round(r["avg_yellows"] or 0.0, 2)
-        avg_r = round(r["avg_reds"] or 0.0, 2)
-        avg_f = round(r["avg_f"] or 0.0, 1)
-        over_35_pct = round((r["over_35_cnt"] / m_cnt) * 100, 1) if m_cnt > 0 else 0.0
-
-        if avg_c >= 4.6 or over_35_pct >= 70.0:
-            strictness = "Yüksek Kart Eğilimi"
-        elif avg_c <= 3.2:
-            strictness = "Akıcı Oyun / Az Kart"
-        else:
-            strictness = "Dengeli Yönetim"
-
-        cursor.execute("""
-        INSERT INTO referees (
-            referee_name, season, matches_count, total_yellow_cards, avg_yellow_cards,
-            total_red_cards, avg_red_cards, total_cards, avg_cards, total_fouls, avg_fouls,
-            over_3_5_cards_count, over_3_5_pct, strictness_label
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?);
-        """, (
-            r["referee_name"], "all", m_cnt,
-            r["total_yellows"] or 0.0, avg_y,
-            r["total_reds"] or 0.0, avg_r,
-            r["total_c"] or 0.0, avg_c,
-            r["total_f"] or 0.0, avg_f,
-            r["over_35_cnt"], over_35_pct, strictness
-        ))
-
-    conn.commit()
-    conn.close()
+        conn.commit()
     logger.info("Successfully populated SQLite database and referee aggregates.")
 
 
 def get_referees_list(season: str = DEFAULT_SEASON, search: Optional[str] = None) -> List[Dict[str, Any]]:
     """Returns list of referees for the selected season, optionally filtered by search."""
-    conn = get_db()
-    cursor = conn.cursor()
-    query = """
-        SELECT * FROM referees 
-        WHERE season = ?
-    """
-    params = [season]
-    if search:
-        query += " AND referee_name LIKE ?"
-        params.append(f"%{search}%")
+    with closing(get_db()) as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT * FROM referees 
+            WHERE season = ?
+        """
+        params = [season]
+        if search:
+            query += " AND referee_name LIKE ?"
+            params.append(f"%{search}%")
 
-    query += " ORDER BY matches_count DESC, avg_cards DESC"
-    cursor.execute(query, params)
-    rows = [dict(r) for r in cursor.fetchall()]
+        query += " ORDER BY matches_count DESC, avg_cards DESC"
+        cursor.execute(query, params)
+        rows = [dict(r) for r in cursor.fetchall()]
 
-    # If few referees in current season, also fetch available active refs from 'all'
-    if len(rows) < 10 and season == DEFAULT_SEASON:
-        cursor.execute("SELECT * FROM referees WHERE season = 'all' ORDER BY matches_count DESC")
-        all_refs = {r["referee_name"]: dict(r) for r in cursor.fetchall()}
-        existing_names = {r["referee_name"] for r in rows}
-        for name, ref_data in all_refs.items():
-            if name not in existing_names and (not search or search.lower() in name.lower()):
-                ref_copy = dict(ref_data)
-                ref_copy["season"] = season
-                ref_copy["is_career_fallback"] = True
-                rows.append(ref_copy)
+        # If few referees in current season, also fetch available active refs from 'all'
+        if len(rows) < 10 and season == DEFAULT_SEASON:
+            cursor.execute("SELECT * FROM referees WHERE season = 'all' ORDER BY matches_count DESC")
+            all_refs = {r["referee_name"]: dict(r) for r in cursor.fetchall()}
+            existing_names = {r["referee_name"] for r in rows}
+            for name, ref_data in all_refs.items():
+                if name not in existing_names and (not search or search.lower() in name.lower()):
+                    ref_copy = dict(ref_data)
+                    ref_copy["season"] = season
+                    ref_copy["is_career_fallback"] = True
+                    rows.append(ref_copy)
 
-    conn.close()
-    return rows
+        return rows
 
 
 def get_referee_detail(referee_name: str, season: str = DEFAULT_SEASON) -> Dict[str, Any]:
     """Returns referee detailed profile, career stats, and match history."""
-    conn = get_db()
-    cursor = conn.cursor()
+    with closing(get_db()) as conn:
+        cursor = conn.cursor()
 
-    # Season stats
-    cursor.execute("SELECT * FROM referees WHERE referee_name = ? AND season = ?", (referee_name, season))
-    season_row = cursor.fetchone()
-    season_stats = dict(season_row) if season_row else None
+        # Season stats
+        cursor.execute("SELECT * FROM referees WHERE referee_name = ? AND season = ?", (referee_name, season))
+        season_row = cursor.fetchone()
+        season_stats = dict(season_row) if season_row else None
 
-    # Career stats
-    cursor.execute("SELECT * FROM referees WHERE referee_name = ? AND season = 'all'", (referee_name,))
-    career_row = cursor.fetchone()
-    career_stats = dict(career_row) if career_row else None
+        # Career stats
+        cursor.execute("SELECT * FROM referees WHERE referee_name = ? AND season = 'all'", (referee_name,))
+        career_row = cursor.fetchone()
+        career_stats = dict(career_row) if career_row else None
 
-    # Matches officiated in this season (or all if requested)
-    if season != "all":
-        cursor.execute("""
-            SELECT * FROM matches 
-            WHERE referee_name = ? AND season = ? AND status = 'COMPLETED' AND competition_id = 39
-            ORDER BY gameweek DESC, match_date DESC
-        """, (referee_name, season))
-    else:
-        cursor.execute("""
-            SELECT * FROM matches 
-            WHERE referee_name = ? AND status = 'COMPLETED' AND competition_id = 39
-            ORDER BY season DESC, gameweek DESC, match_date DESC
-        """, (referee_name,))
-    matches = [dict(r) for r in cursor.fetchall()]
+        # Matches officiated in this season (or all if requested)
+        if season != "all":
+            cursor.execute("""
+                SELECT * FROM matches 
+                WHERE referee_name = ? AND season = ? AND status = 'COMPLETED' AND competition_id = 39
+                ORDER BY gameweek DESC, match_date DESC
+            """, (referee_name, season))
+        else:
+            cursor.execute("""
+                SELECT * FROM matches 
+                WHERE referee_name = ? AND status = 'COMPLETED' AND competition_id = 39
+                ORDER BY season DESC, gameweek DESC, match_date DESC
+            """, (referee_name,))
+        matches = [dict(r) for r in cursor.fetchall()]
 
-    # Disciplinary breakdown by team
-    team_card_counts = {}
-    for m in matches:
-        hid, hname = m["home_id"], m["home_name"]
-        aid, aname = m["away_id"], m["away_name"]
-        hy = m["home_total_yel_card"] or 0
-        hr = m["home_total_red_card"] or 0
-        ay = m["away_total_yel_card"] or 0
-        ar = m["away_total_red_card"] or 0
+        # Disciplinary breakdown by team
+        team_card_counts = {}
+        for m in matches:
+            hid, hname = m["home_id"], m["home_name"]
+            aid, aname = m["away_id"], m["away_name"]
+            hy = m["home_total_yel_card"] or 0
+            hr = m["home_total_red_card"] or 0
+            ay = m["away_total_yel_card"] or 0
+            ar = m["away_total_red_card"] or 0
 
-        if hname not in team_card_counts:
-            team_card_counts[hname] = {"team_id": hid, "team_name": hname, "yellows": 0, "reds": 0, "matches": 0}
-        team_card_counts[hname]["yellows"] += hy
-        team_card_counts[hname]["reds"] += hr
-        team_card_counts[hname]["matches"] += 1
+            if hname not in team_card_counts:
+                team_card_counts[hname] = {"team_id": hid, "team_name": hname, "yellows": 0, "reds": 0, "matches": 0}
+            team_card_counts[hname]["yellows"] += hy
+            team_card_counts[hname]["reds"] += hr
+            team_card_counts[hname]["matches"] += 1
 
-        if aname not in team_card_counts:
-            team_card_counts[aname] = {"team_id": aid, "team_name": aname, "yellows": 0, "reds": 0, "matches": 0}
-        team_card_counts[aname]["yellows"] += ay
-        team_card_counts[aname]["reds"] += ar
-        team_card_counts[aname]["matches"] += 1
+            if aname not in team_card_counts:
+                team_card_counts[aname] = {"team_id": aid, "team_name": aname, "yellows": 0, "reds": 0, "matches": 0}
+            team_card_counts[aname]["yellows"] += ay
+            team_card_counts[aname]["reds"] += ar
+            team_card_counts[aname]["matches"] += 1
 
-    team_breakdown = sorted(list(team_card_counts.values()), key=lambda x: (x["yellows"] + x["reds"] * 2), reverse=True)
+        team_breakdown = sorted(list(team_card_counts.values()), key=lambda x: (x["yellows"] + x["reds"] * 2), reverse=True)
 
-    from src.api.european_fixtures import referee_european_matches
-    european = referee_european_matches(conn, referee_name, season)
-    conn.close()
-    return {
-        "referee_name": referee_name,
-        "selected_season": season,
-        "season_stats": season_stats or career_stats or {
-            "referee_name": referee_name, "matches_count": 0, "avg_cards": None, "avg_fouls": None, "strictness_label": None
-        },
-        "career_stats": career_stats or season_stats,
-        "matches_count": len(matches),
-        "matches": matches,
-        "team_breakdown": team_breakdown[:8],
-        "european": european,
-    }
+        from src.api.european_fixtures import referee_european_matches
+        european = referee_european_matches(conn, referee_name, season)
+        return {
+            "referee_name": referee_name,
+            "selected_season": season,
+            "season_stats": season_stats or career_stats or {
+                "referee_name": referee_name, "matches_count": 0, "avg_cards": None, "avg_fouls": None, "strictness_label": None
+            },
+            "career_stats": career_stats or season_stats,
+            "matches_count": len(matches),
+            "matches": matches,
+            "team_breakdown": team_breakdown[:8],
+            "european": european,
+        }
 
 
 def get_all_grouped_fixtures(season: str = DEFAULT_SEASON, competition_id: Optional[int] = 39) -> List[Dict[str, Any]]:
     """Fetches all matches from SQLite for the given season and competition with referee stats pre-attached."""
-    conn = get_db()
-    cursor = conn.cursor()
-    comp_clause = "AND m.competition_id = ?" if competition_id is not None else ""
-    params = [season] if season != "all" else []
-    if competition_id is not None:
-        params.append(competition_id)
+    with closing(get_db()) as conn:
+        cursor = conn.cursor()
+        comp_clause = "AND m.competition_id = ?" if competition_id is not None else ""
+        params = [season] if season != "all" else []
+        if competition_id is not None:
+            params.append(competition_id)
 
-    if season != "all":
-        cursor.execute(f"""
-            SELECT m.*, x.provider AS xg_provider, x.home_xg AS statsapi_home_xg,
-                   x.away_xg AS statsapi_away_xg, x.xg_quality AS statsapi_xg_quality,
-                   r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
-                   r.avg_red_cards as ref_avg_reds, r.strictness_label as ref_strictness
-            FROM matches m
-            LEFT JOIN external_match_xg x ON x.match_id = m.match_id
-            LEFT JOIN referees r ON m.referee_name = r.referee_name AND r.season = m.season
-            WHERE m.season = ? {comp_clause}
-            ORDER BY m.gameweek ASC, m.match_date ASC, m.match_id ASC
-        """, tuple(params))
-    else:
-        where_sql = f"WHERE m.competition_id = ?" if competition_id is not None else ""
-        cursor.execute(f"""
-            SELECT m.*, x.provider AS xg_provider, x.home_xg AS statsapi_home_xg,
-                   x.away_xg AS statsapi_away_xg, x.xg_quality AS statsapi_xg_quality,
-                   r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
-                   r.avg_red_cards as ref_avg_reds, r.strictness_label as ref_strictness
-            FROM matches m
-            LEFT JOIN external_match_xg x ON x.match_id = m.match_id
-            LEFT JOIN referees r ON m.referee_name = r.referee_name AND r.season = 'all'
-            {where_sql}
-            ORDER BY m.season DESC, m.gameweek ASC, m.match_date ASC
-        """, tuple(params))
-    rows = [dict(r) for r in cursor.fetchall()]
-    conn.close()
-    return rows
+        if season != "all":
+            cursor.execute(f"""
+                SELECT m.*, x.provider AS xg_provider, x.home_xg AS statsapi_home_xg,
+                       x.away_xg AS statsapi_away_xg, x.xg_quality AS statsapi_xg_quality,
+                       r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
+                       r.avg_red_cards as ref_avg_reds, r.strictness_label as ref_strictness
+                FROM matches m
+                LEFT JOIN external_match_xg x ON x.match_id = m.match_id
+                LEFT JOIN referees r ON m.referee_name = r.referee_name AND r.season = m.season
+                WHERE m.season = ? {comp_clause}
+                ORDER BY m.gameweek ASC, m.match_date ASC, m.match_id ASC
+            """, tuple(params))
+        else:
+            where_sql = f"WHERE m.competition_id = ?" if competition_id is not None else ""
+            cursor.execute(f"""
+                SELECT m.*, x.provider AS xg_provider, x.home_xg AS statsapi_home_xg,
+                       x.away_xg AS statsapi_away_xg, x.xg_quality AS statsapi_xg_quality,
+                       r.avg_cards as ref_avg_cards, r.avg_yellow_cards as ref_avg_yellows,
+                       r.avg_red_cards as ref_avg_reds, r.strictness_label as ref_strictness
+                FROM matches m
+                LEFT JOIN external_match_xg x ON x.match_id = m.match_id
+                LEFT JOIN referees r ON m.referee_name = r.referee_name AND r.season = 'all'
+                {where_sql}
+                ORDER BY m.season DESC, m.gameweek ASC, m.match_date ASC
+            """, tuple(params))
+        return [dict(r) for r in cursor.fetchall()]
 
 
 if __name__ == "__main__":

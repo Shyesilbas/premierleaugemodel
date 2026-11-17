@@ -18,7 +18,7 @@ def test_plm_data_dir_moves_every_data_path_but_not_models_or_reports():
         assert cfg.FEATURES_PATH == root / "competitions" / "premier_league" / "processed" / "features_matches_all.parquet"
         assert cfg.MATCHES_RAW_DIR == root / "competitions" / "premier_league" / "raw" / "matches"
         assert cfg.MODELS_DIR == cfg.ROOT / "models" / "production" / "premier_league"
-        assert cfg.REPORTS_DIR == cfg.ROOT / "docs" / "reports"
+        assert cfg.REPORTS_DIR == cfg.ROOT / "reports"
     cfg = importlib.reload(config)  # back to whatever the caller's environment says
     assert cfg.DATA_DIR == Path(os.environ.get("PLM_DATA_DIR") or cfg.ROOT / "data").resolve()
 
@@ -51,21 +51,21 @@ def test_display_path_is_relative_inside_the_repo_and_absolute_outside():
 
 
 def test_every_competition_gets_its_own_data_and_model_folders():
-    pl, laliga = config.competition_paths("premier_league"), config.competition_paths("la_liga")
+    pl, cup = config.competition_paths("premier_league"), config.competition_paths("champions_league")
     assert (pl.raw, pl.processed, pl.features, pl.models) == (config.RAW_DIR, config.PROCESSED_DIR, config.FEATURES_PATH, config.MODELS_DIR)
-    assert laliga.raw == config.COMPETITIONS_DIR / "la_liga" / "raw"
-    assert laliga.matches_raw == laliga.raw / "matches"
-    assert laliga.features == config.COMPETITIONS_DIR / "la_liga" / "processed" / "features_matches_all.parquet"
-    assert laliga.models == config.MODELS_ROOT / "la_liga"
-    folders = [pl.raw, pl.processed, pl.models, laliga.raw, laliga.processed, laliga.models]
+    assert cup.raw == config.COMPETITIONS_DIR / "champions_league" / "raw"
+    assert cup.matches_raw == cup.raw / "matches"
+    assert cup.features == config.COMPETITIONS_DIR / "champions_league" / "processed" / "features_matches_all.parquet"
+    assert cup.models == config.MODELS_ROOT / "champions_league"
+    folders = [pl.raw, pl.processed, pl.models, cup.raw, cup.processed, cup.models]
     assert len({str(f) for f in folders}) == len(folders)
-    assert pl.processed not in laliga.processed.parents and laliga.processed not in pl.processed.parents
-    assert laliga.fixtures("2026_27").name == "fixtures_2026_27.json"
+    assert pl.processed not in cup.processed.parents and cup.processed not in pl.processed.parents
+    assert cup.fixtures("2026_27").name == "fixtures_2026_27.json"
 
 
 def test_models_dir_override_moves_only_the_premier_league():
     with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"PLM_MODELS_DIR": tmp}):
         cfg = importlib.reload(config)
         assert cfg.competition_paths("premier_league").models == Path(tmp).resolve()
-        assert cfg.competition_paths("la_liga").models == cfg.MODELS_ROOT / "la_liga"
+        assert cfg.competition_paths("champions_league").models == cfg.MODELS_ROOT / "champions_league"
     importlib.reload(config)

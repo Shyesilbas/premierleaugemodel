@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException, Query
 
 from src.analytics.model_audit import run_model_audit
 from src.api import state
-from src.api.prediction_service import compute_match_prediction, regression_model_skill as _regression_model_skill
-from src.config import DEFAULT_SEASON, ROOT as BASE_DIR
+from src.api.prediction_service import compute_match_prediction
+from src.config import DEFAULT_SEASON, REPORTS_DIR
 
 router = APIRouter()
 logger = logging.getLogger("api_server")
@@ -27,12 +27,7 @@ def get_model_audit(
     comp_id = comp.id if comp else 39
 
     if comp_id != 39:
-        if comp is not None and comp.has_model:
-            from src.analytics.league_audit import build_league_audit
-
-            payload = build_league_audit(comp.key, season, gameweek)
-            return {**payload, "selected_gameweek": gameweek} if gameweek is not None else payload
-        # Competitions without a prediction model show data only.
+        # Only the Premier League has an audit page; non-PL competitions return empty model audit state.
         return {"season": season, "competition_id": comp_id, "overall": {}, "gameweeks": [], "matches": [], "model_available": False}
 
     data = run_model_audit(season=season, force_recalc=force_recalc)
@@ -85,7 +80,7 @@ def predict_match(
 @router.get("/api/benchmarks")
 def get_benchmarks():
     """Returns saved model benchmark metrics and summary for all active production models."""
-    benchmarks_path = BASE_DIR / "docs" / "reports" / "model_benchmarks.md"
+    benchmarks_path = REPORTS_DIR / "model_benchmarks.md"
     content = ""
     if benchmarks_path.exists():
         with open(benchmarks_path, "r", encoding="utf-8") as f:

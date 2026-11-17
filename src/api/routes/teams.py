@@ -8,8 +8,8 @@ import json
 import logging
 import pandas as pd
 import re
-import sqlite3
 import urllib.request
+from contextlib import closing
 from datetime import datetime
 from fastapi import HTTPException
 from src.analytics.team_attackers import get_team_attacking_leaders
@@ -178,18 +178,16 @@ def get_teams(season: Optional[str] = None, competition: Optional[str] = None):
     comp_id = comp.id if comp else 39
 
     if comp_id != 39:
-        from src.db.database import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT home_id AS id, home_name AS name, home_abbr AS abbr, MAX(ground_name) AS ground_name, MAX(home_logo) AS logo
-            FROM matches
-            WHERE competition_id = ? AND (? IS NULL OR ? = 'all' OR season = ?)
-            GROUP BY home_id
-            ORDER BY home_name ASC
-        """, (comp_id, season, season, season))
-        rows = [dict(r) for r in cursor.fetchall()]
-        conn.close()
+        with closing(get_db()) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT home_id AS id, home_name AS name, home_abbr AS abbr, MAX(ground_name) AS ground_name, MAX(home_logo) AS logo
+                FROM matches
+                WHERE competition_id = ? AND (? IS NULL OR ? = 'all' OR season = ?)
+                GROUP BY home_id
+                ORDER BY home_name ASC
+            """, (comp_id, season, season, season))
+            rows = [dict(r) for r in cursor.fetchall()]
         return {"teams": rows, "count": len(rows)}
 
     if season == DEFAULT_SEASON:
@@ -530,10 +528,10 @@ def _load_team_market_values(team_id: int, season: Optional[str]) -> Tuple[Optio
             for pr in p_rows:
                 norm_name = pr["name"].lower().strip()
                 val_obj = {"eur": pr["market_value_eur"], "tm_id": pr["player_id"]}
-                player_values_map[norm_name] = val_obj
+                player_values_map.setdefault(norm_name, val_obj)
                 parts = norm_name.split()
                 if len(parts) > 1:
-                    player_values_map[parts[-1]] = val_obj
+                    player_values_map.setdefault(parts[-1], val_obj)
         finally:
             conn.close()
     except Exception as e:
@@ -925,104 +923,101 @@ def fetch_club_transfers_from_tm(tm_club_id: int, season_year: int, team_id: int
     arrivals, departures = [], []
     season_str = f"{str(season_year)[2:]}/{str(season_year+1)[2:]}"
 
-    conn = get_db()
-
     if soup:
-        for b in soup.select(".box"):
-            h2 = b.select_one("h2")
-            if not h2:
-                continue
-            title = h2.get_text(strip=True)
-            is_arr = "Arrivals" in title
-            is_dep = "Departures" in title
-            if not (is_arr or is_dep):
-                continue
-
-            target_list = arrivals if is_arr else departures
-            direction = "in" if is_arr else "out"
-
-            for r in b.select("table.items > tbody > tr"):
-                name_el = r.select_one(".hauptlink a")
-                if not name_el:
+        with closing(get_db()) as conn:
+            for b in soup.select(".box"):
+                h2 = b.select_one("h2")
+                if not h2:
                     continue
-                player_name = name_el.get_text(strip=True)
-                p_href = name_el.get("href", "")
-                pid_m = re.search(r"/spieler/(\d+)", p_href)
-                player_id = pid_m.group(1) if pid_m else None
+                title = h2.get_text(strip=True)
+                is_arr = "Arrivals" in title
+                is_dep = "Departures" in title
+                if not (is_arr or is_dep):
+                    continue
 
-                # Position
-                tables = r.select("table.inline-table")
-                pos = "-"
-                if tables:
-                    tds = tables[0].select("tr td")
-                    if len(tds) >= 2:
-                        pos = tds[-1].get_text(strip=True)
+                target_list = arrivals if is_arr else departures
+                direction = "in" if is_arr else "out"
 
-                # Age
-                age_el = r.select_one("td.zentriert")
-                age_val = None
-                if age_el and age_el.get_text(strip=True).isdigit():
-                    age_val = int(age_el.get_text(strip=True))
+                for r in b.select("table.items > tbody > tr"):
+                    name_el = r.select_one(".hauptlink a")
+                    if not name_el:
+                        continue
+                    player_name = name_el.get_text(strip=True)
+                    p_href = name_el.get("href", "")
+                    pid_m = re.search(r"/spieler/(\d+)", p_href)
+                    player_id = pid_m.group(1) if pid_m else None
 
-                # Counterpart
-                counterpart = "Bilinmiyor"
-                counterpart_cid = None
-                counterpart_badge = None
-                if len(tables) > 1:
-                    cp_a = tables[1].select_one(".hauptlink a")
-                    if cp_a:
-                        counterpart = cp_a.get_text(strip=True)
-                        cid_m = re.search(r"/verein/(\d+)", cp_a.get("href", ""))
-                        if cid_m:
-                            counterpart_cid = int(cid_m.group(1))
-                    cp_img = tables[1].select_one("img.tiny_wappen")
-                    if cp_img:
-                        counterpart_badge = cp_img.get("src")
+                    # Position
+                    tables = r.select("table.inline-table")
+                    pos = "-"
+                    if tables:
+                        tds = tables[0].select("tr td")
+                        if len(tds) >= 2:
+                            pos = tds[-1].get_text(strip=True)
 
-                fee_el = r.select_one(".rechts a, .rechts")
-                fee_str = fee_el.get_text(strip=True) if fee_el else "-"
-                fee_eur, fee_fmt, t_type = _parse_tm_fee(fee_str)
+                    # Age
+                    age_el = r.select_one("td.zentriert")
+                    age_val = None
+                    if age_el and age_el.get_text(strip=True).isdigit():
+                        age_val = int(age_el.get_text(strip=True))
 
-                # Look up market value if exists in db
-                mv_eur = 0.0
-                mv_fmt = "—"
-                if player_id:
-                    try:
-                        row = conn.execute("SELECT market_value_eur FROM player_market_values WHERE player_id = ? ORDER BY season DESC LIMIT 1", (player_id,)).fetchone()
-                        if row and row["market_value_eur"]:
-                            mv_eur = round(row["market_value_eur"] / 1000.0, 2)
-                            mv_fmt = f"€{mv_eur:.1f}M" if mv_eur >= 1.0 else f"€{int(mv_eur*1000)}k"
-                    except Exception:
-                        pass
+                    # Counterpart
+                    counterpart = "Bilinmiyor"
+                    counterpart_cid = None
+                    counterpart_badge = None
+                    if len(tables) > 1:
+                        cp_a = tables[1].select_one(".hauptlink a")
+                        if cp_a:
+                            counterpart = cp_a.get_text(strip=True)
+                            cid_m = re.search(r"/verein/(\d+)", cp_a.get("href", ""))
+                            if cid_m:
+                                counterpart_cid = int(cid_m.group(1))
+                        cp_img = tables[1].select_one("img.tiny_wappen")
+                        if cp_img:
+                            counterpart_badge = cp_img.get("src")
 
-                transfer_id = None
-                if fee_el and fee_el.name == "a":
-                    t_href = fee_el.get("href", "")
-                    t_m = re.search(r"/transfer_id/(\d+)", t_href)
-                    if t_m:
-                        transfer_id = t_m.group(1)
+                    fee_el = r.select_one(".rechts a, .rechts")
+                    fee_str = fee_el.get_text(strip=True) if fee_el else "-"
+                    fee_eur, fee_fmt, t_type = _parse_tm_fee(fee_str)
 
-                target_list.append({
-                    "id": transfer_id or f"{player_id or 0}_{direction}_{season_year}",
-                    "player_id": player_id,
-                    "player_name": player_name,
-                    "position": pos,
-                    "age": age_val,
-                    "counterpart_club_name": counterpart,
-                    "counterpart_club_id": counterpart_cid,
-                    "counterpart_club_badge": counterpart_badge,
-                    "direction": direction,
-                    "transfer_type": t_type,
-                    "fee_eur": fee_eur,
-                    "fee_formatted": fee_fmt,
-                    "market_value_eur": mv_eur,
-                    "market_value_formatted": mv_fmt,
-                    "date": f"{season_year}-07-01",
-                    "date_formatted": f"1 Tem {season_year}",
-                    "season": season_str
-                })
+                    # Look up market value if exists in db
+                    mv_eur = 0.0
+                    mv_fmt = "—"
+                    if player_id:
+                        try:
+                            row = conn.execute("SELECT market_value_eur FROM player_market_values WHERE player_id = ? ORDER BY season DESC LIMIT 1", (player_id,)).fetchone()
+                            if row and row["market_value_eur"]:
+                                mv_eur = round(row["market_value_eur"] / 1000.0, 2)
+                                mv_fmt = f"€{mv_eur:.1f}M" if mv_eur >= 1.0 else f"€{int(mv_eur*1000)}k"
+                        except Exception:
+                            pass
 
-    conn.close()
+                    transfer_id = None
+                    if fee_el and fee_el.name == "a":
+                        t_href = fee_el.get("href", "")
+                        t_m = re.search(r"/transfer_id/(\d+)", t_href)
+                        if t_m:
+                            transfer_id = t_m.group(1)
+
+                    target_list.append({
+                        "id": transfer_id or f"{player_id or 0}_{direction}_{season_year}",
+                        "player_id": player_id,
+                        "player_name": player_name,
+                        "position": pos,
+                        "age": age_val,
+                        "counterpart_club_name": counterpart,
+                        "counterpart_club_id": counterpart_cid,
+                        "counterpart_club_badge": counterpart_badge,
+                        "direction": direction,
+                        "transfer_type": t_type,
+                        "fee_eur": fee_eur,
+                        "fee_formatted": fee_fmt,
+                        "market_value_eur": mv_eur,
+                        "market_value_formatted": mv_fmt,
+                        "date": f"{season_year}-07-01",
+                        "date_formatted": f"1 Tem {season_year}",
+                        "season": season_str
+                    })
 
     spent = round(sum(x["fee_eur"] for x in arrivals), 2)
     income = round(sum(x["fee_eur"] for x in departures), 2)
@@ -1087,7 +1082,7 @@ def get_team_transfers(team_id: int, season: Optional[str] = None):
 
         # Resolve tm_club_id
         tm_row = conn.execute(
-            "SELECT tm_club_id FROM team_market_values WHERE team_id = ? LIMIT 1",
+            "SELECT tm_club_id FROM team_market_values WHERE team_id = ? ORDER BY season DESC LIMIT 1",
             (team_id,)
         ).fetchone()
         tm_club_id = tm_row["tm_club_id"] if tm_row else TEAM_ID_TO_TM_CLUB_ID.get(team_id)
@@ -1127,11 +1122,11 @@ def get_team_transfers(team_id: int, season: Optional[str] = None):
 
 
 @router.get("/api/teams/tactics")
-def get_team_tactics(team_id: int, season: Optional[str] = "all"):
+def get_team_tactics(team_id: int, season: Optional[str] = "all", venue: Optional[str] = "all"):
     """Returns a team-level tactical profile and same-season league benchmarks."""
     if team_id not in state.teams_dict:
         raise HTTPException(status_code=404, detail="Team not found")
-    return get_team_tactical_profile(team_id, season or "all")
+    return get_team_tactical_profile(team_id, season or "all", venue or "all")
 
 
 @router.get("/api/teams/attacking-leaders")

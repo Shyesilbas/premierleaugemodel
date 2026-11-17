@@ -96,7 +96,8 @@ def fetch_match_stats(session: requests.Session, match_id: int) -> Optional[Dict
 
 def fetch_match_details(session: requests.Session, match_id: int) -> Optional[Dict[str, Any]]:
     """Fetches match details including lineups, referee, stadium."""
-    url = f"{BASE_API_URL}/fixtures/{match_id}"
+    # PulseLive's S3/CloudFront origin returns 403/404 for completed matches without the trailing slash.
+    url = f"{BASE_API_URL}/fixtures/{match_id}/"
     resp = session.get(url, timeout=15)
     if resp.status_code == 200:
         data = resp.json()

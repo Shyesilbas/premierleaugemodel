@@ -1,4 +1,4 @@
-"""Leakage and decision checks for the TheStatsAPI league model (LaLiga)."""
+"""Leakage and decision checks for the TheStatsAPI league model."""
 
 import numpy as np
 import pandas as pd

@@ -26,6 +26,7 @@ TOOLS = (
         ("load_thestatsapi_league", "load those raw files into the database (no network)"),
         ("fetch_openfootball_schedule", "full-season calendar for weeks the provider has not published"),
         ("fetch_team_badges", "club badges and league emblem from TheSportsDB"),
+        ("fetch_transfermarkt_league", "squad and player market values per season, with dated player value histories"),
         ("export_competition_raw", "one-off: archive what the database holds for the UEFA cups as raw files"),
     )),
 )

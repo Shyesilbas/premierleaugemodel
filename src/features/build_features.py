@@ -14,7 +14,6 @@ to build the training dataset and to build live prediction rows in the API (see 
 
 import json
 import logging
-import sqlite3
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from collections import defaultdict
@@ -23,7 +22,7 @@ import pandas as pd
 import numpy as np
 from src.features.draw_features import DrawFeatureState, add_draw_features
 from src.db.database import attach_statsapi_xg
-from src.config import DB_PATH, FEATURES_PATH, MATCHES_RAW_DIR, MATCHES_SUMMARY_PATH, DEFAULT_SEASON, configure_logging
+from src.config import DB_PATH, MATCHES_RAW_DIR, DEFAULT_SEASON, configure_logging
 
 logger = logging.getLogger("build_features")
 

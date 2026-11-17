@@ -1,52 +1,50 @@
-# Project Rules — Premier League Model App
+# premierLeaugeModelApp — Unified Agent Guide
 
-Premier League maçları için makine öğrenmesi tahmin motoru, analitik ETL hattı, FastAPI backend ve React/Tailwind arayüzü.
+Multi-league football platform (`premier_league` models + `champions_league` & `europa_league` data-only, plus reusable national-league pipeline tooling): Python 3.12 analytical ETL/modeling/FastAPI service (`src/`) and React 19 / Vite / Tailwind frontend (`frontend/`). Single source of truth for all AI agents (`CLAUDE.md`, `GEMINI.md`, `CODEX.md`, `.cursorrules`, `.windsurfrules`, `.clinerules` point here).
 
-## Uzmanlaşmış Agent Skill'leri (`.agents/skills/`)
-Detaylı iş akışları ve standartlar `.agents/skills/` altındadır; ilgili görevlerde mutlaka bu skill'leri oku ve uygula:
-- **`quant-model-experiment-and-audit`** (`.agents/skills/quant-model-experiment-and-audit/SKILL.md`): Model deneyleri, özellik ablasyonları, sıfır sızıntı (`shift(1)` ve OOF kalibrasyon), kilitli sezon (`2026/27`), dış sezon skill gate (`training_mean` / prior karşılaştırması), bootstrap CI, ortak skor matrisi tutarlılığı ve rapor/registry güncelleme zinciri.
-- **`sports-pipeline-and-paper-trading`** (`.agents/skills/sports-pipeline-and-paper-trading/SKILL.md`): Veri çekme/ETL, olay akışından istatistik kurtarma, SQLite veritabanı (`data/football.db`), maç öncesi append-only tahmin kaydı (`1x2_forecast_log.jsonl`) ve puan kartı (`prospective_1x2_scorecard.json`) akışı.
-- **`restrained-ui-design-standard`** (`.agents/skills/restrained-ui-design-standard/SKILL.md`): Apple/Spotify-tier sade arayüz tasarım kuralları, semantik tokenlar, radius tavanı (`rounded-md`), 4 veri durumu (loading/empty/error/pending) ve iş bitimi zorunlu lint/regex kontrolleri.
+## Commands
+- **Start dev stack:** `python3 start.py` or `./start.sh` (FastAPI `127.0.0.1:8000`, Vite `localhost:5173`).
+- **Full rebuild & train (PL):** `python3 run_full_pipeline.py` (offline stages: `rebuild`, `audits`, `counts`, `outcome`, `goals`) | Derived rebuild only: `python3 -m src.pipeline.rebuild`.
+- **Generic national-league training:** `python3 -m src.models.train_league_model --competition <key>` | `python3 -m src.models.train_league_counts --competition <key>` | `python3 -m src.models.train_league_goals --competition <key>`.
+- **Paper trading:** `python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14` | `python3 -m src.analytics.prospective_1x2_benchmark score`.
+- **Tests & lint:** `pytest -q` | `ruff check .` | `cd frontend && npm run dev | lint:design | lint | build`.
+- **Verify:** `./scripts/verify.sh` = `check_no_emoji.py` + `check_docs.py` + `check_api_endpoints.py` + core doc/config/CLI pytest checks + frontend `lint:design`, `lint` & `build`.
 
-## Hızlı Komutlar
-- **Uygulamayı Başlat (Backend + Frontend):** `python3 start.py`
-- **Tüm Pipeline'ı Çalıştır (ETL + Model Eğitimi + Benchmark):** `python3 run_full_pipeline.py`
-- **Maç Öncesi Tahmin Kaydı (Paper Trading):** `python3 -m src.analytics.prospective_1x2_benchmark snapshot --horizon-days 14`
-- **Testleri Çalıştır:** `pytest`
-- **Frontend Geliştirme & Doğrulama:** `cd frontend && npm run lint && npm run build`
-- **Veritabanı Sorgulama:** `sqlite3 data/football.db "SELECT ... LIMIT 5;"` (`.db` ve `.parquet` dosyalarını asla metin olarak doğrudan okuma).
+## Skills (`.agents/skills/`, symlinked as `.claude/skills`)
+Load the matching skill before modifying code.
 
-## Mimari Özeti & Dokümantasyon Haritası
-- **Aktif Üretim Modelleri (`models/production/premier_league/`; her turnuvanın modelleri kendi alt klasöründe, verisi `data/competitions/<anahtar>/` altında):**
-  - `goals_models_v1.joblib`: Bağımsız Poisson + Dixon-Coles 13x13 skor matrisi (`evaluate_goal_models` -> `train_goals`), API'de lojistik 1X2'ye hizalı.
-  - `outcome_models_v1.joblib`: 74 özellikli Lojistik Regresyon + sıcaklık kalibrasyonu (npxG + npBC + ceza sahası giriş üstünlüğü + ilk 11 kadro derecesi ve devamlılığı).
-  - Sayım Modelleri (`corner`, `throws`, `offside`, `cards`, `saves`): CV kapısı + dış sezon kapısını (`apply_outer_season_gate`) geçemeyenler otomatik olarak `training_mean` döndürür.
-  - La Liga (`models/production/la_liga/outcome_models_v1.joblib`): kendi özellik üreticisi (`src/features/build_league_features.py`) ve eğitici (`src/models/train_league_model.py`); kapıyı geçmezse Elo `baseline` sunulur. Gol pazarları `src/models/train_league_goals.py` ile PL'nin gol modeliyle (`goals_models_v1.joblib`, pazar bazlı kapı) sunulur. Sayım modelleri (`corner`, `throws`, `offside`, `cards`, `saves`) `src/models/train_league_counts.py` ile PL'nin aynı özellik kodu (`build_league_pl_features.py`) ve kapılarından geçirilir; 1X2 ve gol modeli ise kendi 118 özellikli kümesini kullanır (PL tanımlı küme sınandı, benimsenmedi). UCL/UEL için model yoktur, yalnızca veri gösterilir.
-- **Referans Belgeler (Tek Kaynak Sırası):**
-  1. `ARTIFACT_REGISTRY.md` — Veri, model ve rapor envanteri. Hangi turnuva verisi nereden geliyor: `docs/data_sources.md`.
-  2. `PROJECT_STATUS.md` — Güncel sezon, model durumu ve bilinen sınırlar.
-  3. `docs/reports/models/*.md` — Her modelin kendi mimari, denetim ve reddedilen deney raporu.
-  4. `docs/reports/premier_league_models_comprehensive_report.md` — Ana rapor indeksi.
-  5. `AI_CONTEXT.md` ve `VERI_VE_GOSTERIM_KATALOGU.md` — Makine okunabilir özet ve veri/API şema kataloğu.
-  6. Otomatik raporlar (`model_benchmarks.md`, `data_quality.md`, `team_tactical_data_audit.md`, `team_scenario_validation.md`) pipeline tarafından üretilir; elle düzenlenmez.
-
-## Her Değişiklikten Sonra: Doküman ve Rapor Senkronu (ZORUNLU)
-Kullanıcıdan istenmesini bekleme: bir şeyi eklediğinde, değiştirdiğinde ya da sildiğinde, işi bitirmeden ve "tamam" demeden önce aşağıdaki tabloya göre ilgili belgeleri aynı oturumda güncelle. Güncellenmemiş doküman eksik iştir.
-
-| Ne değişti | Güncellenecek belgeler |
+| Touching | Skill |
 |---|---|
-| Veri kaynağı, sağlayıcı, ingest/load script'i, yeni turnuva veya lig | `docs/data_sources.md` (kaynak tablosu, turnuva bölümü, karar günlüğü, script kataloğu), `docs/scripts_reference.md`, `ARTIFACT_REGISTRY.md`, `src/ingest/__main__.py` içindeki `TOOLS` dizini, script'in `--help` metni, `PROJECT_STATUS.md` |
-| Dizin, dosya yolu, veritabanı adı, ortam değişkeni | `docs/scripts_reference.md` §0, `ARTIFACT_REGISTRY.md` (Directory layout), `README.md`, `AGENTS.md`, `AI_CONTEXT.md`, `.gitignore` ve `.claudeignore` |
-| Model eğitimi, özellik, eşik, ablasyon, reddedilen deney | `docs/reports/models/<model>.md` (olumsuz sonuç dahil, "No Gain, Not Adopted"), `ARTIFACT_REGISTRY.md`, `PROJECT_STATUS.md`, `AI_CONTEXT.md`, `README.md` benchmark tablosu; üretilen raporlar için ilgili komutu çalıştır |
-| API uç noktası, yanıt şeması, önbellek davranışı | `VERI_VE_GOSTERIM_KATALOGU.md`, `docs/model_api_integration.md`, `AI_CONTEXT.md` (endpoint eşlemesi) |
-| Arayüz sekmesi, bileşen, turnuva yeteneği (`CompetitionContext`) | `VERI_VE_GOSTERIM_KATALOGU.md` (arayüz gösterimleri), `PROJECT_STATUS.md`; frontend için `npm run lint && npm run build` |
-| Yeni veya silinen script, test dosyası | `docs/scripts_reference.md` (`tests/test_docs.py` bunu zorlar) |
-| Veri atlama, model reddi, kapsam kararı | `docs/data_sources.md` karar günlüğü ve ilgili model raporu |
-| Her oturumun sonu | `PROJECT_STATUS.md`: "Son Değişiklikler" (tarihli), test sayısı, "Bilinen Sınırlar", "Sıradaki İşler" |
+| Model experiments, feature ablations, calibration, skill gates, promotions | `quant-model-experiment-and-audit` |
+| Data ingestion, SQLite `football.db`, competition stores, paper trading ledger | `sports-pipeline-and-paper-trading` |
+| Any doc, README, report, skill or `AGENTS.md` edit | `docs-drift-audit` |
+| Backend routes, services, SQLite/Parquet logic, security or finding IDs | `backend-review-audit` |
+| Frontend UI component, view, modal, table, chart or stylesheet | `restrained-ui-design-standard` |
+| Frontend modules, React Context, services, caching or routing | `frontend-modular-architecture` |
 
-Kurallar: (1) Sayıları elle uydurma, üretilen JSON/çıktıdan oku; elle yazılan sayının yanına tarih koy. (2) Otomatik raporlar (`model_benchmarks.md`, `data_quality.md`, `team_*.md`) elle düzenlenmez; üreten komutu çalıştır. (3) Eski yol, ad veya sayı kalmadığını `grep` ile doğrula. (4) Bitirmeden `pytest` çalıştır; `tests/test_docs.py` ve `tests/test_cli_help.py` doküman eksiklerini yakalar. (5) Neyi güncellediğini son mesajda tek satırla say.
+## Active Production Models
+- **Premier League (`models/production/premier_league/`):**
+  - `goals_models_v1.joblib`: Independent Poisson + Dixon-Coles `13x13` score matrix (60 features, `alpha=3.0`, `dc_weight=0.0`), rescaled to 1X2 probabilities; calibrated O1.5/O2.5/O3.5 & BTTS probabilities (`btts_prediction=null` while `btts_gate` is closed).
+  - `outcome_models_v1.joblib`: 74-feature multinomial Logistic Regression (`C=0.003`) + OOF softmax temperature/bias calibrator.
+  - Count models (`corner`, `throws`, `offside`, `cards`, `saves`): gated via CV + nested outer-season gate (`throws` & `offsides` active; `corner`, `cards`, `saves` serve `training_mean` with `model_skill="baseline"`).
+- **UCL / UEL:** Data-only (`competition_id` 2, 3); `/api/predict` returns 404 and `/api/model-audit` serves Premier League only (`hasAudit: true`).
 
-## Kod ve Bağlam Verimliliği
-- **Belge Dili:** Türkçe belgeler (`PROJECT_STATUS.md`, `docs/`) Türkçe kalır; kod, docstring ve `--help` metinleri İngilizce yazılır.
-- **Sıfır Emoji:** Kod, yorum satırı, docstring, commit mesajı, UI ve raporlarda kesinlikle emoji kullanma.
-- **Nokta Atışı Okuma ve Düzenleme:** Büyük dosyaları tamamen okumak yerine `grep` ve satır aralıklı okuma kullan; veri dosyalarında yalnızca şema veya ilk birkaç satırı incele.
+## Invariants
+- **Zero emoji** in code, comments, docstrings, UI text, reports, and git commits. Use `lucide-react` icons.
+- **Pre-game leakage boundary (`shift(1)`):** All rolling windows, EWMA, Elo, and referee aggregates strictly use prior matches (`< kickoff`); maintain train-serve parity across offline builders (`src/features/`) and live inference (`src/api/`).
+- **Locked season `2026_27`:** Strictly for prospective paper-trading evaluation; never use it for feature selection, tuning, or skill-gate decisions.
+- **Production safety:** Never overwrite `models/production/*` during experiments; isolate runs with `PLM_DATA_DIR`, `PLM_MODELS_DIR`, `PLM_MODELS_ROOT`, and `PLM_REPORTS_DIR`.
+- **One home per fact:** Module rules live in `src/<module>/README.md` and `frontend/src/<module>/README.md`; cross-module guides and registries live in `docs/`; generated outputs and frozen audits live in `reports/`.
+- **Never read raw files directly:** Never read `.parquet`, `.db`, `.joblib`, raw `matches/*.json`, `node_modules/`, `frontend/dist/`, `.venv/`, `.pytest_cache/`, `__pycache__/`, or `.git/`. Inspect SQLite with `sqlite3 data/football.db "SELECT ... LIMIT 5;"`.
+
+## Project Map & Risk Tiers
+| Group | Modules | Risk |
+|---|---|---|
+| Modeling & Feature Integrity | `src/features`, `src/models`, `src/analytics` | High |
+| Data, Sync & Storage | `src/ingest`, `src/processing`, `src/pipeline`, `src/db`, `src/competitions` | High |
+| Serving & UI | `src/api`, `src/config.py`, `frontend/src/*` | Medium |
+
+## Where to Look
+1. **Module hub first:** `src/<module>/README.md` (frontend: `frontend/src/<module>/README.md` and `frontend/README.md`).
+2. **Cross-module docs, registries & model specs:** `docs/README.md` (`docs/artifact_registry.md`, `docs/project_status.md`, `docs/data_sources.md`, `docs/reports/models/*.md`).
+3. **Generated benchmarks & frozen audits:** `reports/README.md`.

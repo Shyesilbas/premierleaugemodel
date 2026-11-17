@@ -37,6 +37,7 @@ class CompetitionConfig:
     has_model: bool = False
     zones: tuple = ()
     schedule_source: Optional[str] = None
+    transfermarkt_code: Optional[str] = None  # Transfermarkt competition code for squad and player market values
 
     @property
     def is_continental(self) -> bool:
@@ -99,6 +100,7 @@ class CompetitionRegistry:
                 has_model=bool(info.get("has_model", False)),
                 zones=tuple(info.get("zones") or ()),
                 schedule_source=info.get("schedule_source"),
+                transfermarkt_code=info.get("transfermarkt_code"),
             )
             cls._competitions[key] = cfg
             cls._id_to_key[cfg.id] = key

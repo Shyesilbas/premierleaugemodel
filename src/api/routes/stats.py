@@ -3,6 +3,7 @@
 import logging
 import sqlite3
 import unicodedata
+from contextlib import closing
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -38,7 +39,7 @@ def _goal_events() -> pd.DataFrame:
 
 def _audit_rows(season: str) -> List[Dict[str, Any]]:
     try:
-        with get_db() as conn:
+        with closing(get_db()) as conn:
             cursor = conn.execute(
                 "SELECT match_id, actual_result, prob_home, prob_draw, prob_away FROM model_match_audit WHERE season = ?",
                 (season,),
@@ -58,9 +59,9 @@ def _normalise(name: Any) -> str:
 def _ages(season: str) -> Dict[int, int]:
     """Player age by registry id; Transfermarkt ids differ from PL ids, so rows join on name."""
     try:
-        with get_db() as conn:
+        with closing(get_db()) as conn:
             rows = conn.execute(
-                "SELECT team_id, name, age FROM player_market_values WHERE season = ? AND age IS NOT NULL",
+                "SELECT team_id, name, age FROM player_market_values WHERE season = ? AND age IS NOT NULL AND competition_id = 39",
                 (season,),
             ).fetchall()
     except sqlite3.Error:

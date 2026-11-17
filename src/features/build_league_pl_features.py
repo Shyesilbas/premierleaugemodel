@@ -1,4 +1,4 @@
-"""The Premier League's feature definitions applied to a league fed only by TheStatsAPI (LaLiga).
+"""The Premier League's feature definitions applied to a national league fed only by TheStatsAPI.
 
 Instead of re-implementing the Premier League features, this module renames the league's statistics to the Premier League's
 raw column names and runs the Premier League's own functions on them (``build_team_match_history``,

@@ -3,10 +3,10 @@
  * Saves requests by keeping data cached in localStorage until the team's next scheduled match completes.
  */
 
-import { getJson } from '../services/apiClient';
+import { getJson, invalidateApiCache } from '../services/apiClient';
 import { registerLogosFrom } from '../data/teams';
 
-const CACHE_PREFIX = 'pl_team_cache_v15_'; // v15: LaLiga responses cached before its badges existed carried no logos
+const CACHE_PREFIX = 'pl_team_cache_v15_'; // v15: cache bust for refreshed competition payloads and badges
 const LEGACY_CACHE_PREFIX = 'pl_team_cache_v';
 
 /**
@@ -111,12 +111,16 @@ export function calculateTeamExpiry(nextMatch, season) {
 /**
  * Clear cached team categories (used on manual refresh)
  */
-export function clearTeamCache(teamId, season) {
+export function clearTeamCache(teamId, season, competitionKey = null) {
   try {
     const categories = ['profile', 'tactics', 'scenarios', 'attackers'];
+    const profileTeamKey = competitionKey ? `${teamId}_${competitionKey}` : teamId;
     categories.forEach(cat => {
       localStorage.removeItem(`${CACHE_PREFIX}${cat}_${teamId}_${season}`);
     });
+    if (profileTeamKey !== teamId) {
+      localStorage.removeItem(`${CACHE_PREFIX}profile_${profileTeamKey}_${season}`);
+    }
     localStorage.removeItem(`${CACHE_PREFIX}manager_changes_all_${season}`);
     localStorage.removeItem(`${CACHE_PREFIX}fixtures_grouped_all_${season}`);
     localStorage.removeItem(`${CACHE_PREFIX}standings_all_${season}`);
@@ -130,6 +134,7 @@ export function clearTeamCache(teamId, season) {
  * Drop every cached entry (teams, fixtures, standings, match details); used after a data sync.
  */
 export function clearAllCaches() {
+  invalidateApiCache();
   try {
     Object.keys(localStorage)
       .filter(key => key.startsWith(CACHE_PREFIX))
@@ -156,7 +161,7 @@ try {
  */
 export async function syncDataVersion() {
   try {
-    const { version } = await getJson('/api/data-version');
+    const { version } = await getJson('/api/data-version', { cache: 'no-store' });
     if (!version || localStorage.getItem(DATA_VERSION_KEY) === version) return false;
     clearAllCaches();
     localStorage.setItem(DATA_VERSION_KEY, version);

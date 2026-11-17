@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Outer-season evaluation of the goal-market models of a TheStatsAPI league (LaLiga).
+"""Outer-season evaluation of the goal-market models of a TheStatsAPI league.
 
-Usage: python3 -m src.models.evaluate_league_goal_models --competition la_liga
+Usage: python3 -m src.models.evaluate_league_goal_models --competition <league_key>
 
 Candidates, each fitted on earlier seasons only and scored on every outer season (2024/25, 2025/26; the locked season is reported,
 never used in the decision):
@@ -17,7 +17,7 @@ Decision rule, written before the run: a market is served from a model only if s
 (negative paired difference with q < 0.05); the candidate with the lowest mean log-loss among those wins. Otherwise the market
 stays on the base rate and is labelled ``baseline``. No candidate is chosen on the locked season.
 
-Reads: data/football.db. Writes: docs/reports/models/<key>_goal_model_eval.json (no artifact).
+Reads: data/football.db. Writes: reports/models/<key>_goal_model_eval.json (no artifact).
 """
 
 from __future__ import annotations

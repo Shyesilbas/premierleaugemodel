@@ -64,38 +64,37 @@ function TransfersSkeleton() {
 }
 
 export default function TeamTransfersSection({ teamId, season = '2026_27', onSelectPlayer }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [result, setResult] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [directionFilter, setDirectionFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    if (!teamId) return;
-    let isMounted = true;
-    setLoading(true);
-    setError(false);
+  const effectiveSeason = season === 'all' ? '2026_27' : season;
+  const requestKey = `${teamId}:${effectiveSeason}:${reloadKey}`;
 
-    const s = season === 'all' ? '2026_27' : season;
-    getTeamTransfers(teamId, s)
+  useEffect(() => {
+    if (!teamId) return undefined;
+    let isMounted = true;
+
+    getTeamTransfers(teamId, effectiveSeason)
       .then(resData => {
-        if (!isMounted) return;
-        setData(resData);
-        setLoading(false);
+        if (isMounted) setResult({ key: requestKey, data: resData, error: false });
       })
       .catch(err => {
-        if (!isMounted) return;
         console.error('Failed to load team transfers:', err);
-        setError(true);
-        setLoading(false);
+        if (isMounted) setResult({ key: requestKey, data: null, error: true });
       });
 
     return () => {
       isMounted = false;
     };
-  }, [teamId, season, reloadKey]);
+  }, [teamId, effectiveSeason, requestKey]);
+
+  const settled = result?.key === requestKey;
+  const loading = Boolean(teamId && !settled);
+  const error = settled && result.error;
+  const data = settled ? result.data : null;
 
   const summary = data?.summary;
 

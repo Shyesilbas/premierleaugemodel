@@ -23,6 +23,14 @@ _player_logs_cache: Optional[Dict[str, List[Dict[str, Any]]]] = None
 _player_reg_cache: Optional[Dict[int, Dict[str, Any]]] = None
 
 
+def clear_caches() -> None:
+    """Drop module-level player log, registry, and booking caches after dataset reloads."""
+    global _bookings_cache, _player_logs_cache, _player_reg_cache
+    _bookings_cache = None
+    _player_logs_cache = None
+    _player_reg_cache = None
+
+
 def get_match_bookings_map() -> Dict[int, Dict[int, Dict[str, int]]]:
     """
     Returns map: match_id -> player_id -> {'yellow': int, 'red': int}.

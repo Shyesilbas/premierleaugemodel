@@ -6,8 +6,8 @@ What it does: asks the competition's provider for the season's matches, converts
 penalties, who advanced) and upserts them, so statistics already stored by other providers survive. Matches that disappeared
 from the feed are removed. The raw feed is saved under ``data/competitions/<key>/raw/uefa/``.
 
-Reads:  UEFA match and standings APIs (champions_league, europa_league; public, no key) or, for a TheStatsAPI league
-        such as la_liga, the fixture files saved by ``fetch_thestatsapi_league``.
+Reads:  UEFA match and standings APIs (champions_league, europa_league; public, no key) or, for a TheStatsAPI domestic league,
+        the fixture files saved by ``fetch_thestatsapi_league``.
 Writes: ``data/football.db`` (``matches``, ``external_competition_payloads`` for UEFA's official table) and the raw files.
 Needs:  nothing for the UEFA cups; for a league run ``fetch_thestatsapi_league`` first. Prefer ``sync_competition`` or
         ``load_thestatsapi_league``, which call this and also handle the statistics.

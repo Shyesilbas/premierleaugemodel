@@ -8,7 +8,7 @@ Turnuva başına veri kaynakları: [data_sources.md](data_sources.md). Tüm veri
 
 ## 0. Yapılandırma ve ortam değişkenleri
 
-`src/config.py` projedeki tüm yolların ve sezon politikasının tek kaynağıdır (`ROOT`, `DATA_DIR`, `COMPETITIONS_DIR`, `DB_PATH`, `MODELS_ROOT`, `REPORTS_DIR`, `LOCKED_SEASONS`, `EXCLUDED_1X2_TRAINING_SEASONS`). Bir turnuvanın klasörlerine `competition_paths("la_liga")` ile ulaşılır; `RAW_DIR`, `MATCHES_RAW_DIR`, `PROCESSED_DIR`, `FEATURES_PATH`, `MATCHES_SUMMARY_PATH`, `MODELS_DIR` sabitleri Premier League'in yollarıdır.
+`src/config.py` projedeki tüm yolların ve sezon politikasının tek kaynağıdır (`ROOT`, `DATA_DIR`, `COMPETITIONS_DIR`, `DB_PATH`, `MODELS_ROOT`, `REPORTS_DIR`, `LOCKED_SEASONS`, `EXCLUDED_1X2_TRAINING_SEASONS`). Bir turnuvanın klasörlerine `competition_paths("<anahtar>")` ile ulaşılır; `RAW_DIR`, `MATCHES_RAW_DIR`, `PROCESSED_DIR`, `FEATURES_PATH`, `MATCHES_SUMMARY_PATH`, `MODELS_DIR` sabitleri Premier League'in yollarıdır.
 
 ### Dizin düzeni (turnuva bazlı)
 
@@ -29,7 +29,7 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 | `PLM_SEASON` | Betiklerin varsayılan sezonu. Verilmezse `data/competitions/premier_league/raw/fixtures_*.json` içindeki en yeni sezon (`config.DEFAULT_SEASON`); tüm önbellek sezonları `config.SEASONS`. |
 | `PLM_ADMIN_TOKEN` | Tanımlıysa `/api/admin/*` uçları (senkron başlat/durum, model yenile) `X-Admin-Token` başlığında bu değeri ister (ASCII, örn. `openssl rand -hex 24`); tanımsızsa uçlar açık kalır ve bir kez uyarı loglanır. **Sunucuda `/opt/plm/.env` içine ekleyin.** Arayüz jetonu `localStorage.setItem('plm_admin_token', '<jeton>')` ile okur. |
 | `PLM_CORS_ORIGINS` | API'yi tarayıcıdan çağırabilecek kökenler (virgülle). Varsayılan yerel geliştirme sunucuları (`localhost:5173`, `localhost:8080`); `*` artık varsayılan değil. Aynı kökenden gelen trafik (Vite proxy, Caddy) CORS gerektirmez. |
-| `PLM_REPORTS_DIR` | Üretilen raporların (`data_quality.md`, `prospective_1x2_scorecard.json` ...) yazıldığı dizin. Varsayılan `docs/reports`. İzole denemelerde gerçek raporları ezmemek için. |
+| `PLM_REPORTS_DIR` | Üretilen raporların (`data_quality.md`, `prospective_1x2_scorecard.json` ...) yazıldığı dizin. Varsayılan `reports`. İzole denemelerde gerçek raporları ezmemek için. |
 | `PLM_MODELS_ROOT` | Tüm turnuvaların model kökünü değiştirir. Varsayılan `<repo>/models/production`. |
 | `PLM_MODELS_DIR` | Yalnızca Premier League'in model klasörünü değiştirir. Varsayılan `<repo>/models/production/premier_league`. |
 
@@ -60,6 +60,7 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 | `src/api/european_fixtures.py` | Premier Lig kulübünün takım profili fikstürüne UCL/UEL maçlarını ekler: kulüpleri UEFA ID'leriyle isimden eşler (veri yeniden çekilmez), maçı kulüp açısından çevirir, turnuva/tur etiketi ve kick-off zamanı ekler. Lig rekoru yalnızca PL maçlarından hesaplanır. Aynı modül PL hakemlerinin Avrupa maçlarını (isimden eşleşir, kart/faul yalnızca istatistiği olan maçlardan) ve PL oyuncularının Avrupa maç kayıtlarını (kulüp içinde isimle eşleşir) verir. |
 | `tests/test_cli_help.py` | Veri araçlarının `--help` çıktısının çalıştığını, kullanım/girdi/çıktı/gereksinim anlattığını, `python3 -m src.ingest` dizininin tüm araçları listelediğini ve `docs/data_sources.md`'nin hepsinden bahsettiğini doğrular. |
 | `tests/test_thestatsapi_league.py` | Kimlik aralıkları, fikstür satırı, kısaltmalar, kayıt defteri girdisi ve zaman akışı (gol, kendi kalesine, penaltı, değişiklik eşleme) testleri. |
+| `tests/test_transfermarkt_league.py` | Transfermarkt lig hattı: para dizgileri, lig ve kadro sayfası ayrıştırma, kulüp-takım eşleme (önce tam, sonra kalan takımlarda tekil alt küme), tarihli değer geçmişi, ortak tablolara yükleme (başka turnuvanın oyuncu satırı ezilmez) ve eski tablolara `competition_id` eklenmesi. |
 | `tests/test_raw_store.py` | Ham dosya yollarının turnuva ve sağlayıcı bazlı ayrımı, atomik yazma ve turnuvalar arası maç kimliği çakışma koruması. |
 | `tests/test_european_fixtures.py` | Bu birleştirmenin çevrimdışı ve API testleri. |
 | `src/api/knockout.py` | UCL/UEL eleme turlarında maçları eşleşmelere (tie) toplar: iki ayağın toplam skoru, turu geçen takım ve nedeni (toplam skor/uzatma/penaltı), maç kartları için özet ve turnuva ağacı yerleşimi (`/api/fixtures/bracket`). |
@@ -68,28 +69,28 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 | `tests/test_uefa_match_details.py` | UEFA maç detayı üreticisinin çevrimdışı testleri. |
 | `src/ingest/sync_thestatsapi_competition.py` | UCL/UEL için TheStatsAPI'den (`THESTATSAPI_API_KEY`, yalnızca ortam değişkeninden; dakikada 100 istek) oynanmış maçların takım istatistiklerini, kadrolarını, oyuncu istatistiklerini, olay akışını, şut haritasını ve oranlarını ham olarak `external_match_payloads` tablosuna, xG'yi `external_match_xg`'ye, toplamları `matches` satırına yazar; ayrıca puan durumu ve kadroları `external_competition_payloads`'a alır. Yeniden çalıştırılabilir: kayıtlı veriler atlanır, `--refresh` ile yeniden çeker. **Oranlar 2024/25'ten itibaren çekilir, 2023/24 ve öncesinde atlanır** (`--include-odds` ile açılır). |
 | `tests/test_statsapi_competition_sync.py` | TheStatsAPI senkronunun ve maç detayı katmanının çevrimdışı testleri. |
-| `src/ingest/providers/thestatsapi_league.py` | TheStatsAPI'yi ulusal ligin fikstür kaynağı yapar (LaLiga ve aynı yolla eklenen ligler): sağlayıcı kimliklerini yerel tamsayı aralıklarına kaydırır (`match_id` +100.000.000, `team_id` +10.000.000), Londra saatiyle etiket üretir, 3 harfli kısaltma ve rozet yolunu bulur. |
+| `src/ingest/providers/thestatsapi_league.py` | TheStatsAPI'yi ulusal liglerin fikstür kaynağı yapar: sağlayıcı kimliklerini yerel tamsayı aralıklarına kaydırır (`match_id` +100.000.000, `team_id` +10.000.000), Londra saatiyle etiket üretir, 3 harfli kısaltma ve rozet yolunu bulur. |
 | `src/ingest/fetch_thestatsapi_league.py` | Bir ulusal ligin fikstür listesini, bitmiş maçların 7 türdeki yanıtlarını (maç, istatistik, kadro, oyuncu istatistiği, zaman akışı, şut haritası, oran) ve kulüp kadro/sezon istatistiklerini `data/competitions/<anahtar>/raw/thestatsapi/` altına indirir. Var olanı atlar, 100 istek/dakika sınırını aşmaz; oranlar yalnızca 2024/25'ten itibaren (`--old-extras` eski sezonlar için de çeker); şut haritası hiçbir sezon için çekilmez. Anahtar yalnızca ortam değişkeninden. |
 | `src/ingest/fetch_openfootball_schedule.py` | Ligin tam sezon takvimini openfootball'dan (kamu malı, anahtarsız) `raw/openfootball/` altına indirir. TheStatsAPI yalnızca yaklaşık 4 hafta ilerisini yayınladığı için, yayınlanmamış haftalar bu takvimden yer tutucu maç olarak eklenir; sağlayıcı o maçı yayınlayınca yer tutucu gerçeğiyle değişir (`schedule_source` alanı `competitions.yaml`'da). |
 | `src/ingest/load_thestatsapi_league.py` | Yukarıdaki ham dosyaları ağ kullanmadan ortak veritabanına yükler: maç satırları, ham yanıt kayıtları, maç toplamları (korner, şut, kart, xG), oranlar, kadro/takım istatistikleri ve teknik direktörler. Tekrar çalıştırılabilir. |
 | `src/ingest/sync_competition.py` | "Veri güncelle" düğmesinin Premier League dışındaki turnuvalar için çalıştırdığı boru hattı: TheStatsAPI ligi için eksik dosyaları indirir ve yükler; UEFA kupası için fikstür, sonuç ve resmi tabloyu UEFA'dan (anahtar varsa TheStatsAPI ayrıntısını) tazeler. Turnuva başına kilit kullanır; son satırda `SYNC_RESULT` yazar. |
 | `src/ingest/fetch_team_badges.py` | Bir turnuvanın kulüp rozetlerini TheSportsDB'den `frontend/public/badges/<anahtar>/<takım id>.png` olarak indirir; eşleşmeyenleri tahmin etmez, listeler. |
+| `src/ingest/fetch_transfermarkt_league.py` | Bir ulusal ligin (`transfermarkt_code`) veritabanındaki her sezonu için Transfermarkt lig sayfasından kulüp değerlerini, kulüp kadro sayfalarından oyuncu değerlerini ve her oyuncunun tarihli değer geçmişini `data/competitions/<anahtar>/raw/transfermarkt/` altına indirir ve `team_market_values`, `player_market_values` (`competition_id` ile) ve `player_market_value_history_cache` tablolarına yükler. Kulüpleri adla eşler, eşleşmeyende durur; var olan dosyayı (başka turnuvada inmiş oyuncu geçmişi dahil) tekrar çekmez; `--offline` yalnızca yükler, `--download-only` yalnızca dosyaları ve `squads.json` / `club_mapping.json` yazar. Geçmiş sezon sayfa değeri sezon sonu değerlemesidir, maç öncesi özellik tarihli geçmişten alınmalıdır. |
 | `src/api/statsapi_match_details.py` | Yalnızca TheStatsAPI ile beslenen liglerde maç sayfası: kadro ve zaman akışından (gol, penaltı, kart, değişiklik çiftleri, uzatma) temel yapıyı kurar, istatistik/rating/şut/oran katmanını UEFA maçlarıyla ortak olarak ekler. |
 | `src/ingest/__main__.py` | `python3 -m src.ingest --help`: tüm veri çekme araçlarının tek satırlık dizini. |
-| `src/features/build_league_features.py` | TheStatsAPI ligleri (LaLiga) için maç öncesi özellikler: Elo, puan/averaj, xG, şut, büyük şans, sahip olma, pas, dokunuş kayan ve üstel ortalamaları; hepsi `shift(1)` ile sızıntısız, eğitim ve servis aynı fonksiyonu kullanır. |
-| `src/analytics/league_feature_audit.py` | Ulusal lig modelleri için özellik ailesi önemi: 1X2 (her dış sezon) ve taç/ofsayt sayım modelleri (son %20) için ortak satır permütasyonu, 30 tekrar, tohum 42; `docs/reports/models/<anahtar>_feature_audit.json` yazar (`--competition la_liga`). |
-| `src/features/build_league_pl_features.py` | LaLiga için PL özellik tanımları: LaLiga istatistiklerini PL'nin ham sütun adlarına çevirip PL'nin kendi `build_team_match_history`, `compute_pre_match_features`, `merge_features_to_matches` ve `compute_referee_features` fonksiyonlarını çalıştırır; sayım modelleri bu tabloyla eğitilir ve servis edilir. |
-| `src/models/evaluate_league_goal_models.py` | Ulusal lig gol pazarları için dış sezon değerlendirmesi: mevcut Poisson, PL gol modeli ve Dixon-Coles adayları, hizalı skor matrisleri, eğitim taban oranına karşı eşli bootstrap ve Benjamini-Hochberg; pazar bazlı kararı `docs/reports/models/<anahtar>_goal_model_eval.json`'a yazar. |
+| `src/features/build_league_features.py` | TheStatsAPI ulusal ligleri için maç öncesi özellikler: Elo, puan/averaj, xG, şut, büyük şans, sahip olma, pas, dokunuş kayan ve üstel ortalamaları; hepsi `shift(1)` ile sızıntısız, eğitim ve servis aynı fonksiyonu kullanır. |
+| `src/analytics/league_feature_audit.py` | Ulusal lig modelleri için özellik ailesi önemi: 1X2 (her dış sezon) ve taç/ofsayt sayım modelleri (son %20) için ortak satır permütasyonu, 30 tekrar, tohum 42; `reports/models/<anahtar>_feature_audit.json` yazar (`--competition <anahtar>`). |
+| `src/features/build_league_pl_features.py` | Ulusal ligler için PL özellik tanımları: TheStatsAPI istatistiklerini PL'nin ham sütun adlarına çevirip PL'nin kendi `build_team_match_history`, `compute_pre_match_features`, `merge_features_to_matches` ve `compute_referee_features` fonksiyonlarını çalıştırır; sayım modelleri bu tabloyla eğitilir ve servis edilir. |
+| `src/models/evaluate_league_goal_models.py` | Ulusal lig gol pazarları için dış sezon değerlendirmesi: mevcut Poisson, PL gol modeli ve Dixon-Coles adayları, hizalı skor matrisleri, eğitim taban oranına karşı eşli bootstrap ve Benjamini-Hochberg; pazar bazlı kararı `reports/models/<anahtar>_goal_model_eval.json`'a yazar. |
 | `src/models/train_league_goals.py` | Ulusal lig üretim gol modeli: PL gol modeli PL özellik tanımlarıyla, özellik kümesi ve ceza ileriye dönük katlarla seçilir; pazar bazlı kapı değerlendirme JSON'undan gelir; `models/production/<anahtar>/goals_models_v1.joblib` yazar. |
-| `src/models/tune_league_elo.py` | Ulusal lig Elo sabitlerini (K, ev avantajı, sezon geri çekilmesi, yeni takım puanı, skor farkı ağırlığı) 720 konfigürasyonlu ızgarada ayarlar; her dış sezon için sabitler yalnızca ondan önceki sezonlarda seçilir, mevcut (PL) sabitlerle eşli bootstrap karşılaştırması ve önceden yazılmış benimseme kuralı uygulanır; rapor: `docs/reports/models/<anahtar>_elo_tuning.json`. `python3 -m src.models.tune_league_elo --competition la_liga` |
-| `src/models/ablate_league_features.py` | Ulusal lig 1X2 modeli için ablasyon: üretim modeli ile bir veya birkaç varyant (`xi` ilk 11 özellikleri, `low_c` daha güçlü düzenlileştirme adayları, `core` 22 özellikli küme, `core_low_c`, `pl_parity` PL özellik tanımları) aynı walk-forward protokolde karşılaştırılır; eşli bootstrap, Benjamini-Hochberg ve önceden yazılmış benimseme kuralı uygulanır, rapor JSON'u yazar (`--competition la_liga --group low_c core`; üretim dosyasına dokunmaz). |
-| `src/models/train_league_counts.py` | Ulusal lig için korner, taç, ofsayt, kart ve kurtarış sayım modelleri: Premier League ile aynı seçim kodu, kapılar ve özellik tanımları (`train_count_model`, `build_league_pl_features`; `--features league` ilk sürümün LaLiga'ya özgü özelliklerini yalnızca değerlendirir); özellik tablosunu, `*_model_v1.joblib` dosyalarını ve `docs/reports/models/<anahtar>_count_models.json` raporunu yazar (`--competition la_liga`, `--no-save` yalnızca değerlendirir). |
-| `src/models/train_league_model.py` | Ulusal lig için walk-forward 1X2 ve gol modeli eğitimi/denetimi: taban oran, Elo ve piyasa kıyası, bootstrap + FDR, kapı kararı, rapor JSON'u ve üretim dosyası (`--competition la_liga`). |
-| `src/api/league_prediction.py` | LaLiga maç tahmini (`/api/predict`): modeli ya da kapı kararına göre Elo referansını sunar, gol pazarlarını Dixon-Coles ile üretir, sayım pazarlarını `baseline` etiketler. |
-| `src/analytics/league_audit.py` | LaLiga Model Doğrulama sayfası verisi: kaydedilmiş walk-forward tahminlerden maç satırları, hafta özetleri, kıyas bloğu. |
-| `tests/test_league_model.py` | LaLiga özelliklerinin sızıntı testleri (kendi sonucu ve sonrası değiştirilince özellikler aynı kalır), kapı kararı, istatistik yardımcıları. |
+| `src/models/tune_league_elo.py` | Ulusal lig Elo sabitlerini (K, ev avantajı, sezon geri çekilmesi, yeni takım puanı, skor farkı ağırlığı) 720 konfigürasyonlu ızgarada ayarlar; her dış sezon için sabitler yalnızca ondan önceki sezonlarda seçilir, mevcut (PL) sabitlerle eşli bootstrap karşılaştırması ve önceden yazılmış benimseme kuralı uygulanır; rapor: `reports/models/<anahtar>_elo_tuning.json`. |
+| `src/models/ablate_league_features.py` | Ulusal lig 1X2 modeli için ablasyon: üretim modeli ile bir veya birkaç varyant (`xi` ilk 11 özellikleri, `low_c` daha güçlü düzenlileştirme adayları, `core` 22 özellikli küme, `core_low_c`, `pl_parity` PL özellik tanımları) aynı walk-forward protokolde karşılaştırılır; eşli bootstrap, Benjamini-Hochberg ve önceden yazılmış benimseme kuralı uygulanır, rapor JSON'u yazar (`--competition <anahtar> --group low_c core`; üretim dosyasına dokunmaz). |
+| `src/models/train_league_counts.py` | Ulusal lig için korner, taç, ofsayt, kart ve kurtarış sayım modelleri: Premier League ile aynı seçim kodu, kapılar ve özellik tanımları (`train_count_model`, `build_league_pl_features`; `--features league` ligin kendi özelliklerini değerlendirir); özellik tablosunu, `*_model_v1.joblib` dosyalarını ve `reports/models/<anahtar>_count_models.json` raporunu yazar (`--competition <anahtar>`, `--no-save` yalnızca değerlendirir). |
+| `src/models/train_league_model.py` | Ulusal lig için walk-forward 1X2 ve gol modeli eğitimi/denetimi: taban oran, Elo ve piyasa kıyası, bootstrap + FDR, kapı kararı, rapor JSON'u ve üretim dosyası (`--competition <anahtar>`). |
+| `src/api/league_prediction.py` | TheStatsAPI ulusal lig maç tahmini (`/api/predict`): modeli ya da kapı kararına göre Elo referansını sunar, gol pazarlarını Dixon-Coles ile üretir, sayım pazarlarını `baseline` etiketler. |
+| `tests/test_league_model.py` | Ulusal lig özelliklerinin sızıntı testleri (kendi sonucu ve sonrası değiştirilince özellikler aynı kalır), kapı kararı, istatistik yardımcıları. |
 | `tests/test_prospective_league.py` | Ligin ileriye dönük tahmin kaydı: kendi kayıt, puan kartı ve artifact yolları; puanlamanın yalnızca kickoff öncesi ve her maçın son tahminini sayması. |
-| `tests/test_league_serving.py` | LaLiga tahmin ve denetim yanıtının tutarlılığı (yerel veri yoksa atlanır). |
+| `tests/test_league_serving.py` | Yapılandırılmış TheStatsAPI lig tahmini ve PL-yalnız denetim yanıtının tutarlılığı (yerel veri yoksa model testleri atlanır). |
 | `src/ingest/raw_store.py` | Ham sağlayıcı yanıtlarını `data/competitions/<anahtar>/raw/<sağlayıcı>/` altına atomik yazan yardımcılar ve yol kuralları. |
 | `src/ingest/export_competition_raw.py` | Tek seferlik: veritabanındaki UCL/UEL TheStatsAPI kayıtlarını dosyalara döker, UEFA fikstür ve puan durumu yanıtlarını yeniden çekip kaydeder. Sonraki senkronizasyonlar dosyaları kendisi yazar. |
 | `src/ingest/sync_competition_data.py` | Seçilen turnuva ve sezonun maçlarını sağlayıcıdan çekip `matches` tablosuna yazar (yalnızca o `competition_id`). |
@@ -114,7 +115,7 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 | `sync_season_data.py` | Artımlı senkronizasyon: fikstürü yeniler, **önümüzdeki 14 gün için hakem atamalarını** çeker, yeni biten veya eksik maçların verisini indirir, sonra Parquet/özellik/SQLite'ı yeniden kurar. Tekrar çalıştırmak güvenlidir. |
 | `sync_prematch_lineups.py` | Maç öncesi **resmi ilk 11'i** çeker, `data/competitions/premier_league/raw/matches/*_details.json` önbelleğini günceller, özellik tablosundaki ilk 11 reytinglerini yazar ve "son maç 11'i" ile "resmi 11" tahminlerini yan yana yazdırır. `--match-id`, `--team`, `--gameweek`, `--hours-ahead` seçenekleri var. |
 | `fetch_team_staff.py` | Takımların kadro ve teknik ekip (görevli) bilgisini çeker, `data/competitions/premier_league/processed/team_staff.json`'a yazar. |
-| `fetch_transfermarkt_market_values.py` | Transfermarkt'tan takım ve oyuncu piyasa değerlerini çeker, SQLite'a (`team_market_values`, `player_market_values`) ve JSON'a yazar. |
+| `fetch_transfermarkt_market_values.py` | Transfermarkt'tan Premier League takım ve oyuncu piyasa değerlerini çeker, SQLite'a (`team_market_values`, `player_market_values`; ortak şema `src/db/database.py` `ensure_market_value_tables`) ve JSON'a yazar. Diğer ulusal ligler için `fetch_transfermarkt_league.py`. |
 | `import_thestatsapi_odds.py` | TheStatsAPI'den açılış/kapanış bahis oranlarını (1X2, O/U 2.5, BTTS, köşe, kart) içe aktarır. Hız sınırı: ~5.2 sn/istek. |
 | `import_thestatsapi_xg.py` | TheStatsAPI'den maç bazlı xG'yi, mevcut alanların üzerine yazmadan, ayrı bir kaynak tablosuna aktarır. Anahtar `THESTATSAPI_API_KEY` ortam değişkeninden okunur. |
 
@@ -156,7 +157,7 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 
 | Dosya | Ne yapar |
 |---|---|
-| `prospective_1x2_benchmark.py` | **İleriye dönük test:** `snapshot` maç öncesi 1X2 tahminini append-only `1x2_forecast_log.jsonl`'a kaydeder, `score` maçlar bitince puanlar. Paper trading protokolünün temeli. | `--competition la_liga` ile LaLiga'nın kendi kaydı (`data/competitions/la_liga/processed/1x2_forecast_log.jsonl`) ve puan kartı (`docs/reports/prospective_1x2_scorecard_la_liga.json`) kullanılır; tahminler maç sayfasının kullandığı `compute_league_prediction` çıktısıdır, sonuçlar `data/football.db`'den okunur.
+| `prospective_1x2_benchmark.py` | **İleriye dönük test:** `snapshot` maç öncesi 1X2 tahminini append-only `1x2_forecast_log.jsonl`'a kaydeder, `score` maçlar bitince puanlar. Paper trading protokolünün temeli. İsteğe bağlı `--competition <anahtar>` ile ulusal ligler kendi kayıt (`data/competitions/<anahtar>/processed/1x2_forecast_log.jsonl`) ve puan kartını (`reports/prospective_1x2_scorecard_<anahtar>.json`) kullanır. |
 | `model_audit.py` | Model çıktılarını gerçek sonuçlar ve kapanış oranlarıyla denetler: kalibrasyon, eşik, değer farkı. |
 | `data_quality_report.py` | Veri envanteri ve ham metrik kapsamı raporu (`data_quality.md`). |
 | `team_data_audit.py` | Ham takım istatistiklerinin eksiksizliğini denetler (eksik ile sıfırı ayırır). |
@@ -176,6 +177,8 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 | `state.py` | Yüklü veri çerçeveleri, model artifact'ları, önbellekler ve yeniden yükleme (`reload_runtime_datasets`). **İçe aktarılınca her şeyi yükler (~30 sn).** Veri yeniden yüklemede değişkenler yeniden bağlanır; diğer modüller bunları yalnızca `state.<ad>` olarak okur (`from src.api.state import <değişken>` yapmayın). |
 | `prediction_service.py` | Ortak tahmin servisi: 1X2 (kalibrasyon ve kapılı ensemble), 1X2'ye hizalı skor matrisi ve O/U/KG kalibratörleri, 5 sayım modeli (`fill_value=np.nan`), ev/deplasman pay hesabı. `/api/predict`, `/api/fixtures/grouped`, `sync_prematch_lineups` ve `model_audit` tek bir tahmin akışını paylaşır. |
 | `security.py` | Yönetim ucu jetonu (`require_admin_token`) ve CORS kökenleri (`cors_origins`). |
+| `etag.py` | Salt okunur `GET /api/*` yanıtları için içerik-özeti ETag ve `304 Not Modified` koşullu GET ara katmanı (`ETagMiddleware`; `/api/admin/*` ve `/api/data-version` hariç). |
+| `match_refresh.py` | İsteğe bağlı tekil PL maçı ve bekleyen toplu maç yenileme servisi (PulseLive akışını çeker, SQLite/önbellek günceller ve türetilmiş veri yeniden kurulumunu sıraya alır). |
 | `routes/meta.py` | `/api/data-version`, `/api/admin/*` (model yenileme, sezon senkronu; `PLM_ADMIN_TOKEN` ile korunur). |
 | `routes/teams.py` | `/api/teams*`: kadro/teknik ekip, teknik direktör, profil, transfer, taktik, hücum liderleri, senaryolar. |
 | `routes/fixtures.py` | `/api/fixtures*`, `/api/standings`, `/api/referees*`, `/api/match/{id}/recent-form`. |
@@ -198,6 +201,7 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 | `test_eval_utils.py` | Bootstrap. |
 | `test_inference_logic.py` | Çıkarım mantığı ve ev/deplasman payı. |
 | `test_league_stats.py` | İstatistikler hesapları (dört takımlık sentetik lig üzerinde). |
+| `test_model_audit.py` | Zenginleştirilmiş model denetim metrikleri: güven bandı kalibrasyonu, kayan doğruluk, Elo/taban/piyasa bootstrap kıyaslamaları ve eksik rapor dayanıklılığı. |
 | `test_team_tactics.py` | Takım taktik özetleri. |
 | `test_pipeline_health.py` | Sağlık kontrolü (xG boşluğu, eksik ham dosya) ve `fetch_season_data` çıkış kodu. |
 | `test_config.py`, `test_rebuild.py` | Yapılandırma (`PLM_DATA_DIR`, `PLM_SEASON`) ve tek yeniden-kur zinciri, aşama seçimi. |
@@ -207,6 +211,7 @@ Bir turnuvanın eğitimi yalnızca kendi klasörlerini okur ve yazar. `train_mat
 | `test_evaluate_goal_models.py` | Gol kapıları (sabit Poisson, KG, piyasa) sentetik veriyle, piyasa marjı temizleme. |
 | `test_api_routes.py` | API rota duman testleri, tahmin tutarlılığı, yeniden yüklemede durumun yeniden bağlanması, yönetim ucu ve CORS (`needs_data`). |
 | `test_api_fixtures.py` | `GET /api/fixtures`: NaN/NaT serileştirme (regresyon) ve sezon/arama/limit filtreleri. |
+| `test_backend_audit_fixes.py` | Stage 2 regresyon testleri: regex/NaN arama koruması, turnuva bazlı form izolasyonu, Transfermarkt tam ad önceliği, `utcnow` temizliği ve SQLite bağlantı kapama. |
 | `test_api_security.py` | Yönetim jetonu (`PLM_ADMIN_TOKEN`) ve CORS kökenleri; mini uygulamayla, veri gerektirmez. |
 | `test_count_models.py` | Beş sayım eğiticisinin ortak yardımcıları ve her eğiticinin sentetik veriyle uçtan uca çalışması. |
 | `test_ingest_files.py` | `atomic_write_json`. |
@@ -248,7 +253,7 @@ Tek seferlik analizler; üretim pipeline'ında kullanılmaz. Çoğu 1.200 maçl�
 | `key_passes_impact.py` | Key pass özelliklerinin gol modellerine etkisi (A/B). |
 | `tactical_pace_and_mv.py` | Piyasa değeri ağırlığı düşürme, tempo ve savunma hattı özellikleri (A/B). |
 | `extract_all_goal_metrics.py` | `goals_models_v1.joblib` için tüm metrikleri toplu çıkarır. |
-| `box_features_ablation.py` | PL 1X2 modelinde sağlayıcıya özgü ceza sahası giriş ve dokunuş özelliklerinin dış sezon ablasyonu; sonuç `docs/reports/experiments/` altına yazılır, üretim dosyalarına dokunmaz. |
+| `box_features_ablation.py` | PL 1X2 modelinde sağlayıcıya özgü ceza sahası giriş ve dokunuş özelliklerinin dış sezon ablasyonu; sonuç `reports/experiments/` altına yazılır, üretim dosyalarına dokunmaz. |
 | `lineup_feature_pilot.py` | İlk 11 sürekliliği özelliği 1X2'ye sinyal katıyor mu, üretimi değiştirmeden dener (`research/` altında). |
 
 ## 12. `deploy/` — sunucu dosyaları (yeni)
@@ -257,7 +262,16 @@ Tek seferlik analizler; üretim pipeline'ında kullanılmaz. Çoğu 1.200 maçl�
 
 ## 13. Frontend yapılandırması
 
-`frontend/vite.config.js` (dev sunucu `:5173`, `/api` isteklerini `:8000`'e yönlendirir), `tailwind.config.js`, `postcss.config.js`.
+`frontend/vite.config.js` (dev sunucu `:5173`, `/api` isteklerini `:8000`'e yönlendirir), `tailwind.config.js`, `postcss.config.js`, `frontend/scripts/lint-design.mjs` (tasarım standartları denetimi).
+
+## 14. `scripts/` — doğrulama araçları
+
+| Dosya | Ne yapar |
+|---|---|
+| `scripts/verify.sh` | Sıfır emoji, doküman/link tutarlılığı, API parity, temel testler ve frontend denetimini tek komutta çalıştırır (`--no-lint`). |
+| `scripts/check_no_emoji.py` | Kod, doküman ve yapılandırma dosyalarında sıfır emoji kuralını denetler. |
+| `scripts/check_docs.py` | `docs/README.md` kapsamını, kırık linkleri, sembol eşleşmesini, kelime bütçelerini ve eski yolları denetler. |
+| `scripts/check_api_endpoints.py` | `src/api/` FastAPI rotaları ile `frontend/src/` çağrılarının birebir eşleşmesini doğrular. |
 
 ## Zamanlama için notlar
 

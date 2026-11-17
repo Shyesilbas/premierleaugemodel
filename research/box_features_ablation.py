@@ -3,13 +3,13 @@
 Usage: python3 research/box_features_ablation.py
 Question: how much do ``pa_entries`` (provider-specific) and ``touches_in_opp_box`` add to the 74-feature 1X2 model?
 Reads:  the Premier League feature table and the production 1X2 artifact (never modified).
-Writes: docs/reports/experiments/2026-10-25_box_features_ablation.json (or --output).
+Writes: reports/experiments/2026-10-25_box_features_ablation.json (or --output).
 Needs:  no key; takes about a minute.
 Protocol: the production estimator (logistic regression, C=0.003) is refitted for each outer season on the seasons
 before it (2022/23 left out of the training history like production, except for the first outer season), calibrated
 on forward out-of-fold predictions inside that history, and scored on the outer season. The locked 2026/27 season is
 never read. Paired bootstrap on per-match log-loss, 10,000 draws, seed 42, Benjamini-Hochberg across the three
-comparisons. Results go to docs/reports/experiments/, never to models/production/.
+comparisons. Results go to reports/experiments/, never to models/production/.
 """
 
 from __future__ import annotations
